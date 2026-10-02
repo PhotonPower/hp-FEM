@@ -25,8 +25,8 @@ holds. Estimated effort is in rough "focused sessions".
 ## M2 — Scalar FEM on the infrastructure (≈ 4)
 - [x] `fespace::ReferenceElement<Dim>` with **fixed local numbering** (theory/nedelec.md)
 - [x] Gauss–Jacobi quadrature on triangle/tetrahedron, exactness tests up to order 20
-- [ ] hierarchical H1 Lagrange basis, arbitrary order p (Legendre/Jacobi based)
-- [ ] `fespace::DofMap`: vertex/edge/face/cell DoFs, variable p per entity
+- [x] hierarchical H1 Lagrange basis, arbitrary order p (Legendre/Jacobi based)
+- [x] `fespace::DofMap`: vertex/edge/face/cell DoFs, variable p per entity
 - [ ] global sparse assembly (COO → CSR), element loop with `std::span`
 - [ ] Dirichlet via DoF elimination
 - [ ] solver interface + Eigen SparseLU backend

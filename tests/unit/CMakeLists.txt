@@ -17,7 +17,10 @@ hpfem_add_test(test_io unit
   io/test_vtk.cpp)
 
 hpfem_add_test(test_fespace unit
-  fespace/test_reference_element.cpp)
+  fespace/test_reference_element.cpp
+  fespace/test_polynomials.cpp
+  fespace/test_h1_basis.cpp
+  fespace/test_dof_map.cpp)
 
 hpfem_add_test(test_assembly unit
   assembly/test_quadrature.cpp)
