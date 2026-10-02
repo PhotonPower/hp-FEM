@@ -31,11 +31,13 @@ struct EntityUse {
 /// O(M log M) for M uses.
 template <std::size_t N, class Assign>
 std::vector<std::array<Index, N>> number_entities(std::vector<EntityUse<N>>& uses,
-                                                  Assign&& assign) {
+                                                  const Assign& assign) {
   std::sort(uses.begin(), uses.end());
   std::vector<std::array<Index, N>> entities;
   for (const auto& use : uses) {
-    if (entities.empty() || entities.back() != use.key) entities.push_back(use.key);
+    if (entities.empty() || entities.back() != use.key) {
+      entities.push_back(use.key);
+    }
     assign(use.cell, use.local, static_cast<Index>(entities.size()) - 1);
   }
   return entities;
@@ -115,7 +117,9 @@ void Mesh<Dim>::derive_faces() {
       const CellVertices& cv = cells_[c];
       for (std::size_t i = 0; i < static_cast<std::size_t>(kFacesPerCell); ++i) {
         FaceVertices local{};  // global ids in local face order
-        for (std::size_t j = 0; j < 3; ++j) local[j] = cv[as_size(Topology::kFaceVertices[i][j])];
+        for (std::size_t j = 0; j < 3; ++j) {
+          local[j] = cv[as_size(Topology::kFaceVertices[i][j])];
+        }
         FaceVertices sorted = local;
         std::sort(sorted.begin(), sorted.end());
 
