@@ -27,6 +27,7 @@ wheel.packages = ["python/hpfem"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+extend-exclude = ["*.ipynb"]  # notebooks keep their interactive style
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "NPY"]
 [tool.ruff.lint.isort]

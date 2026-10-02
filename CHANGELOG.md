@@ -3,6 +3,10 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `examples/metasurface_unitcell/run.py` (M8): zeroth-order transmission and phase of a
+  TiO₂ ridge on fused silica over the ridge width (Bloch unit cell, PML, phase relative to
+  the bare substrate), with `python/tests/test_examples.py` as the regression layer of the
+  Python examples.
 - Python bindings of the whole pipeline (`python/bindings/bind_*.cpp`, pybind11): meshes
   (generators, Gmsh input, uniform and adaptive refinement, point location), DoF maps and
   constraints (hanging, Bloch), forms and assembly to SciPy sparse matrices, Dirichlet data,

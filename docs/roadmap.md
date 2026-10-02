@@ -108,7 +108,10 @@ holds. Estimated effort is in rough "focused sessions".
       the L-shape, gold nanowire spectrum), executed by `python/tests/test_notebooks.py`
 
 ## M8 — Application examples (≈ 6)
-- [ ] `metasurface_unitcell`: phase/transmission map over pillar diameter
+- [x] `metasurface_unitcell`: phase/transmission map over pillar diameter —
+      `examples/metasurface_unitcell/run.py` (TiO₂ ridges on SiO₂, Bloch unit cell with
+      PML, zeroth-order transmission and phase over the width), regression test in
+      `python/tests/test_examples.py`
 - [ ] `vcsel_cavity`: DBR micro-cavity mode, Q-factor, resonance wavelength
 - [ ] `quantum_dot_purcell`: dipole in micropillar, Purcell factor, β-factor
 - [ ] `euv_mask`: 3D absorber on multilayer, oblique incidence, near-field export
