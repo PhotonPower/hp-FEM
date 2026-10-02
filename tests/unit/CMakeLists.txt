@@ -4,4 +4,5 @@ hpfem_add_test(test_core unit
 
 hpfem_add_test(test_mesh unit
   mesh/test_simplex_topology.cpp
-  mesh/test_mesh.cpp)
+  mesh/test_mesh.cpp
+  mesh/test_connectivity.cpp)

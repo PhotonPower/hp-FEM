@@ -16,6 +16,10 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   lowest-vertex-first rule (ADR-0003); unit tests (local tables, orientation
   consistency, Euler characteristic, renumbering invariance) and `docs/theory/mesh.md`.
 - `hpfem::log()` accessor for the spdlog logger; `hpfem::as_size()` index helper.
+- `mesh::Mesh<Dim>` connectivity tables: facet → cells with local facet numbers, cell →
+  neighbours, edge → cells (CSR), sorted boundary facets; non-manifold meshes are
+  rejected. `hpfem::kInvalidIndex` marker. Unit tests for inverse tables, neighbour
+  symmetry, boundary counts and edge rings.
 
 ## [0.1.0] — 2026-10-02
 ### Added

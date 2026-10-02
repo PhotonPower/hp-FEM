@@ -27,6 +27,8 @@ template <int Dim>
 using Point = Eigen::Matrix<Real, Dim, 1>;
 
 inline constexpr Complex kI{0.0, 1.0};  ///< imaginary unit
+/// "No entity" marker, e.g. the neighbour across a boundary facet.
+inline constexpr Index kInvalidIndex = -1;
 
 /// Converts a non-negative global or local index to a container index.
 [[nodiscard]] constexpr std::size_t as_size(Index i) noexcept {

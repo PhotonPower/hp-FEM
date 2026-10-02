@@ -64,6 +64,24 @@ Because the rule depends only on global vertex ids, it survives refinement (new 
 get new ids, old edges keep their orientation) and extends to Bloch-periodic faces matched
 by vertex correspondence.
 
+## Connectivity tables
+
+All tables are built once at construction, in $O(N)$ after the entity numbering:
+
+| table | call | content |
+|---|---|---|
+| cell → edges | `cell_edges(c)` | global edge ids per local edge |
+| cell → faces | `cell_faces(c)` (3D) | global face ids per local face |
+| facet → cells | `facet_cells(f)`, `facet_local_indices(f)` | the one or two cells (ascending) and the facet's local number in each; `kInvalidIndex` / `-1` on the boundary |
+| cell → neighbours | `cell_neighbors(c)` | neighbour across local facet $k$, `kInvalidIndex` on the boundary |
+| edge → cells | `edge_cells(e)` | all cells containing the edge, ascending (CSR storage) |
+| boundary | `boundary_facets()`, `is_boundary_facet(f)` | facets with exactly one cell, ascending |
+
+A facet referenced by more than two cells makes the mesh non-manifold; construction then
+throws `InvalidArgument` naming the facet's vertices. The edge ring `edge_cells(e)` is what
+edge-based DoFs, hanging-edge constraints and residual jump terms iterate over; in 2D it
+coincides with the facet pair.
+
 ## API summary
 
 | call | returns |
@@ -74,6 +92,8 @@ by vertex correspondence.
 | `cell_edges(c)`, `cell_edge_flipped(c)` | global edge ids and flip flags per local edge |
 | `cell_faces(c)`, `cell_face_permutations(c)` | (3D) global face ids and permutation codes |
 | `cell_facets(c)` | edges in 2D, faces in 3D |
+| `facet_cells(f)`, `facet_local_indices(f)`, `cell_neighbors(c)`, `edge_cells(e)` | inverse connectivity |
+| `boundary_facets()`, `num_boundary_facets()`, `is_boundary_facet(f)` | boundary |
 | `edge_vertices(e)`, `face_vertices(f)`, `facet_vertices(f)` | ascending vertex tuples |
 
 Construction throws `InvalidArgument` naming the cell if a vertex id is out of range or
@@ -87,7 +107,11 @@ repeated. Accessors check indices with `HPFEM_ASSERT`.
   vertex order from the stored ascending tuple;
 - entity counts and the Euler characteristic ($V - E + F = 1$ for a triangulated disk,
   $V - E + F - T = 1$ for a tetrahedralised ball) on structured meshes;
-- topology is invariant under random renumbering of vertices, cells and local vertex order.
+- topology is invariant under random renumbering of vertices, cells and local vertex order;
+- every inverse table is checked against cell → entity, neighbour relations are symmetric,
+  boundary facet counts ($4n$ edges on the $n \times n$ square, $12n^2$ faces on the
+  $n \times n \times n$ cube) and edge rings (six tetrahedra on a cube's body diagonal);
+- non-manifold inputs are rejected.
 
-Still to come in M1: neighbour tables (facet → cells, edge → cells), boundary and material
-tags, Gmsh input, affine geometry maps, refinement.
+Still to come in M1: boundary and material tags, Gmsh input, affine geometry maps,
+refinement.

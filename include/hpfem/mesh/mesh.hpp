@@ -29,7 +29,12 @@ namespace hpfem::mesh {
 /// permutation code (`kFacePermutations`) per face. `fespace::DofMap` applies the
 /// resulting sign flips and permutations to high-order shape functions.
 ///
-/// Topology only: geometry mapping, tags and neighbour tables are separate roadmap items.
+/// Connectivity tables derived at construction: cell → edges/faces (above), facet → cells
+/// with local facet numbers, cell → neighbours across facets, edge → cells (CSR), and the
+/// sorted list of boundary facets. A facet shared by more than two cells (non-manifold
+/// mesh) is rejected.
+///
+/// Topology only: geometry mapping and tags are separate roadmap items.
 /// Construction costs O(N log N) in the number of cells.
 template <int Dim>
 class Mesh {
@@ -53,6 +58,9 @@ class Mesh {
   using CellFaces = std::array<Index, static_cast<std::size_t>(kFacesPerCell)>;
   using CellFacePermutations = std::array<std::uint8_t, static_cast<std::size_t>(kFacesPerCell)>;
   using CellFacets = std::array<Index, static_cast<std::size_t>(kFacetsPerCell)>;
+  using CellNeighbors = CellFacets;
+  using FacetCells = std::array<Index, 2>;
+  using FacetLocalIndices = std::array<LocalIndex, 2>;
 
   /// Builds the mesh from vertex coordinates (SI metres) and cells given as global vertex
   /// indices in local order; derives edges and faces.
@@ -163,10 +171,43 @@ class Mesh {
     }
   }
 
+  // --- connectivity ----------------------------------------------------------------------
+
+  /// The one or two cells incident to facet f, ascending by cell id. A boundary facet has
+  /// `[1] == kInvalidIndex`.
+  [[nodiscard]] const FacetCells& facet_cells(Index f) const {
+    HPFEM_ASSERT(f >= 0 && f < num_facets(), "facet index out of range");
+    return facet_cells_[as_size(f)];
+  }
+  /// Local facet number of facet f inside `facet_cells(f)[0]` and `[1]` (-1 if absent).
+  [[nodiscard]] const FacetLocalIndices& facet_local_indices(Index f) const {
+    HPFEM_ASSERT(f >= 0 && f < num_facets(), "facet index out of range");
+    return facet_local_indices_[as_size(f)];
+  }
+  [[nodiscard]] bool is_boundary_facet(Index f) const { return facet_cells(f)[1] == kInvalidIndex; }
+  /// Ids of all boundary facets, ascending.
+  [[nodiscard]] std::span<const Index> boundary_facets() const noexcept { return boundary_facets_; }
+  [[nodiscard]] Index num_boundary_facets() const noexcept {
+    return static_cast<Index>(boundary_facets_.size());
+  }
+  /// Neighbour of cell c across its local facet k, `kInvalidIndex` on the boundary.
+  [[nodiscard]] const CellNeighbors& cell_neighbors(Index c) const {
+    HPFEM_ASSERT(c >= 0 && c < num_cells(), "cell index out of range");
+    return cell_neighbors_[as_size(c)];
+  }
+  /// All cells containing edge e, ascending (one or two in 2D, any number in 3D).
+  [[nodiscard]] std::span<const Index> edge_cells(Index e) const {
+    HPFEM_ASSERT(e >= 0 && e < num_edges(), "edge index out of range");
+    const auto begin = as_size(edge_cell_offsets_[as_size(e)]);
+    const auto end = as_size(edge_cell_offsets_[as_size(e) + 1]);
+    return std::span<const Index>(edge_cell_data_).subspan(begin, end - begin);
+  }
+
  private:
   void validate() const;
   void derive_edges();
   void derive_faces();  // no-op for Dim == 2
+  void derive_connectivity();
 
   std::vector<Vertex> vertices_;
   std::vector<CellVertices> cells_;
@@ -178,6 +219,13 @@ class Mesh {
   std::vector<FaceVertices> faces_;  ///< sorted lexicographically; empty for Dim == 2
   std::vector<CellFaces> cell_faces_;
   std::vector<CellFacePermutations> cell_face_permutations_;
+
+  std::vector<FacetCells> facet_cells_;
+  std::vector<FacetLocalIndices> facet_local_indices_;
+  std::vector<CellNeighbors> cell_neighbors_;
+  std::vector<Index> boundary_facets_;    ///< ascending
+  std::vector<Index> edge_cell_offsets_;  ///< CSR offsets, size num_edges() + 1
+  std::vector<Index> edge_cell_data_;     ///< CSR data: cell ids per edge, ascending
 };
 
 extern template class Mesh<2>;

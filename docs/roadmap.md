@@ -13,7 +13,7 @@ holds. Estimated effort is in rough "focused sessions".
 ## M1 — Mesh infrastructure (≈ 6)
 - [x] `mesh::Mesh<Dim>`: vertices, cells (tri/tet), **derived edges and faces** with
       consistent global orientation (lowest-vertex-first rule, ADR-0003)
-- [ ] entity connectivity tables (cell→edge, cell→face, face→cell, edge→cells)
+- [x] entity connectivity tables (cell→edge, cell→face, face→cell, edge→cells)
 - [ ] boundary and material tags (physical groups)
 - [ ] Gmsh `.msh` v4 reader (ASCII), simple structured generators for tests
 - [ ] affine geometry mapping: Jacobian, det, inverse-transpose, per cell
