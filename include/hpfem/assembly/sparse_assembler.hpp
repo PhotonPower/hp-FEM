@@ -29,6 +29,8 @@ class SparseAssembler {
   void add(std::span<const Index> rows, std::span<const Index> cols, const Matrix& local);
   /// Adds one entry.
   void add(Index row, Index col, Complex value);
+  /// Appends the triplets of another assembler of the same size (per-thread buffers).
+  void append(const SparseAssembler& other);
 
   /// Compressed matrix with all contributions summed.
   [[nodiscard]] SparseMatrix finalize() const;

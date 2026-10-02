@@ -77,6 +77,38 @@ full systems to $10^{-10}$, the condensed matrices have fewer nonzeros and ident
 rows, a `Scattering` solve on a hanging mesh with PEC and prescribed traces agrees with the
 uncondensed solve, and singular interior blocks are reported.
 
+## Parallel assembly (`core/parallel.hpp`)
+
+With OpenMP (`HPFEM_ENABLE_OPENMP`, on by default when the compiler supports it) the cell
+loops of `assemble_maxwell`, `assemble_maxwell_operator` and `assemble_h1` and the cell and
+facet loops of the residual estimator and the weighted residual run in parallel
+(`parallel_for`, dynamic scheduling). Every thread owns its triplet buffer, right-hand
+side and quadrature-rule cache; the buffers are concatenated afterwards and summed by the
+sparse assembler, the facet contributions are stored per facet and accumulated into the
+cells serially, and `StaticCondensation` guards its recovery table with a mutex. The results
+are bit-for-bit reproducible up to the summation order of duplicate entries
+(`tests/unit/assembly/test_parallel.cpp` compares 1 and all threads to $10^{-12}$). The
+per-cell form factories must be reentrant (the ones of `physics::Scattering` are).
+`hpfem::num_threads()` / `set_num_threads()` control the thread count; on MinGW the OpenMP
+runtime is linked statically like the rest of the GCC runtime.
+
+## Measured (`benchmarks/results/2026-10-02-VR.json`)
+
+Maxwell plane wave on the unit square, MSYS2 GCC 16 release build, 24 cores, MUMPS 5.9
+sequential (`bench_assembly_solve`):
+
+| n, p | DoFs | nnz (full / condensed) | assembly 1 / 24 threads | factorise SparseLU full / cond. | factorise MUMPS full / cond. |
+|---|---|---|---|---|---|
+| 64, 2 | 41 216 | 469 k / 258 k | 0.27 s / 0.05 s | 0.38 s / 0.17 s | 0.14 s / 0.10 s |
+| 64, 4 | 147 968 | 4.48 M / 1.06 M | 1.57 s / 0.34 s | 10.1 s / 1.10 s | 0.50 s / 0.29 s |
+| 128, 3 | 344 832 | 6.89 M / 2.39 M | 2.97 s / 0.56 s | 21.6 s / 4.11 s | 1.33 s / 0.84 s |
+
+Assembly scales 5–7× on 24 threads (the per-thread triplet merge and the sparse
+compression stay serial); static condensation removes half to three quarters of the
+nonzeros and cuts the SparseLU factorisation up to 9×; MUMPS factorises the 345k system
+16× faster than SparseLU. Solves take 10–100 ms. The Mie example (86k DoFs, p = 3) went
+from 5 s to 1.5 s with MUMPS and condensation.
+
 ## Eigenvalue solvers
 
 See [maxwell.md](maxwell.md#eigenproblems): Spectra's shift-invert Lanczos / Arnoldi on top

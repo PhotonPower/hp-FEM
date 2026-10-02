@@ -7,6 +7,7 @@
 #include "hpfem/assembly/sparse_assembler.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/core/parallel.hpp"
 
 namespace hpfem::assembly {
 
@@ -88,11 +89,13 @@ MaxwellSystem assemble_maxwell(const fespace::NedelecDofMap<Dim>& dofs,
                                int extra_order) {
   const auto& mesh = dofs.mesh();
   const Index n = dofs.num_dofs();
-  SparseAssembler stiffness(n, n);
-  SparseAssembler mass(n, n);
-  Vector rhs = Vector::Zero(n);
-  std::map<int, QuadratureRule<Dim>> rules;
-  for (Index c = 0; c < mesh.num_cells(); ++c) {
+  // per-thread buffers, merged after the parallel cell loop
+  const int threads = num_threads();
+  std::vector<SparseAssembler> stiffness(as_size(threads), SparseAssembler(n, n));
+  std::vector<SparseAssembler> mass(as_size(threads), SparseAssembler(n, n));
+  std::vector<Vector> rhs(as_size(threads), Vector::Zero(n));
+  std::vector<std::map<int, QuadratureRule<Dim>>> rules(as_size(threads));
+  parallel_for(mesh.num_cells(), [&](Index c, int thread) {
     const int p = dofs.cell_order(c);
     const fespace::NedelecBasis<Dim> basis(dofs.cell_layout(c));
     const auto geometry = mesh::cell_geometry(mesh, c);
@@ -100,17 +103,22 @@ MaxwellSystem assemble_maxwell(const fespace::NedelecDofMap<Dim>& dofs,
     // curved cells: the Piola factors are rational, two extra degrees cover them in practice
     const int order = form.quadrature_order ? *form.quadrature_order
                                             : 2 * p + extra_order + (geometry->is_affine() ? 0 : 2);
-    auto& rule = rules[order];
+    auto& rule = rules[as_size(thread)][order];
     if (rule.size() == 0) rule = simplex_quadrature<Dim>(order);
     const auto local = element_maxwell(basis, *geometry, rule, form);
     const auto ids = dofs.cell_dofs(c);
-    stiffness.add(ids, ids, local.stiffness);
-    mass.add(ids, ids, local.mass);
-    scatter(rhs, ids, local.load);
+    stiffness[as_size(thread)].add(ids, ids, local.stiffness);
+    mass[as_size(thread)].add(ids, ids, local.mass);
+    scatter(rhs[as_size(thread)], ids, local.load);
+  });
+  for (int t = 1; t < threads; ++t) {
+    stiffness[0].append(stiffness[as_size(t)]);
+    mass[0].append(mass[as_size(t)]);
+    rhs[0] += rhs[as_size(t)];
   }
-  log().info("assemble_maxwell<{}>: {} cells, {} DoFs, {} triplets per matrix", Dim,
-             mesh.num_cells(), n, stiffness.num_triplets());
-  return {stiffness.finalize(), mass.finalize(), std::move(rhs)};
+  log().info("assemble_maxwell<{}>: {} cells, {} DoFs, {} triplets per matrix, {} threads", Dim,
+             mesh.num_cells(), n, stiffness[0].num_triplets(), threads);
+  return {stiffness[0].finalize(), mass[0].finalize(), std::move(rhs[0])};
 }
 
 template <int Dim>
@@ -120,37 +128,45 @@ AssembledSystem assemble_maxwell_operator(
     StaticCondensation* condensation) {
   const auto& mesh = dofs.mesh();
   const Index n = dofs.num_dofs();
-  SparseAssembler assembler(n, n);
-  Vector rhs = Vector::Zero(n);
-  std::map<int, QuadratureRule<Dim>> rules;
-  std::vector<Index> exterior;
-  for (Index c = 0; c < mesh.num_cells(); ++c) {
+  const int threads = num_threads();
+  std::vector<SparseAssembler> assemblers(as_size(threads), SparseAssembler(n, n));
+  std::vector<Vector> rhs(as_size(threads), Vector::Zero(n));
+  std::vector<std::map<int, QuadratureRule<Dim>>> rules(as_size(threads));
+  std::vector<std::vector<Index>> exterior(as_size(threads));
+  parallel_for(mesh.num_cells(), [&](Index c, int thread) {
     const int p = dofs.cell_order(c);
     const fespace::NedelecBasis<Dim> basis(dofs.cell_layout(c));
     const auto geometry = mesh::cell_geometry(mesh, c);
     const MaxwellForm<Dim> form = form_of_cell(c);
     const int order = form.quadrature_order ? *form.quadrature_order
                                             : 2 * p + extra_order + (geometry->is_affine() ? 0 : 2);
-    auto& rule = rules[order];
+    auto& rule = rules[as_size(thread)][order];
     if (rule.size() == 0) rule = simplex_quadrature<Dim>(order);
     auto local = element_maxwell(basis, *geometry, rule, form);
     Matrix a = local.stiffness - k_squared * local.mass;
     Vector f = std::move(local.load);
     const auto ids = dofs.cell_dofs(c);
+    SparseAssembler& assembler = assemblers[as_size(thread)];
     if (condensation != nullptr) {
-      condensation->condense(ids, static_cast<Index>(dofs.interior_dofs(c).size()), a, f, exterior);
-      assembler.add(exterior, exterior, a);
-      scatter(rhs, exterior, f);
+      auto& ext = exterior[as_size(thread)];
+      condensation->condense(ids, static_cast<Index>(dofs.interior_dofs(c).size()), a, f, ext);
+      assembler.add(ext, ext, a);
+      scatter(rhs[as_size(thread)], ext, f);
     } else {
       assembler.add(ids, ids, a);
-      scatter(rhs, ids, f);
+      scatter(rhs[as_size(thread)], ids, f);
     }
+  });
+  for (int t = 1; t < threads; ++t) {
+    assemblers[0].append(assemblers[as_size(t)]);
+    rhs[0] += rhs[as_size(t)];
   }
-  if (condensation != nullptr) condensation->add_identity(assembler);
-  log().info("assemble_maxwell_operator<{}>: {} cells, {} DoFs ({} condensed), {} triplets", Dim,
-             mesh.num_cells(), n, condensation != nullptr ? condensation->num_interior() : 0,
-             assembler.num_triplets());
-  return {assembler.finalize(), std::move(rhs)};
+  if (condensation != nullptr) condensation->add_identity(assemblers[0]);
+  log().info(
+      "assemble_maxwell_operator<{}>: {} cells, {} DoFs ({} condensed), {} triplets, {} threads",
+      Dim, mesh.num_cells(), n, condensation != nullptr ? condensation->num_interior() : 0,
+      assemblers[0].num_triplets(), threads);
+  return {assemblers[0].finalize(), std::move(rhs[0])};
 }
 
 template <int Dim>

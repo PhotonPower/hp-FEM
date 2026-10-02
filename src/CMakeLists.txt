@@ -1,6 +1,7 @@
 add_library(hpfem
   core/version.cpp
   core/error.cpp
+  core/parallel.cpp
   mesh/mesh.cpp
   mesh/generators.cpp
   mesh/gmsh.cpp
@@ -73,5 +74,19 @@ endif()
 if(HPFEM_ENABLE_MUMPS)
   target_link_libraries(hpfem PRIVATE MUMPS::MUMPS)
   target_compile_definitions(hpfem PUBLIC HPFEM_HAVE_MUMPS)
+endif()
+if(HPFEM_ENABLE_OPENMP AND OpenMP_CXX_FOUND)
+  set(_hpfem_suffixes ${CMAKE_FIND_LIBRARY_SUFFIXES})
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+  find_library(HPFEM_GOMP_STATIC NAMES gomp HINTS ${CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES})
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ${_hpfem_suffixes})
+  if(MINGW AND HPFEM_STATIC_RUNTIME AND HPFEM_GOMP_STATIC)
+    # libgomp statically as well (same reason as the GCC runtime, see CLAUDE.md §4a): the
+    # -fopenmp link flag would pull the DLL import library, so link the archive by path
+    target_compile_options(hpfem PUBLIC ${OpenMP_CXX_FLAGS})
+    target_link_libraries(hpfem PUBLIC "${HPFEM_GOMP_STATIC}")
+  else()
+    target_link_libraries(hpfem PUBLIC OpenMP::OpenMP_CXX)
+  endif()
 endif()
 hpfem_set_warnings(hpfem)

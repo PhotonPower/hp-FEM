@@ -50,6 +50,7 @@ void StaticCondensation::condense(std::span<const Index> dofs, Index num_interio
   const Vector reduced = load.head(ne) - keb * cell.kbb_inv_fb;
   local = schur;
   load = reduced;
+  const std::lock_guard<std::mutex> lock(mutex_);
   num_interior_ += num_interior;
   cells_.push_back(std::move(cell));
 }

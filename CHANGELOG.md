@@ -186,6 +186,14 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   complements per cell, identity rows for the interior DoFs so Dirichlet data and
   constraints apply unchanged, recovery after the solve; `Scattering::solve` condenses by
   default (`ScatteringSetup::condense`).
+- OpenMP parallel assembly and estimation (`core/parallel.hpp`: `parallel_for`,
+  `num_threads`, `set_num_threads`; per-thread triplet buffers, right-hand sides and
+  quadrature caches in `assemble_maxwell`, `assemble_maxwell_operator`, `assemble_h1`,
+  per-facet storage in `residual_estimate` / `weighted_residual`, mutex in
+  `StaticCondensation`), option `HPFEM_ENABLE_OPENMP`, static libgomp on MinGW.
+- Benchmark `bench_assembly_solve` (`HPFEM_BUILD_BENCHMARKS`): assembly, factorisation and
+  solve times for (n, p) pairs, thread counts, condensation and solver backends as JSON
+  lines; results in `benchmarks/results/`.
 
 ## [0.1.0] — 2026-10-02
 ### Added

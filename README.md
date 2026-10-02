@@ -41,6 +41,7 @@ mkdocs serve                                 # documentation
 | Catch2 v3 | C++ tests | FetchContent |
 | pybind11 | Python bindings | FetchContent / pip |
 | Gmsh | mesh generation (external tool) | system |
+| OpenMP | parallel assembly and estimation (`HPFEM_ENABLE_OPENMP`, on by default) | compiler |
 | MUMPS 5 (sequential, complex) | optional direct solver backend (`HPFEM_ENABLE_MUMPS`, preset `mumps`) | `cmake/FindMUMPS.cmake`: apt `libmumps-seq-dev libmumps-headers-dev`, MSYS2 `mingw-w64-ucrt-x86_64-mumps` |
 | PETSc/SLEPc, MPI | optional (later milestones) | `find_package`, CMake options |
 

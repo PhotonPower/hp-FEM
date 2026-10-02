@@ -7,6 +7,7 @@
 #include "hpfem/assembly/sparse_assembler.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/core/parallel.hpp"
 
 namespace hpfem::assembly {
 
@@ -59,36 +60,43 @@ AssembledSystem assemble_h1(const fespace::DofMap<Dim>& dofs,
                             int extra_order, StaticCondensation* condensation) {
   const auto& mesh = dofs.mesh();
   const Index n = dofs.num_dofs();
-  SparseAssembler assembler(n, n);
-  Vector rhs = Vector::Zero(n);
-  std::map<int, QuadratureRule<Dim>> rules;
-  std::vector<Index> exterior;
-  for (Index c = 0; c < mesh.num_cells(); ++c) {
+  const int threads = num_threads();
+  std::vector<SparseAssembler> assemblers(as_size(threads), SparseAssembler(n, n));
+  std::vector<Vector> rhs(as_size(threads), Vector::Zero(n));
+  std::vector<std::map<int, QuadratureRule<Dim>>> rules(as_size(threads));
+  std::vector<std::vector<Index>> exterior(as_size(threads));
+  parallel_for(mesh.num_cells(), [&](Index c, int thread) {
     const int p = dofs.cell_order(c);
     const fespace::H1Basis<Dim> basis(dofs.cell_layout(c));
     const auto geometry = mesh::cell_geometry(mesh, c);
     // curved cells: J^-T and det J are rational, two extra degrees cover them in practice
     const int order = 2 * p + extra_order + (geometry->is_affine() ? 0 : 2);
-    auto& rule = rules[order];
+    auto& rule = rules[as_size(thread)][order];
     if (rule.size() == 0) rule = simplex_quadrature<Dim>(order);
     const ScalarForm<Dim> form = form_of_cell(c);
     auto local = element_h1(basis, *geometry, rule, form);
     const auto ids = dofs.cell_dofs(c);
+    SparseAssembler& assembler = assemblers[as_size(thread)];
     if (condensation != nullptr) {
+      auto& ext = exterior[as_size(thread)];
       condensation->condense(ids, static_cast<Index>(dofs.interior_dofs(c).size()), local.matrix,
-                             local.vector, exterior);
-      assembler.add(exterior, exterior, local.matrix);
-      scatter(rhs, exterior, local.vector);
+                             local.vector, ext);
+      assembler.add(ext, ext, local.matrix);
+      scatter(rhs[as_size(thread)], ext, local.vector);
     } else {
       assembler.add(ids, ids, local.matrix);
-      scatter(rhs, ids, local.vector);
+      scatter(rhs[as_size(thread)], ids, local.vector);
     }
+  });
+  for (int t = 1; t < threads; ++t) {
+    assemblers[0].append(assemblers[as_size(t)]);
+    rhs[0] += rhs[as_size(t)];
   }
-  if (condensation != nullptr) condensation->add_identity(assembler);
-  log().info("assemble_h1<{}>: {} cells, {} DoFs ({} condensed), {} triplets", Dim,
+  if (condensation != nullptr) condensation->add_identity(assemblers[0]);
+  log().info("assemble_h1<{}>: {} cells, {} DoFs ({} condensed), {} triplets, {} threads", Dim,
              mesh.num_cells(), n, condensation != nullptr ? condensation->num_interior() : 0,
-             assembler.num_triplets());
-  return {assembler.finalize(), std::move(rhs)};
+             assemblers[0].num_triplets(), threads);
+  return {assemblers[0].finalize(), std::move(rhs[0])};
 }
 
 template <int Dim>
