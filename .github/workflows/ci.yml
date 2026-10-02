@@ -46,7 +46,8 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y ninja-build libeigen3-dev clang-tidy-18
       - run: cmake --preset debug
       - run: |
-          files=$(find src -name '*.cpp')
+          # only the sources of this configuration (optional backends are not in the database)
+          files=$(python3 -c "import json; print(' '.join(sorted({e['file'] for e in json.load(open('build/debug/compile_commands.json')) if '/src/' in e['file'].replace(chr(92), '/')})))")
           [ -z "$files" ] || clang-tidy-18 -p build/debug $files
 
   python:
