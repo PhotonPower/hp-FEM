@@ -332,8 +332,10 @@ exponential in $N^{1/3}$) and the `plasmonic_dimer` example.
 backend behind `solvers::LinearSolver` (ADR-0007), static condensation, OpenMP parallel
 assembly and estimation, parameter sweeps (`physics::ScatteringOperator`,
 `solvers::ReducedBasis`) and the benchmark record in `benchmarks/results/`.
-**M7 (Python API)** in progress: the pybind11 bindings of the whole pipeline
-(`python/bindings/`, `<Name>2D` / `<Name>3D` classes, NumPy / SciPy at the boundary,
-`docs/python.md`) are done; next are `hpfem.units` / `hpfem.materials`, project files and
-CLI, meshio / pyvista / matplotlib helpers and notebooks.
+**M7 (Python API and usability)** is complete: pybind11 bindings of the whole pipeline
+(`python/bindings/`, `<Name>2D` / `<Name>3D` classes, NumPy / SciPy at the boundary),
+`hpfem.units`, the `hpfem.materials` library (refractiveindex.info data with sources),
+`hpfem.project` files with the `hpfem` command line, `hpfem.interop` (meshio, pyvista,
+matplotlib) and the example notebooks; `docs/python.md` is the user guide.
+Next: **M8 — application examples**.
 See `docs/roadmap.md`.

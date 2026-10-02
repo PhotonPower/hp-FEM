@@ -104,7 +104,8 @@ holds. Estimated effort is in rough "focused sessions".
       (scattering / waveguide / cavity, sweeps, outputs), `hpfem.cli` (`run`, `validate`,
       `info`, `materials`), `examples/*/project.json`
 - [ ] meshio / pyvista interop, matplotlib helpers
-- [ ] Jupyter example notebooks
+- [x] Jupyter example notebooks — `examples/notebooks/` (Mie cylinder, hp-adaptivity on
+      the L-shape, gold nanowire spectrum), executed by `python/tests/test_notebooks.py`
 
 ## M8 — Application examples (≈ 6)
 - [ ] `metasurface_unitcell`: phase/transmission map over pillar diameter
