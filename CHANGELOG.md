@@ -130,6 +130,8 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - Convergence test #6: lamellar grating diffraction efficiencies (Bloch unit cell, PML,
   scattered-field formulation, Fourier coefficients above and below) against an RCWA
   with Li's rules written in the test.
+- Examples `cavity_modes`, `mie_cylinder`, `slab_waveguide`, `lamellar_grating` as C++
+  drivers (`HPFEM_BUILD_EXAMPLES`, on by default) with READMEs. M4 complete.
 
 ## [0.1.0] — 2026-10-02
 ### Added
