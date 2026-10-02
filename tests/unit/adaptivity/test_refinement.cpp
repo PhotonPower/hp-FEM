@@ -54,8 +54,7 @@ void check_transfer(const Map& old_dofs, const Vector& u, const Map& new_dofs, c
   const std::vector<Point<2>> points{Point<2>(0.2, 0.3), Point<2>(0.6, 0.1), Point<2>(0.1, 0.7)};
   for (Index c = 0; c < new_dofs.mesh().num_cells(); ++c) {
     for (const auto& xi : points) {
-      const auto child = step.child[as_size(c)];
-      const Point<2> xi_old = child < 0 ? xi : hpfem::mesh::detail::parent_reference<2>(child, xi);
+      const Point<2> xi_old = step.old_reference<2>(c, xi);
       if constexpr (std::is_same_v<Map, DofMap<2>>) {
         REQUIRE(std::abs(evaluate_h1(new_dofs, v, c, xi) -
                          evaluate_h1(old_dofs, u, step.parent[as_size(c)], xi_old)) < 1e-10);

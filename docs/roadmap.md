@@ -74,9 +74,8 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] goal-oriented (dual-weighted) estimator for a scalar quantity of interest
       (e.g. a Fourier coefficient) — needed for scatterometry accuracy claims
 - [x] **convergence test #7**: exponential convergence at re-entrant corner (L-shape,
-      then plasmonic wedge) — L-shape done (`adaptive_hp_refinement`); the plasmonic
-      wedge follows with the `plasmonic_dimer` example
-- [ ] example `plasmonic_dimer`
+      then plasmonic wedge) — `adaptive_hp_refinement` and `plasmonic_wedge`
+- [x] example `plasmonic_dimer`
 
 ## M6 — Solvers & performance (≈ 8)
 - [ ] MUMPS / PARDISO backend behind `solvers::DirectSolver`

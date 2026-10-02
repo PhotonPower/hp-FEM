@@ -232,17 +232,19 @@ RefinementStep AdaptiveMesh<Dim>::refine(std::span<const Index> marked) {
   RefinementStep step;
   step.num_old_cells = num_old_cells;
   step.parent.resize(leaves_.size());
-  step.child.resize(leaves_.size());
+  step.path.resize(leaves_.size());
   for (std::size_t i = 0; i < leaves_.size(); ++i) {
-    const Index t = leaves_[i];
-    if (as_size(t) < num_old_tree_cells) {
-      step.parent[i] = old_leaf_of_tree[as_size(t)];
-      step.child[i] = -1;
-    } else {
-      const TreeCell& cell = cells_[as_size(t)];
-      step.parent[i] = old_leaf_of_tree[as_size(cell.parent)];
-      step.child[i] = static_cast<LocalIndex>(t - cells_[as_size(cell.parent)].first_child);
+    // walk up to the ancestor that was a leaf before this call
+    Index t = leaves_[i];
+    std::vector<LocalIndex> chain;
+    while (as_size(t) >= num_old_tree_cells) {
+      const Index parent = cells_[as_size(t)].parent;
+      chain.push_back(static_cast<LocalIndex>(t - cells_[as_size(parent)].first_child));
+      t = parent;
     }
+    std::reverse(chain.begin(), chain.end());
+    step.parent[i] = old_leaf_of_tree[as_size(t)];
+    step.path[i] = std::move(chain);
     HPFEM_ASSERT(step.parent[i] != kInvalidIndex, "refined cell was not a leaf");
   }
   rebuild_leaf_mesh();

@@ -319,5 +319,10 @@ field, plane-wave and dipole sources, materials by tag), PML as stretched materi
 tensors, Bloch-periodic constraints, curved elements (second-order Gmsh input, disc /
 ball generators), post-processing (fluxes, cross-sections, far field, diffraction
 orders), `physics::PropagatingMode`, convergence tests #3–#6 and the four examples.
-Next: **M5 — adaptivity (a-posteriori estimation, hp-refinement)**.
+**M5 (adaptivity)** is complete: residual and dual-weighted (goal-oriented) estimators,
+Dörfler marking, local h-refinement with hanging nodes (`mesh::AdaptiveMesh`,
+`assembly::hanging_constraints`), p-refinement, hp decision by error prediction (and
+coefficient decay), solution transfer, convergence test #7 (L-shape and plasmonic wedge,
+exponential in $N^{1/3}$) and the `plasmonic_dimer` example.
+Next: **M6 — solvers and performance**.
 See `docs/roadmap.md`.

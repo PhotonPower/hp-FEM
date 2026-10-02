@@ -74,9 +74,7 @@ void check(const Map& old_dofs, const Vector& u, const Map& new_dofs, const Vect
   for (Index c = 0; c < new_dofs.mesh().num_cells(); ++c) {
     for (const auto& s : sample_points()) {
       const Point<Dim> xi = sample_point<Dim>(s);
-      const auto child = step.child[as_size(c)];
-      const Point<Dim> xi_old =
-          child < 0 ? xi : hpfem::mesh::detail::parent_reference<Dim>(child, xi);
+      const Point<Dim> xi_old = step.old_reference<Dim>(c, xi);
       if constexpr (std::is_same_v<Map, DofMap<Dim>>) {
         const Complex a = evaluate_h1(new_dofs, v, c, xi);
         const Complex b = evaluate_h1(old_dofs, u, step.parent[as_size(c)], xi_old);

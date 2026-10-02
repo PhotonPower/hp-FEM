@@ -251,9 +251,10 @@ enforces the **one-irregular rule** by refining first every coarser leaf cell th
 vertex with a cell to be split and every leaf cell that owns the *parent* of one of its
 facets. Both checks are needed: in 3D the inner child face of a face shares no vertex with
 the coarse neighbour, so vertex balance alone would let a coarse face meet level-2 faces.
-Each cell is split at most once per call; the returned `RefinementStep` relates every new
-leaf cell to its old cell (`parent`) and child pattern (`child`, $-1$ if unchanged;
-`detail::parent_reference` maps reference coordinates).
+The closure may split a cell created in the same call again; the returned
+`RefinementStep` relates every new leaf cell to its old cell (`parent`) and the chain of
+child numbers (`path`, empty if unchanged; `old_reference` composes
+`detail::parent_reference` along it).
 
 The leaf mesh is **non-conforming** where a coarse cell meets refined neighbours. A coarse
 edge $(a,b)$ whose midpoint vertex $m$ exists together with the half edges $(a,m)$, $(m,b)$

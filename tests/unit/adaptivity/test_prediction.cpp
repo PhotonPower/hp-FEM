@@ -31,7 +31,7 @@ TEST_CASE("predicted indicators follow the refinement kind", "[adaptivity][predi
   REQUIRE(static_cast<Index>(predicted.size()) == hp.step.num_cells());
   for (Index c = 0; c < hp.step.num_cells(); ++c) {
     const Index parent = hp.step.parent[as_size(c)];
-    const bool child = hp.step.child[as_size(c)] >= 0;
+    const bool child = hp.step.refined(c);
     if (child) {
       // the closure may refine further cells; every child gets gamma_h 2^-p eta / 2
       CHECK(predicted[as_size(c)] ==
@@ -47,7 +47,7 @@ TEST_CASE("predicted indicators follow the refinement kind", "[adaptivity][predi
   const auto scaled = predict_indicators(eta, orders, hp, custom);
   for (Index c = 0; c < hp.step.num_cells(); ++c) {
     const Index parent = hp.step.parent[as_size(c)];
-    if (hp.step.child[as_size(c)] < 0 && parent != 1) {
+    if (!hp.step.refined(c) && parent != 1) {
       CHECK(scaled[as_size(c)] == Approx(0.5 * eta[as_size(parent)]));
     }
   }
