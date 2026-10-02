@@ -137,6 +137,16 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   tangential-curl and normal-flux jumps, h/p weights, per-cell forms incl. PML),
   `physics::Scattering::estimate`; `adaptivity::dorfler_marking` / `maximum_marking`.
   Convergence test: effectivity index and rate of the estimate on a plane wave (2D/3D).
+- Local h-refinement with hanging nodes (ADR-0006): `mesh::AdaptiveMesh` (red refinement
+  tree, one-irregular closure by vertices and facets, leaf mesh with registered hanging
+  edges / faces, tag and curved-geometry transfer, `RefinementStep`), `Mesh::set_hanging`
+  and hanging queries, `mesh::extract` sub-meshes; `assembly::interpolate` (hierarchical
+  interpolation on entity sets, now behind the Dirichlet functions),
+  `assembly::hanging_constraints`, `assembly::prolongate`, `Constraints::append`; the
+  DoF maps' minimum rule includes hanging children; `physics::Scattering` reduces by the
+  constraints before imposing Dirichlet data; estimator and flux surfaces handle hanging
+  facets. Convergence test: adaptive h-refinement on the L-shaped corner recovers the
+  optimal rate N^(-p/2) where uniform refinement is limited to N^(-1/3).
 
 ## [0.1.0] — 2026-10-02
 ### Added

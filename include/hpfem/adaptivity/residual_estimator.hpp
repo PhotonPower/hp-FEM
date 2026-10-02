@@ -11,8 +11,9 @@
 ///            + \|[\![n\cdot d]\!]\|^2_{L^2(F)}\Big),
 /// @f]
 /// with @f$ w = \mu^{-1}\nabla\times E_{hp} - g @f$, @f$ d = f + k^2\varepsilon E_{hp} @f$ and the
-/// element residual @f$ R_K = d - \nabla\times w @f$. Interior facets only: PEC facets carry
-/// no residual, natural (PMC) and periodic facets are not yet accounted for. Complex
+/// element residual @f$ R_K = d - \nabla\times w @f$. Interior facets only (hanging child
+/// facets against the cell of their parent): PEC facets carry no residual, natural (PMC)
+/// and periodic facets are not yet accounted for. Complex
 /// coefficients and PML cells enter through the per-cell form, so the estimator measures
 /// the residual of the equation actually solved. Convention exp(-iωt) as everywhere.
 /// See docs/theory/error-estimation.md.

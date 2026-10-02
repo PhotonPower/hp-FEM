@@ -34,7 +34,9 @@ struct Surface {
 
   /// Closed surface around the cells carrying `cell_tag`: every facet between a tagged and
   /// an untagged (or differently tagged) cell, plus tagged cells' boundary facets; the
-  /// inside is the tagged cell, so the normal points out of the region.
+  /// inside is the tagged cell, so the normal points out of the region. On a locally
+  /// refined mesh the hanging child facets are used (the inside cell may then be the coarse
+  /// cell behind the parent facet).
   [[nodiscard]] static Surface around_cells(const mesh::Mesh<Dim>& mesh, mesh::Tag cell_tag);
   /// Boundary facets carrying `facet_tag`, normal out of the domain.
   [[nodiscard]] static Surface boundary(const mesh::Mesh<Dim>& mesh, mesh::Tag facet_tag);

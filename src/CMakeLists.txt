@@ -8,6 +8,7 @@ add_library(hpfem
   mesh/point_location.cpp
   mesh/subdivision.cpp
   mesh/refinement.cpp
+  mesh/adaptive_mesh.cpp
   io/vtk.cpp
   io/field_export.cpp
   materials/material.cpp
@@ -28,6 +29,9 @@ add_library(hpfem
   assembly/sparse_assembler.cpp
   assembly/h1_forms.cpp
   assembly/dirichlet.cpp
+  assembly/interpolation.cpp
+  assembly/hanging_constraints.cpp
+  assembly/prolongation.cpp
   assembly/maxwell_forms.cpp
   assembly/discrete_gradient.cpp
   assembly/periodic.cpp

@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "hpfem/assembly/h1_forms.hpp"
+#include "hpfem/assembly/interpolation.hpp"
 #include "hpfem/assembly/maxwell_forms.hpp"
 #include "hpfem/core/types.hpp"
 #include "hpfem/fespace/dof_map.hpp"
@@ -20,17 +21,14 @@
 namespace hpfem::assembly {
 
 /// Constrained DoFs (sorted, unique) and their prescribed values.
-struct DirichletData {
-  std::vector<Index> dofs;
-  Vector values;
-  [[nodiscard]] Index size() const noexcept { return static_cast<Index>(dofs.size()); }
-};
+using DirichletData = DofValues;
 
-/// Boundary values of g on the given facets as coefficients of the trace space: vertex
-/// DoFs take g(x_v); the edge DoFs of every edge of these facets take the L2 projection
-/// (along the edge) of the remainder onto the edge functions; in 3D the face DoFs take the
-/// projection of the remainder onto the face functions. For g in the trace space the
-/// result is exact; otherwise it is the hierarchical interpolant, accurate to order p + 1.
+/// Boundary values of g on the given facets as coefficients of the trace space
+/// (`interpolate` on the vertices, edges and faces of the facets): vertex DoFs take g(x_v);
+/// the edge DoFs of every edge of these facets take the L2 projection (along the edge) of
+/// the remainder onto the edge functions; in 3D the face DoFs take the projection of the
+/// remainder onto the face functions. For g in the trace space the result is exact;
+/// otherwise it is the hierarchical interpolant, accurate to order p + 1.
 template <int Dim>
 [[nodiscard]] DirichletData dirichlet_values(const fespace::DofMap<Dim>& dofs,
                                              std::span<const Index> facets,

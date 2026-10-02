@@ -14,7 +14,8 @@ hpfem_add_test(test_mesh unit
   mesh/test_curved_geometry.cpp
   mesh/test_point_location.cpp
   mesh/test_subdivision.cpp
-  mesh/test_refinement.cpp)
+  mesh/test_refinement.cpp
+  mesh/test_adaptive_mesh.cpp)
 
 hpfem_add_test(test_io unit
   io/test_vtk.cpp
@@ -57,6 +58,11 @@ hpfem_add_test(test_physics unit
   physics/test_mie.cpp
   physics/test_farfield.cpp
   physics/test_propagating_mode.cpp)
+
+hpfem_add_test(test_hanging unit
+  assembly/test_interpolation.cpp
+  assembly/test_hanging_constraints.cpp
+  assembly/test_prolongation.cpp)
 
 hpfem_add_test(test_adaptivity unit
   adaptivity/test_residual_estimator.cpp

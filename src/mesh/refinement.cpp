@@ -7,6 +7,7 @@
 
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/mesh/detail/red_refinement.hpp"
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/mesh/simplex_topology.hpp"
 
@@ -14,44 +15,8 @@ namespace hpfem::mesh {
 
 namespace {
 
-/// Local node numbering of a refined cell: parent vertices 0..Dim, then the midpoint of
-/// parent edge k at Dim + 1 + k (`SimplexTopology<Dim>::kEdgeVertices` order).
-template <int Dim>
-struct RedRefinement;
-
-template <>
-struct RedRefinement<2> {
-  // edges: 3 = (0,1), 4 = (1,2), 5 = (2,0)
-  static constexpr std::array<std::array<LocalIndex, 3>, 4> kChildren{
-      {{0, 3, 5}, {3, 1, 4}, {5, 4, 2}, {3, 4, 5}}};
-};
-
-template <>
-struct RedRefinement<3> {
-  // edges: 4 = (0,1), 5 = (0,2), 6 = (0,3), 7 = (1,2), 8 = (1,3), 9 = (2,3)
-  // Bey (1995): four corner tetrahedra, then the octahedron cut along the diagonal 5-8.
-  static constexpr std::array<std::array<LocalIndex, 4>, 8> kChildren{{{0, 4, 5, 6},
-                                                                       {4, 1, 7, 8},
-                                                                       {5, 7, 2, 9},
-                                                                       {6, 8, 9, 3},
-                                                                       {4, 5, 6, 8},
-                                                                       {4, 5, 7, 8},
-                                                                       {5, 6, 8, 9},
-                                                                       {5, 7, 8, 9}}};
-};
-
-/// Reference coordinates of local node n of the refined cell (vertex or edge midpoint).
-template <int Dim>
-Point<Dim> reference_node(LocalIndex n) {
-  const auto vertex = [](LocalIndex i) {
-    Point<Dim> xi = Point<Dim>::Zero();
-    if (i > 0) xi(i - 1) = 1.0;
-    return xi;
-  };
-  if (n <= Dim) return vertex(n);
-  const auto& e = SimplexTopology<Dim>::kEdgeVertices[as_size(n - Dim - 1)];
-  return 0.5 * (vertex(e[0]) + vertex(e[1]));
-}
+using detail::RedRefinement;
+using detail::reference_node;
 
 /// Global vertex id of local node n of the refined cell c (edge midpoints follow the
 /// parent vertices).
@@ -85,7 +50,7 @@ std::pair<std::vector<typename Mesh<Dim>::CellVertices>, std::vector<Tag>> refin
   cells.reserve(as_size(parent.num_cells() * Refined<Dim>::kChildren));
   tags.reserve(cells.capacity());
   for (Index c = 0; c < parent.num_cells(); ++c) {
-    for (const auto& child : RedRefinement<Dim>::kChildren) {
+    for (const auto& child : RedRefinement<Dim>::kChildrenNodes) {
       typename Mesh<Dim>::CellVertices cv{};
       for (std::size_t i = 0; i < cv.size(); ++i) cv[i] = global_node(parent, c, child[i]);
       cells.push_back(cv);
@@ -129,7 +94,7 @@ void transfer_edge_nodes(const Mesh<Dim>& parent, Mesh<Dim>& mesh) {
   std::vector<Point<Dim>> nodes(as_size(mesh.num_edges()));
   for (Index c = 0; c < parent.num_cells(); ++c) {
     const auto geometry = cell_geometry(parent, c);
-    for (const auto& child : RedRefinement<Dim>::kChildren) {
+    for (const auto& child : RedRefinement<Dim>::kChildrenNodes) {
       for (const auto& e : SimplexTopology<Dim>::kEdgeVertices) {
         const LocalIndex a = child[as_size(e[0])];
         const LocalIndex b = child[as_size(e[1])];

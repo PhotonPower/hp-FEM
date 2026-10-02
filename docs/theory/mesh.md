@@ -242,8 +242,45 @@ and child edge nodes are evaluated with the parent cell map, so the refined mesh
 represents the same quadratic surface (the P2 area of a curved cell is invariant under
 refinement, which the tests check with an exact rule).
 
-M5 builds local refinement with hanging nodes (one-irregular rule) on the same child
-patterns; this function is the uniform special case used for convergence studies.
+## Local refinement (`mesh/adaptive_mesh.hpp`, ADR-0006)
+
+`AdaptiveMesh<Dim>(root)` keeps a tree of red-refined cells over a conforming root mesh and
+exposes its leaves as the current mesh (`mesh()`). `refine(marked)` splits the marked leaf
+cells with the same child patterns as `refine_uniform` (`detail::RedRefinement`) and
+enforces the **one-irregular rule** by refining first every coarser leaf cell that shares a
+vertex with a cell to be split and every leaf cell that owns the *parent* of one of its
+facets. Both checks are needed: in 3D the inner child face of a face shares no vertex with
+the coarse neighbour, so vertex balance alone would let a coarse face meet level-2 faces.
+Each cell is split at most once per call; the returned `RefinementStep` relates every new
+leaf cell to its old cell (`parent`) and child pattern (`child`, $-1$ if unchanged;
+`detail::parent_reference` maps reference coordinates).
+
+The leaf mesh is **non-conforming** where a coarse cell meets refined neighbours. A coarse
+edge $(a,b)$ whose midpoint vertex $m$ exists together with the half edges $(a,m)$, $(m,b)$
+is a *hanging edge*, a coarse face whose four child faces exist is a *hanging face*; the
+hierarchy registers them with `Mesh::set_hanging`. The mesh then reports
+`facet_hanging_role(f)` (parent / child / none), `hanging_parent_facet(f)`,
+`hanging_child_facets(f)` and the lists `hanging_edges()`, `hanging_faces()`; parent and
+child facets have one cell each but are **not** boundary facets, and `cell_neighbors` stays
+`kInvalidIndex` across them. Consumers that loop over facets treat a hanging child facet
+against the cell of its parent facet (`residual_estimate`, `Surface::around_cells`,
+`surface_quadrature` with the coarse cell inside).
+
+Transferred by the hierarchy: cell tags; facet tags of the root to every leaf facet whose
+vertices all lie on a tagged root facet (barycentric test in the root cell); tag names;
+curved geometry (new vertices and leaf edge nodes are evaluated with the root cell maps, as
+in `refine_uniform`). `root_cell(c)` / `root_reference(c, ξ)` give the ancestry of a leaf
+cell. `refine_all()` reproduces `refine_uniform` of the leaf mesh.
+
+`extract(mesh, cells)` (`mesh/generators.hpp`) cuts a conforming sub-mesh out of a mesh with
+renumbered vertices and transferred tags, e.g. an L-shaped domain out of a `rectangle`.
+
+Verification (`tests/unit/mesh/test_adaptive_mesh.cpp`): cell and vertex counts, volumes,
+boundary counts and tags after single and repeated refinements in 2D and 3D; the 2:1 balance
+over all vertex-sharing pairs; the hanging tables (midpoint positions, one cell per
+parent / child facet, children covering the parent, every one-cell interior facet
+registered); `refine_all` against `refine_uniform`; curved discs; the refinement step's
+parent map.
 
 ## VTK export
 
@@ -307,6 +344,9 @@ $n$ of the order of the polynomial degree. For a coarse overview on the original
 | `cell_geometry(m, c)` → `CellGeometry` (`evaluate`, `to_reference`, `h`, `order`) | order-independent cell geometry |
 | `PointLocator(m, tol)` → `locate(x)`, `locate(x, hint)`, `reference_coordinates(c, x)` | point location (background grid) |
 | `refine_uniform(m)` → `Refined` (`mesh`, `parent_cell`, `edge_vertex`) | red refinement |
+| `AdaptiveMesh(root)` → `mesh()`, `refine(marked)` → `RefinementStep`, `refine_all()`, `level(c)` | local refinement (one-irregular) |
+| `set_hanging`, `hanging_edges()`, `hanging_faces()`, `facet_hanging_role(f)`, `hanging_parent_facet(f)`, `hanging_child_facets(f)`, `is_conforming()` | hanging entities |
+| `extract(m, cells)`, `extract(m, keep)` | sub-mesh of selected cells |
 | `io::VtkWriter(m).cell_scalars(...).point_vectors(...).write(path)`, `io::write_vtu_facets` | VTK export |
 | `subdivide(m, n)` → `Subdivided` (`mesh`, `parent_cell`, `vertex_parent`, `vertex_xi`) | uniform subdivision for visualisation |
 | `io::FieldExporter(m, n).h1(...).hcurl(...).write(path)`, `io::cell_averages`, `io::cell_average_curls` | field export |

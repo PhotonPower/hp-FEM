@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <functional>
 #include <span>
 #include <utility>
 #include <vector>
@@ -250,5 +251,71 @@ Mesh<2> square_with_disc(Index n, Real radius, Real half_width, Real outer, Tag 
                     [radius](const Point<2>& x) { return Point<2>(radius * x.normalized()); });
   return m;
 }
+
+template <int Dim>
+Mesh<Dim> extract(const Mesh<Dim>& mesh, std::span<const Index> cells) {
+  std::vector<Index> new_vertex(as_size(mesh.num_vertices()), kInvalidIndex);
+  std::vector<char> seen(as_size(mesh.num_cells()), 0);
+  for (const Index c : cells) {
+    if (c < 0 || c >= mesh.num_cells()) {
+      throw InvalidArgument(fmt::format("extract: cell {} outside 0..{}", c, mesh.num_cells() - 1));
+    }
+    if (seen[as_size(c)] != 0)
+      throw InvalidArgument(fmt::format("extract: cell {} listed twice", c));
+    seen[as_size(c)] = 1;
+    for (const Index v : mesh.cell_vertices(c)) new_vertex[as_size(v)] = 0;
+  }
+  std::vector<Point<Dim>> vertices;
+  std::vector<Index> old_vertex;
+  for (Index v = 0; v < mesh.num_vertices(); ++v) {
+    if (new_vertex[as_size(v)] == kInvalidIndex) continue;
+    new_vertex[as_size(v)] = static_cast<Index>(vertices.size());
+    vertices.push_back(mesh.vertex(v));
+    old_vertex.push_back(v);
+  }
+  std::vector<typename Mesh<Dim>::CellVertices> new_cells;
+  std::vector<Tag> tags;
+  new_cells.reserve(cells.size());
+  for (const Index c : cells) {
+    typename Mesh<Dim>::CellVertices cv = mesh.cell_vertices(c);
+    for (Index& v : cv) v = new_vertex[as_size(v)];
+    new_cells.push_back(cv);
+    tags.push_back(mesh.cell_tag(c));
+  }
+  Mesh<Dim> out(std::move(vertices), std::move(new_cells), std::move(tags));
+  for (Index f = 0; f < out.num_facets(); ++f) {
+    typename Mesh<Dim>::FacetVertices fv = out.facet_vertices(f);
+    for (Index& v : fv) v = old_vertex[as_size(v)];
+    const Index old = mesh.facet_id(fv);
+    if (old != kInvalidIndex) out.set_facet_tag(f, mesh.facet_tag(old));
+  }
+  for (const int dim : {Dim - 1, Dim}) {
+    for (const auto& [tag, name] : mesh.tag_names(dim)) out.set_tag_name(dim, tag, name);
+  }
+  if (mesh.geometry_order() == 2) {
+    std::vector<Point<Dim>> nodes(as_size(out.num_edges()));
+    for (Index e = 0; e < out.num_edges(); ++e) {
+      const auto& ev = out.edge_vertices(e);
+      nodes[as_size(e)] =
+          mesh.edge_node(mesh.edge_id(old_vertex[as_size(ev[0])], old_vertex[as_size(ev[1])]));
+    }
+    out.set_edge_nodes(std::move(nodes));
+  }
+  return out;
+}
+
+template <int Dim>
+Mesh<Dim> extract(const Mesh<Dim>& mesh, const std::function<bool(const Point<Dim>&)>& keep) {
+  std::vector<Index> cells;
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    if (keep(affine_map(mesh, c).centroid())) cells.push_back(c);
+  }
+  return extract(mesh, std::span<const Index>(cells));
+}
+
+template Mesh<2> extract<2>(const Mesh<2>&, std::span<const Index>);
+template Mesh<3> extract<3>(const Mesh<3>&, std::span<const Index>);
+template Mesh<2> extract<2>(const Mesh<2>&, const std::function<bool(const Point<2>&)>&);
+template Mesh<3> extract<3>(const Mesh<3>&, const std::function<bool(const Point<3>&)>&);
 
 }  // namespace hpfem::mesh

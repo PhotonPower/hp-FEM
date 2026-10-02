@@ -55,12 +55,18 @@ Real poynting_normal(const assembly::ComplexVector<Dim>& e, const assembly::Comp
 template <int Dim>
 Surface<Dim> Surface<Dim>::around_cells(const mesh::Mesh<Dim>& mesh, mesh::Tag cell_tag) {
   Surface surface;
+  using Role = typename mesh::Mesh<Dim>::HangingRole;
   for (Index f = 0; f < mesh.num_facets(); ++f) {
+    if (mesh.facet_hanging_role(f) == Role::kParent) continue;  // its children cover it
     const auto& fc = mesh.facet_cells(f);
+    Index other = fc[1];
+    if (other == kInvalidIndex && mesh.facet_hanging_role(f) == Role::kChild) {
+      other = mesh.facet_cells(mesh.hanging_parent_facet(f))[0];
+    }
     const bool first = mesh.cell_tag(fc[0]) == cell_tag;
-    const bool second = fc[1] != kInvalidIndex && mesh.cell_tag(fc[1]) == cell_tag;
+    const bool second = other != kInvalidIndex && mesh.cell_tag(other) == cell_tag;
     if (first && !second) surface.facets.push_back({f, fc[0]});
-    if (second && !first) surface.facets.push_back({f, fc[1]});
+    if (second && !first) surface.facets.push_back({f, other});
   }
   return surface;
 }
@@ -95,17 +101,26 @@ std::vector<SurfacePoint<Dim>> surface_quadrature(const mesh::Mesh<Dim>& mesh,
   std::vector<SurfacePoint<Dim>> points;
   points.reserve(surface.facets.size() * rule.size());
   for (const auto& [f, c] : surface.facets) {
+    // the facet is parametrised from a cell that owns it: the inside cell, or (hanging
+    // child facet with the coarse cell inside) its own cell, mapped back into the inside
     const auto& facets = mesh.cell_facets(c);
     std::size_t k = 0;
     while (k < facets.size() && facets[k] != f) ++k;
+    Index owner = c;
     if (k == facets.size()) {
-      throw InvalidArgument(
-          fmt::format("surface_quadrature: facet {} is not a facet of cell {}", f, c));
+      if (mesh.hanging_parent_facet(f) == kInvalidIndex ||
+          mesh.facet_cells(mesh.hanging_parent_facet(f))[0] != c) {
+        throw InvalidArgument(
+            fmt::format("surface_quadrature: facet {} is not a facet of cell {}", f, c));
+      }
+      owner = mesh.facet_cells(f)[0];
+      k = as_size(mesh.facet_local_indices(f)[0]);
     }
     const auto& lv = Topology::kFacetVertices[k];
     const Point<Dim> xi_a = reference_vertex<Dim>(lv[0]);
     const Point<Dim> xi_b = reference_vertex<Dim>(lv[1]);
-    const auto geometry = mesh::cell_geometry(mesh, c);
+    const auto geometry = mesh::cell_geometry(mesh, owner);
+    const auto inside_geometry = owner == c ? nullptr : mesh::cell_geometry(mesh, c);
     const Point<Dim> cell_centroid = mesh::affine_map(mesh, c).centroid();
     for (std::size_t q = 0; q < rule.size(); ++q) {
       SurfacePoint<Dim> sp;
@@ -133,6 +148,7 @@ std::vector<SurfacePoint<Dim>> surface_quadrature(const mesh::Mesh<Dim>& mesh,
       if (sp.normal.dot(sp.x - cell_centroid) < 0) sp.normal = -sp.normal;
       sp.weight = rule.weights[q] * measure;
       sp.cell = c;
+      if (inside_geometry) sp.xi = inside_geometry->to_reference(sp.x);
       points.push_back(sp);
     }
   }

@@ -60,6 +60,19 @@ void EntityDofMap<Dim, Counts>::build() {
     }
   }
 
+  // hanging entities: the parent order may not exceed the orders of its children (whose
+  // DoFs are constrained to the parent's), so the parent takes the minimum over both
+  for (const auto& h : m.hanging_edges()) {
+    int& p = edge_orders_[as_size(h.parent)];
+    for (const Index c : h.children) p = std::min(p, edge_orders_[as_size(c)]);
+  }
+  if constexpr (Dim == 3) {
+    for (const auto& h : m.hanging_faces()) {
+      int& p = face_orders_[as_size(h.parent)];
+      for (const Index c : h.children) p = std::min(p, face_orders_[as_size(c)]);
+    }
+  }
+
   // global numbering: vertices (if any), edges, faces, cells
   const Index vertex_dofs = Counts::kVertexDofs * nv;
   Index next = vertex_dofs;

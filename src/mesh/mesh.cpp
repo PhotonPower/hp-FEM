@@ -75,6 +75,80 @@ Mesh<Dim>::Mesh(std::vector<Vertex> vertices, std::vector<CellVertices> cells,
 }
 
 template <int Dim>
+void Mesh<Dim>::set_hanging(std::vector<HangingEdge> edges, std::vector<HangingFace> faces) {
+  const Index nf = num_facets();
+  std::vector<std::uint8_t> role(as_size(nf), 0);
+  std::vector<Index> link(as_size(nf), kInvalidIndex);
+  const auto check_edge = [&](Index e, const char* what) {
+    if (e < 0 || e >= num_edges()) {
+      throw InvalidArgument(
+          fmt::format("Mesh<{}>::set_hanging: {} edge {} out of range", Dim, what, e));
+    }
+  };
+  const auto register_facet = [&](Index f, HangingRole r, Index target) {
+    if (f < 0 || f >= nf) {
+      throw InvalidArgument(fmt::format("Mesh<{}>::set_hanging: facet {} out of range", Dim, f));
+    }
+    if (facet_cells_[as_size(f)][1] != kInvalidIndex) {
+      throw InvalidArgument(
+          fmt::format("Mesh<{}>::set_hanging: facet {} has two cells and cannot hang", Dim, f));
+    }
+    if (role[as_size(f)] != 0) {
+      throw InvalidArgument(fmt::format(
+          "Mesh<{}>::set_hanging: facet {} is listed twice or is both parent and child", Dim, f));
+    }
+    role[as_size(f)] = static_cast<std::uint8_t>(r);
+    link[as_size(f)] = target;
+  };
+  for (std::size_t i = 0; i < edges.size(); ++i) {
+    const HangingEdge& h = edges[i];
+    check_edge(h.parent, "parent");
+    for (const Index c : h.children) check_edge(c, "child");
+    if (h.vertex < 0 || h.vertex >= num_vertices()) {
+      throw InvalidArgument(
+          fmt::format("Mesh<{}>::set_hanging: hanging vertex {} out of range", Dim, h.vertex));
+    }
+    if constexpr (Dim == 2) {
+      register_facet(h.parent, HangingRole::kParent, static_cast<Index>(i));
+      for (const Index c : h.children) register_facet(c, HangingRole::kChild, h.parent);
+    }
+  }
+  if constexpr (Dim == 3) {
+    for (std::size_t i = 0; i < faces.size(); ++i) {
+      const HangingFace& h = faces[i];
+      register_facet(h.parent, HangingRole::kParent, static_cast<Index>(i));
+      for (const Index c : h.children) register_facet(c, HangingRole::kChild, h.parent);
+    }
+  } else if (!faces.empty()) {
+    throw InvalidArgument("Mesh<2>::set_hanging: a 2D mesh has no hanging faces");
+  }
+  hanging_edges_ = std::move(edges);
+  hanging_faces_ = std::move(faces);
+  if (hanging_edges_.empty() && hanging_faces_.empty()) {
+    facet_hanging_role_.clear();
+    facet_hanging_link_.clear();
+  } else {
+    facet_hanging_role_ = std::move(role);
+    facet_hanging_link_ = std::move(link);
+  }
+  boundary_facets_.clear();
+  for (Index f = 0; f < nf; ++f) {
+    if (is_boundary_facet(f)) boundary_facets_.push_back(f);
+  }
+}
+
+template <int Dim>
+std::span<const Index> Mesh<Dim>::hanging_child_facets(Index f) const {
+  if (facet_hanging_role(f) != HangingRole::kParent) return {};
+  const auto i = as_size(facet_hanging_link_[as_size(f)]);
+  if constexpr (Dim == 2) {
+    return hanging_edges_[i].children;
+  } else {
+    return hanging_faces_[i].children;
+  }
+}
+
+template <int Dim>
 void Mesh<Dim>::validate() const {
   const Index nv = num_vertices();
   for (Index c = 0; c < num_cells(); ++c) {
