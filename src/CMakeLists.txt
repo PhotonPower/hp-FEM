@@ -41,9 +41,11 @@ add_library(hpfem
   assembly/discrete_gradient.cpp
   assembly/periodic.cpp
   solvers/eigen_solver.cpp
+  solvers/complex_eigen_solver.cpp
   solvers/linear_solver.cpp
   solvers/reduced_basis.cpp
   physics/sweep.cpp
+  physics/resonance.cpp
   $<$<BOOL:${HPFEM_ENABLE_MUMPS}>:solvers/mumps_solver.cpp>
   adaptivity/residual_estimator.cpp
   adaptivity/marking.cpp

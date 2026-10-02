@@ -7,6 +7,7 @@
 #include "common.hpp"
 #include "hpfem/adaptivity/residual_estimator.hpp"
 #include "hpfem/physics/propagating_mode.hpp"
+#include "hpfem/physics/resonance.hpp"
 #include "hpfem/physics/scattering.hpp"
 #include "hpfem/physics/sources.hpp"
 #include "hpfem/physics/sweep.hpp"
@@ -169,6 +170,38 @@ void bind_physics_dim(py::module_& m) {
           },
           py::arg("incident"), py::arg("current") = py::none(), Release(),
           "solution for another incident field (and current)");
+  using physics::Resonance;
+  using physics::ResonanceSetup;
+  py::class_<ResonanceSetup<Dim>>(
+      m, named("ResonanceSetup", Dim).c_str(),
+      "Resonance (quasi-normal mode) problem: target angular frequency (search centre and "
+      "PML design frequency), materials by tag (may be lossy), PEC facet tags, PML box, "
+      "number of modes, Arnoldi settings")
+      .def(py::init<>())
+      .def_readwrite("target_omega", &ResonanceSetup<Dim>::target_omega)
+      .def_readwrite("materials", &ResonanceSetup<Dim>::materials)
+      .def_readwrite("pec_tags", &ResonanceSetup<Dim>::pec_tags)
+      .def_readwrite("pml", &ResonanceSetup<Dim>::pml)
+      .def_readwrite("num_modes", &ResonanceSetup<Dim>::num_modes)
+      .def_readwrite("krylov_dimension", &ResonanceSetup<Dim>::krylov_dimension)
+      .def_readwrite("tolerance", &ResonanceSetup<Dim>::tolerance)
+      .def_readwrite("max_iterations", &ResonanceSetup<Dim>::max_iterations)
+      .def_readwrite("solver", &ResonanceSetup<Dim>::solver)
+      .def_readwrite("extra_quadrature_order", &ResonanceSetup<Dim>::extra_quadrature_order)
+      .def_readwrite("pml_extra_quadrature_order",
+                     &ResonanceSetup<Dim>::pml_extra_quadrature_order);
+  py::class_<Resonance<Dim>>(m, named("Resonance", Dim).c_str(),
+                             "Assembles the pencil (S, M) with PEC and PML and finds the "
+                             "complex eigenfrequencies closest to the target")
+      .def(py::init<const ND&, ResonanceSetup<Dim>>(), py::arg("dofs"), py::arg("setup"),
+           py::keep_alive<1, 2>())
+      .def_property_readonly("dofs", &Resonance<Dim>::dofs,
+                             py::return_value_policy::reference_internal)
+      .def_property_readonly("setup", &Resonance<Dim>::setup,
+                             py::return_value_policy::reference_internal)
+      .def("form_of_cell", &Resonance<Dim>::form_of_cell, py::arg("cell"))
+      .def("solve", &Resonance<Dim>::solve, Release(),
+           "modes ordered by the distance of omega to the target");
   m.def(
       "solve_many",
       [](const Scattering<Dim>& problem, const std::vector<IncidentField<Dim>>& incidents) {
@@ -195,6 +228,15 @@ void bind_physics(py::module_& m) {
       .value("SCATTERED_FIELD", physics::Formulation::kScatteredField,
              "unknown E - E_inc; the incident field enters as a volume source");
   m.def("vacuum_wavenumber", &physics::vacuum_wavenumber, py::arg("omega"), "k0 = omega / c0");
+  py::class_<physics::ResonantMode>(m, "ResonantMode",
+                                    "Complex angular frequency (Im < 0: decaying), vacuum "
+                                    "wavelength of the real part, quality factor "
+                                    "Re / (-2 Im), Arnoldi residual and field coefficients")
+      .def_readonly("omega", &physics::ResonantMode::omega)
+      .def_readonly("wavelength", &physics::ResonantMode::wavelength)
+      .def_readonly("quality", &physics::ResonantMode::quality)
+      .def_readonly("residual", &physics::ResonantMode::residual)
+      .def_readonly("field", &physics::ResonantMode::field);
   bind_physics_dim<2>(m);
   bind_physics_dim<3>(m);
 

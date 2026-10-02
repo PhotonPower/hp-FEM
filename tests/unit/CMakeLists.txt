@@ -62,7 +62,8 @@ hpfem_add_test(test_physics unit
   physics/test_farfield.cpp
   physics/test_propagating_mode.cpp
   physics/test_goal_oriented.cpp
-  physics/test_sweep.cpp)
+  physics/test_sweep.cpp
+  physics/test_resonance.cpp)
 
 hpfem_add_test(test_hanging unit
   assembly/test_interpolation.cpp
@@ -79,4 +80,5 @@ hpfem_add_test(test_adaptivity unit
 hpfem_add_test(test_solvers unit
   solvers/test_linear_solver.cpp
   solvers/test_eigen_solver.cpp
-  solvers/test_generalized_eigen.cpp)
+  solvers/test_generalized_eigen.cpp
+  solvers/test_complex_eigen.cpp)

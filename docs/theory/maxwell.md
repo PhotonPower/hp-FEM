@@ -265,6 +265,58 @@ tails do not limit the accuracy). The unit test also checks that
 the mode has no longitudinal field and that the setup rejects lossy materials and mismatched
 spaces.
 
+## Resonances (`physics/resonance.hpp`)
+
+An open structure (a micro-cavity between Bragg mirrors, a plasmonic particle, a ring) has no
+bound states but *quasi-normal modes*: solutions of the source-free curl–curl equation with
+outgoing waves, which exist only at complex frequencies. With the $e^{-i\omega t}$ convention a
+mode decays in time as $e^{\mathrm{Im}(\omega)\,t}$, so $\mathrm{Im}\,\omega < 0$, and its
+quality factor is
+
+$$
+Q = \frac{\mathrm{Re}\,\omega}{-2\,\mathrm{Im}\,\omega},
+\qquad \lambda_{\mathrm{res}} = \frac{2\pi c_0}{\mathrm{Re}\,\omega}.
+$$
+
+The PML of the scattering problems turns the outgoing-wave condition into complex-symmetric
+absorbing layers (the stretched material tensors of `pml/pml.hpp`, designed at the target
+frequency), so the modes become eigenpairs of the discrete pencil
+
+$$
+S\,e = k^2\,M\,e, \qquad k^2 = \omega^2/c_0^2 \in \mathbb{C},
+$$
+
+with the stiffness matrix $S$ (weight $\mu_r^{-1}$, PML-stretched) and the mass matrix $M$
+(weight $\varepsilon_r$, PML-stretched, possibly lossy). PEC walls remove the tangential DoFs,
+hanging-node constraints are applied as in the scattering problem. `physics::Resonance`
+assembles this pencil and calls `solvers::complex_eigenpairs_near` with the shift
+$\sigma = k_{\mathrm{target}}^2$: a shift-invert Arnoldi iteration in complex arithmetic on
+$(S - \sigma M)^{-1} M$ (direct factorisation with the chosen backend, modified Gram–Schmidt
+with re-orthogonalisation, explicit restarts from the wanted Ritz vectors, the relative
+residual $|h_{m+1,m}\,y_m| / |\theta|$ as convergence test). The result is the list of modes
+ordered by the distance of $\omega$ to the target, each with $\omega$, $\lambda_{\mathrm{res}}$,
+$Q$, the Arnoldi residual and the field coefficients. The pencil also contains the gradient
+kernel at $k^2 = 0$ and, on a strip with PEC walls, lossless guided modes of the layers;
+both lie away from a well-chosen target, and a narrow strip pushes the latter far up.
+
+**Verification** (`tests/convergence/fabry_perot_resonance.cpp`): a dielectric slab ($n = 3.5$,
+$d = 1$) in vacuum on a strip with PEC walls (so that the $y$-uniform modes $E = E_y(x)$ are
+the one-dimensional Fabry–Pérot modes) has the exact resonances
+
+$$
+k_m = \frac{\pi m}{n d} - \frac{i}{n d}\ln\frac{n+1}{n-1},
+\qquad Q_m = \frac{\pi m}{2\ln\frac{n+1}{n-1}} ,
+$$
+
+from the round-trip condition $r^2 e^{2iknd} = 1$ with $r = (n-1)/(n+1)$. With a PML of about
+two wavelengths on both sides the computed $k_4$ converges exponentially under p-refinement
+(relative errors $1.4\cdot10^{-1}$, $5.8\cdot10^{-2}$, $1.0\cdot10^{-3}$, $1.6\cdot10^{-4}$,
+$8.5\cdot10^{-7}$ for $p = 1..5$ on four cells per unit length; $Q_4 = 10.690$), the
+neighbours $k_3$ and $k_5$ come out of the same run, and every returned pair satisfies the
+discrete pencil to $10^{-15}$. The unit tests check the complex solver against a dense
+reference (scale invariant from $O(1)$ to $O(10^{13})$ matrices) and the closed PEC square
+(real eigenfrequencies $c_0\pi\sqrt{m^2 + n^2}$, also on a hanging-node mesh).
+
 ## Post-processing quantities
 
 Implemented in `physics/postprocess.hpp`:

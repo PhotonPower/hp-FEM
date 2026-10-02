@@ -3,6 +3,17 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `solvers::complex_eigenpairs_near`: eigenpairs of a complex pencil closest to a complex
+  shift (shift-invert Arnoldi with explicit restarts on a direct factorisation; lossy media,
+  PML, complex frequencies), scaled internally like the real solvers.
+- `physics::Resonance` (`ResonanceSetup`, `ResonantMode`): quasi-normal modes of open
+  structures with PEC and PML — complex ω, resonance wavelength, Q = Re ω / (−2 Im ω) and the
+  field; hanging-node meshes supported. Convergence test `fabry_perot_resonance` (exact
+  complex Fabry–Pérot resonances, exponential in p), Python bindings (`Resonance2D/3D`,
+  `complex_eigenpairs_near`), project files with `"problem": "resonance"`.
+- `examples/vcsel_cavity/run.py` (M8): GaAs/AlAs quarter-wave DBR cavity at 850 nm on an
+  interface-aligned strip mesh, resonance wavelength and Q against the transfer-matrix pole
+  of the same stack, Q over the number of top pairs, mode profile.
 - `examples/metasurface_unitcell/run.py` (M8): zeroth-order transmission and phase of a
   TiO₂ ridge on fused silica over the ridge width (Bloch unit cell, PML, phase relative to
   the bare substrate), with `python/tests/test_examples.py` as the regression layer of the

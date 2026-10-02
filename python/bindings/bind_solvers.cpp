@@ -70,6 +70,19 @@ void bind_solvers(py::module_& m) {
   m.def("generalized_eigenpairs_near", &solvers::generalized_eigenpairs_near, py::arg("a"),
         py::arg("b"), py::arg("sigma"), py::arg("options") = solvers::EigenOptions{}, Release(),
         "Eigenpairs of A x = lambda B x closest to sigma (B may be indefinite)");
+  py::class_<solvers::ComplexEigenResult>(m, "ComplexEigenResult")
+      .def_readonly("eigenvalues", &solvers::ComplexEigenResult::eigenvalues,
+                    "closest to the shift first")
+      .def_readonly("eigenvectors", &solvers::ComplexEigenResult::eigenvectors,
+                    "unit 2-norm columns")
+      .def_readonly("residuals", &solvers::ComplexEigenResult::residuals)
+      .def_readonly("iterations", &solvers::ComplexEigenResult::iterations, "Arnoldi restarts")
+      .def_readonly("num_converged", &solvers::ComplexEigenResult::num_converged);
+  m.def("complex_eigenpairs_near", &solvers::complex_eigenpairs_near, py::arg("a"), py::arg("b"),
+        py::arg("sigma"), py::arg("options") = solvers::EigenOptions{},
+        py::arg("backend") = DirectSolverBackend::kAuto, Release(),
+        "Eigenpairs of the complex pencil A x = lambda B x closest to the complex shift sigma "
+        "(shift-invert Arnoldi; lossy media, PML, complex frequencies)");
 
   py::class_<solvers::ReducedBasis>(m, "ReducedBasis",
                                     "Orthonormal snapshot basis V with the Galerkin projections "
