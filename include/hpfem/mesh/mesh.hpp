@@ -6,7 +6,11 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <map>
+#include <optional>
 #include <span>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "hpfem/core/error.hpp"
@@ -14,6 +18,10 @@
 #include "hpfem/mesh/simplex_topology.hpp"
 
 namespace hpfem::mesh {
+
+/// Integer tag of a physical group (Gmsh convention: positive; 0 means untagged).
+using Tag = std::int32_t;
+inline constexpr Tag kNoTag = 0;
 
 /// Conforming simplicial mesh in `Dim` dimensions: triangles for Dim = 2, tetrahedra for
 /// Dim = 3. Stores vertices and cells as given and derives edges (and faces in 3D) with a
@@ -34,7 +42,11 @@ namespace hpfem::mesh {
 /// sorted list of boundary facets. A facet shared by more than two cells (non-manifold
 /// mesh) is rejected.
 ///
-/// Topology only: geometry mapping and tags are separate roadmap items.
+/// Tags (physical groups): one material tag per cell and one tag per facet (boundary
+/// facets for boundary conditions, interior facets for interfaces or flux surfaces),
+/// optional names per tag. Tags do not influence topology and may be changed later.
+///
+/// Topology only: the geometry mapping is a separate roadmap item.
 /// Construction costs O(N log N) in the number of cells.
 template <int Dim>
 class Mesh {
@@ -66,6 +78,9 @@ class Mesh {
   /// indices in local order; derives edges and faces.
   /// @throws InvalidArgument if a cell references a vertex out of range or twice.
   Mesh(std::vector<Vertex> vertices, std::vector<CellVertices> cells);
+  /// As above, with one material tag per cell. An empty `cell_tags` means all untagged.
+  /// @throws InvalidArgument if `cell_tags` is neither empty nor of size `cells.size()`.
+  Mesh(std::vector<Vertex> vertices, std::vector<CellVertices> cells, std::vector<Tag> cell_tags);
 
   // --- counts ----------------------------------------------------------------------------
 
@@ -203,7 +218,57 @@ class Mesh {
     return std::span<const Index>(edge_cell_data_).subspan(begin, end - begin);
   }
 
+  // --- lookup by vertices ----------------------------------------------------------------
+
+  /// Id of the edge with vertices {a, b} in any order, `kInvalidIndex` if absent. O(log E).
+  [[nodiscard]] Index edge_id(Index a, Index b) const;
+  /// Id of the face with vertices {a, b, c} in any order, `kInvalidIndex` if absent (3D).
+  [[nodiscard]] Index face_id(Index a, Index b, Index c) const
+    requires(Dim == 3);
+  /// Id of the facet with the given vertices in any order, `kInvalidIndex` if absent.
+  [[nodiscard]] Index facet_id(FacetVertices vertices) const;
+
+  // --- tags (physical groups) ------------------------------------------------------------
+
+  [[nodiscard]] Tag cell_tag(Index c) const {
+    HPFEM_ASSERT(c >= 0 && c < num_cells(), "cell index out of range");
+    return cell_tags_[as_size(c)];
+  }
+  [[nodiscard]] std::span<const Tag> cell_tags() const noexcept { return cell_tags_; }
+  void set_cell_tag(Index c, Tag tag) {
+    HPFEM_ASSERT(c >= 0 && c < num_cells(), "cell index out of range");
+    cell_tags_[as_size(c)] = tag;
+  }
+  [[nodiscard]] Tag facet_tag(Index f) const {
+    HPFEM_ASSERT(f >= 0 && f < num_facets(), "facet index out of range");
+    return facet_tags_[as_size(f)];
+  }
+  [[nodiscard]] std::span<const Tag> facet_tags() const noexcept { return facet_tags_; }
+  void set_facet_tag(Index f, Tag tag) {
+    HPFEM_ASSERT(f >= 0 && f < num_facets(), "facet index out of range");
+    facet_tags_[as_size(f)] = tag;
+  }
+  /// Tags facets given by their vertices in any order, e.g. the boundary elements of a
+  /// Gmsh file. O(n log F).
+  /// @throws InvalidArgument if the sizes differ or a tuple is not a facet of this mesh
+  /// (the message names the vertices).
+  void set_facet_tags(std::span<const FacetVertices> facets, std::span<const Tag> tags);
+  /// Assigns `tag` to every boundary facet that is still untagged; returns how many.
+  Index tag_boundary(Tag tag);
+  /// Ids of all cells / facets carrying `tag`, ascending. O(N).
+  [[nodiscard]] std::vector<Index> cells_with_tag(Tag tag) const;
+  [[nodiscard]] std::vector<Index> facets_with_tag(Tag tag) const;
+
+  /// Names of physical groups, keyed by entity dimension (`Dim` for cells, `Dim - 1` for
+  /// facets) and tag. `tag_name` returns an empty string for unnamed tags.
+  /// @throws InvalidArgument for any other `dim`.
+  void set_tag_name(int dim, Tag tag, std::string name);
+  [[nodiscard]] const std::string& tag_name(int dim, Tag tag) const;
+  [[nodiscard]] std::optional<Tag> tag_by_name(int dim, std::string_view name) const;
+
  private:
+  /// Slot in `tag_names_` for entity dimension `dim`; throws for an unsupported dim.
+  [[nodiscard]] static std::size_t names_slot(int dim);
   void validate() const;
   void derive_edges();
   void derive_faces();  // no-op for Dim == 2
@@ -226,6 +291,10 @@ class Mesh {
   std::vector<Index> boundary_facets_;    ///< ascending
   std::vector<Index> edge_cell_offsets_;  ///< CSR offsets, size num_edges() + 1
   std::vector<Index> edge_cell_data_;     ///< CSR data: cell ids per edge, ascending
+
+  std::vector<Tag> cell_tags_;
+  std::vector<Tag> facet_tags_;
+  std::array<std::map<Tag, std::string>, 2> tag_names_;  ///< [0]: facets, [1]: cells
 };
 
 extern template class Mesh<2>;

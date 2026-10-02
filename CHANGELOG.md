@@ -20,6 +20,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   neighbours, edge → cells (CSR), sorted boundary facets; non-manifold meshes are
   rejected. `hpfem::kInvalidIndex` marker. Unit tests for inverse tables, neighbour
   symmetry, boundary counts and edge rings.
+- `mesh::Mesh<Dim>` tags (physical groups): material tag per cell, tag per facet,
+  tagging from unordered vertex tuples (`set_facet_tags`), `tag_boundary`, lookups
+  `edge_id` / `face_id` / `facet_id` by binary search, physical names per dimension.
 
 ## [0.1.0] — 2026-10-02
 ### Added
