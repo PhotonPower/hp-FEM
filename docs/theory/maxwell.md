@@ -31,7 +31,33 @@ $$
 $$
 
 Discretisation: $S \mathbf{e} - \omega^2 M \mathbf{e} = \mathbf{f}$ with $S_{ij} = (\mu^{-1}\nabla\times\phi_j, \nabla\times\phi_i)$, $M_{ij} = (\varepsilon\phi_j,\phi_i)$.
-Note the test function is **conjugated**; with complex $\varepsilon$ the matrices are complex-symmetric (not Hermitian), which solvers must respect.
+The basis functions are real, so conjugating the test function changes nothing; with complex $\varepsilon$ the matrices are complex-symmetric (not Hermitian), which solvers must respect.
+
+## Discrete forms (`assembly/maxwell_forms.hpp`)
+
+`element_maxwell` integrates the forms on one cell with the [Nédélec basis](nedelec.md),
+the covariant Piola map $\phi = J^{-T}\hat\phi$, $\nabla\times\phi = J\,\hat\nabla\times\hat\phi/\det J$
+(3D) resp. $\hat\nabla\times\hat\phi/\det J$ (2D) and a [simplex rule](quadrature.md) exact for
+degree $2p + 2$:
+
+$$
+S^K_{ij} = \sum_q w_q |\det J|\; (\nabla\times\phi_i)\cdot\mu^{-1}(x_q)\,(\nabla\times\phi_j), \qquad
+M^K_{ij} = \sum_q w_q |\det J|\; \phi_i\cdot\varepsilon(x_q)\,\phi_j, \qquad
+b^K_i = \sum_q w_q |\det J|\; \phi_i\cdot f(x_q).
+$$
+
+$\varepsilon$ is a complex $d\times d$ tensor, $\mu^{-1}$ a complex tensor acting on curls
+($3\times3$ in 3D, a scalar in 2D); PML cells supply stretched tensors ([pml.md](pml.md)).
+`assemble_maxwell` returns $S$, $M$ and $b$ separately so that scattering ($S - \omega^2 M$)
+and eigenproblems ($S e = \lambda M e$) share one assembly. `hcurl_error` measures
+$\|E_h - E\|_{L^2}$ and $\|\nabla\times(E_h - E)\|_{L^2}$, `evaluate_hcurl` the physical field.
+**PEC** is `homogeneous_dirichlet` on the Nédélec DoF map (all edge and face DoFs of the
+tagged facets, i.e. the tangential trace) followed by `apply_dirichlet`; **PMC** needs no
+action. Verified by unit tests: symmetric and positive element matrices, gradient
+functions and discrete gradients of the vertex functions in the stiffness kernel
+(discrete de Rham), exact reproduction of constant fields, $L^2$ projection converging
+with rate $p$, tensor coefficients entering linearly, and a vanishing tangential trace on
+PEC boundaries of a solved problem.
 
 ## Problem classes
 

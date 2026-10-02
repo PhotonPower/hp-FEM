@@ -36,9 +36,10 @@ template <int Dim>
 template <int Dim>
 [[nodiscard]] DirichletData dirichlet_values(const fespace::DofMap<Dim>& dofs, mesh::Tag tag,
                                              const std::type_identity_t<ScalarField<Dim>>& g);
-/// All DoFs on the facets, value 0.
-template <int Dim>
-[[nodiscard]] DirichletData homogeneous_dirichlet(const fespace::DofMap<Dim>& dofs,
+/// All DoFs on the facets, value 0: homogeneous Dirichlet for H1, PEC (vanishing
+/// tangential trace) for the Nédélec space.
+template <int Dim, class Counts>
+[[nodiscard]] DirichletData homogeneous_dirichlet(const fespace::EntityDofMap<Dim, Counts>& dofs,
                                                   std::span<const Index> facets);
 
 /// Union of several constraint sets; a DoF listed twice keeps its first value.
@@ -58,9 +59,13 @@ extern template DirichletData dirichlet_values<2>(const fespace::DofMap<2>&, mes
                                                   const ScalarField<2>&);
 extern template DirichletData dirichlet_values<3>(const fespace::DofMap<3>&, mesh::Tag,
                                                   const ScalarField<3>&);
-extern template DirichletData homogeneous_dirichlet<2>(const fespace::DofMap<2>&,
-                                                       std::span<const Index>);
-extern template DirichletData homogeneous_dirichlet<3>(const fespace::DofMap<3>&,
-                                                       std::span<const Index>);
+extern template DirichletData homogeneous_dirichlet<2, fespace::H1Counts>(const fespace::DofMap<2>&,
+                                                                          std::span<const Index>);
+extern template DirichletData homogeneous_dirichlet<3, fespace::H1Counts>(const fespace::DofMap<3>&,
+                                                                          std::span<const Index>);
+extern template DirichletData homogeneous_dirichlet<2, fespace::NedelecCounts>(
+    const fespace::NedelecDofMap<2>&, std::span<const Index>);
+extern template DirichletData homogeneous_dirichlet<3, fespace::NedelecCounts>(
+    const fespace::NedelecDofMap<3>&, std::span<const Index>);
 
 }  // namespace hpfem::assembly

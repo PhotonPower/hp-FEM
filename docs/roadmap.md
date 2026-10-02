@@ -36,8 +36,8 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] hierarchical H(curl) Nédélec-I basis, 2D (p ≤ 6) and 3D (p ≤ 4), per
       Schöberl–Zaglmayr (theory/nedelec.md)
 - [x] orientation-aware local→global mapping of edge/face functions
-- [ ] curl–curl stiffness and mass matrices with complex tensor ε, μ
-- [ ] PEC boundary condition, PMC (natural)
+- [x] curl–curl stiffness and mass matrices with complex tensor ε, μ
+- [x] PEC boundary condition, PMC (natural)
 - [ ] Maxwell eigenproblem: shift-invert Arnoldi (Spectra) on `(S − σM)`
 - [ ] gauge handling / kernel filtering (discrete gradients); spurious-mode test
 - [ ] **convergence test #2**: PEC box eigenvalues, rate 2p; zero spurious modes

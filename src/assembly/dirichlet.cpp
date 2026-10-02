@@ -152,8 +152,8 @@ DirichletData dirichlet_values(const fespace::DofMap<Dim>& dofs, mesh::Tag tag,
   return dirichlet_values(dofs, std::span<const Index>(facets), g);
 }
 
-template <int Dim>
-DirichletData homogeneous_dirichlet(const fespace::DofMap<Dim>& dofs,
+template <int Dim, class Counts>
+DirichletData homogeneous_dirichlet(const fespace::EntityDofMap<Dim, Counts>& dofs,
                                     std::span<const Index> facets) {
   std::map<Index, Complex> values;
   for (const Index f : facets) {
@@ -212,7 +212,13 @@ template DirichletData dirichlet_values<2>(const fespace::DofMap<2>&, mesh::Tag,
                                            const ScalarField<2>&);
 template DirichletData dirichlet_values<3>(const fespace::DofMap<3>&, mesh::Tag,
                                            const ScalarField<3>&);
-template DirichletData homogeneous_dirichlet<2>(const fespace::DofMap<2>&, std::span<const Index>);
-template DirichletData homogeneous_dirichlet<3>(const fespace::DofMap<3>&, std::span<const Index>);
+template DirichletData homogeneous_dirichlet<2, fespace::H1Counts>(const fespace::DofMap<2>&,
+                                                                   std::span<const Index>);
+template DirichletData homogeneous_dirichlet<3, fespace::H1Counts>(const fespace::DofMap<3>&,
+                                                                   std::span<const Index>);
+template DirichletData homogeneous_dirichlet<2, fespace::NedelecCounts>(
+    const fespace::NedelecDofMap<2>&, std::span<const Index>);
+template DirichletData homogeneous_dirichlet<3, fespace::NedelecCounts>(
+    const fespace::NedelecDofMap<3>&, std::span<const Index>);
 
 }  // namespace hpfem::assembly

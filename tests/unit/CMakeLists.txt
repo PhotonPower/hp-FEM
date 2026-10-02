@@ -32,5 +32,8 @@ hpfem_add_test(test_assembly unit
   assembly/test_dirichlet.cpp
   assembly/test_h1_forms.cpp)
 
+hpfem_add_test(test_maxwell unit
+  assembly/test_maxwell_forms.cpp)
+
 hpfem_add_test(test_solvers unit
   solvers/test_linear_solver.cpp)
