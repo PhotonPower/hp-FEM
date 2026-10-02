@@ -47,7 +47,7 @@ holds. Estimated effort is in rough "focused sessions".
 ## M4 — Time-harmonic scattering & waveguides (≈ 10)
 - [x] `physics::Scattering`: total/scattered-field formulation, plane-wave and
       dipole sources (theory/maxwell.md)
-- [ ] PML as complex coordinate stretching in boundary layer cells (theory/pml.md),
+- [x] PML as complex coordinate stretching in boundary layer cells (theory/pml.md),
       polynomial profile, adaptive σ from wavelength and cell size
 - [ ] Bloch-periodic constraints (`E(x+a) = e^{ik·a} E(x)`) via constrained DoFs
 - [ ] curved elements (isoparametric order 2) + PML-compatible quadrature
@@ -55,7 +55,7 @@ holds. Estimated effort is in rough "focused sessions".
       cross-section, far field (Stratton–Chu), Fourier/diffraction coefficients
 - [ ] `physics::PropagatingMode`: 2D waveguide cross-section eigenproblem for
       effective index (quadratic → linearized)
-- [ ] **convergence test #3**: PML reflection < 1e-6 for plane wave
+- [x] **convergence test #3**: PML reflection < 1e-6 for plane wave
 - [ ] **convergence test #4**: Mie cylinder (2D) cross section vs. series
 - [ ] **convergence test #5**: slab waveguide n_eff
 - [ ] **convergence test #6**: lamellar grating efficiencies vs. RCWA

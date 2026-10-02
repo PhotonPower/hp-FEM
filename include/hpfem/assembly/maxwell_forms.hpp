@@ -10,6 +10,7 @@
 
 #include <functional>
 #include <optional>
+#include <span>
 #include <type_traits>
 
 #include <Eigen/Core>
@@ -106,6 +107,13 @@ template <int Dim>
     const std::type_identity_t<ComplexVectorField<Dim>>& field,
     const std::type_identity_t<std::function<ComplexCurl<Dim>(const Point<Dim>&)>>& curl,
     int extra_order = 2);
+/// The same restricted to the given cells (e.g. the interior without the PML).
+template <int Dim>
+[[nodiscard]] HcurlErrorNorms hcurl_error(
+    const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h,
+    const std::type_identity_t<ComplexVectorField<Dim>>& field,
+    const std::type_identity_t<std::function<ComplexCurl<Dim>(const Point<Dim>&)>>& curl,
+    std::span<const Index> cells, int extra_order = 2);
 
 /// Physical value of the discrete field at reference point ξ of cell c.
 template <int Dim>
@@ -148,6 +156,12 @@ extern template HcurlErrorNorms hcurl_error<2>(
 extern template HcurlErrorNorms hcurl_error<3>(
     const fespace::NedelecDofMap<3>&, const Vector&, const ComplexVectorField<3>&,
     const std::function<ComplexCurl<3>(const Point<3>&)>&, int);
+extern template HcurlErrorNorms hcurl_error<2>(
+    const fespace::NedelecDofMap<2>&, const Vector&, const ComplexVectorField<2>&,
+    const std::function<ComplexCurl<2>(const Point<2>&)>&, std::span<const Index>, int);
+extern template HcurlErrorNorms hcurl_error<3>(
+    const fespace::NedelecDofMap<3>&, const Vector&, const ComplexVectorField<3>&,
+    const std::function<ComplexCurl<3>(const Point<3>&)>&, std::span<const Index>, int);
 extern template ComplexVector<2> evaluate_hcurl<2>(const fespace::NedelecDofMap<2>&, const Vector&,
                                                    Index, const Point<2>&);
 extern template ComplexVector<3> evaluate_hcurl<3>(const fespace::NedelecDofMap<3>&, const Vector&,

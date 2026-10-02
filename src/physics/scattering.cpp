@@ -44,14 +44,25 @@ assembly::MaxwellForm<Dim> Scattering<Dim>::form_of_cell(Index cell) const {
   const materials::Material& b = setup_.materials.background();
   assembly::MaxwellForm<Dim> form;
   const Complex inv_mu = 1.0 / m.mu_r;
-  form.inverse_permeability = [inv_mu](const Point<Dim>&) {
-    return assembly::InversePermeabilityTensor<Dim>(
-        inv_mu * assembly::InversePermeabilityTensor<Dim>::Identity());
-  };
   const Complex eps = m.eps_r;
-  form.permittivity = [eps](const Point<Dim>&) {
-    return assembly::PermittivityTensor<Dim>(eps * assembly::PermittivityTensor<Dim>::Identity());
-  };
+  if (setup_.pml) {
+    // stretched tensors; identity inside the interior box, so every cell may use them
+    const Complex mu = m.mu_r;
+    form.inverse_permeability = [mu, pml = *setup_.pml](const Point<Dim>& x) {
+      return pml.inverse_permeability(mu, x);
+    };
+    form.permittivity = [eps, pml = *setup_.pml](const Point<Dim>& x) {
+      return pml.permittivity(eps, x);
+    };
+  } else {
+    form.inverse_permeability = [inv_mu](const Point<Dim>&) {
+      return assembly::InversePermeabilityTensor<Dim>(
+          inv_mu * assembly::InversePermeabilityTensor<Dim>::Identity());
+    };
+    form.permittivity = [eps](const Point<Dim>&) {
+      return assembly::PermittivityTensor<Dim>(eps * assembly::PermittivityTensor<Dim>::Identity());
+    };
+  }
   if (setup_.formulation == Formulation::kScatteredField) {
     const Complex contrast = k0_ * k0_ * (m.eps_r - b.eps_r);
     if (contrast != Complex{0.0, 0.0}) {
@@ -168,6 +179,26 @@ assembly::HcurlErrorNorms Scattering<Dim>::error(const ScatteringSolution<Dim>& 
                                                  const IncidentField<Dim>& exact) const {
   return assembly::hcurl_error(*dofs_, solution.unknown, exact.value, exact.curl,
                                setup_.extra_quadrature_order);
+}
+
+template <int Dim>
+assembly::HcurlErrorNorms Scattering<Dim>::error(const ScatteringSolution<Dim>& solution,
+                                                 const IncidentField<Dim>& exact,
+                                                 std::span<const Index> cells) const {
+  return assembly::hcurl_error(*dofs_, solution.unknown, exact.value, exact.curl, cells,
+                               setup_.extra_quadrature_order);
+}
+
+template <int Dim>
+std::vector<Index> Scattering<Dim>::interior_cells() const {
+  const auto& mesh = dofs_->mesh();
+  std::vector<Index> cells;
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    if (!setup_.pml || !setup_.pml->in_layer(mesh::affine_map(mesh, c).centroid())) {
+      cells.push_back(c);
+    }
+  }
+  return cells;
 }
 
 template struct ScatteringSetup<2>;

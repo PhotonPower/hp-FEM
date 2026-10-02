@@ -7,3 +7,6 @@ hpfem_add_test(convergence_maxwell_cavity convergence
 
 hpfem_add_test(convergence_maxwell_scattering convergence
   maxwell_scattering.cpp)
+
+hpfem_add_test(convergence_pml_reflection convergence
+  pml_reflection.cpp)

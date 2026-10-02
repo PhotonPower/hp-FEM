@@ -200,3 +200,23 @@ TEST_CASE("Scattering: scattered- and total-field formulations of a dielectric d
   REQUIRE(differences[2] < differences[1]);
   REQUIRE(differences[2] < 1e-2);
 }
+
+TEST_CASE("Scattering: plane wave converges exponentially in p on a fixed mesh (2D)",
+          "[convergence][maxwell][scattering]") {
+  const Real angle = 0.5;
+  const auto pw2 =
+      plane_wave<2>(ComplexVector<2>(Complex{-std::sin(angle), 0.0}, Complex{std::cos(angle), 0.0}),
+                    kWavenumber * Point<2>(std::cos(angle), std::sin(angle)));
+  const Mesh<2> m = rectangle(4, 4);
+  fmt::print("\nPlane wave, unit square, 4 x 4 mesh, p-refinement\n{:>4} {:>8} {:>12}\n", "p",
+             "DoF", "rel. error");
+  Real previous = 1.0;
+  for (int p = 1; p <= 6; ++p) {
+    const Row row = solve_exact<2>(m, p, 0.25, pw2);
+    const Real rel = std::hypot(row.l2, row.curl);
+    fmt::print("{:>4} {:>8} {:>12.3e}\n", p, row.dofs, rel);
+    REQUIRE(rel < 0.5 * previous);
+    previous = rel;
+  }
+  REQUIRE(previous < 1e-6);
+}

@@ -11,6 +11,7 @@ add_library(hpfem
   io/vtk.cpp
   io/field_export.cpp
   materials/material.cpp
+  pml/pml.cpp
   physics/sources.cpp
   physics/scattering.cpp
   assembly/quadrature.cpp

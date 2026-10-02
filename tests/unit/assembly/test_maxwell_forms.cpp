@@ -181,3 +181,23 @@ TEST_CASE("PEC condition: tangential trace vanishes on the constrained boundary"
     }
   }
 }
+
+TEST_CASE("Maxwell forms: L2 projection converges exponentially in p on a fixed mesh (2D)",
+          "[assembly][maxwell]") {
+  const auto field = [](const Point<2>& x) {
+    return ComplexVector<2>(std::sin(kPi * x(1)), std::sin(kPi * x(0)));
+  };
+  const auto curl = [](const Point<2>& x) {
+    return ComplexCurl<2>::Constant(kPi * (std::cos(kPi * x(0)) - std::cos(kPi * x(1))));
+  };
+  const Mesh<2> m = rectangle(4, 4);
+  Real previous = 1.0;
+  for (int p = 1; p <= 6; ++p) {
+    const auto err = project_and_measure(m, p, field, curl);
+    const Real rel = std::hypot(err.l2, err.curl) / std::hypot(err.l2_norm, err.curl_norm);
+    INFO("p = " << p << ", relative H(curl) error " << rel);
+    REQUIRE(rel < 0.5 * previous);
+    previous = rel;
+  }
+  REQUIRE(previous < 1e-6);
+}

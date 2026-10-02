@@ -150,8 +150,9 @@ $\nabla\times\nabla\times\mathbf{E} = k^2\mathbf{E}$) in the unit tests.
 The solution is evaluated as total or scattered field at reference points of cells or, via
 `mesh::PointLocator`, at physical points (the incident field is added or subtracted
 according to the formulation), and `error` measures the unknown against an analytic field
-of the same kind. PML, Bloch-periodic constraints, curved elements and post-processing
-(fluxes, cross-sections, far fields) are the following M4 items.
+of the same kind. An optional `pml::PmlBox` replaces the material tensors by their
+stretched versions ([pml.md](pml.md)). Bloch-periodic constraints, curved elements and
+post-processing (fluxes, cross-sections, far fields) are the following M4 items.
 
 **Verification** (`tests/convergence/maxwell_scattering.cpp`): with the exact tangential
 trace prescribed on all sides, a plane wave and a dipole field whose source lies outside

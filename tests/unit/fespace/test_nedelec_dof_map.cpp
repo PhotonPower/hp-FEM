@@ -159,7 +159,7 @@ TEST_CASE("NedelecDofMap: tangential continuity across interior facets",
           "[fespace][nedelec][dofmap]") {
   const Mesh<2> r = rectangle(2, 2, Point<2>(-1.0, 0.0), Point<2>(1.0, 1.5));
   check_tangential_continuity(NedelecDofMap<2>(r, 3), 1);
-  check_tangential_continuity(NedelecDofMap<2>(r, random_orders(r, 4, 2)), 3);
+  check_tangential_continuity(NedelecDofMap<2>(r, random_orders(r, 6, 2)), 3);
   const Mesh<3> b = box(1, 1, 1, Point<3>(0.0, 0.0, 0.0), Point<3>(2.0, 1.0, 1.0));
   check_tangential_continuity(NedelecDofMap<3>(b, 3), 4);
   check_tangential_continuity(NedelecDofMap<3>(b, random_orders(b, 3, 5)), 6);

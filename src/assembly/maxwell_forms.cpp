@@ -115,6 +115,17 @@ HcurlErrorNorms hcurl_error(
     const std::type_identity_t<ComplexVectorField<Dim>>& field,
     const std::type_identity_t<std::function<ComplexCurl<Dim>(const Point<Dim>&)>>& curl,
     int extra_order) {
+  std::vector<Index> all(as_size(dofs.mesh().num_cells()));
+  for (Index c = 0; c < dofs.mesh().num_cells(); ++c) all[as_size(c)] = c;
+  return hcurl_error(dofs, e_h, field, curl, std::span<const Index>(all), extra_order);
+}
+
+template <int Dim>
+HcurlErrorNorms hcurl_error(
+    const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h,
+    const std::type_identity_t<ComplexVectorField<Dim>>& field,
+    const std::type_identity_t<std::function<ComplexCurl<Dim>(const Point<Dim>&)>>& curl,
+    std::span<const Index> cells, int extra_order) {
   if (e_h.size() != dofs.num_dofs()) {
     throw InvalidArgument("hcurl_error: coefficient vector does not match the DoF map");
   }
@@ -123,7 +134,7 @@ HcurlErrorNorms hcurl_error(
   Real cl = 0;
   Real l2n = 0;
   Real cln = 0;
-  for (Index c = 0; c < mesh.num_cells(); ++c) {
+  for (const Index c : cells) {
     const int p = dofs.cell_order(c);
     const auto rule = simplex_quadrature<Dim>(2 * p + extra_order);
     const fespace::NedelecBasis<Dim> basis(dofs.cell_layout(c));
@@ -206,6 +217,14 @@ template HcurlErrorNorms hcurl_error<2>(const fespace::NedelecDofMap<2>&, const 
 template HcurlErrorNorms hcurl_error<3>(const fespace::NedelecDofMap<3>&, const Vector&,
                                         const ComplexVectorField<3>&,
                                         const std::function<ComplexCurl<3>(const Point<3>&)>&, int);
+template HcurlErrorNorms hcurl_error<2>(const fespace::NedelecDofMap<2>&, const Vector&,
+                                        const ComplexVectorField<2>&,
+                                        const std::function<ComplexCurl<2>(const Point<2>&)>&,
+                                        std::span<const Index>, int);
+template HcurlErrorNorms hcurl_error<3>(const fespace::NedelecDofMap<3>&, const Vector&,
+                                        const ComplexVectorField<3>&,
+                                        const std::function<ComplexCurl<3>(const Point<3>&)>&,
+                                        std::span<const Index>, int);
 template ComplexVector<2> evaluate_hcurl<2>(const fespace::NedelecDofMap<2>&, const Vector&, Index,
                                             const Point<2>&);
 template ComplexVector<3> evaluate_hcurl<3>(const fespace::NedelecDofMap<3>&, const Vector&, Index,
