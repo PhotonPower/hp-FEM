@@ -179,10 +179,12 @@ Point<Dim> QuadraticGeometry<Dim>::to_reference(const Point<Dim>& x) const {
     if (residual.norm() <= tol) return xi;
     xi -= g.jacobian.inverse() * residual;
   }
+  std::array<Real, static_cast<std::size_t>(Dim)> coordinates{};
+  for (int d = 0; d < Dim; ++d) coordinates[static_cast<std::size_t>(d)] = x(d);
   throw Error(
       fmt::format("QuadraticGeometry<{}>::to_reference: Newton iteration did not "
                   "converge for point ({}); it lies far outside the cell",
-                  Dim, fmt::join(std::vector<Real>(x.data(), x.data() + Dim), ", ")));
+                  Dim, fmt::join(coordinates, ", ")));
 }
 
 template <int Dim>

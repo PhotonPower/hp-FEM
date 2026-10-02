@@ -287,6 +287,10 @@ class Mesh {
   void set_tag_name(int dim, Tag tag, std::string name);
   [[nodiscard]] const std::string& tag_name(int dim, Tag tag) const;
   [[nodiscard]] std::optional<Tag> tag_by_name(int dim, std::string_view name) const;
+  /// All named tags of entity dimension `dim`.
+  [[nodiscard]] const std::map<Tag, std::string>& tag_names(int dim) const {
+    return tag_names_[names_slot(dim)];
+  }
 
  private:
   /// Slot in `tag_names_` for entity dimension `dim`; throws for an unsupported dim.

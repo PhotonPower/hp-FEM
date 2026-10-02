@@ -32,6 +32,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - Curved-geometry hook: `Mesh::set_edge_nodes` (one node per edge, order 2),
   `CellGeometry<Dim>` interface with `AffineGeometry` and `QuadraticGeometry` (quadratic
   Lagrange map, Newton inversion), `cell_geometry(mesh, c)` dispatch.
+- `mesh::refine_uniform`: red refinement (triangle → 4, tetrahedron → 8 by Bey's rule)
+  with child → parent map, inherited cell/facet tags and names, and curved geometry
+  carried over through the parent cell maps. `Mesh::tag_names(dim)` accessor.
 
 ## [0.1.0] — 2026-10-02
 ### Added

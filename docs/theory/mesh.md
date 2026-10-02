@@ -173,6 +173,31 @@ What M4 adds on top: reading order-2 elements from Gmsh (node permutation of the
 10-node tetrahedron), projecting edge nodes onto CAD boundaries, quadrature of adequate
 order on curved cells, and the PML-compatible rules.
 
+## Refinement
+
+`refine_uniform(m)` (`mesh/refinement.hpp`) performs one **red (regular) refinement** of
+every cell and returns the new mesh together with the child → parent cell map and the
+vertex created on every parent edge. Parent vertices keep their ids, the vertex of parent
+edge $e$ gets id $V + e$, and the children of parent cell $c$ are the cells $4c + i$ (2D)
+or $8c + i$ (3D).
+
+- **Triangle**: four congruent triangles through the edge midpoints; orientation and
+  shape are preserved exactly.
+- **Tetrahedron**: the four corner tetrahedra plus four from the inner octahedron, cut
+  along the diagonal between the midpoints of edges $(0,2)$ and $(1,3)$ with the child
+  vertex orders of Bey (Computing 55, 1995). With these orders repeated refinement
+  produces at most three congruence classes, so shape regularity is bounded; the eight
+  children have equal volume.
+
+Transferred to the children: cell tags, facet tags (to the child facets on a tagged
+parent facet), tag names, and curved geometry: new vertices sit at the parent edge nodes
+and child edge nodes are evaluated with the parent cell map, so the refined mesh
+represents the same quadratic surface (the P2 area of a curved cell is invariant under
+refinement, which the tests check with an exact rule).
+
+M5 builds local refinement with hanging nodes (one-irregular rule) on the same child
+patterns; this function is the uniform special case used for convergence studies.
+
 ## API summary
 
 | call | returns |
@@ -192,6 +217,7 @@ order on curved cells, and the PML-compatible rules.
 | `facet_measure(m, f)`, `outward_normal(m, c, k)` | facet geometry |
 | `geometry_order()`, `set_edge_nodes`, `edge_node(e)` | second-order geometry nodes |
 | `cell_geometry(m, c)` → `CellGeometry` (`evaluate`, `to_reference`, `h`, `order`) | order-independent cell geometry |
+| `refine_uniform(m)` → `Refined` (`mesh`, `parent_cell`, `edge_vertex`) | red refinement |
 | `edge_vertices(e)`, `face_vertices(f)`, `facet_vertices(f)` | ascending vertex tuples |
 
 Construction throws `InvalidArgument` naming the cell if a vertex id is out of range or
@@ -223,6 +249,10 @@ repeated. Accessors check indices with `HPFEM_ASSERT`.
 - curved geometry: partition of unity of the quadratic shape functions, exact
   reproduction of the affine map with midpoint nodes, a quarter-disc approximated by one
   curved triangle (edge node on the arc, area $4\sqrt2/3 - 1/6$ by the degree-2 midpoint
-  rule, Newton inversion), the same in 3D, `cell_geometry` dispatch, size checks.
+  rule, Newton inversion), the same in 3D, `cell_geometry` dispatch, size checks;
+- refinement: child volumes sum to the parent, equal child volumes, Euler
+  characteristic invariant, refined rectangle equals the finer generated rectangle in
+  counts, tags and vertex set, boundary tags quadruple on the box, repeated refinement,
+  curved P2 area invariant.
 
-Still to come in M1: refinement, VTK export.
+Still to come in M1: VTK export.
