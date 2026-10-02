@@ -8,6 +8,9 @@ add_library(hpfem
   mesh/refinement.cpp
   io/vtk.cpp
   assembly/quadrature.cpp
+  fespace/polynomials.cpp
+  fespace/h1_basis.cpp
+  fespace/dof_map.cpp
 )
 add_library(hpfem::hpfem ALIAS hpfem)
 

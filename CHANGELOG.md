@@ -45,6 +45,10 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - `assembly::gauss_legendre`, `gauss_jacobi` (Golub–Welsch, any order) and collapsed
   `simplex_quadrature<Dim>(order)` on triangle/tetrahedron, positive weights, interior
   points, exactness verified up to order 20; `docs/theory/quadrature.md`.
+- `fespace::legendre` / `scaled_integrated_legendre` recurrences; hierarchical
+  `fespace::H1Basis<Dim>` of arbitrary order with per-entity orders and orientation-aware
+  edge/face functions; `fespace::DofMap<Dim>` with minimum rule, cell DoF lists, facet and
+  tagged-boundary DoFs; `docs/theory/h1-basis.md`.
 
 ## [0.1.0] — 2026-10-02
 ### Added
