@@ -39,6 +39,7 @@ add_library(hpfem
   solvers/linear_solver.cpp
   adaptivity/residual_estimator.cpp
   adaptivity/marking.cpp
+  adaptivity/refinement.cpp
 )
 add_library(hpfem::hpfem ALIAS hpfem)
 

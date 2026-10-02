@@ -31,3 +31,6 @@ hpfem_add_test(convergence_estimator_effectivity convergence
 
 hpfem_add_test(convergence_adaptive_h_refinement convergence
   adaptive_h_refinement.cpp)
+
+hpfem_add_test(convergence_adaptive_p_refinement convergence
+  adaptive_p_refinement.cpp)

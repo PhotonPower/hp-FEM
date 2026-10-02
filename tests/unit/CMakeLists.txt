@@ -66,7 +66,8 @@ hpfem_add_test(test_hanging unit
 
 hpfem_add_test(test_adaptivity unit
   adaptivity/test_residual_estimator.cpp
-  adaptivity/test_marking.cpp)
+  adaptivity/test_marking.cpp
+  adaptivity/test_refinement.cpp)
 
 hpfem_add_test(test_solvers unit
   solvers/test_linear_solver.cpp
