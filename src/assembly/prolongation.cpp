@@ -26,9 +26,7 @@ Vector prolongate(const fespace::EntityDofMap<Dim, Counts>& old_dofs,
                     new_dofs.mesh().num_cells()));
   }
   const auto old_point = [&step](Index cell, const Point<Dim>& xi) {
-    const LocalIndex child = step.child[as_size(cell)];
-    return std::pair{step.parent[as_size(cell)],
-                     child < 0 ? xi : mesh::detail::parent_reference<Dim>(child, xi)};
+    return std::pair{step.parent[as_size(cell)], step.old_reference<Dim>(cell, xi)};
   };
   if constexpr (Counts::kVertexDofs == 1) {
     return interpolate(new_dofs,

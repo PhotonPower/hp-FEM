@@ -40,7 +40,7 @@ mesh::RefinementStep identity_step(Index num_cells) {
   mesh::RefinementStep step;
   step.num_old_cells = num_cells;
   step.parent.resize(as_size(num_cells));
-  step.child.assign(as_size(num_cells), -1);
+  step.path.assign(as_size(num_cells), {});
   for (Index c = 0; c < num_cells; ++c) step.parent[as_size(c)] = c;
   return step;
 }

@@ -40,3 +40,6 @@ hpfem_add_test(convergence_adaptive_hp_refinement convergence
 
 hpfem_add_test(convergence_goal_oriented convergence
   goal_oriented.cpp)
+
+hpfem_add_test(convergence_plasmonic_wedge convergence
+  plasmonic_wedge.cpp)

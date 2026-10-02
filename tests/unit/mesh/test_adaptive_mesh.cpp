@@ -141,12 +141,10 @@ void check_step(const Mesh<Dim>& old_mesh, const Mesh<Dim>& new_mesh, const Refi
     const Index parent = step.parent[as_size(c)];
     REQUIRE(parent >= 0);
     REQUIRE(parent < old_mesh.num_cells());
-    const LocalIndex child = step.child[as_size(c)];
-    const Point<Dim> xi_old =
-        child < 0 ? centre : hpfem::mesh::detail::parent_reference<Dim>(child, centre);
+    const Point<Dim> xi_old = step.old_reference<Dim>(c, centre);
     const Point<Dim> x_old = affine_map(old_mesh, parent).to_physical(xi_old);
     REQUIRE((x_old - affine_map(new_mesh, c).centroid()).norm() < 1e-12);
-    if (child < 0) REQUIRE(new_mesh.cell_vertices(c) == old_mesh.cell_vertices(parent));
+    if (!step.refined(c)) REQUIRE(new_mesh.cell_vertices(c) == old_mesh.cell_vertices(parent));
   }
 }
 

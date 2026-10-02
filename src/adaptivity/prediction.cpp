@@ -21,17 +21,19 @@ std::vector<Real> predict_indicators(std::span<const Real> indicators, std::span
         "orders)",
         indicators.size(), orders.size(), old_cells, step.num_cells(), hp.orders.size()));
   }
-  // children per old cell (to split the h-prediction)
+  // descendants per old cell (to split the h-prediction in the energy sense)
   std::vector<int> children(old_cells, 0);
   for (Index c = 0; c < step.num_cells(); ++c) {
-    if (step.child[as_size(c)] >= 0) ++children[as_size(step.parent[as_size(c)])];
+    if (step.refined(c)) ++children[as_size(step.parent[as_size(c)])];
   }
   std::vector<Real> predicted(as_size(step.num_cells()));
   for (Index c = 0; c < step.num_cells(); ++c) {
     const Index parent = step.parent[as_size(c)];
     const Real eta = indicators[as_size(parent)];
-    if (step.child[as_size(c)] >= 0) {
-      predicted[as_size(c)] = options.gamma_h * std::pow(0.5, orders[as_size(parent)]) * eta /
+    if (step.refined(c)) {
+      // one factor 2^-p per level (the closure may have split several levels)
+      predicted[as_size(c)] = options.gamma_h *
+                              std::pow(0.5, orders[as_size(parent)] * step.levels(c)) * eta /
                               std::sqrt(static_cast<Real>(children[as_size(parent)]));
     } else if (hp.orders[as_size(c)] > orders[as_size(parent)]) {
       predicted[as_size(c)] = options.gamma_p * eta;

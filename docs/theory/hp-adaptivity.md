@@ -159,6 +159,21 @@ and $p$ up to $6$–$7$ outside; the corner cells are never p-refined; the effec
 stays between $2$ and $4$. Beyond $\approx 40\,000$ DoFs the error stalls near $10^{-5}$:
 the direct solver's accuracy on the graded high-order system (M6).
 
+### Plasmonic wedge (`tests/convergence/plasmonic_wedge.cpp`, test #7 second part)
+
+A metal quadrant ($\varepsilon = -9 + 1.2i$, the quadrant $x > 0$, $y < 0$ of $[-1,1]^2$)
+meets vacuum at a $90^\circ$ corner. The quasi-static corner field $E = \nabla(r^\nu\Phi(\psi))$
+with piecewise cosines $\Phi$ and the complex exponent $\nu = 0.5726 - 0.0149i$ from
+$\varepsilon_2\tan(3\pi\nu/4) + \varepsilon_1\tan(\pi\nu/4) = 0$ is curl-free and satisfies
+the interface conditions exactly, so it solves $\nabla\times\nabla\times E - k^2\varepsilon E =
+-k^2\varepsilon E$ with its own trace as boundary data: a manufactured solution with a
+material corner singularity $|E| \sim r^{-0.43}$, stronger than the PEC corner
+($r^{-1/3}$). Uniform refinement would converge like $N^{-0.29}$; the hp loop (Dörfler
+$0.5$, error prediction, from $p = 1$ on 32 cells) reaches an error of $1.3\cdot10^{-3}$ at
+$21\,000$ DoFs from $10.8$ on the start mesh, with $b = 0.28$ in $\exp(-bN^{1/3})$ over
+the last ten steps, an algebraic slope of $-2.0$ for $N \ge 4000$, the corner cells
+h-refined in 112 of 116 decisions and the effectivity index between 1 and 5.3.
+
 ### Adaptive h-refinement on the L-shape (`tests/convergence/adaptive_h_refinement.cpp`)
 
 $E = \nabla(r^{2/3}\sin\tfrac{2\theta}{3})$ on $[-1,1]^2 \setminus [0,1]\times[-1,0]$ with

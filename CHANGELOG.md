@@ -166,6 +166,14 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   crash in `prolongation` / `reduced_index`. Convergence test: goal-driven refinement of
   a point value on the L-shape reaches 1.5e-5 at 6 800 DoFs where energy-driven
   refinement gives 1.3e-3, effectivity 0.5–0.9.
+- Example `plasmonic_dimer` (two gold-like rods with a gap, scattered-field formulation
+  with PML, seven hp steps from a 40 × 40 / p = 2 start, DWR estimate of the gap field,
+  VTK output with orders, levels and indicators) and convergence test #7, second part:
+  the manufactured plasmonic-wedge solution (complex corner exponent 0.573 − 0.015i) is
+  resolved exponentially by the hp loop (b = 0.28, algebraic slope −2.0 against −0.29 for
+  uniform refinement). `RefinementStep` now records multi-level chains (`path`,
+  `old_reference`): the one-irregular closure may split a cell twice in one call. M5
+  complete.
 
 ## [0.1.0] — 2026-10-02
 ### Added

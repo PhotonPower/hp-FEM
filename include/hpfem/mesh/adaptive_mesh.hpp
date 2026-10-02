@@ -19,13 +19,29 @@
 namespace hpfem::mesh {
 
 /// How the leaf cells of a refinement step relate to those before it: cell i of the new
-/// mesh is cell `parent[i]` of the old mesh (`child[i] == -1`) or its child number `child[i]`
-/// (red pattern, `detail::parent_reference` maps reference coordinates).
+/// mesh is cell `parent[i]` of the old mesh itself (`path[i]` empty) or a descendant reached
+/// through the child numbers `path[i]` (red patterns, one entry per level; the closure may
+/// split a cell more than once in one call). `old_reference` maps reference coordinates of
+/// cell i to the old cell.
 struct RefinementStep {
   std::vector<Index> parent;
-  std::vector<LocalIndex> child;
+  std::vector<std::vector<LocalIndex>> path;
   Index num_old_cells = 0;
   [[nodiscard]] Index num_cells() const noexcept { return static_cast<Index>(parent.size()); }
+  /// True if cell i was created in this step.
+  [[nodiscard]] bool refined(Index i) const { return !path[as_size(i)].empty(); }
+  /// Number of levels between cell i and its old cell.
+  [[nodiscard]] int levels(Index i) const { return static_cast<int>(path[as_size(i)].size()); }
+  /// Reference coordinates in the old cell of reference point ξ of cell i.
+  template <int Dim>
+  [[nodiscard]] Point<Dim> old_reference(Index i, const Point<Dim>& xi) const {
+    Point<Dim> x = xi;
+    const auto& chain = path[as_size(i)];
+    for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+      x = detail::parent_reference<Dim>(*it, x);
+    }
+    return x;
+  }
 };
 
 /// Refinement hierarchy over a root mesh. `mesh()` is the current leaf mesh; `refine()`
@@ -33,7 +49,8 @@ struct RefinementStep {
 /// cell is split, every coarser leaf cell sharing a vertex with it and every leaf cell owning
 /// the parent of one of its facets is split first (2:1 balance by vertices and by facets;
 /// the latter matters in 3D, where the inner child face of a face shares no vertex with the
-/// coarse neighbour). Each cell is refined at most once per call. Children inherit the cell tag;
+/// coarse neighbour). The closure may split a cell created in the same call again; the
+/// returned step records the chain of child numbers per new cell. Children inherit the cell tag;
 /// facet tags of the root transfer to the leaf facets lying on tagged root facets; curved roots
 /// place new vertices and edge nodes with the root cell maps.
 template <int Dim>
