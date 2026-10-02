@@ -17,7 +17,7 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] boundary and material tags (physical groups)
 - [x] Gmsh `.msh` v4 reader (ASCII), simple structured generators for tests
 - [x] affine geometry mapping: Jacobian, det, inverse-transpose, per cell
-- [ ] curved (order-2) geometry hook (interface only; implementation in M4)
+- [x] curved (order-2) geometry hook (interface only; implementation in M4)
 - [ ] uniform refinement (bisection in 2D, red-refinement in 3D) → prepares M5
 - [ ] unit tests: Euler characteristic, orientation consistency, boundary extraction
 - [ ] VTK (`.vtu`) export of mesh + cell data
