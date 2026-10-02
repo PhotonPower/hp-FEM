@@ -62,6 +62,10 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `EntityDofMap` (H1 and H(curl) share numbering, minimum rule and facet queries);
   `CellLayout` and shared polynomial kernels. Tests: span = ND_p, de Rham inclusion,
   finite-difference curls, tangential traces, tangential continuity across facets.
+- `assembly::element_maxwell` / `assemble_maxwell`: curl–curl stiffness, mass and load on
+  the Nédélec space with complex tensor ε and μ⁻¹ (covariant Piola map), `hcurl_error`,
+  `evaluate_hcurl`; PEC via `homogeneous_dirichlet` on `NedelecDofMap` (now generic over
+  the DoF map type), PMC natural; `docs/theory/maxwell.md` discrete-forms section.
 
 ## [0.1.0] — 2026-10-02
 ### Added

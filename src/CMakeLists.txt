@@ -15,6 +15,7 @@ add_library(hpfem
   assembly/sparse_assembler.cpp
   assembly/h1_forms.cpp
   assembly/dirichlet.cpp
+  assembly/maxwell_forms.cpp
   solvers/linear_solver.cpp
 )
 add_library(hpfem::hpfem ALIAS hpfem)
