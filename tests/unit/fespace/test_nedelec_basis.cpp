@@ -347,15 +347,17 @@ TEST_CASE("Nedelec basis: tangential traces of foreign entity functions vanish",
   }
 }
 
-TEST_CASE("Nedelec basis spans exactly ND_p (triangle p = 1..4, tetrahedron p = 1..3)",
+TEST_CASE("Nedelec basis spans exactly ND_p (triangle p = 1..6, tetrahedron p = 1..3)",
           "[fespace][nedelec]") {
-  for (const int p : {1, 2, 3, 4}) check_space_is_nedelec<2>(p, 10 + static_cast<unsigned>(p));
+  for (const int p : {1, 2, 3, 4, 5, 6})
+    check_space_is_nedelec<2>(p, 10 + static_cast<unsigned>(p));
   for (const int p : {1, 2, 3}) check_space_is_nedelec<3>(p, 20 + static_cast<unsigned>(p));
 }
 
 TEST_CASE("Nedelec basis contains the gradients of the H1 basis of the same order",
           "[fespace][nedelec]") {
-  for (const int p : {1, 2, 3, 4}) check_contains_gradients<2>(p, 30 + static_cast<unsigned>(p));
+  for (const int p : {1, 2, 3, 4, 5, 6})
+    check_contains_gradients<2>(p, 30 + static_cast<unsigned>(p));
   for (const int p : {1, 2, 3}) check_contains_gradients<3>(p, 40 + static_cast<unsigned>(p));
 }
 

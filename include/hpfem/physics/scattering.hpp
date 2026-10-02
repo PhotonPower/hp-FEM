@@ -8,11 +8,13 @@
 /// scattered field @f$ E^{sc} = E - E^{inc} @f$ of an analytic incident field, whose volume
 /// sources @f$ k_0^2(\varepsilon_r - \varepsilon_{r,b})E^{inc} @f$ and
 /// @f$ -(\mu_r^{-1} - \mu_{r,b}^{-1})\nabla\times E^{inc} @f$ live on the scatterer only.
-/// Boundary conditions: PEC, prescribed incident field, PMC (natural). PML, Bloch and
-/// transparent conditions follow in M4. See docs/theory/maxwell.md#scattering-problems.
+/// Boundary conditions: PEC, prescribed incident field, PMC (natural), and PML as complex
+/// coordinate stretching of the material tensors (`pml::PmlBox`). Bloch-periodic
+/// constraints follow in M4. See docs/theory/maxwell.md#scattering-problems.
 
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <vector>
 
 #include "hpfem/assembly/dirichlet.hpp"
@@ -23,6 +25,7 @@
 #include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/point_location.hpp"
 #include "hpfem/physics/sources.hpp"
+#include "hpfem/pml/pml.hpp"
 
 namespace hpfem::physics {
 
@@ -41,6 +44,7 @@ struct ScatteringSetup {
   std::vector<mesh::Tag> pec_tags;            ///< facets with n × E = 0
   std::vector<mesh::Tag> incident_tags;       ///< facets with n × E = n × E_inc (test domains)
   assembly::ComplexVectorField<Dim> current;  ///< f = iωμ0 J, total-field formulation only
+  std::optional<pml::PmlBox<Dim>> pml;        ///< absorbing layers (stretched material tensors)
   int extra_quadrature_order = 4;             ///< added to 2p for the non-polynomial incident field
 };
 
@@ -95,6 +99,12 @@ class Scattering {
   /// scattered, matching the formulation).
   [[nodiscard]] assembly::HcurlErrorNorms error(const ScatteringSolution<Dim>& solution,
                                                 const IncidentField<Dim>& exact) const;
+  /// The same over a subset of cells (e.g. the interior without the PML).
+  [[nodiscard]] assembly::HcurlErrorNorms error(const ScatteringSolution<Dim>& solution,
+                                                const IncidentField<Dim>& exact,
+                                                std::span<const Index> cells) const;
+  /// Cells whose centroid lies inside the PML box of the setup (all cells without PML).
+  [[nodiscard]] std::vector<Index> interior_cells() const;
 
  private:
   [[nodiscard]] std::vector<Index> facets(const std::vector<mesh::Tag>& tags) const;

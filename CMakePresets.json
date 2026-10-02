@@ -38,7 +38,8 @@
       "output": { "outputOnFailure": true }, "execution": { "jobs": 4 } },
     { "name": "debug",    "inherits": "common", "configurePreset": "debug" },
     { "name": "release",  "inherits": "common", "configurePreset": "release" },
-    { "name": "asan",     "inherits": "common", "configurePreset": "asan" },
+    { "name": "asan",     "inherits": "common", "configurePreset": "asan",
+      "filter": { "include": { "label": "unit" } } },
     { "name": "coverage", "inherits": "common", "configurePreset": "coverage" }
   ]
 }

@@ -93,7 +93,7 @@ ctest --preset release -L unit                # only fast unit tests
 ctest --preset release -R nedelec             # by name
 
 # debug / sanitizers / coverage
-cmake --preset asan && cmake --build --preset asan && ctest --preset asan
+cmake --preset asan && cmake --build --preset asan && ctest --preset asan   # unit tests only
 cmake --preset coverage && cmake --build --preset coverage && ctest --preset coverage
 
 # python package (editable)
@@ -142,6 +142,9 @@ CMake and Ninja (installed via winget), Git for Windows. **Not MSVC.**
   cmake --build build
   ```
 
+- The `asan` test preset runs the unit tests only (label `unit`): the convergence
+  tests take hours under sanitizers at -O0 and exercise no code the unit tests do not;
+  they run in the release configurations.
 - The `asan` preset does not work with MinGW GCC (no AddressSanitizer on
   Windows/MinGW). Sanitizer runs happen in CI (Ubuntu) or in the devcontainer/WSL.
 - The `fast` preset uses `-march=native`; binaries are not portable to other CPUs.

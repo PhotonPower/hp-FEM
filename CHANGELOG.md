@@ -90,6 +90,14 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   Hertz dipole, 2D line dipole via Hankel functions in `core/special_functions.hpp`);
   `assemble_maxwell` with a per-cell form factory. Convergence test: plane wave and
   dipole field reproduced with rate p, scattered and total formulations agree.
+- `pml::PmlBox<Dim>` (M4): perfectly matched layers as complex coordinate stretching
+  around an interior box (polynomial profile, σ_max from the target reflection,
+  stretched coordinates in closed form, effective ε / μ⁻¹ tensors), used by
+  `physics::Scattering` through `ScatteringSetup::pml`. Convergence test #3: plane
+  wave into the layer at normal and 60° incidence, rate p under h-refinement and
+  error below 1e-6 under p-refinement. `hcurl_error` and `Scattering::error` over a
+  cell subset, `Scattering::interior_cells`. Nédélec span/continuity tests extended to
+  p = 6 in 2D; p-refinement tests of the L2 projection and the plane-wave problem.
 
 ## [0.1.0] — 2026-10-02
 ### Added

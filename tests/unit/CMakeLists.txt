@@ -45,6 +45,9 @@ hpfem_add_test(test_maxwell unit
 hpfem_add_test(test_materials unit
   materials/test_material.cpp)
 
+hpfem_add_test(test_pml unit
+  pml/test_pml.cpp)
+
 hpfem_add_test(test_physics unit
   physics/test_sources.cpp
   physics/test_scattering.cpp)
