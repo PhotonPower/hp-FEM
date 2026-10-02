@@ -38,9 +38,9 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] orientation-aware local→global mapping of edge/face functions
 - [x] curl–curl stiffness and mass matrices with complex tensor ε, μ
 - [x] PEC boundary condition, PMC (natural)
-- [ ] Maxwell eigenproblem: shift-invert Arnoldi (Spectra) on `(S − σM)`
-- [ ] gauge handling / kernel filtering (discrete gradients); spurious-mode test
-- [ ] **convergence test #2**: PEC box eigenvalues, rate 2p; zero spurious modes
+- [x] Maxwell eigenproblem: shift-invert Arnoldi (Spectra) on `(S − σM)`
+- [x] gauge handling / kernel filtering (discrete gradients); spurious-mode test
+- [x] **convergence test #2**: PEC box eigenvalues, rate 2p; zero spurious modes
 - [ ] field evaluation at arbitrary points (point location + reference-coordinate inversion)
 - [ ] VTK export of vector fields (cell-averaged + high-order via subdivision)
 

@@ -12,7 +12,9 @@ implementations (deal.II, MFEM, NGSolve, FEniCS) are abundant.
 - **CMake ≥ 3.25** with presets and **Ninja**; dependencies via FetchContent with
   pinned tags, system packages preferred when present.
 - Dense/sparse containers: **Eigen 3.4**. Logging: spdlog/fmt. Config/results: nlohmann_json.
-  Tests: Catch2 v3. Eigensolvers: Spectra (header-only, on top of Eigen) initially.
+  Tests: Catch2 v3. Eigensolvers: Spectra (header-only, on top of Eigen) initially;
+  added in M3 (v1.2.0, FetchContent, real symmetric Lanczos with our own gauge
+  projector; complex / lossy eigenproblems need an Arnoldi variant later).
 - Optional heavy backends behind CMake options: MUMPS, PETSc/SLEPc, MPI.
 - Mesh generation is external (**Gmsh**), hpfem reads `.msh` v4.
 - Code, comments and documentation are in **English**; user-facing conversation may be

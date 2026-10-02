@@ -59,6 +59,33 @@ functions and discrete gradients of the vertex functions in the stiffness kernel
 with rate $p$, tensor coefficients entering linearly, and a vanishing tangential trace on
 PEC boundaries of a solved problem.
 
+## Eigenproblems and gauging (`solvers/eigen_solver.hpp`)
+
+The discrete curl operator has the exact kernel $\nabla W_h$ (discrete de Rham complex),
+so $S e = \lambda M e$ has the eigenvalue $0$ with multiplicity $\dim W_h^0$ (the
+H1 space with the same orders and boundary condition). Nédélec elements produce no
+*other* non-physical eigenvalues; the only task is to keep the Lanczos iteration away
+from this kernel. hpfem does this with the **discrete gradient** $G$
+(`assembly/discrete_gradient.hpp`): because the hierarchical Nédélec basis contains the
+gradients of the H1 basis explicitly, $G$ has entries $\pm1$ (Whitney functions of the
+edges at a vertex) and $1$, and $S G = 0$ holds to rounding; moreover
+$G^T M G = K_{H^1}$, the Poisson stiffness matrix. The shift-invert operator
+$(S - \sigma M)^{-1} M$ is applied together with the $M$-orthogonal projector
+$P = I - G (G^T M G)^{-1} G^T M$ onto the complement of the gradients, which is an
+invariant subspace; with $\sigma < 0$ the matrix $S - \sigma M$ is positive definite
+and the eigenvalues closest to $\sigma$ are the smallest resonances
+(`gauged_curl_curl_eigenpairs`, Spectra `SymGEigsShiftSolver` with Eigen SparseLU).
+PEC enters by restricting all matrices to the free DoFs (`extract`, `free_dofs`).
+Lossless media only for now: lossy or PML eigenproblems are complex symmetric and need
+an Arnoldi variant (M4+).
+
+Convergence test #2 (`tests/convergence/maxwell_cavity.cpp`): the PEC unit square
+($\lambda = \pi^2(m^2+n^2)$) and cube ($\pi^2(m^2+n^2+l^2)$, at least two non-zero
+indices) with $p = 1, 2$; the maximal relative error of the first eigenvalues must
+decay with rate $2p$, no eigenvalue may lie below half the first exact one (zero
+spurious modes), and the unit test compares against a dense generalized eigensolver
+whose zero count equals $\dim W_h^0$.
+
 ## Problem classes
 
 | Class | Unknown | Equation | Used for |

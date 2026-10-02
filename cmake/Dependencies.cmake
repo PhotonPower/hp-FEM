@@ -40,6 +40,20 @@ FetchContent_Declare(nlohmann_json
 set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(nlohmann_json)
 
+# --- Spectra (header-only eigensolvers on top of Eigen) -----------------------
+# SOURCE_SUBDIR points at a directory without CMakeLists.txt so that MakeAvailable only
+# downloads; the target is declared by hand because Spectra's own CMake insists on
+# find_package(Eigen3), which the fetched Eigen does not provide.
+FetchContent_Declare(spectra
+  GIT_REPOSITORY https://github.com/yixuan/spectra.git
+  GIT_TAG v1.2.0 GIT_SHALLOW TRUE
+  SOURCE_SUBDIR cmake_disabled)
+FetchContent_MakeAvailable(spectra)
+add_library(Spectra INTERFACE)
+add_library(Spectra::Spectra ALIAS Spectra)
+target_include_directories(Spectra SYSTEM INTERFACE ${spectra_SOURCE_DIR}/include)
+target_link_libraries(Spectra INTERFACE Eigen3::Eigen)
+
 # --- Catch2 (tests) -----------------------------------------------------------
 if(HPFEM_BUILD_TESTS)
   FetchContent_Declare(Catch2
