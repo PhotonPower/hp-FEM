@@ -235,12 +235,6 @@ void parse_elements(std::istream& in, GmshFile& file, int mesh_dim) {
                       dim, mesh_dim));
     }
     const bool wanted = dim == mesh_dim || dim == mesh_dim - 1;
-    if (wanted && is_higher_order(type)) {
-      throw NotImplemented(fmt::format(
-          "Gmsh: element type {} is of order 2; curved elements arrive with milestone M4, "
-          "export the mesh with element order 1",
-          type));
-    }
     const Tag physical = file.physical_of(entity_dim, entity_tag);
     for (std::size_t i = 0; i < n; ++i) {
       read<std::size_t>(in, "element tag");
@@ -296,21 +290,62 @@ GmshFile parse(std::istream& in, int mesh_dim) {
   return file;
 }
 
+/// Local edges of the extra nodes of Gmsh's second-order simplices (nodes 3.. of the
+/// 6-node triangle, nodes 4.. of the 10-node tetrahedron), as vertex pairs.
+constexpr std::array<std::array<std::size_t, 2>, 3> kTriangle6Edges{{{0, 1}, {1, 2}, {2, 0}}};
+constexpr std::array<std::array<std::size_t, 2>, 6> kTetrahedron10Edges{
+    {{0, 1}, {1, 2}, {0, 2}, {0, 3}, {2, 3}, {1, 3}}};
+
 template <int Dim>
 Mesh<Dim> build(const GmshFile& file, Real scale) {
-  std::vector<Point<Dim>> vertices;
-  vertices.reserve(file.coordinates.size());
-  for (const auto& xyz : file.coordinates) {
-    Point<Dim> p;
-    for (int d = 0; d < Dim; ++d) p(d) = xyz[static_cast<std::size_t>(d)] * scale;
-    vertices.push_back(p);
+  // vertices: every node for first-order files (file order); only the corner nodes of the
+  // elements for second-order files, the other nodes become edge nodes
+  bool any_order2 = false;
+  bool any_order1 = false;
+  for (const auto& e : file.elements) {
+    if (simplex_dimension(e.type) != Dim) continue;
+    (is_higher_order(e.type) ? any_order2 : any_order1) = true;
   }
-
-  const auto vertex_of = [&file](std::size_t node_tag) {
+  if (any_order1 && any_order2) {
+    throw InvalidArgument("Gmsh: file mixes first- and second-order cells; export one order");
+  }
+  const auto node_of = [&file](std::size_t node_tag) {
     if (node_tag >= file.node_index.size() || file.node_index[node_tag] == kInvalidIndex) {
       throw InvalidArgument(fmt::format("Gmsh: element references unknown node {}", node_tag));
     }
     return file.node_index[node_tag];
+  };
+  std::vector<Index> vertex_index(file.coordinates.size(), kInvalidIndex);
+  if (any_order2) {
+    std::vector<char> corner(file.coordinates.size(), 0);
+    for (const auto& e : file.elements) {
+      const std::size_t corners = static_cast<std::size_t>(simplex_dimension(e.type)) + 1;
+      for (std::size_t k = 0; k < corners; ++k) corner[as_size(node_of(e.node_tags[k]))] = 1;
+    }
+    Index next = 0;
+    for (std::size_t i = 0; i < corner.size(); ++i) {
+      if (corner[i] != 0) vertex_index[i] = next++;
+    }
+  } else {
+    for (std::size_t i = 0; i < vertex_index.size(); ++i) vertex_index[i] = static_cast<Index>(i);
+  }
+  std::vector<Point<Dim>> vertices;
+  for (std::size_t i = 0; i < file.coordinates.size(); ++i) {
+    if (vertex_index[i] == kInvalidIndex) continue;
+    Point<Dim> p;
+    for (int d = 0; d < Dim; ++d) p(d) = file.coordinates[i][static_cast<std::size_t>(d)] * scale;
+    vertices.push_back(p);
+  }
+
+  const auto vertex_of = [&](std::size_t node_tag) {
+    const Index v = vertex_index[as_size(node_of(node_tag))];
+    if (v == kInvalidIndex) {
+      throw InvalidArgument(
+          fmt::format("Gmsh: node {} is an edge node of a second-order element but is used as "
+                      "a corner",
+                      node_tag));
+    }
+    return v;
   };
 
   std::vector<typename Mesh<Dim>::CellVertices> cells;
@@ -337,6 +372,27 @@ Mesh<Dim> build(const GmshFile& file, Real scale) {
 
   Mesh<Dim> mesh(std::move(vertices), std::move(cells), std::move(cell_tags));
   mesh.set_facet_tags(facets, facet_tags);
+  if (any_order2) {
+    std::vector<Point<Dim>> nodes;
+    for (Index e = 0; e < mesh.num_edges(); ++e) {
+      const auto& ev = mesh.edge_vertices(e);
+      nodes.push_back(0.5 * (mesh.vertex(ev[0]) + mesh.vertex(ev[1])));
+    }
+    for (const auto& e : file.elements) {
+      if (simplex_dimension(e.type) != Dim) continue;
+      const std::size_t corners = static_cast<std::size_t>(Dim) + 1;
+      for (std::size_t k = corners; k < e.node_tags.size(); ++k) {
+        const auto& pair =
+            Dim == 2 ? kTriangle6Edges[k - corners] : kTetrahedron10Edges[k - corners];
+        const Index edge =
+            mesh.edge_id(vertex_of(e.node_tags[pair[0]]), vertex_of(e.node_tags[pair[1]]));
+        const auto& xyz = file.coordinates[as_size(node_of(e.node_tags[k]))];
+        for (int d = 0; d < Dim; ++d)
+          nodes[as_size(edge)](d) = xyz[static_cast<std::size_t>(d)] * scale;
+      }
+    }
+    mesh.set_edge_nodes(std::move(nodes));
+  }
   for (const auto& [key, name] : file.names) {
     if (key.first == Dim || key.first == Dim - 1) mesh.set_tag_name(key.first, key.second, name);
   }

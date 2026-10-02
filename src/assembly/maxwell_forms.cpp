@@ -1,6 +1,7 @@
 #include "hpfem/assembly/maxwell_forms.hpp"
 
 #include <cmath>
+#include <map>
 #include <vector>
 
 #include "hpfem/assembly/sparse_assembler.hpp"
@@ -90,14 +91,17 @@ MaxwellSystem assemble_maxwell(const fespace::NedelecDofMap<Dim>& dofs,
   SparseAssembler stiffness(n, n);
   SparseAssembler mass(n, n);
   Vector rhs = Vector::Zero(n);
-  std::vector<QuadratureRule<Dim>> rules(static_cast<std::size_t>(dofs.max_order()) + 1);
+  std::map<int, QuadratureRule<Dim>> rules;
   for (Index c = 0; c < mesh.num_cells(); ++c) {
     const int p = dofs.cell_order(c);
-    auto& rule = rules[static_cast<std::size_t>(p)];
-    if (rule.size() == 0) rule = simplex_quadrature<Dim>(2 * p + extra_order);
     const fespace::NedelecBasis<Dim> basis(dofs.cell_layout(c));
     const auto geometry = mesh::cell_geometry(mesh, c);
     const MaxwellForm<Dim> form = form_of_cell(c);
+    // curved cells: the Piola factors are rational, two extra degrees cover them in practice
+    const int order = form.quadrature_order ? *form.quadrature_order
+                                            : 2 * p + extra_order + (geometry->is_affine() ? 0 : 2);
+    auto& rule = rules[order];
+    if (rule.size() == 0) rule = simplex_quadrature<Dim>(order);
     const auto local = element_maxwell(basis, *geometry, rule, form);
     const auto ids = dofs.cell_dofs(c);
     stiffness.add(ids, ids, local.stiffness);
@@ -136,9 +140,10 @@ HcurlErrorNorms hcurl_error(
   Real cln = 0;
   for (const Index c : cells) {
     const int p = dofs.cell_order(c);
-    const auto rule = simplex_quadrature<Dim>(2 * p + extra_order);
     const fespace::NedelecBasis<Dim> basis(dofs.cell_layout(c));
     const auto geometry = mesh::cell_geometry(mesh, c);
+    const auto rule =
+        simplex_quadrature<Dim>(2 * p + extra_order + (geometry->is_affine() ? 0 : 2));
     const Vector coeff = gather(e_h, dofs.cell_dofs(c));
     for (std::size_t q = 0; q < rule.size(); ++q) {
       const auto g = geometry->evaluate(rule.points[q]);

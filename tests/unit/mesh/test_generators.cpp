@@ -1,9 +1,17 @@
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <numbers>
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include "hpfem/assembly/quadrature.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/mesh/generators.hpp"
+#include "hpfem/mesh/geometry.hpp"
+
+using Catch::Approx;
 
 using hpfem::Index;
 using hpfem::Point;
@@ -95,4 +103,92 @@ TEST_CASE("generators reject empty or inverted boxes", "[mesh]") {
   REQUIRE_THROWS_AS(box(1, 1, 0), hpfem::InvalidArgument);
   REQUIRE_THROWS_AS(box(1, 1, 1, Point<3>(0.0, 0.0, 0.0), Point<3>(1.0, -1.0, 1.0)),
                     hpfem::InvalidArgument);
+}
+
+TEST_CASE("disc and ball: boundary on the circle / sphere, tags, curved area and volume",
+          "[mesh][generators]") {
+  const Point<2> c2(0.5, -1.0);
+  const Real r = 1.5;
+  for (const bool curved : {false, true}) {
+    const Mesh<2> d = hpfem::mesh::disc(6, c2, r, curved);
+    REQUIRE(d.num_cells() == 2 * 36);
+    REQUIRE(d.geometry_order() == (curved ? 2 : 1));
+    for (const Index f : d.boundary_facets()) {
+      REQUIRE(d.facet_tag(f) == hpfem::mesh::kDiscBoundary);
+      for (const Index v : d.facet_vertices(f)) {
+        REQUIRE(std::abs((d.vertex(v) - c2).norm() - r) < 1e-12);
+      }
+      if (curved) REQUIRE(std::abs((d.edge_node(f) - c2).norm() - r) < 1e-12);
+    }
+    for (Index c = 0; c < d.num_cells(); ++c) {
+      REQUIRE(hpfem::mesh::affine_map(d, c).det > 0);
+    }
+  }
+  // the curved mesh approximates the area pi r^2 much better than the polygon
+  const auto area = [](const Mesh<2>& m) {
+    Real a = 0;
+    const std::array<Point<2>, 3> midpoints{Point<2>(0.5, 0.0), Point<2>(0.5, 0.5),
+                                            Point<2>(0.0, 0.5)};
+    for (Index c = 0; c < m.num_cells(); ++c) {
+      const auto g = hpfem::mesh::cell_geometry(m, c);
+      for (const auto& q : midpoints)
+        a += std::abs(g->evaluate(q).det) / 6.0;  // exact for det quadratic
+    }
+    return a;
+  };
+  const Real exact = std::numbers::pi * r * r;
+  const Real straight = area(hpfem::mesh::disc(8, c2, r, false));
+  const Real bent = area(hpfem::mesh::disc(8, c2, r, true));
+  REQUIRE(straight < exact);
+  REQUIRE(std::abs(bent - exact) < 0.1 * std::abs(straight - exact));
+  REQUIRE(std::abs(bent - exact) < 1e-2 * exact);
+
+  const Point<3> c3(1.0, 0.0, 2.0);
+  const Mesh<3> b = hpfem::mesh::ball(3, c3, 0.5);
+  REQUIRE(b.num_cells() == 6 * 27);
+  REQUIRE(b.geometry_order() == 2);
+  for (const Index f : b.boundary_facets()) {
+    REQUIRE(b.facet_tag(f) == hpfem::mesh::kDiscBoundary);
+    for (const Index v : b.facet_vertices(f))
+      REQUIRE(std::abs((b.vertex(v) - c3).norm() - 0.5) < 1e-12);
+  }
+  // the map preserves the orientation of every Kuhn tetrahedron (both signs occur)
+  const Mesh<3> cube = box(3, 3, 3, Point<3>(-1.0, -1.0, -1.0), Point<3>(1.0, 1.0, 1.0), false);
+  for (Index c = 0; c < b.num_cells(); ++c) {
+    REQUIRE(hpfem::mesh::affine_map(b, c).det * hpfem::mesh::affine_map(cube, c).det > 0);
+  }
+  const auto volume = [](const Mesh<3>& m) {
+    Real v = 0;
+    const auto rule = hpfem::assembly::simplex_quadrature<3>(3);  // det cubic
+    for (Index c = 0; c < m.num_cells(); ++c) {
+      const auto g = hpfem::mesh::cell_geometry(m, c);
+      for (std::size_t q = 0; q < rule.size(); ++q)
+        v += rule.weights[q] * std::abs(g->evaluate(rule.points[q]).det);
+    }
+    return v;
+  };
+  const Real exact3 = 4.0 / 3.0 * std::numbers::pi * 0.125;
+  const Real straight3 = volume(hpfem::mesh::ball(4, c3, 0.5, false));
+  const Real bent3 = volume(hpfem::mesh::ball(4, c3, 0.5, true));
+  REQUIRE(straight3 < exact3);
+  REQUIRE(std::abs(bent3 - exact3) < 0.2 * std::abs(straight3 - exact3));
+  REQUIRE_THROWS_AS(hpfem::mesh::disc(0), hpfem::InvalidArgument);
+  REQUIRE_THROWS_AS(hpfem::mesh::ball(2, c3, -1.0), hpfem::InvalidArgument);
+}
+
+TEST_CASE("curve_boundary moves only the nodes of the tagged facets", "[mesh][generators]") {
+  Mesh<2> m = rectangle(3, 2);
+  hpfem::mesh::curve_boundary<2>(m, box_tag::kXMax, [](const Point<2>& x) {
+    return Point<2>(1.0 + 0.1 * std::sin(std::numbers::pi * x(1)), x(1));
+  });
+  REQUIRE(m.geometry_order() == 2);
+  for (Index e = 0; e < m.num_edges(); ++e) {
+    const auto& ev = m.edge_vertices(e);
+    const Point<2> mid = 0.5 * (m.vertex(ev[0]) + m.vertex(ev[1]));
+    if (m.is_boundary_facet(e) && m.facet_tag(e) == box_tag::kXMax) {
+      REQUIRE(m.edge_node(e)(0) == Approx(1.0 + 0.1 * std::sin(std::numbers::pi * mid(1))));
+    } else {
+      REQUIRE((m.edge_node(e) - mid).norm() < 1e-15);
+    }
+  }
 }

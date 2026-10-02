@@ -48,7 +48,8 @@ struct ScatteringSetup {
   assembly::ComplexVectorField<Dim> current;  ///< f = iωμ0 J, total-field formulation only
   std::optional<pml::PmlBox<Dim>> pml;        ///< absorbing layers (stretched material tensors)
   std::vector<assembly::PeriodicPair<Dim>> periodic;  ///< Bloch-periodic directions
-  int extra_quadrature_order = 4;  ///< added to 2p for the non-polynomial incident field
+  int extra_quadrature_order = 4;      ///< added to 2p for the non-polynomial incident field
+  int pml_extra_quadrature_order = 6;  ///< added to 2p in PML cells (rational stretched tensors)
 };
 
 /// Coefficients of the unknown field on the DoF map.

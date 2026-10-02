@@ -57,6 +57,9 @@ struct MaxwellForm {
   TensorField<Dim> permittivity;              ///< ε(x)
   ComplexVectorField<Dim> source;             ///< f(x), e.g. iωJ
   ComplexCurlField<Dim> curl_source;          ///< g(x), paired with curl v
+  /// Total degree of the quadrature rule for this cell; overrides the assembler's
+  /// `2 p + extra_order` (plus 2 on curved cells), e.g. for PML cells.
+  std::optional<int> quadrature_order;
 };
 
 /// Element stiffness, mass and load of one cell in `NedelecBasis` function order.

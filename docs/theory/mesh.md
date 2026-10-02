@@ -110,6 +110,14 @@ that share its body diagonal. Vertices are numbered $x$-fastest. Boundary facets
 tag per side (`box_tag::kXMin = 1`, `kXMax = 2`, `kYMin = 3`, …), so boundary conditions
 and Bloch pairs can be addressed without a mesh file.
 
+`disc(n, centre, radius)` and `ball(n, centre, radius)` map the square / cube meshes onto
+the disc / ball with the elliptical map $(u, v) \mapsto (u\sqrt{1 - v^2/2},\,
+v\sqrt{1 - u^2/2})$ (and its three-dimensional analogue), tag the whole boundary with
+`kDiscBoundary = 1` and, by default, project the boundary edge nodes onto the circle /
+sphere with `curve_boundary` (geometry order 2); `curved = false` keeps the polygonal
+boundary for comparisons. `curve_boundary(m, tag, project)` does the same for any tagged
+boundary of any mesh with a user-supplied projection.
+
 ## Gmsh input
 
 `read_gmsh<Dim>(path, scale)` in `mesh/gmsh.hpp` reads **MSH format 4.1, ASCII** (Gmsh
@@ -117,17 +125,18 @@ and Bloch pairs can be addressed without a mesh file.
 
 | Gmsh | hpfem |
 |---|---|
-| elements of dimension $d$ (3-node triangles, 4-node tetrahedra) | cells |
+| elements of dimension $d$ (3-node triangles, 4-node tetrahedra; 6-node / 10-node second-order elements, whose extra nodes become edge nodes) | cells |
 | first physical group of the element's entity | cell tag (`kNoTag` if none) |
-| elements of dimension $d-1$ (2-node lines, 3-node triangles) | facet tags via `set_facet_tags` |
+| elements of dimension $d-1$ (2- or 3-node lines, 3- or 6-node triangles) | facet tags via `set_facet_tags` |
 | `$PhysicalNames` of dimensions $d$ and $d-1$ | `tag_name` / `tag_by_name` |
-| node tags (may be sparse) | vertices in file order |
+| node tags (may be sparse) | vertices in file order (second order: the corner nodes only) |
 | coordinates × `scale` | SI metres; $z$ dropped for $d = 2$ |
 
-Elements of other dimensions are ignored, non-simplex elements (quads, hexes, …) are an
-error, and second-order elements raise `NotImplemented` until the curved-geometry hook of
-M4 exists: export with element order 1 for now. Unknown sections (`$Periodic`,
-`$NodeData`, …) are skipped.
+Elements of other dimensions are ignored, non-simplex elements (quads, hexes, …) and files
+mixing first- and second-order cells are an error. Second-order files (`Mesh.ElementOrder
+= 2`) give curved cells: Gmsh's extra nodes are assigned to the edges by their vertex
+pairs (triangle: (0,1) (1,2) (2,0); tetrahedron: (0,1) (1,2) (0,2) (0,3) (2,3) (1,3)).
+Unknown sections (`$Periodic`, `$NodeData`, …) are skipped.
 
 ## Geometry
 
@@ -169,9 +178,16 @@ with barycentric coordinates $\lambda$, vertices $x_i$ in local order and edge n
 in local edge order. With $m_e$ at the straight midpoints it reduces exactly to the affine
 map. `to_reference` uses a Newton iteration started from the vertex-based affine map.
 
-What M4 adds on top: reading order-2 elements from Gmsh (node permutation of the
-10-node tetrahedron), projecting edge nodes onto CAD boundaries, quadrature of adequate
-order on curved cells, and the PML-compatible rules.
+Curved cells enter everything else through this interface: the assemblers raise the
+quadrature degree by two on non-affine cells (the Piola factors $J^{-T}$ and $\det J$
+are rational), point location inverts the map by Newton, the Dirichlet projections use
+the cell geometry on the boundary, and subdivision places sub-vertices on the curved
+map. Sources of curved meshes: second-order Gmsh files, `disc` / `ball`, and
+`curve_boundary` with a projection. The convergence test
+`tests/convergence/curved_boundary.cpp` shows the point of it: Poisson on the disc and
+the ball ($u = 1 - r^2$) converges with the full rates $p + 1$ in $L^2$ for $p = 1, 2$ on
+curved meshes, while the polygonal boundary caps the $L^2$ rate at 2; a Maxwell plane
+wave with its exact tangential trace on the circle converges with rate $p$.
 
 ### Point location
 

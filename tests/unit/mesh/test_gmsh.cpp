@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <numbers>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -13,6 +14,7 @@
 
 #include "hpfem/core/error.hpp"
 #include "hpfem/mesh/generators.hpp"
+#include "hpfem/mesh/geometry.hpp"
 #include "hpfem/mesh/gmsh.hpp"
 
 using Catch::Matchers::ContainsSubstring;
@@ -260,9 +262,8 @@ TEST_CASE("Gmsh: file overload", "[mesh][gmsh]") {
 TEST_CASE("Gmsh: unsupported formats and elements are rejected with a reason", "[mesh][gmsh]") {
   REQUIRE_THROWS_AS(read2(replace(kSquare, "4.1 0 8", "2.2 0 8")), hpfem::NotImplemented);
   REQUIRE_THROWS_WITH(read2(replace(kSquare, "4.1 0 8", "4.1 1 8")), ContainsSubstring("ASCII"));
-  // triangles declared as 6-node (order 2): element type 9
-  REQUIRE_THROWS_WITH(read2(replace(kSquare, "2 1 2 2\n", "2 1 9 2\n")),
-                      ContainsSubstring("order 2"));
+  // triangles declared as 6-node (order 2) but listed with three nodes: garbage follows
+  REQUIRE_THROWS_AS(read2(replace(kSquare, "2 1 2 2\n", "2 1 9 2\n")), hpfem::InvalidArgument);
   // triangles declared as quadrangles: element type 3
   REQUIRE_THROWS_AS(read2(replace(kSquare, "2 1 2 2\n", "2 1 3 2\n")), hpfem::InvalidArgument);
   // a 2D file read as a 3D mesh has no tetrahedra
@@ -284,4 +285,107 @@ TEST_CASE("Gmsh: unknown sections are skipped", "[mesh][gmsh]") {
       replace(kSquare, "$Nodes\n",
               "$Periodic\n0\n$EndPeriodic\n$Comment\nfree text 1 2 3\n$EndComment\n$Nodes\n");
   REQUIRE(read2(with_extra).num_cells() == 2);
+}
+
+namespace {
+
+// one 6-node triangle whose hypotenuse node lies on the unit circle, plus the 3-node line
+// of that hypotenuse on an entity with physical tag 7
+constexpr const char* kCurvedTriangle = R"(
+$MeshFormat
+4.1 0 8
+$EndMeshFormat
+$Entities
+0 1 1 0
+7 0 0 0 1 1 0 1 7 0
+1 0 0 0 1 1 0 0 0
+$EndEntities
+$Nodes
+1 6 1 6
+2 1 0 6
+1
+2
+3
+4
+5
+6
+0 0 0
+1 0 0
+0 1 0
+0.5 0 0
+0.70710678118654752 0.70710678118654752 0
+0 0.5 0
+$EndNodes
+$Elements
+2 2 1 2
+1 7 8 1
+1 2 3 5
+2 1 9 1
+2 1 2 3 4 5 6
+$EndElements
+)";
+
+// one 10-node tetrahedron, edge (1, 2) bulged onto the unit sphere (Gmsh node order:
+// corners, then edges (0,1) (1,2) (0,2) (0,3) (2,3) (1,3))
+constexpr const char* kCurvedTet = R"(
+$MeshFormat
+4.1 0 8
+$EndMeshFormat
+$Nodes
+1 10 1 10
+3 1 0 10
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+0 0 0
+1 0 0
+0 1 0
+0 0 1
+0.5 0 0
+0.70710678118654752 0.70710678118654752 0
+0 0.5 0
+0 0 0.5
+0 0.5 0.5
+0.5 0 0.5
+$EndNodes
+$Elements
+1 1 1 1
+3 1 11 1
+1 1 2 3 4 5 6 7 8 9 10
+$EndElements
+)";
+
+}  // namespace
+
+TEST_CASE("Gmsh 4.1: second-order triangles and tetrahedra become edge nodes", "[mesh][gmsh]") {
+  const Real s = std::numbers::sqrt2 / 2;
+  const Mesh<2> t = read2(kCurvedTriangle);
+  REQUIRE(t.num_vertices() == 3);
+  REQUIRE(t.num_cells() == 1);
+  REQUIRE(t.geometry_order() == 2);
+  REQUIRE((t.edge_node(t.edge_id(1, 2)) - Point<2>(s, s)).norm() < 1e-14);
+  REQUIRE((t.edge_node(t.edge_id(0, 1)) - Point<2>(0.5, 0.0)).norm() < 1e-14);
+  REQUIRE(t.facet_tag(t.edge_id(1, 2)) == 7);  // the 3-node line carries its entity's tag
+  const auto geometry = hpfem::mesh::cell_geometry(t, 0);
+  REQUIRE((geometry->evaluate(Point<2>(0.5, 0.5)).x - Point<2>(s, s)).norm() < 1e-14);
+
+  const Mesh<3> k = read3(kCurvedTet);
+  REQUIRE(k.num_vertices() == 4);
+  REQUIRE(k.num_edges() == 6);
+  REQUIRE(k.geometry_order() == 2);
+  REQUIRE((k.edge_node(k.edge_id(1, 2)) - Point<3>(s, s, 0.0)).norm() < 1e-14);
+  REQUIRE((k.edge_node(k.edge_id(0, 3)) - Point<3>(0.0, 0.0, 0.5)).norm() < 1e-14);
+  REQUIRE((k.edge_node(k.edge_id(2, 3)) - Point<3>(0.0, 0.5, 0.5)).norm() < 1e-14);
+  REQUIRE((k.edge_node(k.edge_id(1, 3)) - Point<3>(0.5, 0.0, 0.5)).norm() < 1e-14);
+  // scale applies to edge nodes as well
+  std::istringstream in{std::string(kCurvedTet)};
+  const Mesh<3> scaled = hpfem::mesh::read_gmsh<3>(in, 2.0);
+  REQUIRE((scaled.edge_node(scaled.edge_id(1, 2)) - Point<3>(2 * s, 2 * s, 0.0)).norm() < 1e-14);
 }

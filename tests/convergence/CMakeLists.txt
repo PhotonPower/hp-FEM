@@ -13,3 +13,6 @@ hpfem_add_test(convergence_pml_reflection convergence
 
 hpfem_add_test(convergence_bloch_plane_wave convergence
   bloch_plane_wave.cpp)
+
+hpfem_add_test(convergence_curved_boundary convergence
+  curved_boundary.cpp)

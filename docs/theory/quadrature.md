@@ -56,6 +56,12 @@ Properties used by the code and checked by the tests:
 - `simplex_quadrature<1>` is Gauss–Legendre on $[0,1]$, so facet integrals in 2D and
   cell integrals in 1D share the interface.
 
+Rule selection in the assemblers: degree $2p + \text{extra\_order}$ per cell (`extra_order`
+defaults to 2, scattering problems use 4 for the non-polynomial incident fields), plus 2
+on curved (order-2) cells whose Piola factors are rational, and `MaxwellForm::quadrature_order`
+overrides the degree per cell — the PML layer cells of `physics::Scattering` use
+$2p + 6$ (`pml_extra_quadrature_order`) for their rational stretched tensors.
+
 Collapsed rules use more points than symmetric rules of the same degree (e.g. $n^2$ vs.
 roughly $(p+1)(p+2)/6$); they are chosen for simplicity, arbitrary order and positivity.
 Symmetric rules can be added behind the same `QuadratureRule` type if assembly time ever

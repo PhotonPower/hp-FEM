@@ -1,6 +1,7 @@
 #include "hpfem/assembly/h1_forms.hpp"
 
 #include <cmath>
+#include <map>
 #include <vector>
 
 #include "hpfem/assembly/sparse_assembler.hpp"
@@ -51,13 +52,15 @@ AssembledSystem assemble_h1(const fespace::DofMap<Dim>& dofs, const ScalarForm<D
   const Index n = dofs.num_dofs();
   SparseAssembler assembler(n, n);
   Vector rhs = Vector::Zero(n);
-  std::vector<QuadratureRule<Dim>> rules(static_cast<std::size_t>(dofs.max_order()) + 1);
+  std::map<int, QuadratureRule<Dim>> rules;
   for (Index c = 0; c < mesh.num_cells(); ++c) {
     const int p = dofs.cell_order(c);
-    auto& rule = rules[static_cast<std::size_t>(p)];
-    if (rule.size() == 0) rule = simplex_quadrature<Dim>(2 * p + extra_order);
     const fespace::H1Basis<Dim> basis(dofs.cell_layout(c));
     const auto geometry = mesh::cell_geometry(mesh, c);
+    // curved cells: J^-T and det J are rational, two extra degrees cover them in practice
+    const int order = 2 * p + extra_order + (geometry->is_affine() ? 0 : 2);
+    auto& rule = rules[order];
+    if (rule.size() == 0) rule = simplex_quadrature<Dim>(order);
     const auto local = element_h1(basis, *geometry, rule, form);
     const auto ids = dofs.cell_dofs(c);
     assembler.add(ids, ids, local.matrix);
