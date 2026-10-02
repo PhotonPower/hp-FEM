@@ -64,8 +64,8 @@ class Constraints {
   Index num_dofs_;
   Index num_constrained_ = 0;
   std::vector<std::vector<Term>> terms_;  ///< raw (as added) or resolved terms per DoF
-  mutable bool resolved_ = true;
-  mutable std::vector<Index> reduced_;  ///< reduced index per DoF, built on resolve
+  mutable bool resolved_ = false;         ///< the reduced numbering is built on first use
+  mutable std::vector<Index> reduced_;    ///< reduced index per DoF, built on resolve
 };
 
 }  // namespace hpfem::fespace

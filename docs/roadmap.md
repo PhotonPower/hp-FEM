@@ -71,7 +71,7 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] hp-decision: Legendre-coefficient decay / analyticity estimate per element
       (plus the error-prediction strategy, which is the default: the decay of the
       Galerkin solution misjudges unresolved corner cells)
-- [ ] goal-oriented (dual-weighted) estimator for a scalar quantity of interest
+- [x] goal-oriented (dual-weighted) estimator for a scalar quantity of interest
       (e.g. a Fourier coefficient) — needed for scatterometry accuracy claims
 - [x] **convergence test #7**: exponential convergence at re-entrant corner (L-shape,
       then plasmonic wedge) — L-shape done (`adaptive_hp_refinement`); the plasmonic

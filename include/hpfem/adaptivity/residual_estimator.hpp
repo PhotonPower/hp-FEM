@@ -70,6 +70,32 @@ template <int Dim>
     const std::type_identity_t<assembly::CellFormFactory<Dim>>& form_of_cell,
     const EstimatorOptions& options = {});
 
+/// Weighted residual for goal-oriented estimation: the cell contributions
+/// @f$ r_K(w) = \int_K R_K\cdot w + \tfrac12\sum_{F\subset\partial K}\int_F
+/// (n\times[\![w_h]\!])\cdot w @f$ (no conjugation, signed) of a weight @f$ w @f$ given as
+/// coefficients on `weight_dofs` (same mesh, e.g. the orders raised by one); boundary facets
+/// contribute their one-sided term
+/// @f$ \int_F (n	imes w_h)\cdot w @f$ to their cell (the residual of a natural condition),
+/// so that @f$ \sum_K r_K(w) = \ell(w) - a(E_h, w) @f$ for every tangentially continuous
+/// @f$ w @f$.
+template <int Dim>
+[[nodiscard]] std::vector<Complex> weighted_residual(
+    const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h, Real k_squared,
+    const std::type_identity_t<assembly::CellFormFactory<Dim>>& form_of_cell,
+    const fespace::NedelecDofMap<Dim>& weight_dofs, const Vector& weight,
+    const EstimatorOptions& options = {});
+
+extern template std::vector<Complex> weighted_residual<2>(const fespace::NedelecDofMap<2>&,
+                                                          const Vector&, Real,
+                                                          const assembly::CellFormFactory<2>&,
+                                                          const fespace::NedelecDofMap<2>&,
+                                                          const Vector&, const EstimatorOptions&);
+extern template std::vector<Complex> weighted_residual<3>(const fespace::NedelecDofMap<3>&,
+                                                          const Vector&, Real,
+                                                          const assembly::CellFormFactory<3>&,
+                                                          const fespace::NedelecDofMap<3>&,
+                                                          const Vector&, const EstimatorOptions&);
+
 extern template Estimate residual_estimate<2>(const fespace::NedelecDofMap<2>&, const Vector&, Real,
                                               const assembly::CellFormFactory<2>&,
                                               const EstimatorOptions&);

@@ -20,6 +20,7 @@ add_library(hpfem
   physics/farfield.cpp
   physics/diffraction.cpp
   physics/propagating_mode.cpp
+  physics/goal_oriented.cpp
   assembly/quadrature.cpp
   fespace/polynomials.cpp
   fespace/orthogonal_basis.cpp
@@ -33,6 +34,7 @@ add_library(hpfem
   assembly/interpolation.cpp
   assembly/hanging_constraints.cpp
   assembly/prolongation.cpp
+  assembly/functionals.cpp
   assembly/maxwell_forms.cpp
   assembly/discrete_gradient.cpp
   assembly/periodic.cpp
