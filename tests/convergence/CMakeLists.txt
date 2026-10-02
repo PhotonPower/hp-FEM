@@ -25,3 +25,6 @@ hpfem_add_test(convergence_slab_waveguide convergence
 
 hpfem_add_test(convergence_lamellar_grating convergence
   lamellar_grating.cpp)
+
+hpfem_add_test(convergence_estimator_effectivity convergence
+  estimator_effectivity.cpp)
