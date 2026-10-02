@@ -23,3 +23,6 @@ the values match the rigorous coupled-wave reference of
 cmake --build --preset release --target example_lamellar_grating
 ./build/release/examples/example_lamellar_grating
 ```
+
+The same setup as a project file for the Python command line: `hpfem run examples/lamellar_grating/project.json`
+(see `docs/python.md`).

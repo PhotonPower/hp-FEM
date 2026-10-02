@@ -23,3 +23,6 @@ cladding index are box-confined radiation modes of the finite strip.
 cmake --build --preset release --target example_slab_waveguide
 ./build/release/examples/example_slab_waveguide
 ```
+
+The same setup as a project file for the Python command line: `hpfem run examples/slab_waveguide/project.json`
+(see `docs/python.md`).

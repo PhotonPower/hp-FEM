@@ -1,0 +1,23 @@
+{
+  "problem": "scattering",
+  "dim": 2,
+  "length_unit": "um",
+  "mesh": {
+    "type": "rectangle", "nx": 36, "ny": 8, "lower": [-2.0, 0.0], "upper": [2.5, 1.0],
+    "regions": [
+      {"tag": 2, "box": [[-2.0, 0.0], [0.0, 1.0]]},
+      {"tag": 3, "box": [[0.0, 0.0], [0.5, 0.5]]}
+    ]
+  },
+  "order": 3,
+  "wavelength": {"value": 0.8, "unit": "um"},
+  "materials": {"background": "vacuum", "2": {"n": 1.5}, "3": {"n": 2.0}},
+  "formulation": "scattered_field",
+  "source": {"type": "plane_wave", "angle": 180.0, "angle_unit": "deg", "polarisation": "TE"},
+  "pml": {"lower": [-1.0, 0.0], "upper": [1.5, 1.0], "thickness": [1.0, 1.0, 0.0, 0.0], "profile": {"order": 2, "reflection": 1e-10}},
+  "boundaries": {"pec": ["x_min", "x_max"]},
+  "periodic": [{"master": "y_min", "slave": "y_max", "shift": [0.0, 1.0]}],
+  "outputs": {
+    "diffraction": {"period": 1.0, "orders": 1, "x_above": 1.0, "x_below": -0.5, "tag_below": 2, "points": 64}
+  }
+}

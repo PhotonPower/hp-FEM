@@ -20,10 +20,21 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `Drude`, `Constant` with `at(omega)` → core `Material`; library Si, SiO2, Au, Ag, Al, TiO2,
   GaAs, MAPbI3, water, air from the refractiveindex.info database with the original
   references in `python/hpfem/data/*.csv`).
+- `hpfem.project`: JSON / YAML project files (problem type, mesh generator or Gmsh file with
+  regions, order, spectral sweep, materials by tag from the library, source, PML, boundary
+  names, Bloch pairs, solver, outputs: cross-sections, far field, point values, fluxes,
+  diffraction efficiencies, estimate, VTK) with `load` / `validate` / `run`;
+  `hpfem.cli` and the `hpfem` console script (`run`, `validate`, `info`, `materials`);
+  `examples/*/project.json`.
 - `hpfem::parallel_for` rethrows an exception of a loop body on the calling thread (the
   remaining indices are skipped) instead of terminating the process.
 
 ### Fixed
+- `solvers::gauged_curl_curl_eigenpairs` and `generalized_eigenpairs_near` scale the pencil
+  to O(1) matrices internally: on SI meshes (mass entries ~ 1e-14, eigenvalues ~ 1e13)
+  Spectra's absolute thresholds made the Lanczos iteration stop early with non-converged,
+  run-to-run varying eigenvalues. Unit test: eigenvalues of the 1 µm box equal those of
+  the unit box times 1e12 and are reproducible.
 - MinGW builds link the GCC runtime (libstdc++, libgcc, winpthread) statically
   (`HPFEM_STATIC_RUNTIME`, default ON), so test executables no longer crash with
   `STATUS_ENTRYPOINT_NOT_FOUND` when an older `libstdc++-6.dll` (Git for Windows) is

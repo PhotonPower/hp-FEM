@@ -81,6 +81,41 @@ database, CC0):
 setup.materials.set(2, materials.get("Au").at(omega))      # eps_r = (n + ik)^2, Im > 0
 ```
 
+## Project files and the command line
+
+A simulation can be described without Python in a JSON (or YAML) project file and run with
+`hpfem run project.json -o results.json` (also `python -m hpfem run …`); `hpfem validate`
+builds the mesh and the setups without solving, `hpfem info` and `hpfem materials` print
+the build and the material library. `examples/*/project.json` hold the four examples;
+the Mie cylinder reads:
+
+```json
+{
+  "problem": "scattering", "dim": 2, "length_unit": "m",
+  "mesh": {"type": "square_with_disc", "n": 4, "radius": 0.25, "half_width": 1.0, "outer": 2.0, "inclusion_tag": 2},
+  "order": 3,
+  "wavelength": {"value": 1.0471975511965976, "unit": "m"},
+  "materials": {"background": "vacuum", "2": {"n": 1.5}},
+  "formulation": "scattered_field",
+  "source": {"type": "plane_wave", "angle": 0.0, "angle_unit": "deg", "polarisation": "TE"},
+  "pml": {"lower": [-1, -1], "upper": [1, 1], "thickness": 1.0, "profile": {"order": 2, "reflection": 1e-10}},
+  "boundaries": {"pec": ["x_min", "x_max", "y_min", "y_max"]},
+  "outputs": {"cross_sections": {"around_tag": 2}, "far_field": {"around_tag": 2, "directions": 36},
+              "points": [[0.5, 0.1]], "vtk": {"file": "mie_cylinder.vtu", "subdivisions": 3}}
+}
+```
+
+Keys (see the docstring of `hpfem.project` for the full list): `problem` (`scattering`,
+`waveguide`, `cavity`), `mesh.type` (`rectangle`, `box`, `disc`, `ball`, `square_with_disc`,
+`gmsh` with `file`; `regions` re-tag cells whose centroid lies in a box), `wavelength` /
+`frequency` / `energy` with a `unit` (a list runs a sweep), `materials` by tag (library
+name, `{"n": 1.5}`, `{"eps_r": [re, im]}`), `source` (`plane_wave` with `angle` in 2D or
+`direction` + `polarisation` in 3D, `dipole`), `pml`, `boundaries.pec` / `incident` (side
+names `x_min` … `z_max` or tags), `periodic` (Bloch phase from the source), `solver`,
+`outputs` (`cross_sections`, `far_field`, `points`, `flux`, `diffraction`, `estimate`,
+`vtk`). The results are JSON with one entry per spectral point; from Python,
+`hpfem.project.run(spec)` takes the same mapping.
+
 ## Pipeline
 
 ```python

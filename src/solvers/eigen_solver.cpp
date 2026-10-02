@@ -32,6 +32,30 @@ namespace {
 using RealSparse = Eigen::SparseMatrix<Real, Eigen::ColMajor, int>;
 
 /// Real part of a complex sparse matrix; the imaginary part must be negligible.
+/// Largest modulus of the entries (0 for an empty matrix).
+[[nodiscard]] Real max_abs(const RealSparse& matrix) {
+  Real out = 0;
+  for (int col = 0; col < matrix.outerSize(); ++col) {
+    for (RealSparse::InnerIterator it(matrix, col); it; ++it) {
+      out = std::max(out, std::abs(it.value()));
+    }
+  }
+  return out;
+}
+
+/// Scale factors of the pencil (A, B) that make both matrices O(1): Spectra's Lanczos and
+/// Arnoldi use absolute thresholds (near-zero norms, convergence floors), which SI meshes
+/// violate (mass entries ~ h^2 ~ 1e-14, eigenvalues ~ 1e13). With A' = A / a, B' = B / b
+/// the eigenvalues transform as lambda' = lambda * b / a.
+/// @throws InvalidArgument for a zero matrix.
+[[nodiscard]] std::pair<Real, Real> scales(const RealSparse& a, const RealSparse& b,
+                                           const char* function) {
+  const Real sa = max_abs(a);
+  const Real sb = max_abs(b);
+  if (sa <= 0 || sb <= 0) throw InvalidArgument(fmt::format("{}: a matrix is zero", function));
+  return {sa, sb};
+}
+
 RealSparse real_part(const SparseMatrix& matrix, const char* name,
                      const char* function = "gauged_curl_curl_eigenpairs") {
   RealSparse out(static_cast<int>(matrix.rows()), static_cast<int>(matrix.cols()));
@@ -144,8 +168,13 @@ EigenResult generalized_eigenpairs_near(const SparseMatrix& a_full, const Sparse
   if (options.num_eigenvalues < 1) {
     throw InvalidArgument("generalized_eigenpairs_near: num_eigenvalues must be at least 1");
   }
-  const RealSparse a = real_part(a_full, "A", "generalized_eigenpairs_near");
-  const RealSparse b = real_part(b_full, "B", "generalized_eigenpairs_near");
+  RealSparse a = real_part(a_full, "A", "generalized_eigenpairs_near");
+  RealSparse b = real_part(b_full, "B", "generalized_eigenpairs_near");
+  const auto [scale_a, scale_b] = scales(a, b, "generalized_eigenpairs_near");
+  a /= scale_a;
+  b /= scale_b;
+  const Real lambda_scale = scale_a / scale_b;  // lambda = lambda' * lambda_scale
+  sigma /= lambda_scale;
   const Index n = a.rows();
   const Index nev = std::min(options.num_eigenvalues, n - 2);
   Index ncv = options.krylov_dimension > 0 ? options.krylov_dimension : 2 * nev + 10;
@@ -180,7 +209,7 @@ EigenResult generalized_eigenpairs_near(const SparseMatrix& a_full, const Sparse
           "generalized_eigenpairs_near: eigenvalue {} has a non-negligible imaginary part {}",
           l.real(), l.imag()));
     }
-    lambda[as_size(i)] = l.real();
+    lambda[as_size(i)] = l.real() * lambda_scale;
   }
   std::sort(order.begin(), order.end(),
             [&](Index x, Index y) { return lambda[as_size(x)] < lambda[as_size(y)]; });
@@ -201,7 +230,7 @@ EigenResult generalized_eigenpairs_near(const SparseMatrix& a_full, const Sparse
   log().info(
       "generalized_eigenpairs_near: {} eigenvalues in [{:.6g}, {:.6g}] near {:.6g} after {} "
       "iterations",
-      converged, result.eigenvalues.minCoeff(), result.eigenvalues.maxCoeff(), sigma,
+      converged, result.eigenvalues.minCoeff(), result.eigenvalues.maxCoeff(), sigma * lambda_scale,
       solver.num_iterations());
   return result;
 }
@@ -214,9 +243,13 @@ EigenResult gauged_curl_curl_eigenpairs(const SparseMatrix& stiffness, const Spa
   if (options.num_eigenvalues < 1) {
     throw InvalidArgument("gauged_curl_curl_eigenpairs: num_eigenvalues must be at least 1");
   }
-  const RealSparse s = real_part(assembly::extract(stiffness, free_nedelec, free_nedelec), "S");
-  const RealSparse m = real_part(assembly::extract(mass, free_nedelec, free_nedelec), "M");
+  RealSparse s = real_part(assembly::extract(stiffness, free_nedelec, free_nedelec), "S");
+  RealSparse m = real_part(assembly::extract(mass, free_nedelec, free_nedelec), "M");
   const RealSparse g = real_part(assembly::extract(gradient, free_nedelec, free_h1), "G");
+  const auto [scale_s, scale_m] = scales(s, m, "gauged_curl_curl_eigenpairs");
+  s /= scale_s;
+  m /= scale_m;
+  const Real lambda_scale = scale_s / scale_m;  // lambda = lambda' * lambda_scale
   const Index n = s.rows();
   const Index nev = std::min(options.num_eigenvalues, n - 1);
   Index ncv = options.krylov_dimension > 0 ? options.krylov_dimension : 2 * nev + 10;
@@ -230,7 +263,7 @@ EigenResult gauged_curl_curl_eigenpairs(const SparseMatrix& stiffness, const Spa
   ProjectedShiftInvert op(s, m, g);
   Spectra::SparseSymMatProd<Real, Eigen::Lower, Eigen::ColMajor, int> bop(m);
   Spectra::SymGEigsShiftSolver<ProjectedShiftInvert, decltype(bop), Spectra::GEigsMode::ShiftInvert>
-      solver(op, bop, static_cast<int>(nev), static_cast<int>(ncv), options.shift);
+      solver(op, bop, static_cast<int>(nev), static_cast<int>(ncv), options.shift / lambda_scale);
   // start in the gauged subspace: a projected random vector
   RealVector start = RealVector::Random(n);
   start = op.project(start);
@@ -244,8 +277,9 @@ EigenResult gauged_curl_curl_eigenpairs(const SparseMatrix& stiffness, const Spa
         "iterations); increase krylov_dimension or max_iterations",
         converged, nev, solver.num_iterations()));
   }
-  const RealVector values = solver.eigenvalues();
-  const RealMatrix vectors = solver.eigenvectors();
+  const RealVector values = solver.eigenvalues() * lambda_scale;
+  // M'-orthonormal -> M-orthonormal
+  const RealMatrix vectors = solver.eigenvectors() / std::sqrt(scale_m);
   log().info("gauged_curl_curl_eigenpairs: {} eigenvalues in [{:.6g}, {:.6g}] after {} iterations",
              converged, values.minCoeff(), values.maxCoeff(), solver.num_iterations());
 

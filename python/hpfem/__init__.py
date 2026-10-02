@@ -25,9 +25,13 @@ Typical use::
     cs = hpfem.cross_sections(problem, solution, hpfem.Surface2D.around_cells(mesh, 2), 1.0)
 """
 
-from hpfem import _hpfem, materials, units
+from hpfem import _hpfem, materials, project, units  # noqa: E402  (after the core names)
 from hpfem._hpfem import *  # noqa: F401, F403  (the bound API)
-from hpfem._hpfem import version
+from hpfem._hpfem import version  # noqa: E402
 
-__all__ = [name for name in dir(_hpfem) if not name.startswith("_")] + ["units", "materials"]
+__all__ = [name for name in dir(_hpfem) if not name.startswith("_")] + [
+    "units",
+    "materials",
+    "project",
+]
 __version__ = version()

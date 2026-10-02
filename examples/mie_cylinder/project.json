@@ -1,0 +1,19 @@
+{
+  "problem": "scattering",
+  "dim": 2,
+  "length_unit": "m",
+  "mesh": {"type": "square_with_disc", "n": 4, "radius": 0.25, "half_width": 1.0, "outer": 2.0, "inclusion_tag": 2},
+  "order": 3,
+  "wavelength": {"value": 1.0471975511965976, "unit": "m"},
+  "materials": {"background": "vacuum", "2": {"n": 1.5}},
+  "formulation": "scattered_field",
+  "source": {"type": "plane_wave", "angle": 0.0, "angle_unit": "deg", "polarisation": "TE", "amplitude": 1.0},
+  "pml": {"lower": [-1.0, -1.0], "upper": [1.0, 1.0], "thickness": 1.0, "profile": {"order": 2, "reflection": 1e-10}},
+  "boundaries": {"pec": ["x_min", "x_max", "y_min", "y_max"]},
+  "outputs": {
+    "cross_sections": {"around_tag": 2},
+    "far_field": {"around_tag": 2, "directions": 36},
+    "points": [[0.5, 0.1], [0.0, 0.0]],
+    "vtk": {"file": "mie_cylinder.vtu", "subdivisions": 3}
+  }
+}

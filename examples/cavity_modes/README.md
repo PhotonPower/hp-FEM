@@ -22,3 +22,6 @@ see `tests/convergence/maxwell_cavity.cpp` for the rates $2p$.
 cmake --build --preset release --target example_cavity_modes
 ./build/release/examples/example_cavity_modes
 ```
+
+The same setup as a project file for the Python command line: `hpfem run examples/cavity_modes/project.json`
+(see `docs/python.md`).

@@ -24,3 +24,6 @@ for the convergence with $p$.
 cmake --build --preset release --target example_mie_cylinder
 ./build/release/examples/example_mie_cylinder
 ```
+
+The same setup as a project file for the Python command line: `hpfem run examples/mie_cylinder/project.json`
+(see `docs/python.md`).
