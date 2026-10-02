@@ -114,6 +114,41 @@ Third-party libraries are pulled via `FetchContent` in `cmake/Dependencies.cmake
 (Eigen, Catch2, fmt, spdlog, nlohmann_json, pybind11). Heavy optional deps (MUMPS,
 PETSc/SLEPc, Gmsh SDK) are found with `find_package` and guarded by options.
 
+### 4a. Local development on Windows (MSYS2-GCC UCRT64 + CMake + Ninja)
+
+The maintainer develops natively on Windows. Toolchain: **MSYS2 GCC (UCRT64)**,
+CMake and Ninja (installed via winget), Git for Windows. **Not MSVC.**
+
+- Use a shell where `C:\msys64\ucrt64\bin` is on `PATH` (`g++ --version` must
+  report the MSYS2 GCC). Do **not** build from a Visual Studio *Developer / Cross
+  Tools Command Prompt* — CMake may then pick `cl.exe`.
+- If CMake picked the wrong compiler, delete `build/<preset>` and reconfigure with
+  `CC=gcc CXX=g++` set in the environment.
+- `./scripts/setup-dev.sh` is Ubuntu-only. On Windows, install extra tools from the
+  *MSYS2 UCRT64* shell, e.g.
+  `pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-gdb mingw-w64-ucrt-x86_64-clang-tools-extra`.
+- Build and test exactly as above; the presets already use Ninja:
+
+  ```bash
+  cmake --preset release
+  cmake --build --preset release
+  ctest --preset release
+  ```
+
+  Without presets (equivalent quick build):
+
+  ```bash
+  cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+  cmake --build build
+  ```
+
+- The `asan` preset does not work with MinGW GCC (no AddressSanitizer on
+  Windows/MinGW). Sanitizer runs happen in CI (Ubuntu) or in the devcontainer/WSL.
+- The `fast` preset uses `-march=native`; binaries are not portable to other CPUs.
+- CI runs on Ubuntu only. Code must stay portable: no Windows-only headers or
+  APIs in the library, use `std::filesystem` for paths, and keep line endings
+  as configured in `.editorconfig`.
+
 ## 5. Coding conventions (C++)
 
 - **Standard:** C++20. No compiler extensions. Must compile with GCC ≥ 12, Clang ≥ 15.
