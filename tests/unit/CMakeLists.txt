@@ -33,7 +33,9 @@ hpfem_add_test(test_assembly unit
   assembly/test_h1_forms.cpp)
 
 hpfem_add_test(test_maxwell unit
-  assembly/test_maxwell_forms.cpp)
+  assembly/test_maxwell_forms.cpp
+  assembly/test_discrete_gradient.cpp)
 
 hpfem_add_test(test_solvers unit
-  solvers/test_linear_solver.cpp)
+  solvers/test_linear_solver.cpp
+  solvers/test_eigen_solver.cpp)

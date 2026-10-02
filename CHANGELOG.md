@@ -66,6 +66,10 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   the Nédélec space with complex tensor ε and μ⁻¹ (covariant Piola map), `hcurl_error`,
   `evaluate_hcurl`; PEC via `homogeneous_dirichlet` on `NedelecDofMap` (now generic over
   the DoF map type), PMC natural; `docs/theory/maxwell.md` discrete-forms section.
+- `assembly::discrete_gradient` (G with S G = 0, Gᵀ M G = K_H1), `extract`, `free_dofs`;
+  `solvers::gauged_curl_curl_eigenpairs`: shift-invert Lanczos (Spectra 1.2.0, new
+  dependency) with the M-orthogonal gauge projector; convergence test #2 (PEC square and
+  cube eigenvalues, rate 2p, zero spurious modes).
 
 ## [0.1.0] — 2026-10-02
 ### Added

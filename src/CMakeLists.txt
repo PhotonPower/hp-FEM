@@ -16,6 +16,8 @@ add_library(hpfem
   assembly/h1_forms.cpp
   assembly/dirichlet.cpp
   assembly/maxwell_forms.cpp
+  assembly/discrete_gradient.cpp
+  solvers/eigen_solver.cpp
   solvers/linear_solver.cpp
 )
 add_library(hpfem::hpfem ALIAS hpfem)
@@ -27,7 +29,8 @@ target_include_directories(hpfem
     $<INSTALL_INTERFACE:include>)
 
 target_link_libraries(hpfem
-  PUBLIC Eigen3::Eigen fmt::fmt spdlog::spdlog nlohmann_json::nlohmann_json)
+  PUBLIC Eigen3::Eigen fmt::fmt spdlog::spdlog nlohmann_json::nlohmann_json
+  PRIVATE Spectra::Spectra)
 
 target_compile_features(hpfem PUBLIC cxx_std_20)
 if(MINGW AND HPFEM_STATIC_RUNTIME)

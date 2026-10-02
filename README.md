@@ -37,6 +37,7 @@ mkdocs serve                                 # documentation
 | Eigen 3.4 | dense/sparse linear algebra | system or FetchContent |
 | fmt / spdlog | logging | FetchContent |
 | nlohmann_json | configs, results | FetchContent |
+| Spectra 1.2 | shift-invert Lanczos / Arnoldi eigensolvers (header-only) | FetchContent |
 | Catch2 v3 | C++ tests | FetchContent |
 | pybind11 | Python bindings | FetchContent / pip |
 | Gmsh | mesh generation (external tool) | system |
