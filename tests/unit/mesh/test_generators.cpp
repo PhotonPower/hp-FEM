@@ -14,6 +14,7 @@
 using Catch::Approx;
 
 using hpfem::Index;
+using hpfem::kInvalidIndex;
 using hpfem::Point;
 using hpfem::Real;
 using hpfem::mesh::box;
@@ -191,4 +192,39 @@ TEST_CASE("curve_boundary moves only the nodes of the tagged facets", "[mesh][ge
       REQUIRE((m.edge_node(e) - mid).norm() < 1e-15);
     }
   }
+}
+
+TEST_CASE("square_with_disc: inclusion cells, curved interface on the circle, outer tags",
+          "[mesh][generators]") {
+  const Real r = 0.25;
+  const Mesh<2> m = hpfem::mesh::square_with_disc(2, r, 1.0, 1.5, 2);
+  REQUIRE(m.num_cells() == 2 * 24 * 24);  // (1.5 / 0.25) n = 12 cells per half axis
+  REQUIRE(m.geometry_order() == 2);
+  Index inclusion = 0;
+  Index interface = 0;
+  for (Index c = 0; c < m.num_cells(); ++c) {
+    if (m.cell_tag(c) == 2) ++inclusion;
+    REQUIRE(hpfem::mesh::affine_map(m, c).det > 0);
+  }
+  REQUIRE(inclusion == 2 * 4 * 4);  // the inner square has 2n x 2n = 4 x 4 squares
+  for (Index f = 0; f < m.num_facets(); ++f) {
+    const auto& fc = m.facet_cells(f);
+    if (fc[1] == kInvalidIndex) {
+      REQUIRE(m.facet_tag(f) != kNoTag);  // every outer side is tagged
+      continue;
+    }
+    if ((m.cell_tag(fc[0]) == 2) != (m.cell_tag(fc[1]) == 2)) {
+      ++interface;
+      for (const Index v : m.facet_vertices(f)) REQUIRE(m.vertex(v).norm() == Approx(r));
+      REQUIRE(m.edge_node(f).norm() == Approx(r));
+    } else {
+      const auto& ev = m.edge_vertices(f);
+      REQUIRE((m.edge_node(f) - 0.5 * (m.vertex(ev[0]) + m.vertex(ev[1]))).norm() < 1e-15);
+    }
+  }
+  REQUIRE(interface == 4 * 4);  // perimeter of the 4 x 4 inner square in grid edges
+  REQUIRE(m.facets_with_tag(box_tag::kXMax).size() == 24);
+  REQUIRE(m.vertex(0) == Point<2>(-1.5, -1.5));
+  REQUIRE_THROWS_AS(hpfem::mesh::square_with_disc(3, r, 1.0, 1.1), hpfem::InvalidArgument);
+  REQUIRE_THROWS_AS(hpfem::mesh::square_with_disc(2, 0.5, 0.4, 1.0), hpfem::InvalidArgument);
 }

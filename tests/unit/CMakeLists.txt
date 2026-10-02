@@ -53,7 +53,8 @@ hpfem_add_test(test_pml unit
 hpfem_add_test(test_physics unit
   physics/test_sources.cpp
   physics/test_scattering.cpp
-  physics/test_postprocess.cpp)
+  physics/test_postprocess.cpp
+  physics/test_mie.cpp)
 
 hpfem_add_test(test_solvers unit
   solvers/test_linear_solver.cpp

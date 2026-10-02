@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -178,6 +179,75 @@ Mesh<3> ball(Index n, const Point<3>& center, Real radius, bool curved) {
       return Point<3>(center + radius * (x - center).normalized());
     });
   }
+  return m;
+}
+
+}  // namespace hpfem::mesh
+
+namespace hpfem::mesh {
+
+Mesh<2> square_with_disc(Index n, Real radius, Real half_width, Real outer, Tag inclusion_tag) {
+  if (n < 1 || !(radius > 0) || !(half_width > radius) || !(outer >= half_width)) {
+    throw InvalidArgument(fmt::format(
+        "square_with_disc: need n >= 1, 0 < radius < half_width <= outer (got n = {}, radius = "
+        "{}, half_width = {}, outer = {})",
+        n, radius, half_width, outer));
+  }
+  if (inclusion_tag == kNoTag)
+    throw InvalidArgument("square_with_disc: inclusion tag must be non-zero");
+  const Real l = half_width / radius;  // grid coordinate of the square
+  const Real l_out = outer / radius;   // grid coordinate of the outer boundary
+  const Real cells_real = static_cast<Real>(n) * l_out;
+  const Index cells = static_cast<Index>(std::lround(cells_real));
+  if (std::abs(cells_real - static_cast<Real>(cells)) > 1e-9) {
+    throw InvalidArgument(
+        fmt::format("square_with_disc: (outer / radius) n = {} must be an integer number of cells",
+                    cells_real));
+  }
+  const Mesh<2> grid =
+      rectangle(2 * cells, 2 * cells, Point<2>(-l_out, -l_out), Point<2>(l_out, l_out), false);
+  const auto ellipse = [](const Point<2>& q) {
+    return Point<2>(q(0) * std::sqrt(1.0 - 0.5 * q(1) * q(1)),
+                    q(1) * std::sqrt(1.0 - 0.5 * q(0) * q(0)));
+  };
+  std::vector<Point<2>> vertices;
+  vertices.reserve(as_size(grid.num_vertices()));
+  for (const auto& q : grid.vertices()) {
+    const Real s = std::max(std::abs(q(0)), std::abs(q(1)));
+    Point<2> x;
+    if (s <= 1.0 + 1e-12) {
+      x = radius * ellipse(q);
+    } else if (s <= l + 1e-12) {
+      const Real t = (s - 1.0) / (l - 1.0);
+      x = (1.0 - t) * radius * ellipse(q / s) + t * radius * q;
+    } else {
+      x = radius * q;
+    }
+    vertices.push_back(x);
+  }
+  std::vector<Mesh<2>::CellVertices> cells_list(grid.cells().begin(), grid.cells().end());
+  std::vector<Tag> tags;
+  tags.reserve(cells_list.size());
+  for (const auto& cv : cells_list) {
+    bool inside = true;
+    for (const Index v : cv) {
+      const auto& q = grid.vertex(v);
+      if (std::max(std::abs(q(0)), std::abs(q(1))) > 1.0 + 1e-12) inside = false;
+    }
+    tags.push_back(inside ? inclusion_tag : kNoTag);
+  }
+  Mesh<2> m(std::move(vertices), std::move(cells_list), std::move(tags));
+  tag_box_sides(m, Point<2>(-outer, -outer), Point<2>(outer, outer));
+  // curve the interface: facets between inclusion cells and the rest
+  std::vector<Index> interface;
+  for (Index f = 0; f < m.num_facets(); ++f) {
+    const auto& fc = m.facet_cells(f);
+    if (fc[1] == kInvalidIndex) continue;
+    if ((m.cell_tag(fc[0]) == inclusion_tag) != (m.cell_tag(fc[1]) == inclusion_tag))
+      interface.push_back(f);
+  }
+  curve_boundary<2>(m, std::span<const Index>(interface),
+                    [radius](const Point<2>& x) { return Point<2>(radius * x.normalized()); });
   return m;
 }
 
