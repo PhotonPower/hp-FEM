@@ -1,3 +1,6 @@
+# cppcoreguidelines-macro-usage and -avoid-do-while are disabled because HPFEM_ASSERT is a
+# function-like macro with the standard do { } while (false) wrapper; both checks fire on
+# every use of it and carry no signal for us.
 Checks: >
   -*,
   bugprone-*,
@@ -10,7 +13,9 @@ Checks: >
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-pro-bounds-constant-array-index,
   -cppcoreguidelines-avoid-non-const-global-variables,
-  -readability-identifier-length
+  -readability-identifier-length,
+  -cppcoreguidelines-macro-usage,
+  -cppcoreguidelines-avoid-do-while
 WarningsAsErrors: ''
 HeaderFilterRegex: 'include/hpfem/.*'
 FormatStyle: file
