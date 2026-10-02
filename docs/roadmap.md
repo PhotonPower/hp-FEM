@@ -96,8 +96,10 @@ holds. Estimated effort is in rough "focused sessions".
       `python/bindings/bind_*.cpp` (pybind11, `<Name>2D` / `<Name>3D`, NumPy / SciPy at
       the boundary, callbacks with the GIL, exceptions mapped), `python/tests/`,
       `docs/python.md`
-- [ ] `hpfem.units` (nm, µm, eV, THz → SI) and `hpfem.materials` library
-      (Si, SiO₂, Au, Ag, Al, TiO₂, GaAs, perovskite — tabulated n,k with sources)
+- [x] `hpfem.units` (nm, µm, eV, THz → SI) and `hpfem.materials` library
+      (Si, SiO₂, Au, Ag, Al, TiO₂, GaAs, perovskite — tabulated n,k with sources) —
+      `python/hpfem/units.py`, `python/hpfem/materials.py` + `python/hpfem/data/*.csv`
+      (refractiveindex.info, CC0), Sellmeier / Drude–Lorentz / tabulated models
 - [ ] JSON/YAML project files (`hpfem run project.json`) + CLI
 - [ ] meshio / pyvista interop, matplotlib helpers
 - [ ] Jupyter example notebooks
