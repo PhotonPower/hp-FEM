@@ -101,6 +101,34 @@ convention (`Tag`, positive; `kNoTag = 0` means untagged):
 
 Tags never affect topology or numbering and may be edited after construction.
 
+## Generators
+
+`rectangle(nx, ny, lower, upper)` and `box(nx, ny, nz, lower, upper)` in
+`mesh/generators.hpp` build structured meshes of axis-aligned boxes: every square is split
+along the diagonal from $(i,j)$ to $(i+1,j+1)$, every cube into the six Kuhn tetrahedra
+that share its body diagonal. Vertices are numbered $x$-fastest. Boundary facets receive a
+tag per side (`box_tag::kXMin = 1`, `kXMax = 2`, `kYMin = 3`, …), so boundary conditions
+and Bloch pairs can be addressed without a mesh file.
+
+## Gmsh input
+
+`read_gmsh<Dim>(path, scale)` in `mesh/gmsh.hpp` reads **MSH format 4.1, ASCII** (Gmsh
+≥ 4.1, `Mesh.MshFileVersion = 4.1`, binary off). The mapping is:
+
+| Gmsh | hpfem |
+|---|---|
+| elements of dimension $d$ (3-node triangles, 4-node tetrahedra) | cells |
+| first physical group of the element's entity | cell tag (`kNoTag` if none) |
+| elements of dimension $d-1$ (2-node lines, 3-node triangles) | facet tags via `set_facet_tags` |
+| `$PhysicalNames` of dimensions $d$ and $d-1$ | `tag_name` / `tag_by_name` |
+| node tags (may be sparse) | vertices in file order |
+| coordinates × `scale` | SI metres; $z$ dropped for $d = 2$ |
+
+Elements of other dimensions are ignored, non-simplex elements (quads, hexes, …) are an
+error, and second-order elements raise `NotImplemented` until the curved-geometry hook of
+M4 exists: export with element order 1 for now. Unknown sections (`$Periodic`,
+`$NodeData`, …) are skipped.
+
 ## API summary
 
 | call | returns |
@@ -135,6 +163,10 @@ repeated. Accessors check indices with `HPFEM_ASSERT`.
   $n \times n \times n$ cube) and edge rings (six tetrahedra on a cube's body diagonal);
 - non-manifold inputs are rejected;
 - tags: lookup by unordered vertex tuples, tagging from vertex lists, `tag_boundary`
-  counts on structured meshes, names per dimension, error paths.
+  counts on structured meshes, names per dimension, error paths;
+- generators: counts, exact corner coordinates, one side tag per boundary facet;
+- Gmsh: hand-written 2D/3D files with physical groups, a round trip of a generated
+  rectangle with sparse node tags, the file overload, rejected formats and elements,
+  skipped sections.
 
-Still to come in M1: Gmsh input, affine geometry maps, refinement.
+Still to come in M1: affine geometry maps, refinement, VTK export.
