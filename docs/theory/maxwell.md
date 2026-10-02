@@ -258,7 +258,10 @@ assume real pencils); leaky and lossy modes need the complex solver of M6.
 slab (core $n = 1.5$, $d = 1$, cladding $n = 1$, $k_0 d = 2$, a single even TE mode) on a strip
 with PEC walls in $y$, which admits exactly the TE modes $E = E_y(x)$; the effective index
 converges to the root of $\tan(\kappa d/2) = \gamma/\kappa$ with rate $2p$ under h-refinement
-and exponentially under p-refinement (to $10^{-7}$ by $p = 5$). The unit test also checks that
+(least-squares rates 2.0 and 3.7 for $p = 1, 2$; eigenvalue errors wobble from mesh to mesh)
+and exponentially under p-refinement ($2\cdot10^{-3}$, $10^{-7}$, $6\cdot10^{-9}$, $5\cdot10^{-13}$
+for $p = 1..4$ on four cells per unit length; the strip is $\pm12$ long so that the exponential
+tails do not limit the accuracy). The unit test also checks that
 the mode has no longitudinal field and that the setup rejects lossy materials and mismatched
 spaces.
 
