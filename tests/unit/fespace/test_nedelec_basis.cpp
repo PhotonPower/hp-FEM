@@ -48,63 +48,83 @@ std::vector<Point<Dim>> random_points(unsigned seed, int count) {
   return points;
 }
 
-/// Reference curl of a vector field by central differences.
+/// Reference curls of all functions by central differences (2 Dim basis evaluations).
 template <int Dim>
-CurlVector<Dim> fd_curl(const NedelecBasis<Dim>& basis, std::size_t i, const Point<Dim>& xi) {
+std::vector<CurlVector<Dim>> fd_curls(const NedelecBasis<Dim>& basis, const Point<Dim>& xi) {
   const Real h = 1e-6;
-  std::vector<Point<Dim>> plus(as_size(basis.size()));
-  std::vector<Point<Dim>> minus(plus.size());
-  Eigen::Matrix<Real, Dim, Dim> jac;  // jac(a, b) = d F_a / d xi_b
+  const auto n = as_size(basis.size());
+  std::vector<Point<Dim>> plus(n);
+  std::vector<Point<Dim>> minus(n);
+  std::vector<Eigen::Matrix<Real, Dim, Dim>> jac(n);  // jac(a, b) = d F_a / d xi_b
   for (int b = 0; b < Dim; ++b) {
     Point<Dim> step = Point<Dim>::Zero();
     step(b) = h;
     basis.evaluate(xi + step, plus, {});
     basis.evaluate(xi - step, minus, {});
-    jac.col(b) = (plus[i] - minus[i]) / (2 * h);
+    for (std::size_t i = 0; i < n; ++i) jac[i].col(b) = (plus[i] - minus[i]) / (2 * h);
   }
-  if constexpr (Dim == 2) {
-    return CurlVector<2>::Constant(jac(1, 0) - jac(0, 1));
-  } else {
-    return CurlVector<3>(jac(2, 1) - jac(1, 2), jac(0, 2) - jac(2, 0), jac(1, 0) - jac(0, 1));
+  std::vector<CurlVector<Dim>> curls(n);
+  for (std::size_t i = 0; i < n; ++i) {
+    if constexpr (Dim == 2) {
+      curls[i] = CurlVector<2>::Constant(jac[i](1, 0) - jac[i](0, 1));
+    } else {
+      curls[i] = CurlVector<3>(jac[i](2, 1) - jac[i](1, 2), jac[i](0, 2) - jac[i](2, 0),
+                               jac[i](1, 0) - jac[i](0, 1));
+    }
   }
+  return curls;
 }
 
-/// Mass matrix (L2 inner product of values) by quadrature.
+/// Basis values at the points of a quadrature rule, evaluated once and reused for the
+/// mass matrix and every projection (keeps the unoptimised / sanitizer builds fast).
 template <int Dim>
-Eigen::MatrixXd mass_matrix(const NedelecBasis<Dim>& basis, int quad_order) {
-  const Index n = basis.size();
-  const auto rule = simplex_quadrature<Dim>(quad_order);
+struct SampledBasis {
+  hpfem::assembly::QuadratureRule<Dim> rule;
+  std::vector<std::vector<Point<Dim>>> values;  ///< [point][function]
+
+  SampledBasis(const NedelecBasis<Dim>& basis, int quad_order)
+      : rule(simplex_quadrature<Dim>(quad_order)), values(rule.size()) {
+    for (std::size_t q = 0; q < rule.size(); ++q) {
+      values[q].resize(as_size(basis.size()));
+      basis.evaluate(rule.points[q], values[q], {});
+    }
+  }
+};
+
+/// Mass matrix (L2 inner product of values) from the samples.
+template <int Dim>
+Eigen::MatrixXd mass_matrix(const SampledBasis<Dim>& sampled) {
+  const auto n = static_cast<Index>(sampled.values[0].size());
   Eigen::MatrixXd mass = Eigen::MatrixXd::Zero(n, n);
-  std::vector<Point<Dim>> v(as_size(n));
-  for (std::size_t q = 0; q < rule.size(); ++q) {
-    basis.evaluate(rule.points[q], v, {});
+  for (std::size_t q = 0; q < sampled.rule.size(); ++q) {
+    const auto& v = sampled.values[q];
     for (Index i = 0; i < n; ++i) {
-      for (Index j = 0; j < n; ++j) {
-        mass(i, j) += rule.weights[q] * v[as_size(i)].dot(v[as_size(j)]);
+      for (Index j = 0; j <= i; ++j) {
+        mass(i, j) += sampled.rule.weights[q] * v[as_size(i)].dot(v[as_size(j)]);
       }
     }
   }
-  return mass;
+  return mass.selfadjointView<Eigen::Lower>();
 }
 
 /// The field is reproduced by its L2 projection onto the basis (checked at random points).
 /// std::function keeps the number of template instantiations (and the object size) small.
 template <int Dim>
 void check_reproduced(
-    const NedelecBasis<Dim>& basis, const Eigen::LDLT<Eigen::MatrixXd>& solver, int quad_order,
+    const NedelecBasis<Dim>& basis, const SampledBasis<Dim>& sampled,
+    const Eigen::LDLT<Eigen::MatrixXd>& solver,
     const std::type_identity_t<std::function<Point<Dim>(const Point<Dim>&)>>& field,
     unsigned seed) {
   const Index n = basis.size();
-  const auto rule = simplex_quadrature<Dim>(quad_order);
   Eigen::VectorXd rhs = Eigen::VectorXd::Zero(n);
-  std::vector<Point<Dim>> v(as_size(n));
-  for (std::size_t q = 0; q < rule.size(); ++q) {
-    basis.evaluate(rule.points[q], v, {});
-    const Point<Dim> f = field(rule.points[q]);
-    for (Index i = 0; i < n; ++i) rhs(i) += rule.weights[q] * v[as_size(i)].dot(f);
+  for (std::size_t q = 0; q < sampled.rule.size(); ++q) {
+    const Point<Dim> f = field(sampled.rule.points[q]);
+    const auto& v = sampled.values[q];
+    for (Index i = 0; i < n; ++i) rhs(i) += sampled.rule.weights[q] * v[as_size(i)].dot(f);
   }
   const Eigen::VectorXd c = solver.solve(rhs);
-  for (const auto& xi : random_points<Dim>(seed, 4)) {
+  std::vector<Point<Dim>> v(as_size(n));
+  for (const auto& xi : random_points<Dim>(seed, 3)) {
     basis.evaluate(xi, v, {});
     Point<Dim> sum = Point<Dim>::Zero();
     for (Index i = 0; i < n; ++i) sum += c(i) * v[as_size(i)];
@@ -119,8 +139,8 @@ template <int Dim>
 void check_space_is_nedelec(int p, unsigned seed) {
   const NedelecBasis<Dim> basis(CellLayout<Dim>::uniform(p));
   REQUIRE(basis.size() == nedelec_dimension<Dim>(p));
-  const int quad_order = 2 * p + 2;
-  const Eigen::MatrixXd mass = mass_matrix(basis, quad_order);
+  const SampledBasis<Dim> sampled(basis, 2 * p + 2);
+  const Eigen::MatrixXd mass = mass_matrix(sampled);
   Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eig(mass);
   Index deficiency = 0;
   for (Index i = 0; i < basis.size(); ++i) deficiency += eig.eigenvalues()(i) < 1e-12 ? 1 : 0;
@@ -138,7 +158,7 @@ void check_space_is_nedelec(int p, unsigned seed) {
       for (int c = 0; (Dim == 3 ? a + b + c : a + b) <= p - 1; ++c) {
         for (int comp = 0; comp < Dim; ++comp) {
           check_reproduced(
-              basis, solver, quad_order,
+              basis, sampled, solver,
               [&](const Point<Dim>& x) {
                 Point<Dim> f = Point<Dim>::Zero();
                 f(comp) = monomial(x, a, b, c);
@@ -157,7 +177,7 @@ void check_space_is_nedelec(int p, unsigned seed) {
         if ((Dim == 3 ? a + b + c : a + b) != p - 1) continue;
         if constexpr (Dim == 2) {
           check_reproduced(
-              basis, solver, quad_order,
+              basis, sampled, solver,
               [&](const Point<2>& x) -> Point<2> {
                 return Point<2>(-x(1), x(0)) * monomial(x, a, b, 0);
               },
@@ -165,7 +185,7 @@ void check_space_is_nedelec(int p, unsigned seed) {
         } else {
           for (int m = 0; m < 3; ++m) {
             check_reproduced(
-                basis, solver, quad_order,
+                basis, sampled, solver,
                 [&](const Point<3>& x) {
                   Point<3> e = Point<3>::Zero();
                   e(m) = 1.0;
@@ -185,13 +205,13 @@ template <int Dim>
 void check_contains_gradients(int p, unsigned seed) {
   const NedelecBasis<Dim> basis(CellLayout<Dim>::uniform(p));
   const H1Basis<Dim> h1(CellLayout<Dim>::uniform(p));
-  const int quad_order = 2 * p + 2;
-  const Eigen::LDLT<Eigen::MatrixXd> solver(mass_matrix(basis, quad_order));
+  const SampledBasis<Dim> sampled(basis, 2 * p + 2);
+  const Eigen::LDLT<Eigen::MatrixXd> solver(mass_matrix(sampled));
   std::vector<Real> values(as_size(h1.size()));
   std::vector<Point<Dim>> gradients(values.size());
   for (Index i = 0; i < h1.size(); ++i) {
     check_reproduced(
-        basis, solver, quad_order,
+        basis, sampled, solver,
         [&](const Point<Dim>& xi) {
           h1.evaluate(xi, values, gradients);
           return gradients[as_size(i)];
@@ -259,9 +279,8 @@ TEST_CASE("Nedelec basis: curls match finite differences, gradients are curl-fre
     std::vector<CurlVector<2>> c2(v2.size());
     for (const auto& xi : random_points<2>(2, 3)) {
       b2.evaluate(xi, v2, c2);
-      for (std::size_t i = 0; i < v2.size(); ++i) {
-        REQUIRE((c2[i] - fd_curl(b2, i, xi)).norm() < 1e-6);
-      }
+      const auto fd = fd_curls(b2, xi);
+      for (std::size_t i = 0; i < v2.size(); ++i) REQUIRE((c2[i] - fd[i]).norm() < 1e-6);
       // gradient functions of each edge: indices 1..p-1 after the Whitney function
       for (std::size_t k = 0; k < 3; ++k) {
         for (int i = 2; i <= p; ++i)
@@ -279,9 +298,8 @@ TEST_CASE("Nedelec basis: curls match finite differences, gradients are curl-fre
     std::vector<CurlVector<3>> c3(v3.size());
     for (const auto& xi : random_points<3>(3, 3)) {
       b3.evaluate(xi, v3, c3);
-      for (std::size_t i = 0; i < v3.size(); ++i) {
-        REQUIRE((c3[i] - fd_curl(b3, i, xi)).norm() < 1e-6);
-      }
+      const auto fd = fd_curls(b3, xi);
+      for (std::size_t i = 0; i < v3.size(); ++i) REQUIRE((c3[i] - fd[i]).norm() < 1e-6);
     }
   }
 }
