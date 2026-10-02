@@ -51,7 +51,7 @@ holds. Estimated effort is in rough "focused sessions".
       polynomial profile, adaptive σ from wavelength and cell size
 - [x] Bloch-periodic constraints (`E(x+a) = e^{ik·a} E(x)`) via constrained DoFs
 - [x] curved elements (isoparametric order 2) + PML-compatible quadrature
-- [ ] post-processing: Poynting flux through surfaces, absorption, scattering
+- [x] post-processing: Poynting flux through surfaces, absorption, scattering
       cross-section, far field (Stratton–Chu), Fourier/diffraction coefficients
 - [ ] `physics::PropagatingMode`: 2D waveguide cross-section eigenproblem for
       effective index (quadratic → linearized)

@@ -119,6 +119,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - `physics/mie.hpp` (Mie series of the dielectric cylinder, H_z polarisation),
   `mesh::square_with_disc` (box with a curved circular inclusion and PML space) and
   convergence test #4: the FEM scattering width converges to the Mie value.
+- `physics::FarField` (Stratton–Chu far-field pattern, radiated power and
+  cross-section from a closed surface, 2D and 3D) and `physics/diffraction.hpp`
+  (`fourier_coefficients`, `diffraction_efficiencies` of Bloch-periodic problems).
 
 ## [0.1.0] — 2026-10-02
 ### Added
