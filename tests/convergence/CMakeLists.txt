@@ -22,3 +22,6 @@ hpfem_add_test(convergence_mie_cylinder convergence
 
 hpfem_add_test(convergence_slab_waveguide convergence
   slab_waveguide.cpp)
+
+hpfem_add_test(convergence_lamellar_grating convergence
+  lamellar_grating.cpp)

@@ -58,7 +58,7 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] **convergence test #3**: PML reflection < 1e-6 for plane wave
 - [x] **convergence test #4**: Mie cylinder (2D) cross section vs. series
 - [x] **convergence test #5**: slab waveguide n_eff
-- [ ] **convergence test #6**: lamellar grating efficiencies vs. RCWA
+- [x] **convergence test #6**: lamellar grating efficiencies vs. RCWA
 - [ ] examples: `cavity_modes`, `mie_cylinder`, `slab_waveguide`, `lamellar_grating`
 
 ## M5 — Adaptivity: a-posteriori estimation and hp-refinement (≈ 10)

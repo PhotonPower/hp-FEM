@@ -127,6 +127,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   nonsymmetric shift-invert Arnoldi for indefinite pencils); `assemble_h1` with a
   per-cell form factory. Convergence test #5: slab waveguide effective index with rate
   2p and exponential p-convergence.
+- Convergence test #6: lamellar grating diffraction efficiencies (Bloch unit cell, PML,
+  scattered-field formulation, Fourier coefficients above and below) against an RCWA
+  with Li's rules written in the test.
 
 ## [0.1.0] — 2026-10-02
 ### Added
