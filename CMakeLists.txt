@@ -15,6 +15,7 @@ option(HPFEM_BUILD_EXAMPLES   "Build the example programs"               ON)
 option(HPFEM_BUILD_DOCS       "Add 'doxygen' target"                     OFF)
 option(HPFEM_ENABLE_MPI       "Enable MPI (distributed solvers)"         OFF)
 option(HPFEM_ENABLE_MUMPS     "Enable MUMPS direct solver backend"       OFF)
+option(HPFEM_ENABLE_OPENMP    "Parallel assembly / estimation with OpenMP" ON)
 option(HPFEM_ENABLE_ASSERTS   "Keep HPFEM_ASSERT active in Release"      ON)
 option(HPFEM_WARNINGS_AS_ERRORS "Treat compiler warnings as errors"      ON)
 # MinGW only: link libstdc++/libgcc/winpthread statically so that executables and the

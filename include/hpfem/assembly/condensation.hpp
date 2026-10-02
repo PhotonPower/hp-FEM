@@ -15,6 +15,7 @@
 /// direct solver factorises a matrix whose coupled part has only the exterior unknowns.
 /// See docs/theory/solvers.md#static-condensation.
 
+#include <mutex>
 #include <span>
 #include <vector>
 
@@ -31,7 +32,8 @@ class StaticCondensation {
   /// Condenses the local system of one cell in place: `dofs` are the cell's global DoFs in
   /// local order with the last `num_interior` being the interior ones; `local` and `load`
   /// shrink to the exterior block and `exterior` receives the exterior DoFs. The recovery
-  /// data of the cell is stored. Cells without interior DoFs pass through unchanged.
+  /// data of the cell is stored (thread-safe, callable from parallel cell loops). Cells
+  /// without interior DoFs pass through unchanged.
   /// @throws Error if the interior block is singular.
   void condense(std::span<const Index> dofs, Index num_interior, Matrix& local, Vector& load,
                 std::vector<Index>& exterior);
@@ -54,6 +56,7 @@ class StaticCondensation {
   Index num_dofs_;
   Index num_interior_ = 0;
   std::vector<Cell> cells_;
+  std::mutex mutex_;
 };
 
 }  // namespace hpfem::assembly

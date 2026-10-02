@@ -108,8 +108,8 @@ pip install -r docs/requirements.txt && mkdocs serve
 ```
 
 CMake options: `HPFEM_BUILD_TESTS`, `HPFEM_BUILD_EXAMPLES`, `HPFEM_BUILD_PYTHON`,
-`HPFEM_BUILD_BENCHMARKS`, `HPFEM_BUILD_DOCS`, `HPFEM_ENABLE_MPI` (off until milestone
-M6), `HPFEM_ENABLE_MUMPS`.
+`HPFEM_BUILD_BENCHMARKS`, `HPFEM_BUILD_DOCS`, `HPFEM_ENABLE_MPI` (off), `HPFEM_ENABLE_MUMPS`
+(preset `mumps`), `HPFEM_ENABLE_OPENMP` (on by default).
 
 Third-party libraries are pulled via `FetchContent` in `cmake/Dependencies.cmake`
 (Eigen, Catch2, fmt, spdlog, nlohmann_json, pybind11). Heavy optional deps (MUMPS,

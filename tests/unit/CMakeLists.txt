@@ -38,7 +38,8 @@ hpfem_add_test(test_assembly unit
   assembly/test_sparse_assembler.cpp
   assembly/test_dirichlet.cpp
   assembly/test_h1_forms.cpp
-  assembly/test_condensation.cpp)
+  assembly/test_condensation.cpp
+  assembly/test_parallel.cpp)
 
 hpfem_add_test(test_maxwell unit
   assembly/test_maxwell_forms.cpp

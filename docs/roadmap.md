@@ -82,10 +82,11 @@ holds. Estimated effort is in rough "focused sessions".
       build) behind `solvers::LinearSolver` / `DirectSolverBackend` (ADR-0007); PARDISO
       can follow as another backend
 - [x] static condensation of interior (cell-bubble) DoFs
-- [ ] OpenMP parallel assembly (colouring or per-thread COO buffers)
+- [x] OpenMP parallel assembly (colouring or per-thread COO buffers) — per-thread buffers,
+      also the estimator loops
 - [ ] parameter sweeps / reduced basis hooks (frequency, angle, geometry parameters)
 - [ ] optional: MPI domain decomposition (own ADR before starting)
-- [ ] benchmarks recorded in `benchmarks/results/`
+- [x] benchmarks recorded in `benchmarks/results/` (`bench_assembly_solve`)
 
 ## M7 — Python API & usability (≈ 6)
 - [ ] bindings for mesh, spaces, materials, problems, solvers, post-processing

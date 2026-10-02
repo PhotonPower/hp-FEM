@@ -19,7 +19,8 @@ jobs:
       matrix:
         include:
           - { os: ubuntu-24.04, cc: gcc-13,  cxx: g++-13,     preset: release }
-          - { os: ubuntu-24.04, cc: clang-18, cxx: clang++-18, preset: release }
+          - { os: ubuntu-24.04, cc: clang-18, cxx: clang++-18, preset: release,
+              extra: "libomp-18-dev" }
           - { os: ubuntu-24.04, cc: gcc-13,  cxx: g++-13,     preset: asan }
           - { os: ubuntu-24.04, cc: gcc-13,  cxx: g++-13,     preset: mumps,
               extra: "libmumps-seq-dev libmumps-headers-dev" }
@@ -43,7 +44,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y ninja-build libeigen3-dev clang-tidy-18
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build libeigen3-dev clang-tidy-18 libomp-18-dev
       - run: cmake --preset debug
       - run: |
           # only the sources of this configuration (optional backends are not in the database)

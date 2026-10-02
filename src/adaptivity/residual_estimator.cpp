@@ -13,6 +13,7 @@
 #include "hpfem/assembly/sparse_assembler.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/core/parallel.hpp"
 #include "hpfem/fespace/nedelec_basis.hpp"
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/mesh/simplex_topology.hpp"
@@ -180,6 +181,87 @@ Real facet_diameter(const mesh::Mesh<Dim>& mesh, Index f) {
   }
 }
 
+/// Per-thread caches of quadrature rules (the loops run in parallel).
+template <int Dim>
+class RuleCache {
+ public:
+  explicit RuleCache(int threads) : cells_(as_size(threads)), facets_(as_size(threads)) {}
+  [[nodiscard]] const assembly::QuadratureRule<Dim>& cell(int thread, int order) {
+    auto& rule = cells_[as_size(thread)][order];
+    if (rule.size() == 0) rule = assembly::simplex_quadrature<Dim>(order);
+    return rule;
+  }
+  [[nodiscard]] const assembly::QuadratureRule<Dim - 1>& facet(int thread, int order) {
+    auto& rule = facets_[as_size(thread)][order];
+    if (rule.size() == 0) rule = assembly::simplex_quadrature<Dim - 1>(std::max(order, 1));
+    return rule;
+  }
+
+ private:
+  std::vector<std::map<int, assembly::QuadratureRule<Dim>>> cells_;
+  std::vector<std::map<int, assembly::QuadratureRule<Dim - 1>>> facets_;
+};
+
+/// The two sides of a facet in the jump loops: the second cell, or the cell behind the
+/// parent of a hanging child facet, or none (boundary) / skipped (hanging parent).
+struct FacetSides {
+  Index c0 = kInvalidIndex;
+  Index c1 = kInvalidIndex;
+  bool skip = false;
+  bool boundary = false;
+};
+
+template <int Dim>
+FacetSides facet_sides(const mesh::Mesh<Dim>& mesh, Index f) {
+  FacetSides sides;
+  const auto& cells = mesh.facet_cells(f);
+  sides.c0 = cells[0];
+  sides.c1 = cells[1];
+  if (sides.c1 == kInvalidIndex) {
+    const Index parent = mesh.hanging_parent_facet(f);
+    if (parent != kInvalidIndex) {
+      sides.c1 = mesh.facet_cells(parent)[0];
+    } else if (mesh.facet_hanging_role(f) == mesh::Mesh<Dim>::HangingRole::kParent) {
+      sides.skip = true;  // covered by its children
+    } else {
+      sides.boundary = true;
+    }
+  }
+  return sides;
+}
+
+/// Quadrature point q of the facet rule on local facet k0 of cell c0: reference point in
+/// c0, outward unit normal and the measure factor.
+template <int Dim>
+void facet_point(const mesh::CellGeometry<Dim>& geometry, LocalIndex k0,
+                 const Point<Dim>& centroid0, const assembly::QuadratureRule<Dim - 1>& rule,
+                 std::size_t q, Point<Dim>& xi0, Point<Dim>& n, Real& measure) {
+  using Topology = mesh::SimplexTopology<Dim>;
+  const auto& lv = Topology::kFacetVertices[static_cast<std::size_t>(k0)];
+  const Point<Dim> xi_a = reference_vertex<Dim>(lv[0]);
+  const Point<Dim> xi_b = reference_vertex<Dim>(lv[1]);
+  if constexpr (Dim == 2) {
+    const Real t = rule.points[q](0);
+    xi0 = xi_a + t * (xi_b - xi_a);
+    const auto g = geometry.evaluate(xi0);
+    const Point<2> tangent = g.jacobian * (xi_b - xi_a);
+    measure = tangent.norm();
+    n = Point<2>(tangent(1), -tangent(0)) / measure;
+    if (n.dot(g.x - centroid0) < 0) n = -n;
+  } else {
+    const Point<3> xi_c = reference_vertex<3>(lv[2]);
+    const auto& eta = rule.points[q];
+    xi0 = xi_a + eta(0) * (xi_b - xi_a) + eta(1) * (xi_c - xi_a);
+    const auto g = geometry.evaluate(xi0);
+    const Point<3> ta = g.jacobian * (xi_b - xi_a);
+    const Point<3> tb = g.jacobian * (xi_c - xi_a);
+    const Point<3> nn = ta.cross(tb);
+    measure = nn.norm();
+    n = nn / measure;
+    if (n.dot(g.x - centroid0) < 0) n = -n;
+  }
+}
+
 }  // namespace
 
 Real Estimate::total() const {
@@ -199,7 +281,6 @@ Estimate residual_estimate(const fespace::NedelecDofMap<Dim>& dofs, const Vector
                            Real k_squared,
                            const std::type_identity_t<assembly::CellFormFactory<Dim>>& form_of_cell,
                            const EstimatorOptions& options) {
-  using Topology = mesh::SimplexTopology<Dim>;
   if (e_h.size() != dofs.num_dofs()) {
     throw InvalidArgument("residual_estimate: coefficient vector does not match the DoF map");
   }
@@ -210,21 +291,7 @@ Estimate residual_estimate(const fespace::NedelecDofMap<Dim>& dofs, const Vector
   const Index num_cells = mesh.num_cells();
   Estimate out;
   out.parts.assign(as_size(num_cells), ResidualParts{});
-  std::map<int, assembly::QuadratureRule<Dim>> cell_rules;
-  std::map<int, assembly::QuadratureRule<Dim - 1>> facet_rules;
-  const auto cell_rule = [&](int order) -> const assembly::QuadratureRule<Dim>& {
-    auto& rule = cell_rules[order];
-    if (rule.size() == 0) rule = assembly::simplex_quadrature<Dim>(order);
-    return rule;
-  };
-  const auto facet_rule = [&](int order) -> const assembly::QuadratureRule<Dim - 1>& {
-    auto& rule = facet_rules[order];
-    if (rule.size() == 0) rule = assembly::simplex_quadrature<Dim - 1>(std::max(order, 1));
-    return rule;
-  };
-  const auto make_sampler = [&](Index c) {
-    return CellSampler<Dim>(dofs, e_h, c, form_of_cell(c), k_squared);
-  };
+  RuleCache<Dim> rules(num_threads());
   const auto quadrature_order = [&](const CellSampler<Dim>& s, int p) {
     return s.form().quadrature_order
                ? *s.form().quadrature_order
@@ -232,10 +299,10 @@ Estimate residual_estimate(const fespace::NedelecDofMap<Dim>& dofs, const Vector
   };
 
   // --- element terms --------------------------------------------------------------------------
-  for (Index c = 0; c < num_cells; ++c) {
-    CellSampler<Dim> sample = make_sampler(c);
+  parallel_for(num_cells, [&](Index c, int thread) {
+    CellSampler<Dim> sample(dofs, e_h, c, form_of_cell(c), k_squared);
     const int p = dofs.cell_order(c);
-    const auto& rule = cell_rule(quadrature_order(sample, p));
+    const auto& rule = rules.cell(thread, quadrature_order(sample, p));
     const Real h = sample.geometry().h();
     const Real weight = (h / p) * (h / p);
     Real element = 0;
@@ -253,75 +320,59 @@ Estimate residual_estimate(const fespace::NedelecDofMap<Dim>& dofs, const Vector
     auto& parts = out.parts[as_size(c)];
     parts.element = weight * element;
     parts.divergence = options.divergence_terms ? weight * divergence : 0.0;
-  }
+  });
 
-  // --- facet jumps ----------------------------------------------------------------------------
-  for (Index f = 0; f < mesh.num_facets(); ++f) {
-    const auto& cells = mesh.facet_cells(f);
-    const Index c0 = cells[0];
-    Index c1 = cells[1];
-    if (c1 == kInvalidIndex) {
-      // boundary facets and hanging parents (covered by their children) carry no jump; a
-      // hanging child facet faces the cell of its parent facet
-      const Index parent = mesh.hanging_parent_facet(f);
-      if (parent == kInvalidIndex) continue;
-      c1 = mesh.facet_cells(parent)[0];
-    }
+  // --- facet jumps (per facet, accumulated into the two cells afterwards) ---------------------
+  const Index num_facets = mesh.num_facets();
+  std::vector<Real> tangential(as_size(num_facets), 0.0);
+  std::vector<Real> normal_flux(as_size(num_facets), 0.0);
+  std::vector<Real> weights(as_size(num_facets), 0.0);
+  std::vector<FacetSides> sides(as_size(num_facets));
+  parallel_for(num_facets, [&](Index f, int thread) {
+    sides[as_size(f)] = facet_sides(mesh, f);
+    const FacetSides& side = sides[as_size(f)];
+    if (side.skip || side.boundary) return;
+    const Index c0 = side.c0;
+    const Index c1 = side.c1;
     const LocalIndex k0 = mesh.facet_local_indices(f)[0];
-    CellSampler<Dim> sample0 = make_sampler(c0);
-    CellSampler<Dim> sample1 = make_sampler(c1);
-    const int p0 = dofs.cell_order(c0);
-    const int p1 = dofs.cell_order(c1);
-    const int p_f = std::max(p0, p1);
-    const auto& rule =
-        facet_rule(2 * p_f + options.extra_order + (sample0.geometry().is_affine() ? 0 : 2));
-    const auto& lv = Topology::kFacetVertices[static_cast<std::size_t>(k0)];
-    const Point<Dim> xi_a = reference_vertex<Dim>(lv[0]);
-    const Point<Dim> xi_b = reference_vertex<Dim>(lv[1]);
+    CellSampler<Dim> sample0(dofs, e_h, c0, form_of_cell(c0), k_squared);
+    CellSampler<Dim> sample1(dofs, e_h, c1, form_of_cell(c1), k_squared);
+    const int p_f = std::max(dofs.cell_order(c0), dofs.cell_order(c1));
+    const auto& rule = rules.facet(
+        thread, 2 * p_f + options.extra_order + (sample0.geometry().is_affine() ? 0 : 2));
     const Point<Dim> centroid0 = mesh::affine_map(mesh, c0).centroid();
-    Real tangential = 0;
-    Real normal_flux = 0;
+    Real t_sum = 0;
+    Real n_sum = 0;
     for (std::size_t q = 0; q < rule.size(); ++q) {
       Point<Dim> xi0;
       Point<Dim> n;
       Real measure = 0;
-      if constexpr (Dim == 2) {
-        const Real t = rule.points[q](0);
-        xi0 = xi_a + t * (xi_b - xi_a);
-        const auto g = sample0.geometry().evaluate(xi0);
-        const Point<2> tangent = g.jacobian * (xi_b - xi_a);
-        measure = tangent.norm();
-        n = Point<2>(tangent(1), -tangent(0)) / measure;
-        if (n.dot(g.x - centroid0) < 0) n = -n;
-      } else {
-        const Point<3> xi_c = reference_vertex<3>(lv[2]);
-        const auto& eta = rule.points[q];
-        xi0 = xi_a + eta(0) * (xi_b - xi_a) + eta(1) * (xi_c - xi_a);
-        const auto g = sample0.geometry().evaluate(xi0);
-        const Point<3> ta = g.jacobian * (xi_b - xi_a);
-        const Point<3> tb = g.jacobian * (xi_c - xi_a);
-        const Point<3> nn = ta.cross(tb);
-        measure = nn.norm();
-        n = nn / measure;
-        if (n.dot(g.x - centroid0) < 0) n = -n;
-      }
+      facet_point<Dim>(sample0.geometry(), k0, centroid0, rule, q, xi0, n, measure);
       const Sample<Dim> s0 = sample0(xi0);
       const Sample<Dim> s1 = sample1(sample1.geometry().to_reference(s0.x));
       const Real ds = rule.weights[q] * measure;
       const Curl<Dim> jump_w = s0.w - s1.w;
       if constexpr (Dim == 2) {
-        tangential += ds * jump_w.squaredNorm();  // |n × (w ẑ)| = |w|
+        t_sum += ds * jump_w.squaredNorm();  // |n × (w ẑ)| = |w|
       } else {
-        tangential += ds * cross(n.template cast<Complex>(), jump_w).squaredNorm();
+        t_sum += ds * cross(n.template cast<Complex>(), jump_w).squaredNorm();
       }
       const Vec<Dim> jump_d = s0.d - s1.d;
-      normal_flux += ds * std::norm(n.template cast<Complex>().dot(jump_d));
+      n_sum += ds * std::norm(n.template cast<Complex>().dot(jump_d));
     }
-    const Real weight = facet_diameter(mesh, f) / (2.0 * p_f);
-    for (const Index c : {c0, c1}) {
+    tangential[as_size(f)] = t_sum;
+    normal_flux[as_size(f)] = n_sum;
+    weights[as_size(f)] = facet_diameter(mesh, f) / (2.0 * p_f);
+  });
+  for (Index f = 0; f < num_facets; ++f) {
+    const FacetSides& side = sides[as_size(f)];
+    if (side.skip || side.boundary) continue;
+    for (const Index c : {side.c0, side.c1}) {
       auto& parts = out.parts[as_size(c)];
-      parts.tangential_jump += weight * tangential;
-      if (options.divergence_terms) parts.normal_jump += weight * normal_flux;
+      parts.tangential_jump += weights[as_size(f)] * tangential[as_size(f)];
+      if (options.divergence_terms) {
+        parts.normal_jump += weights[as_size(f)] * normal_flux[as_size(f)];
+      }
     }
   }
 
@@ -340,7 +391,6 @@ std::vector<Complex> weighted_residual(
     const std::type_identity_t<assembly::CellFormFactory<Dim>>& form_of_cell,
     const fespace::NedelecDofMap<Dim>& weight_dofs, const Vector& weight,
     const EstimatorOptions& options) {
-  using Topology = mesh::SimplexTopology<Dim>;
   if (e_h.size() != dofs.num_dofs()) {
     throw InvalidArgument("weighted_residual: coefficient vector does not match the DoF map");
   }
@@ -353,18 +403,7 @@ std::vector<Complex> weighted_residual(
   const auto& mesh = dofs.mesh();
   const Index num_cells = mesh.num_cells();
   std::vector<Complex> out(as_size(num_cells), Complex{0.0, 0.0});
-  std::map<int, assembly::QuadratureRule<Dim>> cell_rules;
-  std::map<int, assembly::QuadratureRule<Dim - 1>> facet_rules;
-  const auto cell_rule = [&](int order) -> const assembly::QuadratureRule<Dim>& {
-    auto& rule = cell_rules[order];
-    if (rule.size() == 0) rule = assembly::simplex_quadrature<Dim>(order);
-    return rule;
-  };
-  const auto facet_rule = [&](int order) -> const assembly::QuadratureRule<Dim - 1>& {
-    auto& rule = facet_rules[order];
-    if (rule.size() == 0) rule = assembly::simplex_quadrature<Dim - 1>(std::max(order, 1));
-    return rule;
-  };
+  RuleCache<Dim> rules(num_threads());
   const auto order_of = [&](const CellSampler<Dim>& s, Index c) {
     const int p = std::max(dofs.cell_order(c), weight_dofs.cell_order(c));
     return s.form().quadrature_order
@@ -372,10 +411,10 @@ std::vector<Complex> weighted_residual(
                : 2 * p + options.extra_order + (s.geometry().is_affine() ? 0 : 2);
   };
 
-  for (Index c = 0; c < num_cells; ++c) {
+  parallel_for(num_cells, [&](Index c, int thread) {
     CellSampler<Dim> sample(dofs, e_h, c, form_of_cell(c), k_squared);
     WeightSampler<Dim> w(weight_dofs, weight, c);
-    const auto& rule = cell_rule(order_of(sample, c));
+    const auto& rule = rules.cell(thread, order_of(sample, c));
     Complex sum = 0;
     for (std::size_t q = 0; q < rule.size(); ++q) {
       const Point<Dim>& xi = rule.points[q];
@@ -387,66 +426,37 @@ std::vector<Complex> weighted_residual(
       const Vec<Dim> residual = s.d - curl_w;
       sum += dx * (residual.transpose() * w(xi))(0);
     }
-    out[as_size(c)] += sum;
-  }
+    out[as_size(c)] = sum;
+  });
 
-  for (Index f = 0; f < mesh.num_facets(); ++f) {
-    const auto& cells = mesh.facet_cells(f);
-    const Index c0 = cells[0];
-    Index c1 = cells[1];
-    bool boundary = false;
-    if (c1 == kInvalidIndex) {
-      const Index parent = mesh.hanging_parent_facet(f);
-      if (parent != kInvalidIndex) {
-        c1 = mesh.facet_cells(parent)[0];
-      } else if (mesh.facet_hanging_role(f) == mesh::Mesh<Dim>::HangingRole::kParent) {
-        continue;  // covered by its children
-      } else {
-        boundary = true;  // one-sided natural term (vanishes where the weight has no trace)
-        c1 = c0;
-      }
-    }
+  const Index num_facets = mesh.num_facets();
+  std::vector<Complex> facet_sum(as_size(num_facets), Complex{0.0, 0.0});
+  std::vector<FacetSides> sides(as_size(num_facets));
+  parallel_for(num_facets, [&](Index f, int thread) {
+    sides[as_size(f)] = facet_sides(mesh, f);
+    const FacetSides& side = sides[as_size(f)];
+    if (side.skip) return;
+    const Index c0 = side.c0;
+    const Index c1 = side.boundary ? c0 : side.c1;  // boundary: one-sided natural term
     const LocalIndex k0 = mesh.facet_local_indices(f)[0];
     CellSampler<Dim> sample0(dofs, e_h, c0, form_of_cell(c0), k_squared);
     CellSampler<Dim> sample1(dofs, e_h, c1, form_of_cell(c1), k_squared);
     WeightSampler<Dim> w0(weight_dofs, weight, c0);
     const int p_f = std::max({dofs.cell_order(c0), dofs.cell_order(c1), weight_dofs.cell_order(c0),
                               weight_dofs.cell_order(c1)});
-    const auto& rule =
-        facet_rule(2 * p_f + options.extra_order + (sample0.geometry().is_affine() ? 0 : 2));
-    const auto& lv = Topology::kFacetVertices[static_cast<std::size_t>(k0)];
-    const Point<Dim> xi_a = reference_vertex<Dim>(lv[0]);
-    const Point<Dim> xi_b = reference_vertex<Dim>(lv[1]);
+    const auto& rule = rules.facet(
+        thread, 2 * p_f + options.extra_order + (sample0.geometry().is_affine() ? 0 : 2));
     const Point<Dim> centroid0 = mesh::affine_map(mesh, c0).centroid();
     Complex sum = 0;
     for (std::size_t q = 0; q < rule.size(); ++q) {
       Point<Dim> xi0;
       Point<Dim> n;
       Real measure = 0;
-      if constexpr (Dim == 2) {
-        const Real t = rule.points[q](0);
-        xi0 = xi_a + t * (xi_b - xi_a);
-        const auto g = sample0.geometry().evaluate(xi0);
-        const Point<2> tangent = g.jacobian * (xi_b - xi_a);
-        measure = tangent.norm();
-        n = Point<2>(tangent(1), -tangent(0)) / measure;
-        if (n.dot(g.x - centroid0) < 0) n = -n;
-      } else {
-        const Point<3> xi_c = reference_vertex<3>(lv[2]);
-        const auto& eta = rule.points[q];
-        xi0 = xi_a + eta(0) * (xi_b - xi_a) + eta(1) * (xi_c - xi_a);
-        const auto g = sample0.geometry().evaluate(xi0);
-        const Point<3> ta = g.jacobian * (xi_b - xi_a);
-        const Point<3> tb = g.jacobian * (xi_c - xi_a);
-        const Point<3> nn = ta.cross(tb);
-        measure = nn.norm();
-        n = nn / measure;
-        if (n.dot(g.x - centroid0) < 0) n = -n;
-      }
+      facet_point<Dim>(sample0.geometry(), k0, centroid0, rule, q, xi0, n, measure);
       const Sample<Dim> s0 = sample0(xi0);
       const Real ds = rule.weights[q] * measure;
       const Curl<Dim> jump_w =
-          boundary ? s0.w : Curl<Dim>(s0.w - sample1(sample1.geometry().to_reference(s0.x)).w);
+          side.boundary ? s0.w : Curl<Dim>(s0.w - sample1(sample1.geometry().to_reference(s0.x)).w);
       const Vec<Dim> wv = w0(xi0);
       if constexpr (Dim == 2) {
         // n × (w ẑ) = w (n_y, -n_x)
@@ -455,11 +465,16 @@ std::vector<Complex> weighted_residual(
         sum += ds * (cross(n.template cast<Complex>(), jump_w).transpose() * wv)(0);
       }
     }
-    if (boundary) {
-      out[as_size(c0)] += sum;
+    facet_sum[as_size(f)] = sum;
+  });
+  for (Index f = 0; f < num_facets; ++f) {
+    const FacetSides& side = sides[as_size(f)];
+    if (side.skip) continue;
+    if (side.boundary) {
+      out[as_size(side.c0)] += facet_sum[as_size(f)];
     } else {
-      out[as_size(c0)] += 0.5 * sum;
-      out[as_size(c1)] += 0.5 * sum;
+      out[as_size(side.c0)] += 0.5 * facet_sum[as_size(f)];
+      out[as_size(side.c1)] += 0.5 * facet_sum[as_size(f)];
     }
   }
   return out;
@@ -473,7 +488,6 @@ template std::vector<Complex> weighted_residual<3>(const fespace::NedelecDofMap<
                                                    Real, const assembly::CellFormFactory<3>&,
                                                    const fespace::NedelecDofMap<3>&, const Vector&,
                                                    const EstimatorOptions&);
-
 template Estimate residual_estimate<2>(const fespace::NedelecDofMap<2>&, const Vector&, Real,
                                        const assembly::CellFormFactory<2>&,
                                        const EstimatorOptions&);

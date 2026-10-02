@@ -31,6 +31,12 @@ void SparseAssembler::add(Index row, Index col, Complex value) {
   triplets_.emplace_back(row, col, value);
 }
 
+void SparseAssembler::append(const SparseAssembler& other) {
+  HPFEM_ASSERT(other.rows_ == rows_ && other.cols_ == cols_,
+               "SparseAssembler::append: sizes differ");
+  triplets_.insert(triplets_.end(), other.triplets_.begin(), other.triplets_.end());
+}
+
 SparseMatrix SparseAssembler::finalize() const {
   SparseMatrix matrix(rows_, cols_);
   matrix.setFromTriplets(triplets_.begin(), triplets_.end());
