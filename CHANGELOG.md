@@ -111,6 +111,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   overrides it per cell and PML cells use `pml_extra_quadrature_order`. Convergence test:
   Poisson on the disc and ball with full rates on curved meshes (rate capped at 2 on
   polygonal ones), Maxwell plane wave on the disc with rate p.
+- `physics/postprocess.hpp` (M4): oriented `Surface`s of facets with quadrature through
+  the cell geometry, `poynting_flux` of discrete / analytic / combined fields,
+  `absorbed_power`, `plane_wave_intensity` and `cross_sections` (scattering, absorption,
+  extinction) of a scattering solution; tests against analytic fluxes and the energy
+  balance of a lossy scatterer.
 
 ## [0.1.0] — 2026-10-02
 ### Added

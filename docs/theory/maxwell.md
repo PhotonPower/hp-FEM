@@ -217,8 +217,31 @@ under p-refinement.
 
 ## Post-processing quantities
 
-- Poynting vector $\mathbf{S} = \tfrac12 \operatorname{Re}(\mathbf{E}\times\bar{\mathbf{H}})$, flux through surfaces.
-- Absorbed power $P_{\mathrm{abs}} = \tfrac{\omega}{2}\int \operatorname{Im}(\varepsilon)|\mathbf{E}|^2 dx$.
-- Scattering/extinction cross-sections, diffraction-order efficiencies (Fourier transform of the field on a plane above/below a periodic structure).
-- Far field via Stratton–Chu on a closed surface inside the PML-free region.
-- Purcell factor $F_P = P_{\mathrm{emitted}}/P_{\mathrm{bulk}}$ for a point dipole.
+Implemented in `physics/postprocess.hpp`:
+
+- **Surfaces** are sets of mesh facets with an inside cell each (`Surface::around_cells`
+  for the interface of a tagged region, `Surface::boundary` for a tagged boundary,
+  `whole_boundary`); `surface_quadrature` maps Gauss rules through the cell geometry, so
+  curved facets get their curved measure and outward normal.
+- **Poynting flux** $\int_S \tfrac12\operatorname{Re}(\mathbf{E}\times\bar{\mathbf{H}})\cdot\mathbf{n}\,ds$
+  with $\mathbf{H} = (i\omega\mu_0\mu_r)^{-1}\nabla\times\mathbf{E}$ of discrete, analytic or
+  combined fields (`poynting_flux`); in 2D the flux is per unit length.
+- **Absorbed power** $P_{\mathrm{abs}} = \tfrac{\omega\varepsilon_0}{2}\int \operatorname{Im}(\varepsilon_r)|\mathbf{E}|^2\,dx$
+  (`absorbed_power`).
+- **Cross-sections** of a `Scattering` solution on a closed surface around the scatterer:
+  $\sigma_{\mathrm{sca}} = P_{\mathrm{sca}}/I$ from the outward flux of the scattered field,
+  $\sigma_{\mathrm{abs}} = -P_{\mathrm{tot}}/I$ from the inward flux of the total field,
+  $\sigma_{\mathrm{ext}} = \sigma_{\mathrm{sca}} + \sigma_{\mathrm{abs}}$, with the incident
+  intensity $I = |E_0|^2/(2Z)$, $Z = Z_0\sqrt{\mu_r/\varepsilon_r}$ of the background
+  (`cross_sections`, `plane_wave_intensity`).
+
+Verified by unit tests: surface measures and outward normals (also on the curved sphere),
+the flux of an analytic plane wave through a box side equals $I\cos\theta$ times the side
+and vanishes through the closed boundary (2D and 3D), the discrete plane-wave solution
+reproduces it, and for a lossy disc in a PML box the flux-based absorption agrees with the
+volume integral of the total field (energy balance).
+
+Planned: far field via Stratton–Chu on a closed surface inside the PML-free region,
+diffraction-order efficiencies (Fourier transform of the field on a line above/below a
+periodic structure), Purcell factor $F_P = P_{\mathrm{emitted}}/P_{\mathrm{bulk}}$ for a point
+dipole.
