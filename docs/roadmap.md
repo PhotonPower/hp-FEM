@@ -22,15 +22,15 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] unit tests: Euler characteristic, orientation consistency, boundary extraction
 - [x] VTK (`.vtu`) export of mesh + cell data
 
-## M2 — Scalar FEM on the infrastructure (≈ 4)
+## M2 — Scalar FEM on the infrastructure (≈ 4) ✅
 - [x] `fespace::ReferenceElement<Dim>` with **fixed local numbering** (theory/nedelec.md)
 - [x] Gauss–Jacobi quadrature on triangle/tetrahedron, exactness tests up to order 20
 - [x] hierarchical H1 Lagrange basis, arbitrary order p (Legendre/Jacobi based)
 - [x] `fespace::DofMap`: vertex/edge/face/cell DoFs, variable p per entity
-- [ ] global sparse assembly (COO → CSR), element loop with `std::span`
-- [ ] Dirichlet via DoF elimination
-- [ ] solver interface + Eigen SparseLU backend
-- [ ] **convergence test #1**: Poisson, manufactured solution, rate p+1 in L2, p in H1
+- [x] global sparse assembly (COO → CSR), element loop with `std::span`
+- [x] Dirichlet via DoF elimination
+- [x] solver interface + Eigen SparseLU backend
+- [x] **convergence test #1**: Poisson, manufactured solution, rate p+1 in L2, p in H1
 
 ## M3 — Nédélec elements and Maxwell eigenproblems (≈ 8)
 - [ ] hierarchical H(curl) Nédélec-I basis, 2D (p ≤ 6) and 3D (p ≤ 4), per

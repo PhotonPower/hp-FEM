@@ -185,7 +185,7 @@ std::vector<Index> DofMap<Dim>::facet_dofs(Index f) const {
     const auto edge = edge_dofs(f);
     dofs.insert(dofs.end(), edge.begin(), edge.end());
   } else {
-    for (const auto [a, b] :
+    for (const auto& [a, b] :
          std::array<std::array<Index, 2>, 3>{{{fv[0], fv[1]}, {fv[1], fv[2]}, {fv[0], fv[2]}}}) {
       const auto edge = edge_dofs(mesh_->edge_id(a, b));
       dofs.insert(dofs.end(), edge.begin(), edge.end());
