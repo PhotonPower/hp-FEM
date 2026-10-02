@@ -92,7 +92,10 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] benchmarks recorded in `benchmarks/results/` (`bench_assembly_solve`)
 
 ## M7 — Python API & usability (≈ 6)
-- [ ] bindings for mesh, spaces, materials, problems, solvers, post-processing
+- [x] bindings for mesh, spaces, materials, problems, solvers, post-processing —
+      `python/bindings/bind_*.cpp` (pybind11, `<Name>2D` / `<Name>3D`, NumPy / SciPy at
+      the boundary, callbacks with the GIL, exceptions mapped), `python/tests/`,
+      `docs/python.md`
 - [ ] `hpfem.units` (nm, µm, eV, THz → SI) and `hpfem.materials` library
       (Si, SiO₂, Au, Ag, Al, TiO₂, GaAs, perovskite — tabulated n,k with sources)
 - [ ] JSON/YAML project files (`hpfem run project.json`) + CLI

@@ -2,6 +2,21 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+### Added
+- Python bindings of the whole pipeline (`python/bindings/bind_*.cpp`, pybind11): meshes
+  (generators, Gmsh input, uniform and adaptive refinement, point location), DoF maps and
+  constraints (hanging, Bloch), forms and assembly to SciPy sparse matrices, Dirichlet data,
+  interpolation / evaluation / error norms, materials and PML, direct solvers (SparseLU /
+  MUMPS) and eigensolvers, `Scattering`, sweeps and reduced basis, waveguide modes, surfaces,
+  fluxes, cross-sections, far field, diffraction orders, Mie series, estimators, marking, hp
+  refinement and decision, goal-oriented estimation, VTK export. Dimension-templated classes
+  are bound as `<Name>2D` / `<Name>3D`, free functions overload on the argument type,
+  Python callbacks run with the GIL inside the OpenMP loops and their exceptions propagate.
+  `python/tests/` (mesh, Poisson rate, cavity, Mie, slab waveguide, grating, hp loop, DWR,
+  export), `docs/python.md`.
+- `hpfem::parallel_for` rethrows an exception of a loop body on the calling thread (the
+  remaining indices are skipped) instead of terminating the process.
+
 ### Fixed
 - MinGW builds link the GCC runtime (libstdc++, libgcc, winpthread) statically
   (`HPFEM_STATIC_RUNTIME`, default ON), so test executables no longer crash with

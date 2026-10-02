@@ -36,6 +36,7 @@ nav:
       - Error estimation: theory/error-estimation.md
       - PML: theory/pml.md
       - Linear solvers: theory/solvers.md
+  - Python API: python.md
   - Applications: applications.md
   - Development: development.md
   - ADRs: adr/README.md
