@@ -300,8 +300,10 @@ tolerance, never on absolute magic numbers.
 
 ## 12. Current status
 
-Milestones **M0 (scaffold)** and **M1 (mesh infrastructure)** are complete: build
-system, CI, docs; `mesh::Mesh<Dim>` with oriented entities, connectivity, tags, Gmsh
-input, generators, affine and quadratic geometry, red refinement, VTK export. Next:
-**M2 — scalar FEM** (reference elements, quadrature, Lagrange basis, DoF map). See
-`docs/roadmap.md`.
+Milestones **M0 (scaffold)**, **M1 (mesh infrastructure)** and **M2 (scalar FEM)** are
+complete: build system, CI, docs; `mesh::Mesh<Dim>` with oriented entities,
+connectivity, tags, Gmsh input, generators, affine and quadratic geometry, red
+refinement, VTK export; reference element, Gauss–Jacobi quadrature, hierarchical H1
+basis with `DofMap`, sparse assembly, Dirichlet elimination, SparseLU solver and the
+Poisson convergence test. Next: **M3 — Nédélec elements and Maxwell eigenproblems**.
+See `docs/roadmap.md`.

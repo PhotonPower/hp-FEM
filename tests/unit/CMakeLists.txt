@@ -23,4 +23,10 @@ hpfem_add_test(test_fespace unit
   fespace/test_dof_map.cpp)
 
 hpfem_add_test(test_assembly unit
-  assembly/test_quadrature.cpp)
+  assembly/test_quadrature.cpp
+  assembly/test_sparse_assembler.cpp
+  assembly/test_dirichlet.cpp
+  assembly/test_h1_forms.cpp)
+
+hpfem_add_test(test_solvers unit
+  solvers/test_linear_solver.cpp)

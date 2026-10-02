@@ -31,6 +31,7 @@ nav:
       - Nédélec elements: theory/nedelec.md
       - Quadrature: theory/quadrature.md
       - H1 basis and DoF map: theory/h1-basis.md
+      - Scalar FEM pipeline: theory/scalar-fem.md
       - hp-adaptivity: theory/hp-adaptivity.md
       - Error estimation: theory/error-estimation.md
       - PML: theory/pml.md

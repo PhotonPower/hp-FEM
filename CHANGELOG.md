@@ -49,6 +49,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `fespace::H1Basis<Dim>` of arbitrary order with per-entity orders and orientation-aware
   edge/face functions; `fespace::DofMap<Dim>` with minimum rule, cell DoF lists, facet and
   tagged-boundary DoFs; `docs/theory/h1-basis.md`.
+- `assembly::SparseAssembler` (COO → CSR), `assemble_h1` / `element_h1` for
+  α∇u·∇v + βuv = fv with complex coefficients, `h1_error`, `evaluate_h1`;
+  `assembly::dirichlet_values` (hierarchical boundary interpolation) and
+  `apply_dirichlet` (symmetric elimination); `solvers::LinearSolver` with Eigen SparseLU.
+- Convergence test #1: Poisson with manufactured solution, rates p+1 (L2) / p (H1) in
+  2D and 3D and exponential p-convergence; `docs/theory/scalar-fem.md`.
+- Milestone M2 (scalar FEM) complete.
 
 ## [0.1.0] — 2026-10-02
 ### Added

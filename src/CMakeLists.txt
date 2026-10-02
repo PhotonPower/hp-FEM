@@ -11,6 +11,10 @@ add_library(hpfem
   fespace/polynomials.cpp
   fespace/h1_basis.cpp
   fespace/dof_map.cpp
+  assembly/sparse_assembler.cpp
+  assembly/h1_forms.cpp
+  assembly/dirichlet.cpp
+  solvers/linear_solver.cpp
 )
 add_library(hpfem::hpfem ALIAS hpfem)
 
