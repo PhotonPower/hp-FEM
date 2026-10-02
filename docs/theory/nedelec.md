@@ -41,7 +41,10 @@ Edges (6): $e_0=(v_0,v_1)$, $e_1=(v_0,v_2)$, $e_2=(v_0,v_3)$, $e_3=(v_1,v_2)$, $
 Faces (4), face $i$ opposite vertex $i$, vertices in increasing local order:
 $f_0=(v_1,v_2,v_3)$, $f_1=(v_0,v_2,v_3)$, $f_2=(v_0,v_1,v_3)$, $f_3=(v_0,v_1,v_2)$.
 
-These tables are the single source of truth in `fespace/reference_element.hpp`.
+These tables are the single source of truth in `mesh/simplex_topology.hpp`
+(`mesh::SimplexTopology<Dim>`, one layer below `fespace` in the module order);
+`fespace/reference_element.hpp` re-uses them. Global numbering and orientation of the
+derived mesh entities: [Mesh topology](mesh.md).
 
 ## Orientation
 

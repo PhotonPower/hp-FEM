@@ -2,6 +2,14 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+### Added
+- `mesh::SimplexTopology<Dim>`: binding local numbering of the reference triangle and
+  tetrahedron (vertices, edges, faces, face-edge table, face permutation codes).
+- `mesh::Mesh<Dim>` (2D/3D): vertices and cells with derived, lexicographically numbered
+  edges and faces, per-cell edge flip flags and face permutation codes following the
+  lowest-vertex-first rule (ADR-0003); unit tests (local tables, orientation
+  consistency, Euler characteristic, renumbering invariance) and `docs/theory/mesh.md`.
+- `hpfem::log()` accessor for the spdlog logger; `hpfem::as_size()` index helper.
 
 ## [0.1.0] — 2026-10-02
 ### Added

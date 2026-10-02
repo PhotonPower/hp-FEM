@@ -4,6 +4,7 @@
 /// Convention (see CLAUDE.md §6): time dependence exp(-iωt), SI units.
 
 #include <complex>
+#include <cstddef>
 #include <cstdint>
 
 #include <Eigen/Core>
@@ -26,5 +27,10 @@ template <int Dim>
 using Point = Eigen::Matrix<Real, Dim, 1>;
 
 inline constexpr Complex kI{0.0, 1.0};  ///< imaginary unit
+
+/// Converts a non-negative global or local index to a container index.
+[[nodiscard]] constexpr std::size_t as_size(Index i) noexcept {
+  return static_cast<std::size_t>(i);
+}
 
 }  // namespace hpfem

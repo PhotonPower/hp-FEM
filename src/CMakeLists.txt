@@ -1,6 +1,7 @@
 add_library(hpfem
   core/version.cpp
   core/error.cpp
+  mesh/mesh.cpp
 )
 add_library(hpfem::hpfem ALIAS hpfem)
 
