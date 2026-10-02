@@ -1,5 +1,12 @@
 #include "hpfem/solvers/linear_solver.hpp"
 
+// GCC 13 reports a false -Wmaybe-uninitialized inside Eigen::SparseLU::analyzePattern when
+// it is inlined into this translation unit at -O2 (system headers do not silence inlined
+// code); clang and -O0 builds are clean.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 #include <Eigen/SparseLU>
 #include <fmt/format.h>
 
@@ -66,3 +73,7 @@ Vector solve_direct(const SparseMatrix& matrix, const Vector& rhs) {
 }
 
 }  // namespace hpfem::solvers
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
