@@ -134,6 +134,35 @@ void derivatives(CellSampler<Dim>& sample, const Sample<Dim>& at, const Point<Di
   div_d = dd.trace();
 }
 
+/// Values of a discrete field of another DoF map on the same mesh, cell by cell.
+template <int Dim>
+class WeightSampler {
+ public:
+  WeightSampler(const fespace::NedelecDofMap<Dim>& dofs, const Vector& w, Index c)
+      : basis_(dofs.cell_layout(c)),
+        geometry_(mesh::cell_geometry(dofs.mesh(), c)),
+        coefficients_(assembly::gather(w, dofs.cell_dofs(c))),
+        ref_values_(as_size(basis_.size())) {}
+
+  [[nodiscard]] Vec<Dim> operator()(const Point<Dim>& xi) {
+    const auto g = geometry_->evaluate(xi);
+    basis_.evaluate(xi, ref_values_, {});
+    Vec<Dim> value = Vec<Dim>::Zero();
+    for (Index i = 0; i < basis_.size(); ++i) {
+      value += coefficients_(i) *
+               (g.inverse_transpose * ref_values_[as_size(i)]).template cast<Complex>();
+    }
+    return value;
+  }
+  [[nodiscard]] const mesh::CellGeometry<Dim>& geometry() const noexcept { return *geometry_; }
+
+ private:
+  fespace::NedelecBasis<Dim> basis_;
+  std::unique_ptr<mesh::CellGeometry<Dim>> geometry_;
+  Vector coefficients_;
+  std::vector<Point<Dim>> ref_values_;
+};
+
 /// Diameter of facet f: edge length (2D) or longest edge of the face (3D).
 template <int Dim>
 Real facet_diameter(const mesh::Mesh<Dim>& mesh, Index f) {
@@ -304,6 +333,146 @@ Estimate residual_estimate(const fespace::NedelecDofMap<Dim>& dofs, const Vector
              out.total(), num_cells > 0 ? out.indicators[as_size(out.argmax())] : 0.0);
   return out;
 }
+
+template <int Dim>
+std::vector<Complex> weighted_residual(
+    const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h, Real k_squared,
+    const std::type_identity_t<assembly::CellFormFactory<Dim>>& form_of_cell,
+    const fespace::NedelecDofMap<Dim>& weight_dofs, const Vector& weight,
+    const EstimatorOptions& options) {
+  using Topology = mesh::SimplexTopology<Dim>;
+  if (e_h.size() != dofs.num_dofs()) {
+    throw InvalidArgument("weighted_residual: coefficient vector does not match the DoF map");
+  }
+  if (weight.size() != weight_dofs.num_dofs() || &weight_dofs.mesh() != &dofs.mesh()) {
+    throw InvalidArgument("weighted_residual: the weight must live on a DoF map of the same mesh");
+  }
+  if (!(options.difference_step > 0)) {
+    throw InvalidArgument("weighted_residual: the difference step must be positive");
+  }
+  const auto& mesh = dofs.mesh();
+  const Index num_cells = mesh.num_cells();
+  std::vector<Complex> out(as_size(num_cells), Complex{0.0, 0.0});
+  std::map<int, assembly::QuadratureRule<Dim>> cell_rules;
+  std::map<int, assembly::QuadratureRule<Dim - 1>> facet_rules;
+  const auto cell_rule = [&](int order) -> const assembly::QuadratureRule<Dim>& {
+    auto& rule = cell_rules[order];
+    if (rule.size() == 0) rule = assembly::simplex_quadrature<Dim>(order);
+    return rule;
+  };
+  const auto facet_rule = [&](int order) -> const assembly::QuadratureRule<Dim - 1>& {
+    auto& rule = facet_rules[order];
+    if (rule.size() == 0) rule = assembly::simplex_quadrature<Dim - 1>(std::max(order, 1));
+    return rule;
+  };
+  const auto order_of = [&](const CellSampler<Dim>& s, Index c) {
+    const int p = std::max(dofs.cell_order(c), weight_dofs.cell_order(c));
+    return s.form().quadrature_order
+               ? *s.form().quadrature_order + 2
+               : 2 * p + options.extra_order + (s.geometry().is_affine() ? 0 : 2);
+  };
+
+  for (Index c = 0; c < num_cells; ++c) {
+    CellSampler<Dim> sample(dofs, e_h, c, form_of_cell(c), k_squared);
+    WeightSampler<Dim> w(weight_dofs, weight, c);
+    const auto& rule = cell_rule(order_of(sample, c));
+    Complex sum = 0;
+    for (std::size_t q = 0; q < rule.size(); ++q) {
+      const Point<Dim>& xi = rule.points[q];
+      const Sample<Dim> s = sample(xi);
+      Vec<Dim> curl_w;
+      Complex div_d;
+      derivatives<Dim>(sample, s, xi, options.difference_step, curl_w, div_d);
+      const Real dx = rule.weights[q] * std::abs(sample.geometry().evaluate(xi).det);
+      const Vec<Dim> residual = s.d - curl_w;
+      sum += dx * (residual.transpose() * w(xi))(0);
+    }
+    out[as_size(c)] += sum;
+  }
+
+  for (Index f = 0; f < mesh.num_facets(); ++f) {
+    const auto& cells = mesh.facet_cells(f);
+    const Index c0 = cells[0];
+    Index c1 = cells[1];
+    bool boundary = false;
+    if (c1 == kInvalidIndex) {
+      const Index parent = mesh.hanging_parent_facet(f);
+      if (parent != kInvalidIndex) {
+        c1 = mesh.facet_cells(parent)[0];
+      } else if (mesh.facet_hanging_role(f) == mesh::Mesh<Dim>::HangingRole::kParent) {
+        continue;  // covered by its children
+      } else {
+        boundary = true;  // one-sided natural term (vanishes where the weight has no trace)
+        c1 = c0;
+      }
+    }
+    const LocalIndex k0 = mesh.facet_local_indices(f)[0];
+    CellSampler<Dim> sample0(dofs, e_h, c0, form_of_cell(c0), k_squared);
+    CellSampler<Dim> sample1(dofs, e_h, c1, form_of_cell(c1), k_squared);
+    WeightSampler<Dim> w0(weight_dofs, weight, c0);
+    const int p_f = std::max({dofs.cell_order(c0), dofs.cell_order(c1), weight_dofs.cell_order(c0),
+                              weight_dofs.cell_order(c1)});
+    const auto& rule =
+        facet_rule(2 * p_f + options.extra_order + (sample0.geometry().is_affine() ? 0 : 2));
+    const auto& lv = Topology::kFacetVertices[static_cast<std::size_t>(k0)];
+    const Point<Dim> xi_a = reference_vertex<Dim>(lv[0]);
+    const Point<Dim> xi_b = reference_vertex<Dim>(lv[1]);
+    const Point<Dim> centroid0 = mesh::affine_map(mesh, c0).centroid();
+    Complex sum = 0;
+    for (std::size_t q = 0; q < rule.size(); ++q) {
+      Point<Dim> xi0;
+      Point<Dim> n;
+      Real measure = 0;
+      if constexpr (Dim == 2) {
+        const Real t = rule.points[q](0);
+        xi0 = xi_a + t * (xi_b - xi_a);
+        const auto g = sample0.geometry().evaluate(xi0);
+        const Point<2> tangent = g.jacobian * (xi_b - xi_a);
+        measure = tangent.norm();
+        n = Point<2>(tangent(1), -tangent(0)) / measure;
+        if (n.dot(g.x - centroid0) < 0) n = -n;
+      } else {
+        const Point<3> xi_c = reference_vertex<3>(lv[2]);
+        const auto& eta = rule.points[q];
+        xi0 = xi_a + eta(0) * (xi_b - xi_a) + eta(1) * (xi_c - xi_a);
+        const auto g = sample0.geometry().evaluate(xi0);
+        const Point<3> ta = g.jacobian * (xi_b - xi_a);
+        const Point<3> tb = g.jacobian * (xi_c - xi_a);
+        const Point<3> nn = ta.cross(tb);
+        measure = nn.norm();
+        n = nn / measure;
+        if (n.dot(g.x - centroid0) < 0) n = -n;
+      }
+      const Sample<Dim> s0 = sample0(xi0);
+      const Real ds = rule.weights[q] * measure;
+      const Curl<Dim> jump_w =
+          boundary ? s0.w : Curl<Dim>(s0.w - sample1(sample1.geometry().to_reference(s0.x)).w);
+      const Vec<Dim> wv = w0(xi0);
+      if constexpr (Dim == 2) {
+        // n × (w ẑ) = w (n_y, -n_x)
+        sum += ds * jump_w(0) * (n(1) * wv(0) - n(0) * wv(1));
+      } else {
+        sum += ds * (cross(n.template cast<Complex>(), jump_w).transpose() * wv)(0);
+      }
+    }
+    if (boundary) {
+      out[as_size(c0)] += sum;
+    } else {
+      out[as_size(c0)] += 0.5 * sum;
+      out[as_size(c1)] += 0.5 * sum;
+    }
+  }
+  return out;
+}
+
+template std::vector<Complex> weighted_residual<2>(const fespace::NedelecDofMap<2>&, const Vector&,
+                                                   Real, const assembly::CellFormFactory<2>&,
+                                                   const fespace::NedelecDofMap<2>&, const Vector&,
+                                                   const EstimatorOptions&);
+template std::vector<Complex> weighted_residual<3>(const fespace::NedelecDofMap<3>&, const Vector&,
+                                                   Real, const assembly::CellFormFactory<3>&,
+                                                   const fespace::NedelecDofMap<3>&, const Vector&,
+                                                   const EstimatorOptions&);
 
 template Estimate residual_estimate<2>(const fespace::NedelecDofMap<2>&, const Vector&, Real,
                                        const assembly::CellFormFactory<2>&,

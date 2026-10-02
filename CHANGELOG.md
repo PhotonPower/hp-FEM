@@ -158,6 +158,14 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `hp_refine` spreads p-refinement to lower-order facet neighbours. Convergence test #7:
   hp-adaptivity on the L-shaped corner, error ~ exp(-0.28 N^(1/3)), 6e-5 at 26 000 DoFs
   where h-adaptivity with p = 2 needs ~1e-3 at 12 600.
+- Goal-oriented (dual-weighted residual) estimation: `physics::dwr_estimate` (adjoint on
+  the p+1 space in the test space of the constrained problem, weight z − I_p z, signed
+  cell contributions), `adaptivity::weighted_residual` (incl. natural boundary terms),
+  `assembly::point_functional`, `physics::point_value_functional`,
+  `physics::fourier_coefficient_functional`. `Constraints` without constraints no longer
+  crash in `prolongation` / `reduced_index`. Convergence test: goal-driven refinement of
+  a point value on the L-shape reaches 1.5e-5 at 6 800 DoFs where energy-driven
+  refinement gives 1.3e-3, effectivity 0.5–0.9.
 
 ## [0.1.0] — 2026-10-02
 ### Added

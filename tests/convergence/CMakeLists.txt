@@ -37,3 +37,6 @@ hpfem_add_test(convergence_adaptive_p_refinement convergence
 
 hpfem_add_test(convergence_adaptive_hp_refinement convergence
   adaptive_hp_refinement.cpp)
+
+hpfem_add_test(convergence_goal_oriented convergence
+  goal_oriented.cpp)
