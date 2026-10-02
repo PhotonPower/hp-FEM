@@ -170,6 +170,45 @@ AssembledSystem assemble_maxwell_operator(
 }
 
 template <int Dim>
+Vector assemble_maxwell_load(const fespace::NedelecDofMap<Dim>& dofs,
+                             const std::type_identity_t<CellFormFactory<Dim>>& form_of_cell,
+                             int extra_order) {
+  const auto& mesh = dofs.mesh();
+  const Index n = dofs.num_dofs();
+  const int threads = num_threads();
+  std::vector<Vector> rhs(as_size(threads), Vector::Zero(n));
+  std::vector<std::map<int, QuadratureRule<Dim>>> rules(as_size(threads));
+  parallel_for(mesh.num_cells(), [&](Index c, int thread) {
+    const MaxwellForm<Dim> form = form_of_cell(c);
+    if (!form.source && !form.curl_source) return;
+    const int p = dofs.cell_order(c);
+    const fespace::NedelecBasis<Dim> basis(dofs.cell_layout(c));
+    const auto geometry = mesh::cell_geometry(mesh, c);
+    const int order = form.quadrature_order ? *form.quadrature_order
+                                            : 2 * p + extra_order + (geometry->is_affine() ? 0 : 2);
+    auto& rule = rules[as_size(thread)][order];
+    if (rule.size() == 0) rule = simplex_quadrature<Dim>(order);
+    Vector load = Vector::Zero(basis.size());
+    for (std::size_t q = 0; q < rule.size(); ++q) {
+      const auto g = geometry->evaluate(rule.points[q]);
+      const Real dx = rule.weights[q] * std::abs(g.det);
+      const PhysicalBasis<Dim> phi(basis, g, rule.points[q]);
+      if (form.source) {
+        const ComplexVector<Dim> f = form.source(g.x);
+        load += dx * (phi.values.transpose().template cast<Complex>() * f);
+      }
+      if (form.curl_source) {
+        const ComplexCurl<Dim> gc = form.curl_source(g.x);
+        load += dx * (phi.curls.transpose().template cast<Complex>() * gc);
+      }
+    }
+    scatter(rhs[as_size(thread)], dofs.cell_dofs(c), load);
+  });
+  for (int t = 1; t < threads; ++t) rhs[0] += rhs[as_size(t)];
+  return std::move(rhs[0]);
+}
+
+template <int Dim>
 HcurlErrorNorms hcurl_error(
     const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h,
     const std::type_identity_t<ComplexVectorField<Dim>>& field,
@@ -278,6 +317,10 @@ template AssembledSystem assemble_maxwell_operator<2>(const fespace::NedelecDofM
 template AssembledSystem assemble_maxwell_operator<3>(const fespace::NedelecDofMap<3>&,
                                                       const CellFormFactory<3>&, Real, int,
                                                       StaticCondensation*);
+template Vector assemble_maxwell_load<2>(const fespace::NedelecDofMap<2>&,
+                                         const CellFormFactory<2>&, int);
+template Vector assemble_maxwell_load<3>(const fespace::NedelecDofMap<3>&,
+                                         const CellFormFactory<3>&, int);
 template HcurlErrorNorms hcurl_error<2>(const fespace::NedelecDofMap<2>&, const Vector&,
                                         const ComplexVectorField<2>&,
                                         const std::function<ComplexCurl<2>(const Point<2>&)>&, int);

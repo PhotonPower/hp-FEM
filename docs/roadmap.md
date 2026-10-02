@@ -84,7 +84,10 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] static condensation of interior (cell-bubble) DoFs
 - [x] OpenMP parallel assembly (colouring or per-thread COO buffers) — per-thread buffers,
       also the estimator loops
-- [ ] parameter sweeps / reduced basis hooks (frequency, angle, geometry parameters)
+- [x] parameter sweeps / reduced basis hooks (frequency, angle, geometry parameters) —
+      `physics::ScatteringOperator` / `solve_many` / `plane_wave_sweep` (one factorisation
+      per frequency), `solvers::ReducedBasis` (affine frequency sweeps); geometry
+      parameters come with the Python layer (M7)
 - [ ] optional: MPI domain decomposition (own ADR before starting)
 - [x] benchmarks recorded in `benchmarks/results/` (`bench_assembly_solve`)
 

@@ -61,7 +61,8 @@ hpfem_add_test(test_physics unit
   physics/test_mie.cpp
   physics/test_farfield.cpp
   physics/test_propagating_mode.cpp
-  physics/test_goal_oriented.cpp)
+  physics/test_goal_oriented.cpp
+  physics/test_sweep.cpp)
 
 hpfem_add_test(test_hanging unit
   assembly/test_interpolation.cpp

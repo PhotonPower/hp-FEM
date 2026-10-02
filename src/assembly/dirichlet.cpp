@@ -75,6 +75,53 @@ DirichletData merge_dirichlet(std::span<const DirichletData> parts) {
   return to_data(values);
 }
 
+DirichletElimination::DirichletElimination(SparseMatrix& matrix, std::vector<Index> dofs,
+                                           bool unit_diagonal)
+    : dofs_(std::move(dofs)), unit_diagonal_(unit_diagonal) {
+  const Index n = matrix.rows();
+  if (matrix.cols() != n) throw InvalidArgument("DirichletElimination: matrix must be square");
+  std::vector<Index> column_of(as_size(n), kInvalidIndex);
+  for (std::size_t i = 0; i < dofs_.size(); ++i) {
+    const Index dof = dofs_[i];
+    if (dof < 0 || dof >= n) {
+      throw InvalidArgument(fmt::format("DirichletElimination: DoF {} outside 0..{}", dof, n - 1));
+    }
+    column_of[as_size(dof)] = static_cast<Index>(i);
+  }
+  matrix.makeCompressed();
+  std::vector<Eigen::Triplet<Complex, Index>> kept;
+  std::vector<Eigen::Triplet<Complex, Index>> columns;
+  kept.reserve(as_size(matrix.nonZeros()) + dofs_.size());
+  for (Index row = 0; row < n; ++row) {
+    const bool row_c = column_of[as_size(row)] != kInvalidIndex;
+    for (SparseMatrix::InnerIterator it(matrix, row); it; ++it) {
+      const Index col = column_of[as_size(it.col())];
+      if (!row_c && col != kInvalidIndex) columns.emplace_back(row, col, it.value());
+      if (!row_c && col == kInvalidIndex) kept.emplace_back(row, it.col(), it.value());
+    }
+  }
+  if (unit_diagonal_) {
+    for (const Index dof : dofs_) kept.emplace_back(dof, dof, Complex{1.0, 0.0});
+  }
+  matrix.setFromTriplets(kept.begin(), kept.end());
+  matrix.makeCompressed();
+  columns_ = SparseMatrix(n, static_cast<Index>(dofs_.size()));
+  columns_.setFromTriplets(columns.begin(), columns.end());
+  columns_.makeCompressed();
+}
+
+void DirichletElimination::apply(Vector& rhs, const Vector& values) const {
+  if (rhs.size() != columns_.rows() || values.size() != static_cast<Index>(dofs_.size())) {
+    throw InvalidArgument(fmt::format(
+        "DirichletElimination::apply: rhs of {} and {} values for {} DoFs and {} Dirichlet DoFs",
+        rhs.size(), values.size(), columns_.rows(), dofs_.size()));
+  }
+  rhs -= columns_ * values;
+  for (std::size_t i = 0; i < dofs_.size(); ++i) {
+    rhs(dofs_[i]) = unit_diagonal_ ? values(static_cast<Index>(i)) : Complex{0.0, 0.0};
+  }
+}
+
 void apply_dirichlet(SparseMatrix& matrix, Vector& rhs, const DirichletData& data) {
   const Index n = matrix.rows();
   if (matrix.cols() != n || rhs.size() != n) {

@@ -328,5 +328,9 @@ Dörfler marking, local h-refinement with hanging nodes (`mesh::AdaptiveMesh`,
 `assembly::hanging_constraints`), p-refinement, hp decision by error prediction (and
 coefficient decay), solution transfer, convergence test #7 (L-shape and plasmonic wedge,
 exponential in $N^{1/3}$) and the `plasmonic_dimer` example.
-Next: **M6 — solvers and performance**.
+**M6 (solvers and performance)** is complete apart from the optional MPI item: MUMPS
+backend behind `solvers::LinearSolver` (ADR-0007), static condensation, OpenMP parallel
+assembly and estimation, parameter sweeps (`physics::ScatteringOperator`,
+`solvers::ReducedBasis`) and the benchmark record in `benchmarks/results/`.
+Next: **M7 — Python API and usability**.
 See `docs/roadmap.md`.

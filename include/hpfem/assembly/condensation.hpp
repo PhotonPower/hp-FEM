@@ -39,9 +39,15 @@ class StaticCondensation {
                 std::vector<Index>& exterior);
   /// Adds the identity rows of all interior DoFs seen so far (call once after the cell loop).
   void add_identity(SparseAssembler& assembler) const;
-  /// Fills the interior entries of a solution of the condensed system.
+  /// Fills the interior entries of a solution of the condensed system (for the loads passed
+  /// to `condense`).
   /// @throws InvalidArgument if the size does not match.
   [[nodiscard]] Vector recover(const Vector& solution) const;
+  /// Condensed load @f$ \tilde f_E = f_E - K_{EB}K_{BB}^{-1}f_B @f$ of another full load for
+  /// the same operator (interior entries zero), e.g. another incident field.
+  [[nodiscard]] Vector condense_load(const Vector& load) const;
+  /// Interior recovery for a solution of the condensed system with `load`.
+  [[nodiscard]] Vector recover(const Vector& solution, const Vector& load) const;
 
   [[nodiscard]] Index num_dofs() const noexcept { return num_dofs_; }
   [[nodiscard]] Index num_interior() const noexcept { return num_interior_; }
@@ -52,6 +58,8 @@ class StaticCondensation {
     std::vector<Index> interior;
     Matrix kbb_inv_kbe;  ///< @f$ K_{BB}^{-1} K_{BE} @f$
     Vector kbb_inv_fb;   ///< @f$ K_{BB}^{-1} f_B @f$
+    Matrix keb;          ///< @f$ K_{EB} @f$
+    Matrix kbb_inverse;  ///< @f$ K_{BB}^{-1} @f$ (small dense block)
   };
   Index num_dofs_;
   Index num_interior_ = 0;
