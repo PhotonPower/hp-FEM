@@ -33,9 +33,9 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] **convergence test #1**: Poisson, manufactured solution, rate p+1 in L2, p in H1
 
 ## M3 — Nédélec elements and Maxwell eigenproblems (≈ 8)
-- [ ] hierarchical H(curl) Nédélec-I basis, 2D (p ≤ 6) and 3D (p ≤ 4), per
+- [x] hierarchical H(curl) Nédélec-I basis, 2D (p ≤ 6) and 3D (p ≤ 4), per
       Schöberl–Zaglmayr (theory/nedelec.md)
-- [ ] orientation-aware local→global mapping of edge/face functions
+- [x] orientation-aware local→global mapping of edge/face functions
 - [ ] curl–curl stiffness and mass matrices with complex tensor ε, μ
 - [ ] PEC boundary condition, PMC (natural)
 - [ ] Maxwell eigenproblem: shift-invert Arnoldi (Spectra) on `(S − σM)`

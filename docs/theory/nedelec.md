@@ -64,6 +64,51 @@ local entity agrees with the global orientation and applies sign flips / permuta
 the higher-order face functions accordingly. This rule is independent of mesh generator
 output and survives refinement, which is why it is preferred over "orientation from file".
 
+## Hierarchical basis (`fespace/nedelec_basis.hpp`)
+
+The implemented space is Nédélec's **first kind** $ND_p$ (lowest order $p = 1$: Whitney
+functions), $\dim ND_p = p(p+2)$ on the triangle and $p(p+2)(p+3)/2$ on the tetrahedron.
+With barycentric coordinates $\lambda$, the Whitney function
+$w_{ab} = \lambda_a\nabla\lambda_b - \lambda_b\nabla\lambda_a$ (curl $2\nabla\lambda_a
+\times\nabla\lambda_b$), the scaled integrated Legendre kernel
+$u_i = L_i^S(\lambda_b - \lambda_a, \lambda_a + \lambda_b)$ and the bubble factor
+$v_j(\lambda) = \lambda\,P_j(2\lambda - 1)$ of the [H1 basis](h1-basis.md):
+
+| entity, order $p$ | functions | count |
+|---|---|---|
+| edge $(a,b)$ | $w_{ab}$; gradients $\nabla u_i$, $i = 2..p$ | $p$ |
+| face $(a,b,c)$ / triangle interior | Type 1 $\nabla(u_i v_j(\lambda_c))$ for $i \ge 2$, $j \ge 0$, $i+j+1 \le p$; Type A $w_{ab}\,\lambda_c P_i(2\lambda_a-1)P_k(2\lambda_c-1)$ for $i+k \le p-2$; Type B $w_{bc}\,\lambda_a P_k(2\lambda_a-1)$ for $k \le p-2$ | $(p-1)(p-2)/2 + p(p-1)/2 + (p-1) = p(p-1)$ |
+| tetrahedron interior | Type 1 $\nabla(u_i v_j(\lambda_2) v_k(\lambda_3))$ for $i+j+k+2 \le p$; Types A, B $w_{01}\lambda_2\lambda_3\,q$, $w_{02}\lambda_1\lambda_3\,q$ with $q = P_i(2\lambda_1-1)P_j(2\lambda_2-1)P_k(2\lambda_3-1)$, $i+j+k \le p-3$; Type C $w_{03}\lambda_1\lambda_2\,P_j(2\lambda_1-1)P_k(2\lambda_2-1)$, $j+k \le p-3$ | $p(p-1)(p-2)/2$ |
+
+Why these lie in $ND_p = P_{p-1}^d \oplus \{F \in \tilde P_p^d : x\cdot F = 0\}$: gradients of
+polynomials of degree $\le p$ are in $ND_p$, and a Whitney function times any polynomial
+of degree $\le p-1$ is too, because the linear part of $w_{ab}$ is orthogonal to $x$. The
+Whitney families are *complete* on the bubble space ($w_{ab}\lambda_c P_{p-2}$ and
+$w_{bc}\lambda_a P_{p-2}$ together already span all $p(p-1)$ interior functions of the
+triangle); to keep the gradients explicit, the last family is reduced to polynomials in
+one variable fewer, which removes exactly $\dim \nabla W_p^{\text{int}}$ functions. The
+obvious alternative, the non-gradient twins $\nabla u\,v - u\nabla v$ of Zaglmayr's
+second-kind basis, is *not* usable here: its lowest member is a combination of the
+Whitney products (found by the rank test). The counts match $\dim ND_p$, and the
+tests verify linear independence (SPD mass matrix) and that every vector monomial of
+degree $\le p-1$ and every field $x^\perp q$ / $x \times e_m q$ of degree $p$ is
+reproduced exactly, hence the span *is* $ND_p$. The de Rham property
+$\nabla W_p \subset ND_p$ is tested by projecting every gradient of the H1 basis.
+
+The gradient functions (edge gradients, Type 1) are marked as such in the function order,
+which makes gauging / kernel filtering a matter of index bookkeeping. Zaglmayr's
+Jacobi-weighted factors for better conditioning may replace $P_j$ later.
+
+**Function order per cell**: edge 0, 1, … (Whitney, then $\nabla u_2 \dots \nabla u_p$),
+then faces (Type 1 in $(i,j)$, Type A in $(i,k)$, Type B in $k$), then the interior
+(Type 1 in $(i,j,k)$, then Types A, B, C in $(i,j,k)$). Orientation follows ADR-0003
+exactly as for the H1 basis: edges in ascending global vertex order (`edge_flipped`),
+faces by the sorted triple (`face_permutations`), so shared entities carry identical
+functions from all adjacent cells and the DoF map stores plain ids. `NedelecDofMap`
+(`fespace/dof_map.hpp`) numbers $p$ DoFs per edge, $p(p-1)$ per face and the interior
+functions per cell with the minimum rule; tangential continuity across every interior
+facet is checked by the tests with the covariant Piola map below.
+
 ## Mapping
 
 Vector shape functions are mapped covariantly (Piola transform for $H(\mathrm{curl})$):

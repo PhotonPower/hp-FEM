@@ -56,6 +56,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - Convergence test #1: Poisson with manufactured solution, rates p+1 (L2) / p (H1) in
   2D and 3D and exponential p-convergence; `docs/theory/scalar-fem.md`.
 - Milestone M2 (scalar FEM) complete.
+- `fespace::NedelecBasis<Dim>`: hierarchical Nédélec (first kind) basis of arbitrary
+  order with gradient / non-gradient / Whitney-type functions, orientation-aware edge
+  and face functions, reference curls; `fespace::NedelecDofMap` via the generic
+  `EntityDofMap` (H1 and H(curl) share numbering, minimum rule and facet queries);
+  `CellLayout` and shared polynomial kernels. Tests: span = ND_p, de Rham inclusion,
+  finite-difference curls, tangential traces, tangential continuity across facets.
 
 ## [0.1.0] — 2026-10-02
 ### Added
