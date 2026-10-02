@@ -8,9 +8,10 @@
 /// scattered field @f$ E^{sc} = E - E^{inc} @f$ of an analytic incident field, whose volume
 /// sources @f$ k_0^2(\varepsilon_r - \varepsilon_{r,b})E^{inc} @f$ and
 /// @f$ -(\mu_r^{-1} - \mu_{r,b}^{-1})\nabla\times E^{inc} @f$ live on the scatterer only.
-/// Boundary conditions: PEC, prescribed incident field, PMC (natural), and PML as complex
-/// coordinate stretching of the material tensors (`pml::PmlBox`). Bloch-periodic
-/// constraints follow in M4. See docs/theory/maxwell.md#scattering-problems.
+/// Boundary conditions: PEC, prescribed incident field, PMC (natural), PML as complex
+/// coordinate stretching of the material tensors (`pml::PmlBox`) and Bloch-periodic
+/// directions as DoF constraints (`assembly::bloch_constraints`).
+/// See docs/theory/maxwell.md#scattering-problems.
 
 #include <cstdint>
 #include <optional>
@@ -20,6 +21,7 @@
 #include "hpfem/assembly/dirichlet.hpp"
 #include "hpfem/assembly/h1_forms.hpp"
 #include "hpfem/assembly/maxwell_forms.hpp"
+#include "hpfem/assembly/periodic.hpp"
 #include "hpfem/core/types.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/materials/material.hpp"
@@ -45,7 +47,8 @@ struct ScatteringSetup {
   std::vector<mesh::Tag> incident_tags;       ///< facets with n × E = n × E_inc (test domains)
   assembly::ComplexVectorField<Dim> current;  ///< f = iωμ0 J, total-field formulation only
   std::optional<pml::PmlBox<Dim>> pml;        ///< absorbing layers (stretched material tensors)
-  int extra_quadrature_order = 4;             ///< added to 2p for the non-polynomial incident field
+  std::vector<assembly::PeriodicPair<Dim>> periodic;  ///< Bloch-periodic directions
+  int extra_quadrature_order = 4;  ///< added to 2p for the non-polynomial incident field
 };
 
 /// Coefficients of the unknown field on the DoF map.
@@ -78,7 +81,9 @@ class Scattering {
   [[nodiscard]] assembly::DirichletData dirichlet() const;
   /// @f$ A = S - k_0^2 M @f$ and the load with the Dirichlet data applied.
   [[nodiscard]] assembly::AssembledSystem assemble() const;
-  /// Assembles and solves with the direct solver.
+  /// Bloch-periodic constraints of the setup (empty without periodic directions).
+  [[nodiscard]] fespace::Constraints constraints() const;
+  /// Assembles, reduces by the periodic constraints and solves with the direct solver.
   [[nodiscard]] ScatteringSolution<Dim> solve() const;
 
   /// Total / scattered field at reference point ξ of cell c (the incident field is added or

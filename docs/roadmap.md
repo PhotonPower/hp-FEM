@@ -49,7 +49,7 @@ holds. Estimated effort is in rough "focused sessions".
       dipole sources (theory/maxwell.md)
 - [x] PML as complex coordinate stretching in boundary layer cells (theory/pml.md),
       polynomial profile, adaptive σ from wavelength and cell size
-- [ ] Bloch-periodic constraints (`E(x+a) = e^{ik·a} E(x)`) via constrained DoFs
+- [x] Bloch-periodic constraints (`E(x+a) = e^{ik·a} E(x)`) via constrained DoFs
 - [ ] curved elements (isoparametric order 2) + PML-compatible quadrature
 - [ ] post-processing: Poynting flux through surfaces, absorption, scattering
       cross-section, far field (Stratton–Chu), Fourier/diffraction coefficients

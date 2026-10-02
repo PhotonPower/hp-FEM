@@ -24,7 +24,8 @@ hpfem_add_test(test_fespace unit
   fespace/test_reference_element.cpp
   fespace/test_polynomials.cpp
   fespace/test_h1_basis.cpp
-  fespace/test_dof_map.cpp)
+  fespace/test_dof_map.cpp
+  fespace/test_constraints.cpp)
 
 hpfem_add_test(test_nedelec unit
   fespace/test_nedelec_basis.cpp
@@ -40,7 +41,8 @@ hpfem_add_test(test_maxwell unit
   assembly/test_maxwell_forms.cpp
   assembly/test_discrete_gradient.cpp
   assembly/test_field_evaluation.cpp
-  assembly/test_tangential_dirichlet.cpp)
+  assembly/test_tangential_dirichlet.cpp
+  assembly/test_periodic.cpp)
 
 hpfem_add_test(test_materials unit
   materials/test_material.cpp)

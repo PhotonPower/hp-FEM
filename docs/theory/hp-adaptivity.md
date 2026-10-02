@@ -49,3 +49,6 @@ SOLVE → ESTIMATE → MARK → DECIDE (h or p) → REFINE → (repeat)
   not a per-cell block of fixed size.
 - The mesh keeps parent/child relations and level numbers.
 - `DofMap` exposes a `Constraints` object (`slave = Σ c_i master_i`) used by the assembler.
+  (`fespace::Constraints` exists since M4 for Bloch-periodic boundaries and currently
+  reduces the assembled system by $P^T A P$; condensation during assembly comes with the
+  hanging nodes.)

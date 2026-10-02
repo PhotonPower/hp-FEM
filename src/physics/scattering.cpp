@@ -128,12 +128,25 @@ assembly::AssembledSystem Scattering<Dim>::assemble() const {
 }
 
 template <int Dim>
+fespace::Constraints Scattering<Dim>::constraints() const {
+  if (setup_.periodic.empty()) return fespace::Constraints(dofs_->num_dofs());
+  return assembly::bloch_constraints<Dim>(*dofs_, setup_.periodic);
+}
+
+template <int Dim>
 ScatteringSolution<Dim> Scattering<Dim>::solve() const {
   const auto system = assemble();
   log().info("Scattering<{}>: k0 = {:.6g} 1/m, {} DoFs, {} formulation", Dim, k0_,
              dofs_->num_dofs(),
              setup_.formulation == Formulation::kTotalField ? "total-field" : "scattered-field");
-  return {setup_.formulation, solvers::solve_direct(system.matrix, system.rhs)};
+  if (setup_.periodic.empty()) {
+    return {setup_.formulation, solvers::solve_direct(system.matrix, system.rhs)};
+  }
+  const fespace::Constraints c = constraints();
+  const auto [reduced, rhs] = c.reduce(system.matrix, system.rhs);
+  log().info("Scattering<{}>: {} Bloch-constrained DoFs, {} free", Dim, c.num_constrained(),
+             c.num_free());
+  return {setup_.formulation, c.expand(solvers::solve_direct(reduced, rhs))};
 }
 
 template <int Dim>

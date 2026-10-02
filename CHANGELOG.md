@@ -98,6 +98,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   error below 1e-6 under p-refinement. `hcurl_error` and `Scattering::error` over a
   cell subset, `Scattering::interior_cells`. Nédélec span/continuity tests extended to
   p = 6 in 2D; p-refinement tests of the L2 projection and the plane-wave problem.
+- `fespace::Constraints` (linear DoF constraints with chain resolution and P^T A P
+  reduction) and `assembly::bloch_constraints` / `PeriodicPair` (M4): Bloch-periodic
+  boundaries as constraints obtained by projecting shifted master basis functions onto
+  the slave trace space (orientation flips and face permutations automatic);
+  `ScatteringSetup::periodic`. Convergence test: Bloch plane wave with rate p in 2D (one
+  direction) and 3D (two directions).
 
 ## [0.1.0] — 2026-10-02
 ### Added

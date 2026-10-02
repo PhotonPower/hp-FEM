@@ -19,11 +19,13 @@ add_library(hpfem
   fespace/h1_basis.cpp
   fespace/nedelec_basis.cpp
   fespace/dof_map.cpp
+  fespace/constraints.cpp
   assembly/sparse_assembler.cpp
   assembly/h1_forms.cpp
   assembly/dirichlet.cpp
   assembly/maxwell_forms.cpp
   assembly/discrete_gradient.cpp
+  assembly/periodic.cpp
   solvers/eigen_solver.cpp
   solvers/linear_solver.cpp
 )
