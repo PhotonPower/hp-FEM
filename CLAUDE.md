@@ -213,8 +213,11 @@ CMake and Ninja (installed via winget), Git for Windows. **Not MSVC.**
 
 ## 7. Development workflow
 
-- **Branches:** `main` is always releasable. Work on `feat/<topic>`, `fix/<topic>`,
-  `docs/<topic>`. One topic per branch, one PR per branch.
+- **Branches:** `main` should stay buildable. Direct commits and pushes to `main` are
+  allowed (single-maintainer project). Before pushing to `main`, build and run the
+  tests locally (`cmake --build --preset release && ctest --preset release`).
+  For larger or riskier work, use `feat/<topic>`, `fix/<topic>`, `docs/<topic>`
+  branches with a PR so CI runs before merging.
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org):
   `feat(fespace): add order-2 Nédélec basis on tetrahedra`,
   `test(mesh): verify edge orientation consistency`, `docs(adr): …`.
@@ -274,7 +277,7 @@ tolerance, never on absolute magic numbers.
 - Never silence a failing test by loosening tolerances without a documented reason.
 - Never add a dependency without updating `cmake/Dependencies.cmake`, the README
   dependency table and an ADR note if the dependency is load-bearing.
-- Never push directly to `main`.
+- Never push to `main` with a failing local build or failing tests.
 
 ## 11. How to pick up work
 
