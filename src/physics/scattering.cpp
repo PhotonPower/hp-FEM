@@ -46,7 +46,11 @@ assembly::MaxwellForm<Dim> Scattering<Dim>::form_of_cell(Index cell) const {
   const Complex inv_mu = 1.0 / m.mu_r;
   const Complex eps = m.eps_r;
   if (setup_.pml) {
-    // stretched tensors; identity inside the interior box, so every cell may use them
+    // stretched tensors; identity inside the interior box, so every cell may use them, but
+    // the rational tensors of the layer cells need the raised quadrature order
+    if (setup_.pml->in_layer(mesh::affine_map(dofs_->mesh(), cell).centroid())) {
+      form.quadrature_order = 2 * dofs_->cell_order(cell) + setup_.pml_extra_quadrature_order;
+    }
     const Complex mu = m.mu_r;
     form.inverse_permeability = [mu, pml = *setup_.pml](const Point<Dim>& x) {
       return pml.inverse_permeability(mu, x);

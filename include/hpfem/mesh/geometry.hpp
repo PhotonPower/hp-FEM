@@ -6,7 +6,9 @@
 
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <memory>
+#include <span>
 #include <vector>
 
 #include <Eigen/Core>
@@ -152,6 +154,18 @@ class QuadraticGeometry final : public CellGeometry<Dim> {
   Real h_ = 0;
 };
 
+/// Curves the mesh along the given facets: installs midpoint edge nodes if the mesh is still
+/// affine and moves the node of every edge of these facets to `project(node)`, e.g. the
+/// radial projection onto a circle or sphere. The cells touching those edges become
+/// order-2 cells (`QuadraticGeometry`); all other cells keep the exact affine map.
+template <int Dim>
+void curve_boundary(Mesh<Dim>& mesh, std::span<const Index> facets,
+                    const std::function<Point<Dim>(const Point<Dim>&)>& project);
+/// Same for all facets carrying `tag`.
+template <int Dim>
+void curve_boundary(Mesh<Dim>& mesh, Tag tag,
+                    const std::function<Point<Dim>(const Point<Dim>&)>& project);
+
 /// Geometry of cell c according to `mesh.geometry_order()`.
 template <int Dim>
 [[nodiscard]] std::unique_ptr<CellGeometry<Dim>> cell_geometry(const Mesh<Dim>& mesh, Index c);
@@ -171,6 +185,14 @@ extern template class AffineGeometry<3>;
 extern template class QuadraticGeometry<2>;
 extern template class QuadraticGeometry<3>;
 extern template std::unique_ptr<CellGeometry<2>> cell_geometry<2>(const Mesh<2>&, Index);
+extern template void curve_boundary<2>(Mesh<2>&, std::span<const Index>,
+                                       const std::function<Point<2>(const Point<2>&)>&);
+extern template void curve_boundary<3>(Mesh<3>&, std::span<const Index>,
+                                       const std::function<Point<3>(const Point<3>&)>&);
+extern template void curve_boundary<2>(Mesh<2>&, Tag,
+                                       const std::function<Point<2>(const Point<2>&)>&);
+extern template void curve_boundary<3>(Mesh<3>&, Tag,
+                                       const std::function<Point<3>(const Point<3>&)>&);
 extern template std::unique_ptr<CellGeometry<3>> cell_geometry<3>(const Mesh<3>&, Index);
 
 }  // namespace hpfem::mesh

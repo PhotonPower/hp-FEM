@@ -35,4 +35,20 @@ inline constexpr Tag kZMax = 6;
 [[nodiscard]] Mesh<3> box(Index nx, Index ny, Index nz, const Point<3>& lower = Point<3>::Zero(),
                           const Point<3>& upper = Point<3>::Ones(), bool tag_sides = true);
 
+/// Facet tag of the boundary of `disc` and `ball`.
+inline constexpr Tag kDiscBoundary = 1;
+
+/// Structured mesh of a disc: the square [-1, 1]^2 with n × n cells mapped by
+/// @f$ (u, v) \mapsto (u\sqrt{1 - v^2/2},\; v\sqrt{1 - u^2/2}) @f$ onto the unit disc, then
+/// scaled and shifted. With `curved` the nodes of the boundary edges are projected onto the
+/// circle (`curve_boundary`, geometry order 2); otherwise the boundary stays polygonal. All
+/// boundary facets carry `kDiscBoundary`. @throws InvalidArgument for n < 1 or radius ≤ 0.
+[[nodiscard]] Mesh<2> disc(Index n, const Point<2>& center = Point<2>::Zero(), Real radius = 1.0,
+                           bool curved = true);
+/// Structured mesh of a ball: the cube [-1, 1]^3 with n^3 cubes mapped by
+/// @f$ x = u\sqrt{1 - v^2/2 - w^2/2 + v^2w^2/3} @f$ (and cyclically) onto the unit ball,
+/// scaled and shifted; boundary edge nodes projected onto the sphere with `curved`.
+[[nodiscard]] Mesh<3> ball(Index n, const Point<3>& center = Point<3>::Zero(), Real radius = 1.0,
+                           bool curved = true);
+
 }  // namespace hpfem::mesh

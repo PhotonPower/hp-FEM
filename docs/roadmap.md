@@ -50,7 +50,7 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] PML as complex coordinate stretching in boundary layer cells (theory/pml.md),
       polynomial profile, adaptive σ from wavelength and cell size
 - [x] Bloch-periodic constraints (`E(x+a) = e^{ik·a} E(x)`) via constrained DoFs
-- [ ] curved elements (isoparametric order 2) + PML-compatible quadrature
+- [x] curved elements (isoparametric order 2) + PML-compatible quadrature
 - [ ] post-processing: Poynting flux through surfaces, absorption, scattering
       cross-section, far field (Stratton–Chu), Fourier/diffraction coefficients
 - [ ] `physics::PropagatingMode`: 2D waveguide cross-section eigenproblem for

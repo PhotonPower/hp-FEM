@@ -4,7 +4,9 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <functional>
 #include <memory>
+#include <span>
 #include <utility>
 
 #include <Eigen/Dense>
@@ -188,6 +190,41 @@ Point<Dim> QuadraticGeometry<Dim>::to_reference(const Point<Dim>& x) const {
 }
 
 template <int Dim>
+void curve_boundary(Mesh<Dim>& mesh, std::span<const Index> facets,
+                    const std::function<Point<Dim>(const Point<Dim>&)>& project) {
+  std::vector<Point<Dim>> nodes;
+  nodes.reserve(as_size(mesh.num_edges()));
+  for (Index e = 0; e < mesh.num_edges(); ++e) {
+    if (mesh.geometry_order() == 2) {
+      nodes.push_back(mesh.edge_node(e));
+    } else {
+      const auto& ev = mesh.edge_vertices(e);
+      nodes.push_back(0.5 * (mesh.vertex(ev[0]) + mesh.vertex(ev[1])));
+    }
+  }
+  for (const Index f : facets) {
+    const auto& fv = mesh.facet_vertices(f);
+    if constexpr (Dim == 2) {
+      nodes[as_size(f)] = project(nodes[as_size(f)]);
+    } else {
+      for (const auto& [a, b] :
+           {std::pair{fv[0], fv[1]}, std::pair{fv[1], fv[2]}, std::pair{fv[0], fv[2]}}) {
+        const Index e = mesh.edge_id(a, b);
+        nodes[as_size(e)] = project(nodes[as_size(e)]);
+      }
+    }
+  }
+  mesh.set_edge_nodes(std::move(nodes));
+}
+
+template <int Dim>
+void curve_boundary(Mesh<Dim>& mesh, Tag tag,
+                    const std::function<Point<Dim>(const Point<Dim>&)>& project) {
+  const auto facets = mesh.facets_with_tag(tag);
+  curve_boundary<Dim>(mesh, std::span<const Index>(facets), project);
+}
+
+template <int Dim>
 std::unique_ptr<CellGeometry<Dim>> cell_geometry(const Mesh<Dim>& mesh, Index c) {
   if (mesh.geometry_order() == 1) {
     return std::make_unique<AffineGeometry<Dim>>(affine_map(mesh, c));
@@ -216,6 +253,12 @@ template class AffineGeometry<2>;
 template class AffineGeometry<3>;
 template class QuadraticGeometry<2>;
 template class QuadraticGeometry<3>;
+template void curve_boundary<2>(Mesh<2>&, std::span<const Index>,
+                                const std::function<Point<2>(const Point<2>&)>&);
+template void curve_boundary<3>(Mesh<3>&, std::span<const Index>,
+                                const std::function<Point<3>(const Point<3>&)>&);
+template void curve_boundary<2>(Mesh<2>&, Tag, const std::function<Point<2>(const Point<2>&)>&);
+template void curve_boundary<3>(Mesh<3>&, Tag, const std::function<Point<3>(const Point<3>&)>&);
 template std::unique_ptr<CellGeometry<2>> cell_geometry<2>(const Mesh<2>&, Index);
 template std::unique_ptr<CellGeometry<3>> cell_geometry<3>(const Mesh<3>&, Index);
 

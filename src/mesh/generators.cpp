@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <utility>
 #include <vector>
@@ -9,6 +10,7 @@
 #include <fmt/format.h>
 
 #include "hpfem/core/error.hpp"
+#include "hpfem/mesh/geometry.hpp"
 
 namespace hpfem::mesh {
 
@@ -122,6 +124,60 @@ Mesh<3> box(Index nx, Index ny, Index nz, const Point<3>& lower, const Point<3>&
   }
   Mesh<3> m(std::move(vertices), std::move(cells));
   if (tag_sides) tag_box_sides(m, lower, upper);
+  return m;
+}
+
+}  // namespace hpfem::mesh
+
+namespace hpfem::mesh {
+
+Mesh<2> disc(Index n, const Point<2>& center, Real radius, bool curved) {
+  if (n < 1) throw InvalidArgument(fmt::format("disc: need at least one cell per axis, got {}", n));
+  if (!(radius > 0)) throw InvalidArgument(fmt::format("disc: radius {} must be positive", radius));
+  const Mesh<2> square = rectangle(n, n, Point<2>(-1.0, -1.0), Point<2>(1.0, 1.0), false);
+  std::vector<Point<2>> vertices;
+  vertices.reserve(as_size(square.num_vertices()));
+  for (const auto& q : square.vertices()) {
+    const Real u = q(0);
+    const Real v = q(1);
+    vertices.push_back(center + radius * Point<2>(u * std::sqrt(1.0 - 0.5 * v * v),
+                                                  v * std::sqrt(1.0 - 0.5 * u * u)));
+  }
+  std::vector<Mesh<2>::CellVertices> cells(square.cells().begin(), square.cells().end());
+  Mesh<2> m(std::move(vertices), std::move(cells));
+  m.tag_boundary(kDiscBoundary);
+  if (curved) {
+    curve_boundary<2>(m, kDiscBoundary, [center, radius](const Point<2>& x) {
+      return Point<2>(center + radius * (x - center).normalized());
+    });
+  }
+  return m;
+}
+
+Mesh<3> ball(Index n, const Point<3>& center, Real radius, bool curved) {
+  if (n < 1) throw InvalidArgument(fmt::format("ball: need at least one cell per axis, got {}", n));
+  if (!(radius > 0)) throw InvalidArgument(fmt::format("ball: radius {} must be positive", radius));
+  const Mesh<3> cube = box(n, n, n, Point<3>(-1.0, -1.0, -1.0), Point<3>(1.0, 1.0, 1.0), false);
+  std::vector<Point<3>> vertices;
+  vertices.reserve(as_size(cube.num_vertices()));
+  for (const auto& q : cube.vertices()) {
+    const Real u = q(0);
+    const Real v = q(1);
+    const Real w = q(2);
+    vertices.push_back(
+        center +
+        radius * Point<3>(u * std::sqrt(1.0 - 0.5 * v * v - 0.5 * w * w + v * v * w * w / 3.0),
+                          v * std::sqrt(1.0 - 0.5 * w * w - 0.5 * u * u + w * w * u * u / 3.0),
+                          w * std::sqrt(1.0 - 0.5 * u * u - 0.5 * v * v + u * u * v * v / 3.0)));
+  }
+  std::vector<Mesh<3>::CellVertices> cells(cube.cells().begin(), cube.cells().end());
+  Mesh<3> m(std::move(vertices), std::move(cells));
+  m.tag_boundary(kDiscBoundary);
+  if (curved) {
+    curve_boundary<3>(m, kDiscBoundary, [center, radius](const Point<3>& x) {
+      return Point<3>(center + radius * (x - center).normalized());
+    });
+  }
   return m;
 }
 

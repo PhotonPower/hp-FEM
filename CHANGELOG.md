@@ -104,6 +104,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   the slave trace space (orientation flips and face permutations automatic);
   `ScatteringSetup::periodic`. Convergence test: Bloch plane wave with rate p in 2D (one
   direction) and 3D (two directions).
+- Curved elements (M4): second-order Gmsh files (6-node triangles, 10-node tetrahedra)
+  become edge nodes; `mesh::disc` / `mesh::ball` generators with the boundary projected
+  onto the circle / sphere and `mesh::curve_boundary` for any tagged boundary; the
+  assemblers raise the quadrature degree on curved cells, `MaxwellForm::quadrature_order`
+  overrides it per cell and PML cells use `pml_extra_quadrature_order`. Convergence test:
+  Poisson on the disc and ball with full rates on curved meshes (rate capped at 2 on
+  polygonal ones), Maxwell plane wave on the disc with rate p.
 
 ## [0.1.0] — 2026-10-02
 ### Added
