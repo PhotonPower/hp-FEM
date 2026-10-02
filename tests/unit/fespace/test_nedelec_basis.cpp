@@ -155,7 +155,7 @@ void check_space_is_nedelec(int p, unsigned seed) {
   };
   for (int a = 0; a <= p - 1; ++a) {
     for (int b = 0; a + b <= p - 1; ++b) {
-      for (int c = 0; (Dim == 3 ? a + b + c : a + b) <= p - 1; ++c) {
+      for (int c = 0; c <= (Dim == 3 ? p - 1 - a - b : 0); ++c) {  // 2D: c = 0 only
         for (int comp = 0; comp < Dim; ++comp) {
           check_reproduced(
               basis, sampled, solver,
@@ -166,15 +166,14 @@ void check_space_is_nedelec(int p, unsigned seed) {
               },
               seed);
         }
-        if (Dim == 2) break;
       }
     }
   }
   // homogeneous degree-p fields with x . F = 0: x^perp q (2D), x x e_m q (3D), q of degree p-1
   for (int a = 0; a <= p - 1; ++a) {
     for (int b = 0; a + b <= p - 1; ++b) {
-      for (int c = 0; (Dim == 3 ? a + b + c : a + b) <= p - 1; ++c) {
-        if ((Dim == 3 ? a + b + c : a + b) != p - 1) continue;
+      for (int c = 0; c <= (Dim == 3 ? p - 1 - a - b : 0); ++c) {  // 2D: c = 0 only
+        if (a + b + c != p - 1) continue;
         if constexpr (Dim == 2) {
           check_reproduced(
               basis, sampled, solver,
@@ -194,7 +193,6 @@ void check_space_is_nedelec(int p, unsigned seed) {
                 seed);
           }
         }
-        if (Dim == 2) break;
       }
     }
   }
