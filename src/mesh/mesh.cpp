@@ -229,7 +229,9 @@ template <std::size_t N>
 Index sorted_lookup(const std::vector<std::array<Index, N>>& entities, std::array<Index, N> key) {
   std::sort(key.begin(), key.end());
   const auto it = std::lower_bound(entities.begin(), entities.end(), key);
-  if (it == entities.end() || *it != key) return kInvalidIndex;
+  if (it == entities.end() || *it != key) {
+    return kInvalidIndex;
+  }
   return static_cast<Index>(it - entities.begin());
 }
 
@@ -290,7 +292,9 @@ namespace {
 std::vector<Index> indices_with_tag(const std::vector<Tag>& tags, Tag tag) {
   std::vector<Index> out;
   for (std::size_t i = 0; i < tags.size(); ++i) {
-    if (tags[i] == tag) out.push_back(static_cast<Index>(i));
+    if (tags[i] == tag) {
+      out.push_back(static_cast<Index>(i));
+    }
   }
   return out;
 }
@@ -324,16 +328,18 @@ void Mesh<Dim>::set_tag_name(int dim, Tag tag, std::string name) {
 
 template <int Dim>
 const std::string& Mesh<Dim>::tag_name(int dim, Tag tag) const {
-  static const std::string kEmpty;
+  static const std::string empty;
   const auto& names = tag_names_[names_slot(dim)];
   const auto it = names.find(tag);
-  return it == names.end() ? kEmpty : it->second;
+  return it == names.end() ? empty : it->second;
 }
 
 template <int Dim>
 std::optional<Tag> Mesh<Dim>::tag_by_name(int dim, std::string_view name) const {
   for (const auto& [tag, n] : tag_names_[names_slot(dim)]) {
-    if (n == name) return tag;
+    if (n == name) {
+      return tag;
+    }
   }
   return std::nullopt;
 }
