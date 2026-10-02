@@ -38,8 +38,11 @@ SOLVE → ESTIMATE → MARK → DECIDE (h or p) → REFINE → (repeat)
      master DoFs computed by interpolation of the master shape functions on the refined
      entity (`assembly::hanging_constraints`, see below). The constraints reduce the
      assembled system ($P^H A P$) before the Dirichlet data is imposed on the free DoFs.
-   - $p$: raise the cell order; shared edges/faces take the **minimum** order of adjacent
-     cells (minimum rule) so the space stays conforming.
+   - $p$: raise the cell order (`adaptivity::p_refine`, or `hp_refine` together with the
+     h-step: children inherit the parent's order, p-marked cells are raised); shared
+     edges/faces take the **minimum** order of adjacent cells (minimum rule) so the space
+     stays conforming. The spaces are nested, so `assembly::prolongate` (with
+     `identity_step` for a pure p-step) transfers solutions exactly.
    - PML cells follow the refinement of the adjacent interior cells; never refine the
      PML alone.
 5. **Transfer**: prolongate the previous solution (`assembly::prolongate`, exact by
@@ -77,6 +80,16 @@ orders; the number of constrained DoFs equals the count of fine-entity DoFs; a q
 field of $\mathrm{ND}_3$ is solved exactly by `physics::Scattering` on the hanging mesh with
 vanishing residual estimate; prolongated functions agree with the originals pointwise and
 satisfy the constraints of the refined mesh.
+
+### Adaptive p-refinement on a smooth solution (`tests/convergence/adaptive_p_refinement.cpp`)
+
+Plane wave with $k = 6$ on a $4 	imes 4$ mesh of the unit square, exact trace on the
+boundary, Dörfler marking ($	heta = 0.8$) of the residual indicators, $p \leftarrow p + 1$
+on the marked cells (minimum rule on the shared edges): the error decays like
+$\exp(-0.41\sqrt{N})$, from $1$ at $56$ DoFs ($p = 1$) to $2.5\cdot 10^{-8}$ at $2694$ DoFs
+($p \le 9$) in 16 steps; the effectivity index stays within $60 \dots 118$ (its constant
+grows with $p$). The transferred solution agrees pointwise with the previous one in every
+step.
 
 ### Adaptive h-refinement on the L-shape (`tests/convergence/adaptive_h_refinement.cpp`)
 

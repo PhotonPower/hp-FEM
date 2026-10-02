@@ -147,6 +147,10 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   constraints before imposing Dirichlet data; estimator and flux surfaces handle hanging
   facets. Convergence test: adaptive h-refinement on the L-shaped corner recovers the
   optimal rate N^(-p/2) where uniform refinement is limited to N^(-1/3).
+- `adaptivity::p_refine`, `hp_refine` (h-step with inherited orders plus raised orders of
+  p-marked cells) and `identity_step`; solutions transfer exactly across p- and hp-steps
+  by `assembly::prolongate`. Convergence test: estimator-driven adaptive p-refinement on a
+  plane wave converges like exp(-0.41 sqrt(N)).
 
 ## [0.1.0] — 2026-10-02
 ### Added
