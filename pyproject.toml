@@ -11,8 +11,12 @@ license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = ["numpy>=1.24", "scipy>=1.10"]
 
+[project.scripts]
+hpfem = "hpfem.cli:main"
+
 [project.optional-dependencies]
-dev = ["pytest", "ruff", "pre-commit", "meshio", "matplotlib"]
+dev = ["pytest", "ruff", "pre-commit", "meshio", "matplotlib", "pyyaml"]
+yaml = ["pyyaml"]
 docs = ["mkdocs-material", "pymdown-extensions"]
 
 [tool.scikit-build]

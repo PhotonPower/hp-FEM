@@ -1,0 +1,10 @@
+{
+  "problem": "cavity",
+  "dim": 2,
+  "length_unit": "um",
+  "mesh": {"type": "rectangle", "nx": 8, "ny": 8},
+  "order": 2,
+  "materials": {"background": "vacuum"},
+  "boundaries": {"pec": ["x_min", "x_max", "y_min", "y_max"]},
+  "num_eigenvalues": 5
+}

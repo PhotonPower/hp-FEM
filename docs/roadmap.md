@@ -100,7 +100,9 @@ holds. Estimated effort is in rough "focused sessions".
       (Si, SiO₂, Au, Ag, Al, TiO₂, GaAs, perovskite — tabulated n,k with sources) —
       `python/hpfem/units.py`, `python/hpfem/materials.py` + `python/hpfem/data/*.csv`
       (refractiveindex.info, CC0), Sellmeier / Drude–Lorentz / tabulated models
-- [ ] JSON/YAML project files (`hpfem run project.json`) + CLI
+- [x] JSON/YAML project files (`hpfem run project.json`) + CLI — `hpfem.project`
+      (scattering / waveguide / cavity, sweeps, outputs), `hpfem.cli` (`run`, `validate`,
+      `info`, `materials`), `examples/*/project.json`
 - [ ] meshio / pyvista interop, matplotlib helpers
 - [ ] Jupyter example notebooks
 

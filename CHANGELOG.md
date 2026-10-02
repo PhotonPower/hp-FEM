@@ -20,6 +20,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `Drude`, `Constant` with `at(omega)` → core `Material`; library Si, SiO2, Au, Ag, Al, TiO2,
   GaAs, MAPbI3, water, air from the refractiveindex.info database with the original
   references in `python/hpfem/data/*.csv`).
+- `hpfem.project`: JSON / YAML project files (problem type, mesh generator or Gmsh file with
+  regions, order, spectral sweep, materials by tag from the library, source, PML, boundary
+  names, Bloch pairs, solver, outputs: cross-sections, far field, point values, fluxes,
+  diffraction efficiencies, estimate, VTK) with `load` / `validate` / `run`;
+  `hpfem.cli` and the `hpfem` console script (`run`, `validate`, `info`, `materials`);
+  `examples/*/project.json`.
 - `hpfem::parallel_for` rethrows an exception of a loop body on the calling thread (the
   remaining indices are skipped) instead of terminating the process.
 
