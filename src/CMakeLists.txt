@@ -4,6 +4,7 @@ add_library(hpfem
   mesh/mesh.cpp
   mesh/generators.cpp
   mesh/gmsh.cpp
+  mesh/geometry.cpp
 )
 add_library(hpfem::hpfem ALIAS hpfem)
 

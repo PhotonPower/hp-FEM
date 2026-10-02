@@ -26,6 +26,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - `mesh::rectangle` / `mesh::box` structured generators with per-side boundary tags
   (`box_tag`), and `mesh::read_gmsh<Dim>` for Gmsh MSH 4.1 ASCII files (cells, facet
   tags and physical names from physical groups, sparse node tags, unit scale).
+- `mesh::AffineMap<Dim>` / `affine_map`: per-cell origin, Jacobian, inverse transpose,
+  signed determinant, diameter, `to_physical` / `to_reference`, `volume`, `centroid`;
+  `facet_measure` and `outward_normal`; degenerate cells rejected.
 
 ## [0.1.0] — 2026-10-02
 ### Added
