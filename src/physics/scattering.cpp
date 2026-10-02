@@ -1,6 +1,7 @@
 #include "hpfem/physics/scattering.hpp"
 
 #include <algorithm>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -155,12 +156,21 @@ fespace::Constraints Scattering<Dim>::constraints() const {
 template <int Dim>
 ScatteringSolution<Dim> Scattering<Dim>::solve() const {
   const bool constrained = !setup_.periodic.empty() || !dofs_->mesh().is_conforming();
-  const auto system = constrained ? assemble_raw() : assemble();
-  log().info("Scattering<{}>: k0 = {:.6g} 1/m, {} DoFs, {} formulation", Dim, k0_,
-             dofs_->num_dofs(),
+  std::optional<assembly::StaticCondensation> condensation;
+  if (setup_.condense) condensation.emplace(dofs_->num_dofs());
+  auto system = assembly::assemble_maxwell_operator<Dim>(
+      *dofs_, [this](Index cell) { return form_of_cell(cell); }, k0_ * k0_,
+      setup_.extra_quadrature_order, condensation ? &*condensation : nullptr);
+  const auto recover = [&condensation](Vector x) {
+    return condensation ? condensation->recover(x) : x;
+  };
+  log().info("Scattering<{}>: k0 = {:.6g} 1/m, {} DoFs ({} condensed), {} formulation", Dim, k0_,
+             dofs_->num_dofs(), condensation ? condensation->num_interior() : 0,
              setup_.formulation == Formulation::kTotalField ? "total-field" : "scattered-field");
-  if (setup_.periodic.empty() && dofs_->mesh().is_conforming()) {
-    return {setup_.formulation, solvers::solve_direct(system.matrix, system.rhs, setup_.solver)};
+  if (!constrained) {
+    assembly::apply_dirichlet(system.matrix, system.rhs, dirichlet());
+    return {setup_.formulation,
+            recover(solvers::solve_direct(system.matrix, system.rhs, setup_.solver))};
   }
   // constrained DoFs: reduce the raw system by P^H A P, then impose the Dirichlet data on the
   // free DoFs (a constrained Dirichlet DoF follows from its masters, whose data is consistent)
@@ -183,7 +193,8 @@ ScatteringSolution<Dim> Scattering<Dim>::solve() const {
   assembly::apply_dirichlet(matrix, load, data);
   log().info("Scattering<{}>: {} constrained DoFs, {} free, {} Dirichlet", Dim, c.num_constrained(),
              c.num_free(), data.size());
-  return {setup_.formulation, c.expand(solvers::solve_direct(matrix, load, setup_.solver))};
+  return {setup_.formulation,
+          recover(c.expand(solvers::solve_direct(matrix, load, setup_.solver)))};
 }
 
 template <int Dim>

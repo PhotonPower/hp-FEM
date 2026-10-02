@@ -53,6 +53,7 @@ struct ScatteringSetup {
   std::optional<pml::PmlBox<Dim>> pml;        ///< absorbing layers (stretched material tensors)
   std::vector<assembly::PeriodicPair<Dim>> periodic;  ///< Bloch-periodic directions
   solvers::DirectSolverBackend solver = solvers::DirectSolverBackend::kAuto;  ///< direct solver
+  bool condense = true;                ///< static condensation of the interior DoFs in `solve`
   int extra_quadrature_order = 4;      ///< added to 2p for the non-polynomial incident field
   int pml_extra_quadrature_order = 6;  ///< added to 2p in PML cells (rational stretched tensors)
 };
@@ -93,7 +94,9 @@ class Scattering {
   /// Hanging-node constraints of a locally refined mesh followed by the Bloch-periodic
   /// constraints of the setup (empty on a conforming mesh without periodic directions).
   [[nodiscard]] fespace::Constraints constraints() const;
-  /// Assembles, reduces by the constraints and solves with the direct solver.
+  /// Assembles (with static condensation of the interior DoFs if `condense`), imposes the
+  /// Dirichlet data, reduces by the constraints and solves with the chosen direct solver;
+  /// the returned coefficients are complete (interior DoFs recovered).
   [[nodiscard]] ScatteringSolution<Dim> solve() const;
 
   /// Total / scattered field at reference point ξ of cell c (the incident field is added or
