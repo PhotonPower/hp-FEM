@@ -30,3 +30,6 @@ out/
 .env
 *.token
 *.pat
+# built extension modules copied next to the package for local testing
+python/hpfem/*.pyd
+python/hpfem/*.so

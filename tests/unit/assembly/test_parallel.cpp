@@ -12,6 +12,7 @@
 #include "hpfem/assembly/h1_forms.hpp"
 #include "hpfem/assembly/maxwell_forms.hpp"
 #include "hpfem/core/constants.hpp"
+#include "hpfem/core/error.hpp"
 #include "hpfem/core/parallel.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/mesh/adaptive_mesh.hpp"
@@ -62,6 +63,26 @@ TEST_CASE("parallel_for visits every index once", "[core][parallel]") {
   }
   CHECK(sum == n * (n - 1) / 2);
   CHECK(hpfem::has_openmp() == (hpfem::num_threads() > 1 || hpfem::has_openmp()));
+}
+
+TEST_CASE("parallel_for rethrows an exception of the body on the calling thread",
+          "[core][parallel]") {
+  ThreadGuard guard;
+  hpfem::set_num_threads(0);
+  const Index n = 5000;
+  std::atomic<Index> visited{0};
+  const auto run = [&] {
+    hpfem::parallel_for(n, [&](Index i, int) {
+      visited++;
+      if (i == 1234) throw hpfem::InvalidArgument("body failed at 1234");
+    });
+  };
+  REQUIRE_THROWS_AS(run(), hpfem::InvalidArgument);
+  CHECK(visited <= n);
+  // the loop is usable again afterwards
+  visited = 0;
+  hpfem::parallel_for(n, [&](Index, int) { visited++; });
+  CHECK(visited == n);
 }
 
 TEST_CASE("parallel assembly and estimation agree with the serial results",

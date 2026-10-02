@@ -5,6 +5,8 @@
 /// of `parallel_for` must make their bodies reentrant (no shared mutable state without a
 /// lock, per-thread accumulators merged afterwards). See docs/theory/solvers.md#parallel-assembly.
 
+#include <atomic>
+#include <exception>
 #include <utility>
 
 #ifdef _OPENMP
@@ -31,12 +33,28 @@ void set_num_threads(int threads) noexcept;
 #endif
 }
 
-/// Runs `body(i, thread)` for i in [0, n) on all threads with dynamic scheduling.
+/// Runs `body(i, thread)` for i in [0, n) on all threads with dynamic scheduling. An
+/// exception thrown by the body stops the loop (remaining indices are skipped) and is
+/// rethrown on the calling thread once all threads have finished; with several throwing
+/// bodies the first one caught wins.
 template <class Body>
 void parallel_for(Index n, Body&& body) {
 #ifdef _OPENMP
+  std::atomic<bool> failed{false};
+  std::exception_ptr error;
 #pragma omp parallel for schedule(dynamic, 8)
-  for (Index i = 0; i < n; ++i) body(i, omp_get_thread_num());
+  for (Index i = 0; i < n; ++i) {
+    if (failed.load(std::memory_order_relaxed)) continue;
+    try {
+      body(i, omp_get_thread_num());
+    } catch (...) {
+#pragma omp critical(hpfem_parallel_for_error)
+      {
+        if (!failed.exchange(true)) error = std::current_exception();
+      }
+    }
+  }
+  if (error) std::rethrow_exception(error);
 #else
   for (Index i = 0; i < n; ++i) body(i, 0);
 #endif
