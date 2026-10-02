@@ -145,12 +145,14 @@ CMake and Ninja (installed via winget), Git for Windows. **Not MSVC.**
 - The `asan` preset does not work with MinGW GCC (no AddressSanitizer on
   Windows/MinGW). Sanitizer runs happen in CI (Ubuntu) or in the devcontainer/WSL.
 - The `fast` preset uses `-march=native`; binaries are not portable to other CPUs.
-- Test executables link dynamically against `libstdc++-6.dll` / `libgcc_s_seh-1.dll`.
-  **Git Bash** puts `C:\Program Files\Git\mingw64\bin` (which ships older copies of
-  these DLLs) *before* `C:\msys64\ucrt64\bin` on `PATH`, so every test dies with
-  exit code `0xc0000139` (`STATUS_ENTRYPOINT_NOT_FOUND`) although the build succeeded.
-  Run `ctest` from PowerShell or the MSYS2 UCRT64 shell, or in Git Bash first run
-  `export PATH=/c/msys64/ucrt64/bin:$PATH`.
+- **GCC runtime is linked statically on MinGW** (`HPFEM_STATIC_RUNTIME`, default ON):
+  Git for Windows ships an older `libstdc++-6.dll` in `C:\Program Files\Git\mingw64\bin`,
+  which Git Bash (and tools started from it) puts *before* `C:\msys64\ucrt64\bin` on
+  `PATH`. A dynamically linked test exe then fails with exit code `0xc0000139` /
+  "Der Prozedureinsprungpunkt … wurde nicht gefunden" although the build succeeded.
+  With the static runtime the binaries import only Windows system DLLs. If you switch the
+  option off, run tests from PowerShell or the MSYS2 UCRT64 shell, or prepend
+  `/c/msys64/ucrt64/bin` to `PATH` in Git Bash.
 - CI runs on Ubuntu only. Code must stay portable: no Windows-only headers or
   APIs in the library, use `std::filesystem` for paths, and keep line endings
   as configured in `.editorconfig`.

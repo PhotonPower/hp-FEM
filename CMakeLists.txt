@@ -16,6 +16,10 @@ option(HPFEM_ENABLE_MPI       "Enable MPI (distributed solvers)"         OFF)
 option(HPFEM_ENABLE_MUMPS     "Enable MUMPS direct solver backend"       OFF)
 option(HPFEM_ENABLE_ASSERTS   "Keep HPFEM_ASSERT active in Release"      ON)
 option(HPFEM_WARNINGS_AS_ERRORS "Treat compiler warnings as errors"      ON)
+# MinGW only: link libstdc++/libgcc/winpthread statically so that executables and the
+# Python module do not depend on which libstdc++-6.dll happens to be first on PATH
+# (Git for Windows ships an older copy in Git/mingw64/bin, see CLAUDE.md §4a).
+option(HPFEM_STATIC_RUNTIME   "MinGW: link the GCC runtime statically"   ON)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

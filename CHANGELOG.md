@@ -2,6 +2,12 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+### Fixed
+- MinGW builds link the GCC runtime (libstdc++, libgcc, winpthread) statically
+  (`HPFEM_STATIC_RUNTIME`, default ON), so test executables no longer crash with
+  `STATUS_ENTRYPOINT_NOT_FOUND` when an older `libstdc++-6.dll` (Git for Windows) is
+  first on `PATH`.
+
 ### Added
 - `mesh::SimplexTopology<Dim>`: binding local numbering of the reference triangle and
   tetrahedron (vertices, edges, faces, face-edge table, face permutation codes).
