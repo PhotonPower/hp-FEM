@@ -22,7 +22,9 @@ jobs:
           - { os: ubuntu-24.04, cc: clang-18, cxx: clang++-18, preset: release }
           - { os: ubuntu-24.04, cc: gcc-13,  cxx: g++-13,     preset: asan }
     runs-on: ${{ matrix.os }}
-    env: { CC: ${{ matrix.cc }}, CXX: ${{ matrix.cxx }} }
+    env:
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
     steps:
       - uses: actions/checkout@v4
       - name: Dependencies
