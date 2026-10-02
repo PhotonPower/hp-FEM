@@ -1,5 +1,10 @@
 #include "hpfem/assembly/condensation.hpp"
 
+#if defined(__GNUC__) && !defined(__clang__)
+// GCC 13 reports a potential null dereference inside Eigen's dense storage (false positive)
+#pragma GCC diagnostic ignored "-Wnull-dereference"
+#endif
+
 #include <Eigen/Dense>
 #include <fmt/format.h>
 
