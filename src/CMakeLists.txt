@@ -40,6 +40,7 @@ add_library(hpfem
   assembly/periodic.cpp
   solvers/eigen_solver.cpp
   solvers/linear_solver.cpp
+  $<$<BOOL:${HPFEM_ENABLE_MUMPS}>:solvers/mumps_solver.cpp>
   adaptivity/residual_estimator.cpp
   adaptivity/marking.cpp
   adaptivity/refinement.cpp
@@ -67,5 +68,9 @@ if(MINGW AND HPFEM_STATIC_RUNTIME)
 endif()
 if(HPFEM_ENABLE_ASSERTS)
   target_compile_definitions(hpfem PUBLIC HPFEM_ENABLE_ASSERTS)
+endif()
+if(HPFEM_ENABLE_MUMPS)
+  target_link_libraries(hpfem PRIVATE MUMPS::MUMPS)
+  target_compile_definitions(hpfem PUBLIC HPFEM_HAVE_MUMPS)
 endif()
 hpfem_set_warnings(hpfem)

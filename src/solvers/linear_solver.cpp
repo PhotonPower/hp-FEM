@@ -66,8 +66,59 @@ std::unique_ptr<LinearSolver> make_sparse_lu() {
   return std::make_unique<SparseLuSolver>();
 }
 
-Vector solve_direct(const SparseMatrix& matrix, const Vector& rhs) {
-  auto solver = make_sparse_lu();
+#ifndef HPFEM_HAVE_MUMPS
+std::unique_ptr<LinearSolver> make_mumps() {
+  throw Error("MUMPS backend requested but not compiled in (configure with HPFEM_ENABLE_MUMPS)");
+}
+#endif
+
+bool available(DirectSolverBackend backend) noexcept {
+  switch (backend) {
+    case DirectSolverBackend::kAuto:
+    case DirectSolverBackend::kSparseLu:
+      return true;
+    case DirectSolverBackend::kMumps:
+#ifdef HPFEM_HAVE_MUMPS
+      return true;
+#else
+      return false;
+#endif
+  }
+  return false;
+}
+
+std::vector<DirectSolverBackend> available_backends() {
+  std::vector<DirectSolverBackend> out{DirectSolverBackend::kSparseLu};
+  if (available(DirectSolverBackend::kMumps)) out.push_back(DirectSolverBackend::kMumps);
+  return out;
+}
+
+std::string backend_name(DirectSolverBackend backend) {
+  switch (backend) {
+    case DirectSolverBackend::kAuto:
+      return "auto";
+    case DirectSolverBackend::kSparseLu:
+      return "SparseLU";
+    case DirectSolverBackend::kMumps:
+      return "MUMPS";
+  }
+  return "?";
+}
+
+std::unique_ptr<LinearSolver> make_direct_solver(DirectSolverBackend backend) {
+  switch (backend) {
+    case DirectSolverBackend::kAuto:
+      return available(DirectSolverBackend::kMumps) ? make_mumps() : make_sparse_lu();
+    case DirectSolverBackend::kSparseLu:
+      return make_sparse_lu();
+    case DirectSolverBackend::kMumps:
+      return make_mumps();
+  }
+  throw InvalidArgument("make_direct_solver: unknown backend");
+}
+
+Vector solve_direct(const SparseMatrix& matrix, const Vector& rhs, DirectSolverBackend backend) {
+  auto solver = make_direct_solver(backend);
   solver->factorize(matrix);
   return solver->solve(rhs);
 }

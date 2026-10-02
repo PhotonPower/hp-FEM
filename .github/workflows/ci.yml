@@ -21,6 +21,8 @@ jobs:
           - { os: ubuntu-24.04, cc: gcc-13,  cxx: g++-13,     preset: release }
           - { os: ubuntu-24.04, cc: clang-18, cxx: clang++-18, preset: release }
           - { os: ubuntu-24.04, cc: gcc-13,  cxx: g++-13,     preset: asan }
+          - { os: ubuntu-24.04, cc: gcc-13,  cxx: g++-13,     preset: mumps,
+              extra: "libmumps-seq-dev libmumps-headers-dev" }
     runs-on: ${{ matrix.os }}
     env:
       CC: ${{ matrix.cc }}
@@ -28,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Dependencies
-        run: sudo apt-get update && sudo apt-get install -y ninja-build libeigen3-dev ${{ matrix.cxx }}
+        run: sudo apt-get update && sudo apt-get install -y ninja-build libeigen3-dev ${{ matrix.cxx }} ${{ matrix.extra }}
       - name: Configure
         run: cmake --preset ${{ matrix.preset }}
       - name: Build

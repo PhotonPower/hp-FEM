@@ -174,6 +174,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   uniform refinement). `RefinementStep` now records multi-level chains (`path`,
   `old_reference`): the one-irregular closure may split a cell twice in one call. M5
   complete.
+- MUMPS direct solver backend (`solvers::make_mumps`, `DirectSolverBackend`,
+  `make_direct_solver`, `available_backends`; `solve_direct` and
+  `ScatteringSetup::solver` take the backend, `kAuto` prefers MUMPS): option
+  `HPFEM_ENABLE_MUMPS`, `cmake/FindMUMPS.cmake` (pkg-config `mumps-zso`, Debian
+  `*_seq` libraries, plain installs), preset `mumps`, CI job on Ubuntu with
+  `libmumps-seq-dev`; test executables get the MSYS2 DLL directory on `PATH`.
+  ADR-0007, `docs/theory/solvers.md`.
 
 ## [0.1.0] — 2026-10-02
 ### Added

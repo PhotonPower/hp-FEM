@@ -35,6 +35,7 @@ nav:
       - hp-adaptivity: theory/hp-adaptivity.md
       - Error estimation: theory/error-estimation.md
       - PML: theory/pml.md
+      - Linear solvers: theory/solvers.md
   - Applications: applications.md
   - Development: development.md
   - ADRs: adr/README.md

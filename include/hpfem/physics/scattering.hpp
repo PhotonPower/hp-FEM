@@ -31,6 +31,7 @@
 #include "hpfem/mesh/point_location.hpp"
 #include "hpfem/physics/sources.hpp"
 #include "hpfem/pml/pml.hpp"
+#include "hpfem/solvers/linear_solver.hpp"
 
 namespace hpfem::physics {
 
@@ -51,6 +52,7 @@ struct ScatteringSetup {
   assembly::ComplexVectorField<Dim> current;  ///< f = iωμ0 J, total-field formulation only
   std::optional<pml::PmlBox<Dim>> pml;        ///< absorbing layers (stretched material tensors)
   std::vector<assembly::PeriodicPair<Dim>> periodic;  ///< Bloch-periodic directions
+  solvers::DirectSolverBackend solver = solvers::DirectSolverBackend::kAuto;  ///< direct solver
   int extra_quadrature_order = 4;      ///< added to 2p for the non-polynomial incident field
   int pml_extra_quadrature_order = 6;  ///< added to 2p in PML cells (rational stretched tensors)
 };
