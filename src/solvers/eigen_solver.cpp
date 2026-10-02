@@ -6,10 +6,12 @@
 #include <vector>
 
 // GCC 13 reports a false -Wmaybe-uninitialized inside Eigen::SparseLU when inlined here
-// (see linear_solver.cpp).
+// (see linear_solver.cpp); GCC 13 -O2 also reports a null-dereference false positive in
+// Eigen::Ref<const SparseMatrix>::nonZeros() when Spectra wraps the reduced mass matrix.
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#pragma GCC diagnostic ignored "-Wnull-dereference"
 #endif
 #include <Spectra/MatOp/SparseSymMatProd.h>
 #include <Spectra/SymGEigsShiftSolver.h>
