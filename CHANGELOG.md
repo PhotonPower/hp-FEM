@@ -14,6 +14,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   Python callbacks run with the GIL inside the OpenMP loops and their exceptions propagate.
   `python/tests/` (mesh, Poisson rate, cavity, Mie, slab waveguide, grating, hp loop, DWR,
   export), `docs/python.md`.
+- `hpfem.units` (length, time, frequency and energy multipliers; conversions between
+  wavelength, angular frequency, frequency, photon energy and wavenumber) and
+  `hpfem.materials` (dispersive materials `Tabulated`, `Sellmeier`, `DrudeLorentz` /
+  `Drude`, `Constant` with `at(omega)` → core `Material`; library Si, SiO2, Au, Ag, Al, TiO2,
+  GaAs, MAPbI3, water, air from the refractiveindex.info database with the original
+  references in `python/hpfem/data/*.csv`).
 - `hpfem::parallel_for` rethrows an exception of a loop body on the calling thread (the
   remaining indices are skipped) instead of terminating the process.
 

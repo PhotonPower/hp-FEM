@@ -47,6 +47,40 @@ the extension must be built for the interpreter CMake found; with the MSYS2 tool
 - Long-running calls release the GIL; `set_num_threads` / `num_threads` control the OpenMP
   loops, `set_log_level("warn")` silences the per-solve logging.
 
+## Units and materials
+
+`hpfem.units` holds the multipliers (`nm`, `um`, `eV`, `THz`, `deg`, …): multiply to go
+into SI, divide to come out, and converts between the spectral variables:
+
+```python
+from hpfem import units, materials
+omega = units.angular_frequency(wavelength=633 * units.nm)   # or frequency=, energy=, wavenumber=
+units.photon_energy(omega) / units.eV                         # 1.96
+```
+
+`hpfem.materials` provides dispersive materials — `Tabulated` n, k (linear interpolation in
+wavelength, no extrapolation), `Sellmeier`, `DrudeLorentz` / `Drude`, `Constant` — whose
+`at(omega)` returns the frequency-independent core `Material` for one solve, so a
+frequency sweep re-sets the material per frequency. The library (`materials.library`,
+`materials.get(name)`) carries its sources in `python/hpfem/data/*.csv` (refractiveindex.info
+database, CC0):
+
+| name | source | range |
+|---|---|---|
+| `Si` | Green 2008, intrinsic c-Si at 300 K | 0.25 – 1.45 µm |
+| `SiO2` | Malitson 1965 Sellmeier, fused silica | 0.21 – 6.7 µm |
+| `Au`, `Ag` | Johnson & Christy 1972 | 0.188 – 1.94 µm |
+| `Al` | Rakić 1995 (Kramers–Kronig consistent) | 0.000124 – 200 µm |
+| `TiO2` | Devore 1951 Sellmeier, rutile, ordinary ray | 0.43 – 1.53 µm |
+| `GaAs` | Aspnes et al. 1986 | 0.207 – 0.827 µm |
+| `MAPbI3` | Phillips et al. 2015, CH3NH3PbI3 perovskite film | 0.30 – 1.50 µm |
+| `water` | Daimon & Masumura 2007 Sellmeier | 0.2 – 2.0 µm |
+| `vacuum`, `air` | constants | — |
+
+```python
+setup.materials.set(2, materials.get("Au").at(omega))      # eps_r = (n + ik)^2, Im > 0
+```
+
 ## Pipeline
 
 ```python
