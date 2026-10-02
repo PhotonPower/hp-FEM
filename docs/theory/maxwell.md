@@ -253,7 +253,25 @@ and vanishes through the closed boundary (2D and 3D), the discrete plane-wave so
 reproduces it, and for a lossy disc in a PML box the flux-based absorption agrees with the
 volume integral of the total field (energy balance).
 
-Planned: far field via Stratton–Chu on a closed surface inside the PML-free region,
-diffraction-order efficiencies (Fourier transform of the field on a line above/below a
-periodic structure), Purcell factor $F_P = P_{\mathrm{emitted}}/P_{\mathrm{bulk}}$ for a point
-dipole.
+- **Far field** (`physics/farfield.hpp`): on a closed surface $S$ in the homogeneous
+  background that encloses all sources and scatterers, the equivalent currents
+  $\mathbf{J} = \mathbf{n}\times\mathbf{H}$, $\mathbf{M} = -\mathbf{n}\times\mathbf{E}$ radiate
+  (Stratton–Chu / Huygens). With $\mathbf{N} = \int_S \mathbf{J}e^{-ik\hat r\cdot x'}ds'$ and
+  $\mathbf{L} = \int_S \mathbf{M}e^{-ik\hat r\cdot x'}ds'$ the pattern is
+  $\mathbf{F} = \tfrac{ik}{4\pi}[Z\mathbf{N}_t - \hat r\times\mathbf{L}]$ in 3D
+  ($\mathbf{E}\approx\mathbf{F}e^{ikr}/r$) and $\mathbf{F} = -\tfrac{k}{4}\sqrt{2/(\pi k)}\,
+  e^{-i\pi/4}[Z\,\mathbf{N}\cdot\hat t + L_z]\,\hat t$ in 2D ($\mathbf{E}\approx\mathbf{F}e^{ik\rho}/\sqrt\rho$,
+  $\hat t = \hat z\times\hat r$); `FarField::pattern`, `radiated_power` ($\int|F|^2 d\Omega/2Z$)
+  and `scattering_cross_section`. Verified against the closed-form dipole far fields
+  $\mathbf{p}_t/(4\pi)$ (3D) and $\tfrac{i}{4}\sqrt{2/(\pi k)}e^{-i\pi/4}\mathbf{p}_t$ (2D) sampled
+  on curved spheres / circles, the radiated power against the Poynting flux, and the Mie
+  cylinder's far-field cross-section against the flux-based one.
+- **Diffraction orders** (`physics/diffraction.hpp`, 2D): on a line $x = x_0$ in a
+  homogeneous region of a Bloch-periodic problem the field is $\sum_m A_m e^{ik_{y,m}y}$,
+  $k_{y,m} = k_{y,0} + 2\pi m/a$; `fourier_coefficients` samples the field with composite
+  Gauss rules along one period and `diffraction_efficiencies` gives
+  $\eta_m = \mathrm{Re}(k_{x,m})|A_m|^2/(k_x^{inc}|E_0|^2)$ with $k_{x,m} = \sqrt{k^2n^2 - k_{y,m}^2}$
+  (evanescent orders: $\eta_m = 0$). Verified with a Bloch plane wave (only the zeroth order,
+  efficiency one, analytically and from the discrete solution).
+
+Planned: Purcell factor $F_P = P_{\mathrm{emitted}}/P_{\mathrm{bulk}}$ for a point dipole.
