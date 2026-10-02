@@ -194,6 +194,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - Benchmark `bench_assembly_solve` (`HPFEM_BUILD_BENCHMARKS`): assembly, factorisation and
   solve times for (n, p) pairs, thread counts, condensation and solver backends as JSON
   lines; results in `benchmarks/results/`.
+- Parameter sweeps: `physics::ScatteringOperator` (operator factorised once, solves for
+  any incident field / current with new loads, condensed loads and Dirichlet values),
+  `solve_many`, `plane_wave_sweep`; `assembly::DirichletElimination` (reusable
+  elimination keeping the eliminated columns), `StaticCondensation::condense_load` /
+  `recover(x, load)`, `Constraints::reduce_rhs`, `assemble_maxwell_load`;
+  `solvers::ReducedBasis` (orthonormal snapshot basis, Galerkin projections, lift) for
+  affine frequency sweeps. M6 complete apart from the optional MPI item.
 
 ## [0.1.0] — 2026-10-02
 ### Added

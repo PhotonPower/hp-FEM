@@ -42,6 +42,8 @@ add_library(hpfem
   assembly/periodic.cpp
   solvers/eigen_solver.cpp
   solvers/linear_solver.cpp
+  solvers/reduced_basis.cpp
+  physics/sweep.cpp
   $<$<BOOL:${HPFEM_ENABLE_MUMPS}>:solvers/mumps_solver.cpp>
   adaptivity/residual_estimator.cpp
   adaptivity/marking.cpp

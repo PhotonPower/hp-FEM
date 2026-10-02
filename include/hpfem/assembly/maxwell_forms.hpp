@@ -110,6 +110,12 @@ template <int Dim>
     const std::type_identity_t<CellFormFactory<Dim>>& form_of_cell, Real k_squared,
     int extra_order = 2, StaticCondensation* condensation = nullptr);
 
+/// Load vector @f$ \ell(v) @f$ alone (new sources on an unchanged operator).
+template <int Dim>
+[[nodiscard]] Vector assemble_maxwell_load(
+    const fespace::NedelecDofMap<Dim>& dofs,
+    const std::type_identity_t<CellFormFactory<Dim>>& form_of_cell, int extra_order = 2);
+
 /// Errors of the discrete field against (E, curl E).
 struct HcurlErrorNorms {
   Real l2 = 0;         ///< ‖E_h − E‖_L2
@@ -172,6 +178,10 @@ extern template AssembledSystem assemble_maxwell_operator<2>(const fespace::Nede
 extern template AssembledSystem assemble_maxwell_operator<3>(const fespace::NedelecDofMap<3>&,
                                                              const CellFormFactory<3>&, Real, int,
                                                              StaticCondensation*);
+extern template Vector assemble_maxwell_load<2>(const fespace::NedelecDofMap<2>&,
+                                                const CellFormFactory<2>&, int);
+extern template Vector assemble_maxwell_load<3>(const fespace::NedelecDofMap<3>&,
+                                                const CellFormFactory<3>&, int);
 extern template HcurlErrorNorms hcurl_error<2>(
     const fespace::NedelecDofMap<2>&, const Vector&, const ComplexVectorField<2>&,
     const std::function<ComplexCurl<2>(const Point<2>&)>&, int);

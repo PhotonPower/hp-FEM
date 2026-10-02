@@ -55,6 +55,8 @@ class Constraints {
   [[nodiscard]] Vector expand(const Vector& reduced) const;
   /// @f$ P^H A P @f$ and @f$ P^H b @f$: the system on the free DoFs.
   /// @throws InvalidArgument if the sizes do not match `num_dofs()`.
+  /// @f$ P^H b @f$ alone (a new load for an already reduced matrix).
+  [[nodiscard]] Vector reduce_rhs(const Vector& rhs) const;
   [[nodiscard]] std::pair<SparseMatrix, Vector> reduce(const SparseMatrix& matrix,
                                                        const Vector& rhs) const;
 

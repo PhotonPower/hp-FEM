@@ -146,6 +146,13 @@ Vector Constraints::expand(const Vector& reduced) const {
   return full;
 }
 
+Vector Constraints::reduce_rhs(const Vector& rhs) const {
+  if (rhs.size() != num_dofs_) {
+    throw InvalidArgument("Constraints::reduce_rhs: size does not match the constraints");
+  }
+  return Vector(SparseMatrix(prolongation().adjoint()) * rhs);
+}
+
 std::pair<SparseMatrix, Vector> Constraints::reduce(const SparseMatrix& matrix,
                                                     const Vector& rhs) const {
   if (matrix.rows() != num_dofs_ || matrix.cols() != num_dofs_ || rhs.size() != num_dofs_) {

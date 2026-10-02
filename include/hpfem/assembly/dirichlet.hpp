@@ -61,6 +61,27 @@ template <int Dim, class Counts>
 /// Union of several constraint sets; a DoF listed twice keeps its first value.
 [[nodiscard]] DirichletData merge_dirichlet(std::span<const DirichletData> parts);
 
+/// Elimination of a fixed Dirichlet DoF set applied to many right-hand sides: the matrix is
+/// modified once as in `apply_dirichlet` while the eliminated columns @f$ A_{:,D} @f$ are
+/// kept, so any load can be transformed afterwards (`apply`). With `unit_diagonal` false the
+/// diagonal of the eliminated rows is left at zero (the mass part of an affine operator
+/// @f$ S - k^2 M @f$ whose stiffness part carries the unit diagonal).
+class DirichletElimination {
+ public:
+  /// @throws InvalidArgument if the matrix is not square or a DoF is out of range.
+  DirichletElimination(SparseMatrix& matrix, std::vector<Index> dofs, bool unit_diagonal = true);
+  /// @f$ b \leftarrow b - A_{:,D}\,g @f$ on the free rows, @f$ b_D = g @f$ (or 0 without the
+  /// unit diagonal); `values` in the order of `dofs()`.
+  /// @throws InvalidArgument for a size mismatch.
+  void apply(Vector& rhs, const Vector& values) const;
+  [[nodiscard]] const std::vector<Index>& dofs() const noexcept { return dofs_; }
+
+ private:
+  std::vector<Index> dofs_;
+  bool unit_diagonal_;
+  SparseMatrix columns_;  ///< A(:, D), n × |D|
+};
+
 /// Eliminates the constrained DoFs symmetrically, keeping the system size:
 /// @f$ b \leftarrow b - A_{:,c}\,g_c @f$, rows and columns c cleared, @f$ A_{cc} = 1 @f$,
 /// @f$ b_c = g_c @f$. The solution of the modified system equals g on the constrained DoFs

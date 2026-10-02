@@ -92,6 +92,39 @@ per-cell form factories must be reentrant (the ones of `physics::Scattering` are
 `hpfem::num_threads()` / `set_num_threads()` control the thread count; on MinGW the OpenMP
 runtime is linked statically like the rest of the GCC runtime.
 
+## Parameter sweeps (`physics/sweep.hpp`, `solvers/reduced_basis.hpp`)
+
+**Angle sweeps, one factorisation.** At a fixed frequency the operator of a scattering
+problem does not depend on the incident field or the current. `physics::ScatteringOperator`
+assembles the operator once (static condensation, hanging / Bloch constraints, Dirichlet
+elimination of the problem's PEC and incident facets with `assembly::DirichletElimination`,
+which keeps the eliminated columns $A_{:,D}$ for later loads) and factorises it with the
+chosen backend; `solve(incident, current)` then only assembles the new load
+(`assemble_maxwell_load`), condenses it (`StaticCondensation::condense_load`, with the stored
+$K_{BB}^{-1}$ and $K_{EB}$ per cell), reduces it by the constraints, applies the new Dirichlet
+values and recovers the interior unknowns (`recover(x, load)`). `solve_many` and
+`plane_wave_sweep` wrap this for lists of incident fields / wave vectors — the angle sweep
+of a scatterometry measurement costs one factorisation plus a triangular solve per angle.
+
+**Frequency sweeps, reduced basis.** `solvers::ReducedBasis` collects snapshots
+(full solutions at a few parameter values) into an orthonormal basis $V$ (modified
+Gram–Schmidt with re-orthogonalisation, dependent snapshots dropped) and provides the
+Galerkin projections $V^H A V$, $V^H b$ and the lift $u \approx V y$. For an affine operator
+such as $A(k) = S - k^2 M$ (no dispersive materials, PML frozen at a reference
+wavenumber) the projections of $S$ and $M$ are formed once and every further frequency is
+a dense solve of the size of the basis; `DirichletElimination` with `unit_diagonal = false`
+on $M$ keeps the eliminated system affine. This is the hook for the reduced-basis and
+dispersion work of later milestones; frequency-dependent PML and materials still need a
+full re-assembly per frequency.
+
+Verification (`tests/unit/physics/test_sweep.cpp`): solutions of three incidence angles by
+one factorisation agree with individual solves to $10^{-9}$ for the total- and
+scattered-field formulations with and without condensation on a hanging mesh with PEC
+and prescribed traces; the reusable elimination and the condensed loads reproduce the
+one-shot pipeline; a basis of five frequency snapshots ($k = 2 \dots 4$ on a $6 \times 6$,
+$p = 3$ box with the exact trace) reproduces full solutions at four other frequencies
+within $10^{-2}$ and the snapshot frequencies to $10^{-8}$.
+
 ## Measured (`benchmarks/results/2026-10-02-VR.json`)
 
 Maxwell plane wave on the unit square, MSYS2 GCC 16 release build, 24 cores, MUMPS 5.9

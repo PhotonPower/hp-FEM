@@ -46,6 +46,8 @@ void StaticCondensation::condense(std::span<const Index> dofs, Index num_interio
       !cell.kbb_inv_kbe.allFinite()) {
     throw Error("StaticCondensation: the interior block of a cell is singular");
   }
+  cell.keb = keb;
+  cell.kbb_inverse = lu.inverse();
   const Matrix schur = local.topLeftCorner(ne, ne) - keb * cell.kbb_inv_kbe;
   const Vector reduced = load.head(ne) - keb * cell.kbb_inv_fb;
   local = schur;
@@ -70,6 +72,39 @@ Vector StaticCondensation::recover(const Vector& solution) const {
   for (const Cell& cell : cells_) {
     const Vector ue = gather(solution, cell.exterior);
     const Vector ub = cell.kbb_inv_fb - cell.kbb_inv_kbe * ue;
+    for (std::size_t i = 0; i < cell.interior.size(); ++i) {
+      out(cell.interior[i]) = ub(static_cast<Index>(i));
+    }
+  }
+  return out;
+}
+
+Vector StaticCondensation::condense_load(const Vector& load) const {
+  if (load.size() != num_dofs_) {
+    throw InvalidArgument(fmt::format("StaticCondensation::condense_load: {} values for {} DoFs",
+                                      load.size(), num_dofs_));
+  }
+  Vector out = load;
+  for (const Cell& cell : cells_) {
+    const Vector fb = gather(load, cell.interior);
+    const Vector correction = cell.keb * (cell.kbb_inverse * fb);
+    for (std::size_t i = 0; i < cell.exterior.size(); ++i) {
+      out(cell.exterior[i]) -= correction(static_cast<Index>(i));
+    }
+    for (const Index dof : cell.interior) out(dof) = 0.0;
+  }
+  return out;
+}
+
+Vector StaticCondensation::recover(const Vector& solution, const Vector& load) const {
+  if (solution.size() != num_dofs_ || load.size() != num_dofs_) {
+    throw InvalidArgument("StaticCondensation::recover: sizes do not match");
+  }
+  Vector out = solution;
+  for (const Cell& cell : cells_) {
+    const Vector ue = gather(solution, cell.exterior);
+    const Vector fb = gather(load, cell.interior);
+    const Vector ub = cell.kbb_inverse * fb - cell.kbb_inv_kbe * ue;
     for (std::size_t i = 0; i < cell.interior.size(); ++i) {
       out(cell.interior[i]) = ub(static_cast<Index>(i));
     }
