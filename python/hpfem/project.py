@@ -585,10 +585,17 @@ def run_cavity(project: Mapping) -> dict[str, Any]:
     constrained_nd = np.unique(np.concatenate([nd.facet_dofs(f) for f in facets])) if facets else []
     constrained_h1 = np.unique(np.concatenate([h1.facet_dofs(f) for f in facets])) if facets else []
     count = int(_get(project, "num_eigenvalues", 6))
+    eigen = _get(project, "eigen", {})
+    options = hpfem.EigenOptions(
+        num_eigenvalues=count,
+        shift=float(_get(eigen, "shift", -1.0)),
+        krylov_dimension=int(_get(eigen, "krylov_dimension", 4 * count + 10)),
+        tolerance=float(_get(eigen, "tolerance", 1e-10)),
+    )
     result = hpfem.gauged_curl_curl_eigenpairs(
         system.stiffness, system.mass, gradient,
         hpfem.free_dofs(nd.num_dofs, constrained_nd), hpfem.free_dofs(h1.num_dofs, constrained_h1),
-        hpfem.EigenOptions(num_eigenvalues=count),
+        options,
     )  # fmt: skip
     k0 = np.sqrt(np.abs(result.eigenvalues))
     return {
