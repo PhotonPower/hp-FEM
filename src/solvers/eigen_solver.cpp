@@ -13,6 +13,7 @@
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #pragma GCC diagnostic ignored "-Wnull-dereference"
 #endif
+#include <Spectra/GenEigsSolver.h>
 #include <Spectra/MatOp/SparseSymMatProd.h>
 #include <Spectra/SymGEigsShiftSolver.h>
 
@@ -31,7 +32,8 @@ namespace {
 using RealSparse = Eigen::SparseMatrix<Real, Eigen::ColMajor, int>;
 
 /// Real part of a complex sparse matrix; the imaginary part must be negligible.
-RealSparse real_part(const SparseMatrix& matrix, const char* name) {
+RealSparse real_part(const SparseMatrix& matrix, const char* name,
+                     const char* function = "gauged_curl_curl_eigenpairs") {
   RealSparse out(static_cast<int>(matrix.rows()), static_cast<int>(matrix.cols()));
   std::vector<Eigen::Triplet<Real, int>> triplets;
   triplets.reserve(as_size(matrix.nonZeros()));
@@ -46,9 +48,9 @@ RealSparse real_part(const SparseMatrix& matrix, const char* name) {
   }
   if (max_imag > 1e-12 * std::max(max_abs, Real{1.0})) {
     throw InvalidArgument(fmt::format(
-        "gauged_curl_curl_eigenpairs: {} has imaginary parts up to {}; the Lanczos solver "
-        "needs real symmetric matrices (lossless media without PML)",
-        name, max_imag));
+        "{}: {} has imaginary parts up to {}; the solver needs real matrices (lossless media "
+        "without PML)",
+        function, name, max_imag));
   }
   out.setFromTriplets(triplets.begin(), triplets.end());
   out.makeCompressed();
@@ -103,7 +105,106 @@ class ProjectedShiftInvert {
   Eigen::SparseLU<RealSparse> shift_invert_;
 };
 
+/// Spectra operator y = (A − σB)^{-1} B x.
+class PencilShiftInvert {
+ public:
+  using Scalar = Real;
+
+  PencilShiftInvert(const RealSparse& a, const RealSparse& b, Real sigma) : b_(b) {
+    const RealSparse shifted = a - sigma * b;
+    lu_.compute(shifted);
+    if (lu_.info() != Eigen::Success) {
+      throw Error(fmt::format(
+          "generalized_eigenpairs_near: factorisation of A - {} B failed; the shift hits the "
+          "spectrum or the pencil is singular",
+          sigma));
+    }
+  }
+  [[nodiscard]] Eigen::Index rows() const { return b_.rows(); }
+  [[nodiscard]] Eigen::Index cols() const { return b_.cols(); }
+  void perform_op(const Scalar* x_in, Scalar* y_out) const {
+    const Eigen::Map<const RealVector> x(x_in, b_.rows());
+    Eigen::Map<RealVector> y(y_out, b_.rows());
+    y = lu_.solve(RealVector(b_ * x));
+  }
+
+ private:
+  const RealSparse& b_;
+  Eigen::SparseLU<RealSparse> lu_;
+};
+
 }  // namespace
+
+EigenResult generalized_eigenpairs_near(const SparseMatrix& a_full, const SparseMatrix& b_full,
+                                        Real sigma, const EigenOptions& options) {
+  if (a_full.rows() != a_full.cols() || b_full.rows() != a_full.rows() ||
+      b_full.cols() != a_full.cols()) {
+    throw InvalidArgument("generalized_eigenpairs_near: A and B must be square and of equal size");
+  }
+  if (options.num_eigenvalues < 1) {
+    throw InvalidArgument("generalized_eigenpairs_near: num_eigenvalues must be at least 1");
+  }
+  const RealSparse a = real_part(a_full, "A", "generalized_eigenpairs_near");
+  const RealSparse b = real_part(b_full, "B", "generalized_eigenpairs_near");
+  const Index n = a.rows();
+  const Index nev = std::min(options.num_eigenvalues, n - 2);
+  Index ncv = options.krylov_dimension > 0 ? options.krylov_dimension : 2 * nev + 10;
+  ncv = std::min(std::max(ncv, nev + 2), n);
+  if (nev < 1 || ncv <= nev + 1) {
+    throw InvalidArgument(
+        fmt::format("generalized_eigenpairs_near: system too small ({} DoFs) for {} eigenvalues", n,
+                    options.num_eigenvalues));
+  }
+  PencilShiftInvert op(a, b, sigma);
+  Spectra::GenEigsSolver<PencilShiftInvert> solver(op, static_cast<int>(nev),
+                                                   static_cast<int>(ncv));
+  solver.init();
+  const int converged = static_cast<int>(
+      solver.compute(Spectra::SortRule::LargestMagn, options.max_iterations, options.tolerance));
+  if (solver.info() != Spectra::CompInfo::Successful || converged < 1) {
+    throw Error(fmt::format(
+        "generalized_eigenpairs_near: Arnoldi did not converge ({} of {} eigenvalues after {} "
+        "iterations); increase krylov_dimension or max_iterations",
+        converged, nev, solver.num_iterations()));
+  }
+  const Eigen::VectorXcd nu = solver.eigenvalues();
+  const Eigen::MatrixXcd vectors = solver.eigenvectors();
+  // lambda = sigma + 1 / nu, sorted ascending; vectors rotated to be real
+  std::vector<Index> order(as_size(converged));
+  std::iota(order.begin(), order.end(), Index{0});
+  std::vector<Real> lambda(as_size(converged));
+  for (Index i = 0; i < converged; ++i) {
+    const Complex l = sigma + 1.0 / nu(i);
+    if (std::abs(l.imag()) > 1e-8 * std::max(std::abs(l), Real{1.0})) {
+      throw Error(fmt::format(
+          "generalized_eigenpairs_near: eigenvalue {} has a non-negligible imaginary part {}",
+          l.real(), l.imag()));
+    }
+    lambda[as_size(i)] = l.real();
+  }
+  std::sort(order.begin(), order.end(),
+            [&](Index x, Index y) { return lambda[as_size(x)] < lambda[as_size(y)]; });
+  EigenResult result;
+  result.eigenvalues.resize(converged);
+  result.eigenvectors = RealMatrix::Zero(n, converged);
+  for (Index k = 0; k < converged; ++k) {
+    const Index i = order[as_size(k)];
+    result.eigenvalues(k) = lambda[as_size(i)];
+    Eigen::VectorXcd v = vectors.col(i);
+    Index largest = 0;
+    v.cwiseAbs().maxCoeff(&largest);
+    v *= std::conj(v(largest)) / std::abs(v(largest));  // real at the largest entry
+    const RealVector re = v.real();
+    result.eigenvectors.col(k) = re / re.norm();
+  }
+  result.iterations = static_cast<int>(solver.num_iterations());
+  log().info(
+      "generalized_eigenpairs_near: {} eigenvalues in [{:.6g}, {:.6g}] near {:.6g} after {} "
+      "iterations",
+      converged, result.eigenvalues.minCoeff(), result.eigenvalues.maxCoeff(), sigma,
+      solver.num_iterations());
+  return result;
+}
 
 EigenResult gauged_curl_curl_eigenpairs(const SparseMatrix& stiffness, const SparseMatrix& mass,
                                         const SparseMatrix& gradient,

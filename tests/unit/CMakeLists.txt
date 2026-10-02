@@ -55,8 +55,10 @@ hpfem_add_test(test_physics unit
   physics/test_scattering.cpp
   physics/test_postprocess.cpp
   physics/test_mie.cpp
-  physics/test_farfield.cpp)
+  physics/test_farfield.cpp
+  physics/test_propagating_mode.cpp)
 
 hpfem_add_test(test_solvers unit
   solvers/test_linear_solver.cpp
-  solvers/test_eigen_solver.cpp)
+  solvers/test_eigen_solver.cpp
+  solvers/test_generalized_eigen.cpp)

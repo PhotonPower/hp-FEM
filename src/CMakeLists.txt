@@ -18,6 +18,7 @@ add_library(hpfem
   physics/mie.cpp
   physics/farfield.cpp
   physics/diffraction.cpp
+  physics/propagating_mode.cpp
   assembly/quadrature.cpp
   fespace/polynomials.cpp
   fespace/h1_basis.cpp

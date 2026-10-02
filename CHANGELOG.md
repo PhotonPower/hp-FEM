@@ -122,6 +122,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - `physics::FarField` (Stratton–Chu far-field pattern, radiated power and
   cross-section from a closed surface, 2D and 3D) and `physics/diffraction.hpp`
   (`fourier_coefficients`, `diffraction_efficiencies` of Bloch-periodic problems).
+- `physics::PropagatingMode` (M4): waveguide modes of a 2D cross-section from the
+  Nédélec / H1 (Lee–Sun–Cendes) pencil; `solvers::generalized_eigenpairs_near` (real
+  nonsymmetric shift-invert Arnoldi for indefinite pencils); `assemble_h1` with a
+  per-cell form factory. Convergence test #5: slab waveguide effective index with rate
+  2p and exponential p-convergence.
 
 ## [0.1.0] — 2026-10-02
 ### Added

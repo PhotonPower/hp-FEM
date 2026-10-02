@@ -19,3 +19,6 @@ hpfem_add_test(convergence_curved_boundary convergence
 
 hpfem_add_test(convergence_mie_cylinder convergence
   mie_cylinder.cpp)
+
+hpfem_add_test(convergence_slab_waveguide convergence
+  slab_waveguide.cpp)

@@ -45,4 +45,14 @@ struct EigenResult {
                                                       std::span<const Index> free_h1,
                                                       const EigenOptions& options = {});
 
+/// Eigenpairs of @f$ A x = \lambda B x @f$ closest to σ for real sparse A and B, where B may be
+/// indefinite and A singular (waveguide mode pencils): Arnoldi (Spectra) on the real
+/// nonsymmetric operator @f$ (A - \sigma B)^{-1} B @f$ with Eigen SparseLU, eigenvalues
+/// @f$ \lambda = \sigma + 1/\nu @f$. Results are real (imaginary parts of the Ritz values must
+/// be negligible, otherwise `Error`); eigenvectors have unit 2-norm and the size of A.
+/// `options.shift` is ignored (σ is the argument).
+/// @throws InvalidArgument for complex or mismatched matrices, Error on non-convergence.
+[[nodiscard]] EigenResult generalized_eigenpairs_near(const SparseMatrix& a, const SparseMatrix& b,
+                                                      Real sigma, const EigenOptions& options = {});
+
 }  // namespace hpfem::solvers
