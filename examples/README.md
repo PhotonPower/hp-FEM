@@ -1,7 +1,10 @@
 # Examples
 
 One directory per application area, each with a `README.md` (physics, expected result,
-runtime), a Python driver script and, where needed, a Gmsh `.geo` file.
+runtime) and a driver. The drivers are C++ programs (`main.cpp`, built as
+`example_<name>` with the `HPFEM_BUILD_EXAMPLES` option, on by default); Python drivers
+replace them with the bindings of milestone M7. Each writes its results to stdout and a
+`.vtu` file into the working directory.
 
 | Directory              | Area                         | Milestone |
 |------------------------|------------------------------|-----------|

@@ -107,8 +107,9 @@ pip install -r docs/requirements.txt && mkdocs serve
 ./scripts/format.sh          # clang-format + ruff
 ```
 
-CMake options: `HPFEM_BUILD_TESTS`, `HPFEM_BUILD_PYTHON`, `HPFEM_BUILD_BENCHMARKS`,
-`HPFEM_BUILD_DOCS`, `HPFEM_ENABLE_MPI` (off until milestone M6), `HPFEM_ENABLE_MUMPS`.
+CMake options: `HPFEM_BUILD_TESTS`, `HPFEM_BUILD_EXAMPLES`, `HPFEM_BUILD_PYTHON`,
+`HPFEM_BUILD_BENCHMARKS`, `HPFEM_BUILD_DOCS`, `HPFEM_ENABLE_MPI` (off until milestone
+M6), `HPFEM_ENABLE_MUMPS`.
 
 Third-party libraries are pulled via `FetchContent` in `cmake/Dependencies.cmake`
 (Eigen, Catch2, fmt, spdlog, nlohmann_json, pybind11). Heavy optional deps (MUMPS,
@@ -312,6 +313,11 @@ Poisson convergence test. **M3 (Nédélec elements and Maxwell eigenproblems)** 
 as well: hierarchical Nédélec basis with `NedelecDofMap`, curl–curl forms with complex
 tensors, PEC/PMC, discrete gradients and the gauged shift-invert eigensolver (Spectra),
 the PEC cavity convergence test, point location with field evaluation at arbitrary
-points, and VTK export of fields (cell averages and subdivision). Next: **M4 —
-time-harmonic scattering and waveguides**.
+points, and VTK export of fields (cell averages and subdivision). **M4 (time-harmonic
+scattering and waveguides)** is complete: `physics::Scattering` (total / scattered
+field, plane-wave and dipole sources, materials by tag), PML as stretched material
+tensors, Bloch-periodic constraints, curved elements (second-order Gmsh input, disc /
+ball generators), post-processing (fluxes, cross-sections, far field, diffraction
+orders), `physics::PropagatingMode`, convergence tests #3–#6 and the four examples.
+Next: **M5 — adaptivity (a-posteriori estimation, hp-refinement)**.
 See `docs/roadmap.md`.
