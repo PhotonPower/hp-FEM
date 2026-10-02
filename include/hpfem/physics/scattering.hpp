@@ -1,0 +1,114 @@
+#pragma once
+/// @file scattering.hpp
+/// Time-harmonic scattering at a fixed frequency ω on a Nédélec space:
+/// @f$ \nabla\times(\mu_r^{-1}\nabla\times E) - k_0^2\,\varepsilon_r E = f @f$, @f$ k_0 =
+/// \omega/c_0 @f$, the curl–curl equation of docs/theory/maxwell.md divided by μ0 (SI lengths, so a
+/// current source enters as @f$ f = i\omega\mu_0 J @f$). Materials are assigned by cell tag. Either
+/// the total field is solved (sources: currents, prescribed incident field on boundaries) or the
+/// scattered field @f$ E^{sc} = E - E^{inc} @f$ of an analytic incident field, whose volume
+/// sources @f$ k_0^2(\varepsilon_r - \varepsilon_{r,b})E^{inc} @f$ and
+/// @f$ -(\mu_r^{-1} - \mu_{r,b}^{-1})\nabla\times E^{inc} @f$ live on the scatterer only.
+/// Boundary conditions: PEC, prescribed incident field, PMC (natural). PML, Bloch and
+/// transparent conditions follow in M4. See docs/theory/maxwell.md#scattering-problems.
+
+#include <cstdint>
+#include <optional>
+#include <vector>
+
+#include "hpfem/assembly/dirichlet.hpp"
+#include "hpfem/assembly/h1_forms.hpp"
+#include "hpfem/assembly/maxwell_forms.hpp"
+#include "hpfem/core/types.hpp"
+#include "hpfem/fespace/dof_map.hpp"
+#include "hpfem/materials/material.hpp"
+#include "hpfem/mesh/point_location.hpp"
+#include "hpfem/physics/sources.hpp"
+
+namespace hpfem::physics {
+
+enum class Formulation : std::uint8_t {
+  kTotalField,      ///< unknown E; the incident field enters through boundary data / currents
+  kScatteredField,  ///< unknown E − E_inc; the incident field enters as a volume source
+};
+
+/// Description of a scattering problem.
+template <int Dim>
+struct ScatteringSetup {
+  Real omega = 0;                    ///< angular frequency [rad/s]
+  materials::MaterialMap materials;  ///< by cell tag; the background for unlisted tags
+  IncidentField<Dim> incident;       ///< analytic field in the background medium (optional)
+  Formulation formulation = Formulation::kTotalField;
+  std::vector<mesh::Tag> pec_tags;            ///< facets with n × E = 0
+  std::vector<mesh::Tag> incident_tags;       ///< facets with n × E = n × E_inc (test domains)
+  assembly::ComplexVectorField<Dim> current;  ///< f = iωμ0 J, total-field formulation only
+  int extra_quadrature_order = 4;             ///< added to 2p for the non-polynomial incident field
+};
+
+/// Coefficients of the unknown field on the DoF map.
+template <int Dim>
+struct ScatteringSolution {
+  Formulation formulation = Formulation::kTotalField;
+  Vector unknown;  ///< E (total) or E_sc (scattered)
+};
+
+/// Assembles, constrains and solves a scattering problem and evaluates its fields.
+template <int Dim>
+class Scattering {
+ public:
+  /// @throws InvalidArgument if ω ≤ 0, the scattered-field formulation or incident facets
+  ///         lack an incident field, or a current is given with the scattered field.
+  Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringSetup<Dim> setup);
+
+  [[nodiscard]] const fespace::NedelecDofMap<Dim>& dofs() const noexcept { return *dofs_; }
+  [[nodiscard]] const ScatteringSetup<Dim>& setup() const noexcept { return setup_; }
+  /// Vacuum wavenumber k0 [1/m].
+  [[nodiscard]] Real wavenumber() const noexcept { return k0_; }
+  [[nodiscard]] const materials::Material& material(Index cell) const {
+    return setup_.materials.of_cell(dofs_->mesh(), cell);
+  }
+
+  /// Coefficients and sources of cell c for `assemble_maxwell`: relative tensors
+  /// μr⁻¹ I, εr I and the sources of the formulation.
+  [[nodiscard]] assembly::MaxwellForm<Dim> form_of_cell(Index cell) const;
+  /// Dirichlet data of the unknown field on the PEC and incident facets.
+  [[nodiscard]] assembly::DirichletData dirichlet() const;
+  /// @f$ A = S - k_0^2 M @f$ and the load with the Dirichlet data applied.
+  [[nodiscard]] assembly::AssembledSystem assemble() const;
+  /// Assembles and solves with the direct solver.
+  [[nodiscard]] ScatteringSolution<Dim> solve() const;
+
+  /// Total / scattered field at reference point ξ of cell c (the incident field is added or
+  /// subtracted according to the formulation; without an incident field both coincide).
+  [[nodiscard]] assembly::ComplexVector<Dim> total_field(const ScatteringSolution<Dim>& solution,
+                                                         Index cell, const Point<Dim>& xi) const;
+  [[nodiscard]] assembly::ComplexVector<Dim> scattered_field(
+      const ScatteringSolution<Dim>& solution, Index cell, const Point<Dim>& xi) const;
+  /// The same at a physical point located with `locator` (built on the mesh), or nothing
+  /// outside the mesh.
+  [[nodiscard]] std::optional<assembly::ComplexVector<Dim>> total_field(
+      const ScatteringSolution<Dim>& solution, const mesh::PointLocator<Dim>& locator,
+      const Point<Dim>& x) const;
+  [[nodiscard]] std::optional<assembly::ComplexVector<Dim>> scattered_field(
+      const ScatteringSolution<Dim>& solution, const mesh::PointLocator<Dim>& locator,
+      const Point<Dim>& x) const;
+  /// Error norms of the unknown field against an exact field of the same kind (total or
+  /// scattered, matching the formulation).
+  [[nodiscard]] assembly::HcurlErrorNorms error(const ScatteringSolution<Dim>& solution,
+                                                const IncidentField<Dim>& exact) const;
+
+ private:
+  [[nodiscard]] std::vector<Index> facets(const std::vector<mesh::Tag>& tags) const;
+
+  const fespace::NedelecDofMap<Dim>* dofs_;
+  ScatteringSetup<Dim> setup_;
+  Real k0_ = 0;
+};
+
+extern template struct ScatteringSetup<2>;
+extern template struct ScatteringSetup<3>;
+extern template struct ScatteringSolution<2>;
+extern template struct ScatteringSolution<3>;
+extern template class Scattering<2>;
+extern template class Scattering<3>;
+
+}  // namespace hpfem::physics

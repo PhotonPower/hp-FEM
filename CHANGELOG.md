@@ -83,6 +83,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   space by hierarchical L2 projection (edge functions, then face functions), exact for
   traces in the discrete space; `MaxwellForm::curl_source` adds a load paired with
   curl v (the permeability term of the scattered-field formulation).
+- `physics::Scattering<Dim>` (M4): total- and scattered-field formulations of the
+  time-harmonic problem with isotropic materials by cell tag (`materials::Material`,
+  `MaterialMap`), PEC and prescribed-incident-field facets, current sources, field
+  evaluation and error norms; analytic sources `plane_wave` and `dipole_field` (3D
+  Hertz dipole, 2D line dipole via Hankel functions in `core/special_functions.hpp`);
+  `assemble_maxwell` with a per-cell form factory. Convergence test: plane wave and
+  dipole field reproduced with rate p, scattered and total formulations agree.
 
 ## [0.1.0] — 2026-10-02
 ### Added

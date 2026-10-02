@@ -104,6 +104,65 @@ whose zero count equals $\dim W_h^0$.
 For an incident field $\mathbf{E}^{\mathrm{inc}}$ that solves Maxwell in the background medium $\varepsilon_b, \mu_b$, write $\mathbf{E} = \mathbf{E}^{\mathrm{inc}} + \mathbf{E}^{\mathrm{sc}}$. Then $\mathbf{E}^{\mathrm{sc}}$ solves the curl–curl equation with the source
 $\mathbf{f} = \omega^2 (\varepsilon - \varepsilon_b)\mathbf{E}^{\mathrm{inc}} - \nabla\times\big((\mu^{-1} - \mu_b^{-1})\nabla\times\mathbf{E}^{\mathrm{inc}}\big)$ supported only on the scatterer, and PML absorbs $\mathbf{E}^{\mathrm{sc}}$ cleanly. In the weak form the curl term is integrated by parts, $\ell(\mathbf{v}) = \omega^2\int(\varepsilon - \varepsilon_b)\mathbf{E}^{\mathrm{inc}}\cdot\mathbf{v} - \int(\mu^{-1} - \mu_b^{-1})\nabla\times\mathbf{E}^{\mathrm{inc}}\cdot\nabla\times\mathbf{v}$, which `MaxwellForm::source` and `MaxwellForm::curl_source` carry. For layered backgrounds (gratings, masks) the incident field is the analytic multilayer solution.
 
+## Scattering problems (`physics/scattering.hpp`)
+
+`physics::Scattering<Dim>` solves, at a fixed angular frequency $\omega$ with
+$k_0 = \omega / c_0$ and SI lengths, the curl–curl equation divided by $\mu_0$,
+
+$$
+\nabla\times(\mu_r^{-1}\nabla\times\mathbf{E}) - k_0^2\,\varepsilon_r\,\mathbf{E} = \mathbf{f},
+\qquad \mathbf{f} = i\omega\mu_0\mathbf{J},
+$$
+
+on a Nédélec space with isotropic materials $(\varepsilon_r, \mu_r)$ assigned by cell tag
+(`materials::MaterialMap`, the background for unlisted tags). Two formulations share the
+operator $A = S - k_0^2 M$ assembled with per-cell coefficients
+(`assemble_maxwell` with a cell-form factory):
+
+- **total field**: the unknown is $\mathbf{E}$; sources are currents and the incident
+  field prescribed as tangential trace on `incident_tags` facets;
+- **scattered field**: the unknown is $\mathbf{E}^{sc} = \mathbf{E} - \mathbf{E}^{inc}$ for an
+  analytic incident field of the background medium; the sources
+  $k_0^2(\varepsilon_r - \varepsilon_{r,b})\mathbf{E}^{inc}$ (`source`) and
+  $-(\mu_r^{-1} - \mu_{r,b}^{-1})\nabla\times\mathbf{E}^{inc}$ (`curl_source`) live on the
+  scatterer only; PEC facets get $\mathbf{n}\times\mathbf{E}^{sc} = -\mathbf{n}\times\mathbf{E}^{inc}$
+  and incident facets $\mathbf{n}\times\mathbf{E}^{sc} = 0$.
+
+Analytic incident fields (`physics/sources.hpp`) come as value and curl: the plane wave
+$\mathbf{E}_0 e^{i\mathbf{k}\cdot\mathbf{x}}$ with $\mathbf{E}_0\perp\mathbf{k}$ (curl
+$i\mathbf{k}\times\mathbf{E}$), and the dipole field, the outgoing solution of
+$\nabla\times\nabla\times\mathbf{E} - k^2\mathbf{E} = \mathbf{p}\,\delta(\mathbf{x} - \mathbf{x}_0)$,
+$\mathbf{E} = (I + \nabla\nabla/k^2)\,g\,\mathbf{p}$ with the scalar Green's function
+$g = e^{ikr}/(4\pi r)$ (3D) or $g = \tfrac{i}{4}H_0^{(1)}(kr)$ (2D, line dipole with in-plane
+moment; Hankel functions from `core/special_functions.hpp`). Explicitly, with
+$\mathbf{n} = (\mathbf{x} - \mathbf{x}_0)/r$,
+
+$$
+\mathbf{E}_{3D} = g\Big[\big(1 + \tfrac{i}{kr} - \tfrac{1}{(kr)^2}\big)\mathbf{p}
++ \big(-1 - \tfrac{3i}{kr} + \tfrac{3}{(kr)^2}\big)\mathbf{n}(\mathbf{n}\cdot\mathbf{p})\Big],
+\qquad \nabla\times\mathbf{E} = \nabla g\times\mathbf{p},
+$$
+
+and in 2D $\mathbf{E} = (g + g'/(k^2 r))\,\mathbf{p} + (g'' - g'/r)/k^2\;\mathbf{n}(\mathbf{n}\cdot\mathbf{p})$.
+Both are checked by finite differences (curl of the value, and
+$\nabla\times\nabla\times\mathbf{E} = k^2\mathbf{E}$) in the unit tests.
+
+The solution is evaluated as total or scattered field at reference points of cells or, via
+`mesh::PointLocator`, at physical points (the incident field is added or subtracted
+according to the formulation), and `error` measures the unknown against an analytic field
+of the same kind. PML, Bloch-periodic constraints, curved elements and post-processing
+(fluxes, cross-sections, far fields) are the following M4 items.
+
+**Verification** (`tests/convergence/maxwell_scattering.cpp`): with the exact tangential
+trace prescribed on all sides, a plane wave and a dipole field whose source lies outside
+the domain are reproduced with rate $p$ in the $H(\mathrm{curl})$ norm for $p = 1, 2$ in 2D
+and 3D (the first-kind space converges with rate $p$ in both the $L^2$ and the curl part);
+the scattered- and total-field formulations of a dielectric disc under the same boundary
+data converge to the same total field. Unit tests cover setup validation, materials by tag,
+the assembled operator against a manual assembly, a zero-contrast scatterer (zero
+scattered field), PEC data in the scattered-field formulation (vanishing total trace) and
+current sources.
+
 ## Boundary conditions
 
 - **PEC** $\mathbf{n}\times\mathbf{E} = 0$: eliminate edge/face DoFs (`homogeneous_dirichlet`).
