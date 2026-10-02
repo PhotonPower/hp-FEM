@@ -211,6 +211,52 @@ void bind_assembly_dim(py::module_& m) {
          const Point<Dim>& x) { return assembly::evaluate_hcurl_curl<Dim>(dofs, e, locator, x); },
       py::arg("dofs"), py::arg("e"), py::arg("locator"), py::arg("x"));
   m.def(
+      "sample_h1",
+      [](const H1& dofs, const Vector& u, const std::vector<Index>& cells, const RealArray& xi) {
+        const auto points = array_to_points<Dim>(xi, "xi");
+        if (points.size() != cells.size()) {
+          throw InvalidArgument("sample_h1: cells and xi must have the same length");
+        }
+        Vector out(static_cast<Index>(points.size()));
+        {
+          py::gil_scoped_release release;
+          for (std::size_t i = 0; i < points.size(); ++i) {
+            out(static_cast<Index>(i)) = assembly::evaluate_h1<Dim>(dofs, u, cells[i], points[i]);
+          }
+        }
+        return out;
+      },
+      py::arg("dofs"), py::arg("u"), py::arg("cells"), py::arg("xi"),
+      "Values at reference points xi (n, dim) of the given cells (n), e.g. the vertices of "
+      "a subdivision");
+  m.def(
+      "sample_hcurl",
+      [](const ND& dofs, const Vector& e, const std::vector<Index>& cells, const RealArray& xi,
+         bool curl) {
+        const auto points = array_to_points<Dim>(xi, "xi");
+        if (points.size() != cells.size()) {
+          throw InvalidArgument("sample_hcurl: cells and xi must have the same length");
+        }
+        constexpr int kCurl = Dim == 2 ? 1 : 3;
+        Matrix out(static_cast<Index>(points.size()), curl ? kCurl : Dim);
+        {
+          py::gil_scoped_release release;
+          for (std::size_t i = 0; i < points.size(); ++i) {
+            if (curl) {
+              out.row(static_cast<Index>(i)) =
+                  assembly::evaluate_hcurl_curl<Dim>(dofs, e, cells[i], points[i]).transpose();
+            } else {
+              out.row(static_cast<Index>(i)) =
+                  assembly::evaluate_hcurl<Dim>(dofs, e, cells[i], points[i]).transpose();
+            }
+          }
+        }
+        return out;
+      },
+      py::arg("dofs"), py::arg("e"), py::arg("cells"), py::arg("xi"), py::arg("curl") = false,
+      "Field values (n, dim) — or curls (n, 1 / 3) with curl=True — at reference points xi "
+      "(n, dim) of the given cells (n)");
+  m.def(
       "h1_error",
       [](const H1& dofs, const Vector& u, const assembly::ScalarField<Dim>& exact,
          const assembly::VectorField<Dim>& grad,

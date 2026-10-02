@@ -15,6 +15,7 @@
 #include "hpfem/mesh/mesh.hpp"
 #include "hpfem/mesh/point_location.hpp"
 #include "hpfem/mesh/refinement.hpp"
+#include "hpfem/mesh/subdivision.hpp"
 
 namespace hpfem::python {
 
@@ -211,6 +212,25 @@ void bind_mesh_dim(py::module_& m) {
           "vertex created on every parent edge");
   m.def("refine_uniform", &mesh::refine_uniform<Dim>, py::arg("mesh"), Release(),
         "Red refinement of every cell (4 / 8 children), tags and curved geometry transferred");
+
+  py::class_<mesh::Subdivided<Dim>>(
+      m, named("Subdivided", Dim).c_str(),
+      "Every cell split into n^dim sub-simplices in reference space with duplicated vertices "
+      "per parent cell: the piecewise-linear carrier for visualising high-order fields "
+      "(sample them at vertex_parent / vertex_xi)")
+      .def_readonly("mesh", &mesh::Subdivided<Dim>::mesh)
+      .def_property_readonly(
+          "parent_cell", [](const mesh::Subdivided<Dim>& s) { return to_array(s.parent_cell); },
+          "parent of every sub-cell")
+      .def_property_readonly(
+          "vertex_parent", [](const mesh::Subdivided<Dim>& s) { return to_array(s.vertex_parent); },
+          "parent cell of every sub-vertex")
+      .def_property_readonly(
+          "vertex_xi",
+          [](const mesh::Subdivided<Dim>& s) { return points_to_array<Dim>(s.vertex_xi); },
+          "(n, dim) reference coordinates of every sub-vertex in its parent");
+  m.def("subdivide", &mesh::subdivide<Dim>, py::arg("mesh"), py::arg("n"), Release(),
+        "Uniform subdivision of every cell into n^dim sub-simplices");
 
   py::class_<mesh::AdaptiveMesh<Dim>>(
       m, named("AdaptiveMesh", Dim).c_str(),
