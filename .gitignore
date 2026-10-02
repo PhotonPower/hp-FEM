@@ -1,0 +1,32 @@
+# build
+build/
+cmake-build-*/
+_deps/
+compile_commands.json
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+.pytest_cache/
+.ruff_cache/
+# docs
+site/
+docs/api/
+# simulation outputs
+*.vtu
+*.vtk
+*.pvd
+*.xdmf
+*.h5
+out/
+# editors / os
+.vscode/
+.idea/
+*.swp
+.DS_Store
+# secrets — never commit
+.env
+*.token
+*.pat

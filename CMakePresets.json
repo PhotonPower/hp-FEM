@@ -1,0 +1,44 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base", "hidden": true, "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": { "CMAKE_EXPORT_COMPILE_COMMANDS": "ON" }
+    },
+    { "name": "debug",   "inherits": "base", "displayName": "Debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" } },
+    { "name": "release", "inherits": "base", "displayName": "Release (asserts on)",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" } },
+    { "name": "fast",    "inherits": "base", "displayName": "Release (asserts off, -march=native)",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "HPFEM_ENABLE_ASSERTS": "OFF",
+                          "CMAKE_CXX_FLAGS": "-march=native" } },
+    { "name": "asan",    "inherits": "base", "displayName": "Debug + ASan/UBSan",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug",
+                          "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+                          "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined" } },
+    { "name": "coverage", "inherits": "base", "displayName": "Debug + coverage",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug",
+                          "CMAKE_CXX_FLAGS": "--coverage -O0",
+                          "CMAKE_EXE_LINKER_FLAGS": "--coverage" } },
+    { "name": "python",  "inherits": "release", "displayName": "Release + Python bindings",
+      "cacheVariables": { "HPFEM_BUILD_PYTHON": "ON" } }
+  ],
+  "buildPresets": [
+    { "name": "debug",    "configurePreset": "debug" },
+    { "name": "release",  "configurePreset": "release" },
+    { "name": "fast",     "configurePreset": "fast" },
+    { "name": "asan",     "configurePreset": "asan" },
+    { "name": "coverage", "configurePreset": "coverage" },
+    { "name": "python",   "configurePreset": "python" }
+  ],
+  "testPresets": [
+    { "name": "common", "hidden": true,
+      "output": { "outputOnFailure": true }, "execution": { "jobs": 4 } },
+    { "name": "debug",    "inherits": "common", "configurePreset": "debug" },
+    { "name": "release",  "inherits": "common", "configurePreset": "release" },
+    { "name": "asan",     "inherits": "common", "configurePreset": "asan" },
+    { "name": "coverage", "inherits": "common", "configurePreset": "coverage" }
+  ]
+}

@@ -1,0 +1,6 @@
+#pragma once
+// Generated from include/hpfem/version.hpp.in by CMake. Do not edit the generated copy.
+#define HPFEM_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define HPFEM_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define HPFEM_VERSION_PATCH @PROJECT_VERSION_PATCH@
+#define HPFEM_VERSION_STRING "@PROJECT_VERSION@"

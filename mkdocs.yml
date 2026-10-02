@@ -1,0 +1,36 @@
+site_name: hp-FEM
+site_description: Adaptive hp-FEM suite for nano-optics
+repo_url: https://github.com/PhotonPower/hp-FEM
+theme:
+  name: material
+  features: [navigation.sections, navigation.top, content.code.copy]
+  palette:
+    - scheme: default
+      toggle: { icon: material/brightness-7, name: Dark }
+    - scheme: slate
+      toggle: { icon: material/brightness-4, name: Light }
+markdown_extensions:
+  - admonition
+  - tables
+  - pymdownx.arithmatex: { generic: true }
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+extra_javascript:
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Architecture: architecture.md
+  - Roadmap: roadmap.md
+  - Theory:
+      - Maxwell equations: theory/maxwell.md
+      - Nédélec elements: theory/nedelec.md
+      - hp-adaptivity: theory/hp-adaptivity.md
+      - Error estimation: theory/error-estimation.md
+      - PML: theory/pml.md
+  - Applications: applications.md
+  - Development: development.md
+  - ADRs: adr/README.md

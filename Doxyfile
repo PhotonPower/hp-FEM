@@ -1,0 +1,15 @@
+PROJECT_NAME           = "hp-FEM"
+PROJECT_BRIEF          = "Adaptive hp-FEM suite for nano-optics"
+OUTPUT_DIRECTORY       = docs/api
+INPUT                  = include/hpfem CLAUDE.md
+RECURSIVE              = YES
+FILE_PATTERNS          = *.hpp *.md
+USE_MDFILE_AS_MAINPAGE = CLAUDE.md
+EXTRACT_ALL            = YES
+GENERATE_LATEX         = NO
+GENERATE_HTML          = YES
+HTML_OUTPUT            = .
+USE_MATHJAX            = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_AS_ERROR          = NO
+QUIET                  = YES

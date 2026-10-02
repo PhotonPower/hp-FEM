@@ -1,0 +1,16 @@
+name: Docs
+on:
+  push: { branches: [main] }
+  workflow_dispatch:
+permissions: { contents: write }
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: sudo apt-get install -y doxygen graphviz
+      - run: pip install -r docs/requirements.txt
+      - run: doxygen Doxyfile
+      - run: mkdocs gh-deploy --force

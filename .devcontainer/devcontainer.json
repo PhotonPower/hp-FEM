@@ -1,0 +1,12 @@
+{
+  "name": "hp-FEM dev",
+  "image": "mcr.microsoft.com/devcontainers/cpp:ubuntu-24.04",
+  "features": { "ghcr.io/devcontainers/features/python:1": { "version": "3.12" } },
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y libeigen3-dev clang-format clang-tidy doxygen graphviz gmsh && pip install pre-commit ruff pytest -r docs/requirements.txt && pre-commit install",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-vscode.cmake-tools", "llvm-vs-code-extensions.vscode-clangd", "ms-python.python", "anthropic.claude-code"],
+      "settings": { "cmake.useCMakePresets": "always" }
+    }
+  }
+}

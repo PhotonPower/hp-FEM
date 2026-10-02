@@ -1,0 +1,30 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.13"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "hpfem"
+version = "0.1.0"
+description = "Adaptive hp-FEM suite for nano-optics (time-harmonic Maxwell)"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "scipy>=1.10"]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "pre-commit", "meshio", "matplotlib"]
+docs = ["mkdocs-material", "pymdown-extensions"]
+
+[tool.scikit-build]
+cmake.args = ["-DHPFEM_BUILD_PYTHON=ON", "-DHPFEM_BUILD_TESTS=OFF"]
+cmake.build-type = "Release"
+wheel.packages = ["python/hpfem"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "NPY"]
+
+[tool.pytest.ini_options]
+testpaths = ["python/tests"]

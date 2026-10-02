@@ -1,0 +1,17 @@
+BasedOnStyle: Google
+Standard: c++20
+ColumnLimit: 100
+IndentWidth: 2
+AccessModifierOffset: -1
+DerivePointerAlignment: false
+PointerAlignment: Left
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^"hpfem/'
+    Priority: 3
+  - Regex: '^<(Eigen|fmt|spdlog|nlohmann|catch2|pybind11)/'
+    Priority: 2
+  - Regex: '^<.*'
+    Priority: 1

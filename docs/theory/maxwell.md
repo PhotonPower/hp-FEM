@@ -1,0 +1,62 @@
+# Time-harmonic Maxwell equations
+
+**Convention: time dependence $e^{-i\omega t}$, SI units.** Lossy media have $\operatorname{Im}\varepsilon > 0$.
+
+## Strong form
+
+With $\mathbf{D} = \varepsilon \mathbf{E}$, $\mathbf{B} = \mu \mathbf{H}$ and source current $\mathbf{J}$:
+
+$$
+\nabla \times \mathbf{E} = i\omega \mu \mathbf{H}, \qquad
+\nabla \times \mathbf{H} = -i\omega \varepsilon \mathbf{E} + \mathbf{J}.
+$$
+
+Eliminating $\mathbf{H}$ gives the second-order (curl–curl) equation solved by hpfem:
+
+$$
+\nabla \times \left( \mu^{-1} \nabla \times \mathbf{E} \right) - \omega^2 \varepsilon \mathbf{E} = i\omega \mathbf{J}.
+$$
+
+$\varepsilon,\mu$ are complex $3\times 3$ tensors (diagonal in most applications). The magnetic field is recovered as $\mathbf{H} = (i\omega\mu)^{-1}\nabla\times\mathbf{E}$.
+
+## Weak form
+
+Find $\mathbf{E} \in H(\mathrm{curl};\Omega)$ with the prescribed tangential trace on PEC boundaries such that for all test functions $\mathbf{v}$:
+
+$$
+\int_\Omega \mu^{-1} (\nabla\times\mathbf{E})\cdot(\nabla\times\bar{\mathbf{v}}) \,dx
+- \omega^2 \int_\Omega \varepsilon \mathbf{E}\cdot\bar{\mathbf{v}} \,dx
+- \int_{\partial\Omega} \left( \mu^{-1}\nabla\times\mathbf{E}\right)\times\mathbf{n} \cdot \bar{\mathbf{v}} \,ds
+= i\omega \int_\Omega \mathbf{J}\cdot\bar{\mathbf{v}} \,dx .
+$$
+
+Discretisation: $S \mathbf{e} - \omega^2 M \mathbf{e} = \mathbf{f}$ with $S_{ij} = (\mu^{-1}\nabla\times\phi_j, \nabla\times\phi_i)$, $M_{ij} = (\varepsilon\phi_j,\phi_i)$.
+Note the test function is **conjugated**; with complex $\varepsilon$ the matrices are complex-symmetric (not Hermitian), which solvers must respect.
+
+## Problem classes
+
+| Class | Unknown | Equation | Used for |
+|---|---|---|---|
+| Scattering | $\mathbf{E}$ at fixed $\omega$ | $(S-\omega^2M)\mathbf{e} = \mathbf{f}$ | scatterometry, metasurfaces, PV, sensors |
+| Resonance (eigenmode) | $(\omega, \mathbf{E})$ | $S\mathbf{e} = \omega^2 M\mathbf{e}$, complex $\omega$ with PML | VCSEL, cavities, Purcell |
+| Propagating mode | $(k_z, \mathbf{E}_\perp)$ | quadratic eigenproblem in $k_z$ at fixed $\omega$ | waveguides, PICs |
+
+## Scattered-field formulation
+
+For an incident field $\mathbf{E}^{\mathrm{inc}}$ that solves Maxwell in the background medium $\varepsilon_b$, write $\mathbf{E} = \mathbf{E}^{\mathrm{inc}} + \mathbf{E}^{\mathrm{sc}}$. Then $\mathbf{E}^{\mathrm{sc}}$ solves the curl–curl equation with the volumetric source
+$\mathbf{f} = \omega^2 (\varepsilon - \varepsilon_b)\mathbf{E}^{\mathrm{inc}}$ supported only on the scatterer, and PML absorbs $\mathbf{E}^{\mathrm{sc}}$ cleanly. For layered backgrounds (gratings, masks) the incident field is the analytic multilayer solution.
+
+## Boundary conditions
+
+- **PEC** $\mathbf{n}\times\mathbf{E} = 0$: eliminate edge/face DoFs.
+- **PMC** $\mathbf{n}\times(\mu^{-1}\nabla\times\mathbf{E}) = 0$: natural, do nothing.
+- **Bloch-periodic** $\mathbf{E}(x+a) = e^{i k_x a}\mathbf{E}(x)$: master/slave DoF constraints with complex factor; DoF orientation on the two faces must match (ADR-0003).
+- **Transparent**: PML, see [pml.md](pml.md).
+
+## Post-processing quantities
+
+- Poynting vector $\mathbf{S} = \tfrac12 \operatorname{Re}(\mathbf{E}\times\bar{\mathbf{H}})$, flux through surfaces.
+- Absorbed power $P_{\mathrm{abs}} = \tfrac{\omega}{2}\int \operatorname{Im}(\varepsilon)|\mathbf{E}|^2 dx$.
+- Scattering/extinction cross-sections, diffraction-order efficiencies (Fourier transform of the field on a plane above/below a periodic structure).
+- Far field via Stratton–Chu on a closed surface inside the PML-free region.
+- Purcell factor $F_P = P_{\mathrm{emitted}}/P_{\mathrm{bulk}}$ for a point dipole.

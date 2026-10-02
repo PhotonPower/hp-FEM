@@ -1,0 +1,25 @@
+# Architecture Decision Records
+
+Decisions that are expensive to reverse are recorded here. Numbered, never deleted; a
+superseded ADR gets a status line pointing to its successor.
+
+Template:
+
+```markdown
+# NNNN — Title
+**Status:** proposed | accepted | superseded by NNNN
+**Date:** YYYY-MM-DD
+
+## Context
+## Decision
+## Consequences
+## Alternatives considered
+```
+
+| # | Title | Status |
+|---|-------|--------|
+| 0001 | Language, build system and core dependencies | accepted |
+| 0002 | E-field curl–curl formulation and sign conventions | accepted |
+| 0003 | Entity orientation by global vertex order | accepted |
+| 0004 | Hierarchical Schöberl–Zaglmayr Nédélec basis | accepted |
+| 0005 | PML as complex material tensor inside the FEM | accepted |
