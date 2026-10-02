@@ -207,7 +207,7 @@ void curve_boundary(Mesh<Dim>& mesh, std::span<const Index> facets,
     if constexpr (Dim == 2) {
       nodes[as_size(f)] = project(nodes[as_size(f)]);
     } else {
-      for (const auto [a, b] :
+      for (const auto& [a, b] :
            {std::pair{fv[0], fv[1]}, std::pair{fv[1], fv[2]}, std::pair{fv[0], fv[2]}}) {
         const Index e = mesh.edge_id(a, b);
         nodes[as_size(e)] = project(nodes[as_size(e)]);
