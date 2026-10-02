@@ -12,3 +12,6 @@ hpfem_add_test(test_mesh unit
   mesh/test_geometry.cpp
   mesh/test_curved_geometry.cpp
   mesh/test_refinement.cpp)
+
+hpfem_add_test(test_io unit
+  io/test_vtk.cpp)
