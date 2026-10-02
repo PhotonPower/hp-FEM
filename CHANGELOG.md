@@ -30,6 +30,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   remaining indices are skipped) instead of terminating the process.
 
 ### Fixed
+- `solvers::gauged_curl_curl_eigenpairs` and `generalized_eigenpairs_near` scale the pencil
+  to O(1) matrices internally: on SI meshes (mass entries ~ 1e-14, eigenvalues ~ 1e13)
+  Spectra's absolute thresholds made the Lanczos iteration stop early with non-converged,
+  run-to-run varying eigenvalues. Unit test: eigenvalues of the 1 µm box equal those of
+  the unit box times 1e12 and are reproducible.
 - MinGW builds link the GCC runtime (libstdc++, libgcc, winpthread) statically
   (`HPFEM_STATIC_RUNTIME`, default ON), so test executables no longer crash with
   `STATUS_ENTRYPOINT_NOT_FOUND` when an older `libstdc++-6.dll` (Git for Windows) is
