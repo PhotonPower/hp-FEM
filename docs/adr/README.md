@@ -24,3 +24,4 @@ Template:
 | 0004 | Hierarchical Schöberl–Zaglmayr Nédélec basis | accepted |
 | 0005 | PML as complex material tensor inside the FEM | accepted |
 | 0006 | Local h-refinement: red refinement, hanging nodes, constraints by interpolation | accepted |
+| 0007 | Direct solver backends behind one interface (SparseLU, MUMPS) | accepted |

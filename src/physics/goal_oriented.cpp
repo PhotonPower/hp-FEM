@@ -75,7 +75,7 @@ GoalEstimate dwr_estimate(const Scattering<Dim>& problem, const ScatteringSoluti
   }
   reduced_dirichlet.values = Vector::Zero(reduced_dirichlet.size());
   assembly::apply_dirichlet(adjoint, rhs, reduced_dirichlet);
-  const Vector z_reduced = solvers::solve_direct(adjoint, rhs);
+  const Vector z_reduced = solvers::solve_direct(adjoint, rhs, problem.setup().solver);
   const Vector z = p_conj * z_reduced;
 
   // weight z - I_p z on the enriched space

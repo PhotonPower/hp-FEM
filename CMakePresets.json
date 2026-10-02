@@ -23,7 +23,9 @@
                           "CMAKE_CXX_FLAGS": "--coverage -O0",
                           "CMAKE_EXE_LINKER_FLAGS": "--coverage" } },
     { "name": "python",  "inherits": "release", "displayName": "Release + Python bindings",
-      "cacheVariables": { "HPFEM_BUILD_PYTHON": "ON" } }
+      "cacheVariables": { "HPFEM_BUILD_PYTHON": "ON" } },
+    { "name": "mumps",   "inherits": "release", "displayName": "Release + MUMPS backend",
+      "cacheVariables": { "HPFEM_ENABLE_MUMPS": "ON" } }
   ],
   "buildPresets": [
     { "name": "debug",    "configurePreset": "debug" },
@@ -31,7 +33,8 @@
     { "name": "fast",     "configurePreset": "fast" },
     { "name": "asan",     "configurePreset": "asan" },
     { "name": "coverage", "configurePreset": "coverage" },
-    { "name": "python",   "configurePreset": "python" }
+    { "name": "python",   "configurePreset": "python" },
+    { "name": "mumps",    "configurePreset": "mumps" }
   ],
   "testPresets": [
     { "name": "common", "hidden": true,
@@ -40,6 +43,7 @@
     { "name": "release",  "inherits": "common", "configurePreset": "release" },
     { "name": "asan",     "inherits": "common", "configurePreset": "asan",
       "filter": { "include": { "label": "unit" } } },
-    { "name": "coverage", "inherits": "common", "configurePreset": "coverage" }
+    { "name": "coverage", "inherits": "common", "configurePreset": "coverage" },
+    { "name": "mumps",    "inherits": "common", "configurePreset": "mumps" }
   ]
 }

@@ -149,6 +149,10 @@ CMake and Ninja (installed via winget), Git for Windows. **Not MSVC.**
 - The `asan` preset does not work with MinGW GCC (no AddressSanitizer on
   Windows/MinGW). Sanitizer runs happen in CI (Ubuntu) or in the devcontainer/WSL.
 - The `fast` preset uses `-march=native`; binaries are not portable to other CPUs.
+- MUMPS backend (`HPFEM_ENABLE_MUMPS`, preset `mumps`): install
+  `pacman -S mingw-w64-ucrt-x86_64-mumps` in the UCRT64 shell; the test targets get
+  `C:\msys64\ucrt64\bin` (the DLLs) prepended to `PATH` automatically, programs started
+  by hand need it on `PATH`. On Ubuntu: `libmumps-seq-dev libmumps-headers-dev`.
 - **GCC runtime is linked statically on MinGW** (`HPFEM_STATIC_RUNTIME`, default ON):
   Git for Windows ships an older `libstdc++-6.dll` in `C:\Program Files\Git\mingw64\bin`,
   which Git Bash (and tools started from it) puts *before* `C:\msys64\ucrt64\bin` on

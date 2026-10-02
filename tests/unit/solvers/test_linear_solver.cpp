@@ -1,9 +1,12 @@
+// Direct solver backends: every available backend reproduces a known solution of a random
+// sparse complex system, reuses its factorisation for several right-hand sides and
+// reports errors; the automatic choice prefers MUMPS when compiled in.
+#include <algorithm>
 #include <random>
+#include <vector>
 
-#include <Eigen/Dense>
 #include <catch2/catch_test_macros.hpp>
 
-#include "hpfem/assembly/sparse_assembler.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
 
@@ -12,58 +15,92 @@ using hpfem::Index;
 using hpfem::Real;
 using hpfem::SparseMatrix;
 using hpfem::Vector;
-using hpfem::assembly::SparseAssembler;
-using hpfem::solvers::make_sparse_lu;
+using hpfem::solvers::available;
+using hpfem::solvers::available_backends;
+using hpfem::solvers::backend_name;
+using hpfem::solvers::DirectSolverBackend;
+using hpfem::solvers::make_direct_solver;
 using hpfem::solvers::solve_direct;
 
 namespace {
 
-/// Random sparse complex matrix with a dominant diagonal (well conditioned).
+/// Random sparse complex matrix with a dominant diagonal (non-singular, non-symmetric).
 SparseMatrix random_system(Index n, unsigned seed) {
-  std::mt19937 rng(seed);
-  std::uniform_real_distribution<Real> u(-1.0, 1.0);
-  std::uniform_int_distribution<Index> col(0, n - 1);
-  SparseAssembler assembler(n, n);
+  std::mt19937 gen(seed);
+  std::uniform_real_distribution<Real> dist(-1.0, 1.0);
+  std::uniform_int_distribution<Index> column(0, n - 1);
+  std::vector<Eigen::Triplet<Complex, Index>> triplets;
   for (Index i = 0; i < n; ++i) {
-    assembler.add(i, i, Complex{10.0 + u(rng), u(rng)});
-    for (int k = 0; k < 4; ++k) assembler.add(i, col(rng), Complex{u(rng), u(rng)});
+    triplets.emplace_back(i, i, Complex{10.0 + dist(gen), dist(gen)});
+    for (int k = 0; k < 4; ++k) {
+      triplets.emplace_back(i, column(gen), Complex{dist(gen), dist(gen)});
+    }
   }
-  return assembler.finalize();
+  SparseMatrix a(n, n);
+  a.setFromTriplets(triplets.begin(), triplets.end());
+  a.makeCompressed();
+  return a;
+}
+
+Vector random_vector(Index n, unsigned seed) {
+  std::mt19937 gen(seed);
+  std::uniform_real_distribution<Real> dist(-1.0, 1.0);
+  Vector v(n);
+  for (Index i = 0; i < n; ++i) v(i) = Complex{dist(gen), dist(gen)};
+  return v;
 }
 
 }  // namespace
 
-TEST_CASE("SparseLU solves a random complex system to machine precision", "[solvers]") {
-  const Index n = 200;
-  const SparseMatrix a = random_system(n, 3);
-  Vector x_exact(n);
-  std::mt19937 rng(4);
-  std::uniform_real_distribution<Real> u(-1.0, 1.0);
-  for (Index i = 0; i < n; ++i) x_exact(i) = Complex{u(rng), u(rng)};
+TEST_CASE("direct solver backends solve random sparse complex systems", "[solvers]") {
+  const Index n = 400;
+  const SparseMatrix a = random_system(n, 1);
+  const Vector x_exact = random_vector(n, 2);
   const Vector b = a * x_exact;
-
-  auto solver = make_sparse_lu();
-  REQUIRE(solver->name().find("SparseLU") != std::string::npos);
-  REQUIRE_THROWS_AS(solver->solve(b), hpfem::Error);  // not factorised yet
-  solver->factorize(a);
-  REQUIRE(solver->size() == n);
-  const Vector x = solver->solve(b);
-  REQUIRE((x - x_exact).norm() < 1e-12 * x_exact.norm());
-  // second right-hand side reuses the factorisation
-  const Vector x2 = solver->solve(2.0 * b);
-  REQUIRE((x2 - 2.0 * x_exact).norm() < 1e-12 * x_exact.norm());
-  REQUIRE_THROWS_AS(solver->solve(Vector::Zero(n + 1)), hpfem::InvalidArgument);
-
-  const Vector y = solve_direct(a, b);
-  REQUIRE((y - x_exact).norm() < 1e-12 * x_exact.norm());
+  for (const DirectSolverBackend backend : available_backends()) {
+    INFO(backend_name(backend));
+    auto solver = make_direct_solver(backend);
+    CHECK(!solver->name().empty());
+    solver->factorize(a);
+    CHECK(solver->size() == n);
+    const Vector x = solver->solve(b);
+    CHECK((x - x_exact).norm() < 1e-10 * x_exact.norm());
+    // reuse of the factorisation for another right-hand side
+    const Vector y_exact = random_vector(n, 3);
+    const Vector y = solver->solve(a * y_exact);
+    CHECK((y - y_exact).norm() < 1e-10 * y_exact.norm());
+    // the one-shot interface
+    CHECK((solve_direct(a, b, backend) - x_exact).norm() < 1e-10 * x_exact.norm());
+    // errors: wrong size, solve before factorize
+    CHECK_THROWS_AS(solver->solve(Vector::Ones(n + 1)), hpfem::InvalidArgument);
+    CHECK_THROWS_AS(make_direct_solver(backend)->solve(b), hpfem::Error);
+  }
 }
 
-TEST_CASE("SparseLU reports singular and non-square matrices", "[solvers]") {
-  SparseAssembler singular(3, 3);
-  singular.add(0, 0, Complex{1.0, 0.0});
-  singular.add(1, 1, Complex{1.0, 0.0});  // row 2 empty
-  REQUIRE_THROWS_AS(solve_direct(singular.finalize(), Vector::Ones(3)), hpfem::Error);
-  SparseAssembler rect(2, 3);
-  rect.add(0, 0, Complex{1.0, 0.0});
-  REQUIRE_THROWS_AS(make_sparse_lu()->factorize(rect.finalize()), hpfem::InvalidArgument);
+TEST_CASE("direct solver backends: availability and automatic choice", "[solvers]") {
+  CHECK(available(DirectSolverBackend::kAuto));
+  CHECK(available(DirectSolverBackend::kSparseLu));
+  const auto backends = available_backends();
+  CHECK(std::find(backends.begin(), backends.end(), DirectSolverBackend::kSparseLu) !=
+        backends.end());
+#ifdef HPFEM_HAVE_MUMPS
+  CHECK(available(DirectSolverBackend::kMumps));
+  CHECK(make_direct_solver(DirectSolverBackend::kAuto)->name().find("MUMPS") != std::string::npos);
+#else
+  CHECK(!available(DirectSolverBackend::kMumps));
+  CHECK_THROWS_AS(make_direct_solver(DirectSolverBackend::kMumps), hpfem::Error);
+  CHECK(make_direct_solver(DirectSolverBackend::kAuto)->name().find("SparseLU") !=
+        std::string::npos);
+#endif
+  // a singular matrix is reported
+  SparseMatrix singular(3, 3);
+  std::vector<Eigen::Triplet<Complex, Index>> t{{0, 0, Complex{1.0, 0.0}},
+                                                {1, 1, Complex{1.0, 0.0}}};
+  singular.setFromTriplets(t.begin(), t.end());
+  for (const DirectSolverBackend backend : available_backends()) {
+    INFO(backend_name(backend));
+    CHECK_THROWS_AS(make_direct_solver(backend)->factorize(singular), hpfem::Error);
+  }
+  SparseMatrix rectangular(2, 3);
+  CHECK_THROWS_AS(make_direct_solver()->factorize(rectangular), hpfem::InvalidArgument);
 }

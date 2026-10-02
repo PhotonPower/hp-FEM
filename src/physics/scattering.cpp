@@ -160,7 +160,7 @@ ScatteringSolution<Dim> Scattering<Dim>::solve() const {
              dofs_->num_dofs(),
              setup_.formulation == Formulation::kTotalField ? "total-field" : "scattered-field");
   if (setup_.periodic.empty() && dofs_->mesh().is_conforming()) {
-    return {setup_.formulation, solvers::solve_direct(system.matrix, system.rhs)};
+    return {setup_.formulation, solvers::solve_direct(system.matrix, system.rhs, setup_.solver)};
   }
   // constrained DoFs: reduce the raw system by P^H A P, then impose the Dirichlet data on the
   // free DoFs (a constrained Dirichlet DoF follows from its masters, whose data is consistent)
@@ -183,7 +183,7 @@ ScatteringSolution<Dim> Scattering<Dim>::solve() const {
   assembly::apply_dirichlet(matrix, load, data);
   log().info("Scattering<{}>: {} constrained DoFs, {} free, {} Dirichlet", Dim, c.num_constrained(),
              c.num_free(), data.size());
-  return {setup_.formulation, c.expand(solvers::solve_direct(matrix, load))};
+  return {setup_.formulation, c.expand(solvers::solve_direct(matrix, load, setup_.solver))};
 }
 
 template <int Dim>

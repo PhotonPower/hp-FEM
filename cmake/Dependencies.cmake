@@ -78,5 +78,7 @@ if(HPFEM_ENABLE_MPI)
   find_package(MPI REQUIRED COMPONENTS CXX)
 endif()
 if(HPFEM_ENABLE_MUMPS)
-  message(STATUS "MUMPS backend requested: implement FindMUMPS.cmake (milestone M6)")
+  list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+  find_package(MUMPS REQUIRED)  # cmake/FindMUMPS.cmake: sequential complex double build
+  message(STATUS "MUMPS backend enabled (version '${MUMPS_VERSION}', DLL dir '${MUMPS_BIN_DIR}')")
 endif()

@@ -78,7 +78,9 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] example `plasmonic_dimer`
 
 ## M6 — Solvers & performance (≈ 8)
-- [ ] MUMPS / PARDISO backend behind `solvers::DirectSolver`
+- [x] MUMPS / PARDISO backend behind `solvers::DirectSolver` — MUMPS (sequential complex
+      build) behind `solvers::LinearSolver` / `DirectSolverBackend` (ADR-0007); PARDISO
+      can follow as another backend
 - [ ] static condensation of interior (cell-bubble) DoFs
 - [ ] OpenMP parallel assembly (colouring or per-thread COO buffers)
 - [ ] parameter sweeps / reduced basis hooks (frequency, angle, geometry parameters)
