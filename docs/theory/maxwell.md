@@ -227,6 +227,41 @@ with Bloch-periodic sides and the exact trace on the remaining sides converges w
 $p$ in $H(\mathrm{curl})$ (2D with one periodic direction, 3D with two) and exponentially
 under p-refinement.
 
+## Propagating modes (`physics/propagating_mode.hpp`)
+
+For a waveguide with a 2D cross-section and propagation $e^{i\beta z}$, write
+$\mathbf{E} = (\mathbf{E}_t + \hat z E_z)\,e^{i\beta z}$ with $\mathbf{E}_t$ in the Nédélec space
+and the scaled longitudinal field $e_z = iE_z/\beta$ in the H1 space of the same order. The
+curl–curl weak form then separates into the generalized eigenproblem (Lee–Sun–Cendes)
+
+$$
+\begin{pmatrix} S - k_0^2 M_\varepsilon & 0 \\ 0 & 0 \end{pmatrix}
+\begin{pmatrix} e_t \\ e_z \end{pmatrix} = -\beta^2
+\begin{pmatrix} M_\mu & M_\mu G \\ G^T M_\mu & G^T M_\mu G - k_0^2 M^{H1}_\varepsilon \end{pmatrix}
+\begin{pmatrix} e_t \\ e_z \end{pmatrix},
+$$
+
+with the curl–curl matrix $S$ (weight $\mu_r^{-1}$), the Nédélec mass matrices $M_\varepsilon$,
+$M_\mu$ (weights $\varepsilon_r$, $\mu_r^{-1}$), the discrete gradient $G$ (so that
+$\nabla_t e_z$ is exactly $G e_z$ in the Nédélec basis) and the H1 mass matrix with weight
+$\varepsilon_r$. The matrix on the right is indefinite and the one on the left singular, so the
+pencil is solved with the real nonsymmetric shift-invert Arnoldi of
+`solvers::generalized_eigenpairs_near` on $(A - \sigma B)^{-1}B$ with
+$\sigma = -1.05\,k_0^2 n_{\max}^2$: the eigenvalues $-\beta^2$ closest to $\sigma$ are the guided
+modes, largest $\beta$ first; spurious solutions sit at $\beta^2 = 0$ and never appear. PEC
+walls remove the tangential Nédélec DoFs and the H1 boundary DoFs. `PropagatingMode::solve`
+returns $\beta$, $n_{\mathrm{eff}} = \beta/k_0$ and the coefficients of $\mathbf{E}_t$ and
+$E_z = -i\beta e_z$. Lossless media only (the quadratic → linear step and the real Arnoldi
+assume real pencils); leaky and lossy modes need the complex solver of M6.
+
+**Verification** (convergence test #5, `tests/convergence/slab_waveguide.cpp`): the symmetric
+slab (core $n = 1.5$, $d = 1$, cladding $n = 1$, $k_0 d = 2$, a single even TE mode) on a strip
+with PEC walls in $y$, which admits exactly the TE modes $E = E_y(x)$; the effective index
+converges to the root of $\tan(\kappa d/2) = \gamma/\kappa$ with rate $2p$ under h-refinement
+and exponentially under p-refinement (to $10^{-7}$ by $p = 5$). The unit test also checks that
+the mode has no longitudinal field and that the setup rejects lossy materials and mismatched
+spaces.
+
 ## Post-processing quantities
 
 Implemented in `physics/postprocess.hpp`:

@@ -92,10 +92,22 @@ extern template ElementContribution element_h1<2>(const fespace::H1Basis<2>&,
 extern template ElementContribution element_h1<3>(const fespace::H1Basis<3>&,
                                                   const mesh::CellGeometry<3>&,
                                                   const QuadratureRule<3>&, const ScalarForm<3>&);
+/// Per-cell coefficients (materials by tag): `form_of_cell(c)` supplies the form of cell c.
+template <int Dim>
+using ScalarFormFactory = std::function<ScalarForm<Dim>(Index)>;
+template <int Dim>
+[[nodiscard]] AssembledSystem assemble_h1(
+    const fespace::DofMap<Dim>& dofs,
+    const std::type_identity_t<ScalarFormFactory<Dim>>& form_of_cell, int extra_order = 2);
+
 extern template AssembledSystem assemble_h1<2>(const fespace::DofMap<2>&, const ScalarForm<2>&,
                                                int);
 extern template AssembledSystem assemble_h1<3>(const fespace::DofMap<3>&, const ScalarForm<3>&,
                                                int);
+extern template AssembledSystem assemble_h1<2>(const fespace::DofMap<2>&,
+                                               const ScalarFormFactory<2>&, int);
+extern template AssembledSystem assemble_h1<3>(const fespace::DofMap<3>&,
+                                               const ScalarFormFactory<3>&, int);
 extern template ErrorNorms h1_error<2>(const fespace::DofMap<2>&, const Vector&,
                                        const ScalarField<2>&, const VectorField<2>&, int);
 extern template ErrorNorms h1_error<3>(const fespace::DofMap<3>&, const Vector&,

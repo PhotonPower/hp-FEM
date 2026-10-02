@@ -48,6 +48,15 @@ ElementContribution element_h1(const fespace::H1Basis<Dim>& basis,
 template <int Dim>
 AssembledSystem assemble_h1(const fespace::DofMap<Dim>& dofs, const ScalarForm<Dim>& form,
                             int extra_order) {
+  return assemble_h1<Dim>(
+      dofs, std::type_identity_t<ScalarFormFactory<Dim>>([&form](Index) { return form; }),
+      extra_order);
+}
+
+template <int Dim>
+AssembledSystem assemble_h1(const fespace::DofMap<Dim>& dofs,
+                            const std::type_identity_t<ScalarFormFactory<Dim>>& form_of_cell,
+                            int extra_order) {
   const auto& mesh = dofs.mesh();
   const Index n = dofs.num_dofs();
   SparseAssembler assembler(n, n);
@@ -61,6 +70,7 @@ AssembledSystem assemble_h1(const fespace::DofMap<Dim>& dofs, const ScalarForm<D
     const int order = 2 * p + extra_order + (geometry->is_affine() ? 0 : 2);
     auto& rule = rules[order];
     if (rule.size() == 0) rule = simplex_quadrature<Dim>(order);
+    const ScalarForm<Dim> form = form_of_cell(c);
     const auto local = element_h1(basis, *geometry, rule, form);
     const auto ids = dofs.cell_dofs(c);
     assembler.add(ids, ids, local.matrix);
@@ -145,6 +155,10 @@ template ElementContribution element_h1<3>(const fespace::H1Basis<3>&, const mes
                                            const QuadratureRule<3>&, const ScalarForm<3>&);
 template AssembledSystem assemble_h1<2>(const fespace::DofMap<2>&, const ScalarForm<2>&, int);
 template AssembledSystem assemble_h1<3>(const fespace::DofMap<3>&, const ScalarForm<3>&, int);
+template AssembledSystem assemble_h1<2>(const fespace::DofMap<2>&, const ScalarFormFactory<2>&,
+                                        int);
+template AssembledSystem assemble_h1<3>(const fespace::DofMap<3>&, const ScalarFormFactory<3>&,
+                                        int);
 template ErrorNorms h1_error<2>(const fespace::DofMap<2>&, const Vector&, const ScalarField<2>&,
                                 const VectorField<2>&, int);
 template ErrorNorms h1_error<3>(const fespace::DofMap<3>&, const Vector&, const ScalarField<3>&,
