@@ -194,9 +194,13 @@ void Mesh<Dim>::derive_connectivity() {
   // edge -> cells as CSR; cells are visited in ascending order, so every row is ascending
   edge_cell_offsets_.assign(ne + 1, 0);
   for (const CellEdges& ce : cell_edges_) {
-    for (const Index e : ce) ++edge_cell_offsets_[as_size(e) + 1];
+    for (const Index e : ce) {
+      ++edge_cell_offsets_[as_size(e) + 1];
+    }
   }
-  for (std::size_t e = 0; e < ne; ++e) edge_cell_offsets_[e + 1] += edge_cell_offsets_[e];
+  for (std::size_t e = 0; e < ne; ++e) {
+    edge_cell_offsets_[e + 1] += edge_cell_offsets_[e];
+  }
   edge_cell_data_.assign(as_size(edge_cell_offsets_[ne]), kInvalidIndex);
   std::vector<Index> cursor(edge_cell_offsets_.begin(), edge_cell_offsets_.end() - 1);
   for (std::size_t c = 0; c < nc; ++c) {

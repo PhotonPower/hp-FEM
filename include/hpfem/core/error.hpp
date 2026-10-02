@@ -28,9 +28,14 @@ class NotImplemented : public Error {
 }  // namespace hpfem
 
 #if defined(HPFEM_ENABLE_ASSERTS)
-#define HPFEM_ASSERT(cond, msg)                                               \
-  do {                                                                        \
-    if (!(cond)) ::hpfem::assertion_failed(#cond, __FILE__, __LINE__, (msg)); \
+// Positive test on purpose: `if (!(a && b))` makes clang-tidy suggest De Morgan at
+// every call site; `if (cond) {} else` does not.
+#define HPFEM_ASSERT(cond, msg)                                    \
+  do {                                                             \
+    if (cond) {                                                    \
+    } else {                                                       \
+      ::hpfem::assertion_failed(#cond, __FILE__, __LINE__, (msg)); \
+    }                                                              \
   } while (false)
 #else
 #define HPFEM_ASSERT(cond, msg) \
