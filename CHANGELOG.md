@@ -35,6 +35,10 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - `mesh::refine_uniform`: red refinement (triangle → 4, tetrahedron → 8 by Bey's rule)
   with child → parent map, inherited cell/facet tags and names, and curved geometry
   carried over through the parent cell maps. `Mesh::tag_names(dim)` accessor.
+- `io::VtkWriter<Dim>` (.vtu, ASCII or inline base64): cells incl. quadratic cells of
+  second-order meshes, `cell_tag`, fluent cell/point scalars, ids, complex and vector
+  data; `io::write_vtu_facets` for boundary/interface facets with tags.
+- Milestone M1 (mesh infrastructure) complete.
 
 ## [0.1.0] — 2026-10-02
 ### Added

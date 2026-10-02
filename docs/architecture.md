@@ -22,7 +22,7 @@ flowchart LR
 | solvers | direct/iterative linear solvers, eigensolvers, parameter sweeps | `DirectSolver`, `ShiftInvertEigen` |
 | adaptivity | estimators, marking, hp decision, refinement driver | `ResidualEstimator`, `HpLoop` |
 | physics | problem classes: scattering, resonance, propagating mode; post-processing | `Scattering`, `Resonance`, `Postprocess` |
-| io | VTK/XDMF export, JSON project files, checkpoints | `VtkWriter`, `Project` |
+| io | VTK/XDMF export, JSON project files, checkpoints | `VtkWriter`, `write_vtu_facets`, `Project` |
 
 Dependencies point strictly left-to-right; `python/` sits on top of everything.
 

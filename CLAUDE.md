@@ -300,5 +300,8 @@ tolerance, never on absolute magic numbers.
 
 ## 12. Current status
 
-Milestone **M0 (scaffold)** is complete: build system, CI, docs skeleton,
-`hpfem::version()`. Next: **M1 — mesh infrastructure**. See `docs/roadmap.md`.
+Milestones **M0 (scaffold)** and **M1 (mesh infrastructure)** are complete: build
+system, CI, docs; `mesh::Mesh<Dim>` with oriented entities, connectivity, tags, Gmsh
+input, generators, affine and quadratic geometry, red refinement, VTK export. Next:
+**M2 — scalar FEM** (reference elements, quadrature, Lagrange basis, DoF map). See
+`docs/roadmap.md`.

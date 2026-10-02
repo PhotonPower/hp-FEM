@@ -10,7 +10,7 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] Python package skeleton (scikit-build-core + pybind11)
 - [x] Docs site, theory pages, ADRs, this roadmap
 
-## M1 — Mesh infrastructure (≈ 6)
+## M1 — Mesh infrastructure (≈ 6) ✅
 - [x] `mesh::Mesh<Dim>`: vertices, cells (tri/tet), **derived edges and faces** with
       consistent global orientation (lowest-vertex-first rule, ADR-0003)
 - [x] entity connectivity tables (cell→edge, cell→face, face→cell, edge→cells)
@@ -19,8 +19,8 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] affine geometry mapping: Jacobian, det, inverse-transpose, per cell
 - [x] curved (order-2) geometry hook (interface only; implementation in M4)
 - [x] uniform refinement (red refinement in 2D and 3D, Bey's rule) → prepares M5
-- [ ] unit tests: Euler characteristic, orientation consistency, boundary extraction
-- [ ] VTK (`.vtu`) export of mesh + cell data
+- [x] unit tests: Euler characteristic, orientation consistency, boundary extraction
+- [x] VTK (`.vtu`) export of mesh + cell data
 
 ## M2 — Scalar FEM on the infrastructure (≈ 4)
 - [ ] `fespace::ReferenceElement<Dim>` with **fixed local numbering** (theory/nedelec.md)

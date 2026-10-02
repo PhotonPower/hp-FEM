@@ -198,6 +198,25 @@ refinement, which the tests check with an exact rule).
 M5 builds local refinement with hanging nodes (one-irregular rule) on the same child
 patterns; this function is the uniform special case used for convergence studies.
 
+## VTK export
+
+`io::VtkWriter<Dim>` (`include/hpfem/io/vtk.hpp`) writes a mesh with attached data as a
+VTK XML unstructured grid (`.vtu`) for ParaView, VisIt or pyvista:
+
+- cells become `VTK_TRIANGLE` / `VTK_TETRA`; a second-order mesh exports its edge nodes
+  as extra points and the cells as `VTK_QUADRATIC_TRIANGLE` / `VTK_QUADRATIC_TETRA`
+  (VTK's edge order of the tetrahedron, (0,1) (1,2) (0,2) (0,3) (1,3) (2,3), is applied),
+  so curved cells are displayed curved;
+- the cell tag is always written as `cell_tag`; further cell or point scalars, integer
+  ids and vectors are attached fluently, complex data as `<name>_re` / `<name>_im`;
+- data arrays are plain text (`VtkFormat::kAscii`) or inline base64 (`kBinary`, default,
+  exact and about four times smaller).
+
+`io::write_vtu_facets` writes the boundary (or all) facets as lines / triangles with
+`facet_tag`, `facet_index` and `is_boundary`, sharing the point numbering of the cell file
+so the two overlay exactly. Fields on high-order bases arrive with M3 (sub-division
+export).
+
 ## API summary
 
 | call | returns |
@@ -218,6 +237,7 @@ patterns; this function is the uniform special case used for convergence studies
 | `geometry_order()`, `set_edge_nodes`, `edge_node(e)` | second-order geometry nodes |
 | `cell_geometry(m, c)` → `CellGeometry` (`evaluate`, `to_reference`, `h`, `order`) | order-independent cell geometry |
 | `refine_uniform(m)` → `Refined` (`mesh`, `parent_cell`, `edge_vertex`) | red refinement |
+| `io::VtkWriter(m).cell_scalars(...).point_vectors(...).write(path)`, `io::write_vtu_facets` | VTK export |
 | `edge_vertices(e)`, `face_vertices(f)`, `facet_vertices(f)` | ascending vertex tuples |
 
 Construction throws `InvalidArgument` naming the cell if a vertex id is out of range or
@@ -253,6 +273,9 @@ repeated. Accessors check indices with `HPFEM_ASSERT`.
 - refinement: child volumes sum to the parent, equal child volumes, Euler
   characteristic invariant, refined rectangle equals the finer generated rectangle in
   counts, tags and vertex set, boundary tags quadruple on the box, repeated refinement,
-  curved P2 area invariant.
+  curved P2 area invariant;
+- VTK: ASCII arrays parsed back (points, connectivity, offsets, types, cell tags, real,
+  complex and vector data), binary arrays base64-decoded back to the exact values,
+  quadratic cells with VTK's edge order, size checks, file output, facet files.
 
-Still to come in M1: VTK export.
+M1 is complete; next is M2 (reference elements, quadrature, Lagrange basis, DoF map).
