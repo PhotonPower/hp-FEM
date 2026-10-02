@@ -174,8 +174,46 @@ current sources.
   up to degree $p_e - 1$, so the projection is exact for traces in the discrete space), then
   in 3D the tangential remainder onto the face functions; eliminated with `apply_dirichlet`.
 - **PMC** $\mathbf{n}\times(\mu^{-1}\nabla\times\mathbf{E}) = 0$: natural, do nothing.
-- **Bloch-periodic** $\mathbf{E}(x+a) = e^{i k_x a}\mathbf{E}(x)$: master/slave DoF constraints with complex factor; DoF orientation on the two faces must match (ADR-0003).
+- **Bloch-periodic** $\mathbf{E}(x+a) = e^{i\mathbf{k}\cdot\mathbf{a}}\mathbf{E}(x)$: slave-facet DoFs
+  constrained to the master-facet DoFs with the Bloch phase, see
+  [below](#bloch-periodic-constraints).
 - **Transparent**: PML, see [pml.md](pml.md).
+
+## Bloch-periodic constraints (`assembly/periodic.hpp`)
+
+For a periodic direction with lattice vector $\mathbf{a}$ (`PeriodicPair`: master tag, slave
+tag, shift, phase $e^{i\mathbf{k}\cdot\mathbf{a}}$), the facets on the slave side are the master
+facets translated by $\mathbf{a}$ (matched by centroids; the two sides must be meshed
+identically). Every slave-facet DoF is expressed through the master-facet DoFs:
+`bloch_constraints` takes each master basis function, shifts it by $\mathbf{a}$ and
+multiplies by the phase, and projects its tangential trace onto the slave trace space with
+`tangential_dirichlet_values`. Because the trace spaces coincide, the projection is exact
+and the coefficients come out as the phase times $\pm1$ for edge functions (the sign is
+the orientation flip of ADR-0003 when the global vertex order differs between the two
+sides) and as the face permutation matrices in 3D — no orientation bookkeeping is needed.
+Two periodic directions share the corner edges: those chain (slave of a slave) and are
+resolved by substitution.
+
+`fespace::Constraints` holds such linear relations $x_s = \sum_i c_i x_{m_i}$ generally
+(hanging nodes of irregular refinement will use the same object), resolves chains, rejects
+cycles, and applies them to an assembled system through the prolongation $P$ of the free
+DoFs: $A_f = P^H A P$, $b_f = P^H b$, solve, $x = P x_f$. The conjugate transpose matters:
+the weak form is bilinear (test functions are not conjugated), and the boundary terms on
+the two periodic faces cancel only when the test functions carry the *inverse* phase
+$e^{-i\mathbf{k}\cdot\mathbf{a}}$, which for real Bloch vectors is the conjugate (a plain
+transpose gives a wrong, non-convergent solution; complex Bloch vectors — evanescent
+Bloch waves — would need the inverse instead and are not supported yet). For real
+coefficients (hanging nodes) the two coincide. `physics::Scattering` does this when `ScatteringSetup::periodic`
+is set; Dirichlet data is applied before the reduction, which is consistent for DoFs that
+are both constrained and prescribed (box corners) as long as the data itself is periodic.
+
+Verified by unit tests (one-to-one coefficients with $|c| = 1$ on structured and randomly
+renumbered meshes, corner edges of two directions resolving to the product of the phases,
+the constrained solution satisfying its constraints) and by the convergence test
+`tests/convergence/bloch_plane_wave.cpp`: a plane wave at oblique incidence on a unit cell
+with Bloch-periodic sides and the exact trace on the remaining sides converges with rate
+$p$ in $H(\mathrm{curl})$ (2D with one periodic direction, 3D with two) and exponentially
+under p-refinement.
 
 ## Post-processing quantities
 
