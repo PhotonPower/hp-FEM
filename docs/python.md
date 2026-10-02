@@ -116,6 +116,13 @@ names `x_min` … `z_max` or tags), `periodic` (Bloch phase from the source), `s
 `vtk`). The results are JSON with one entry per spectral point; from Python,
 `hpfem.project.run(spec)` takes the same mapping.
 
+## Notebooks
+
+`examples/notebooks/` holds Jupyter notebooks over this API (Mie cylinder, hp-adaptivity on
+the L-shape, gold nanowire spectrum with the material library and a project-file sweep).
+They are committed without outputs and executed by the test suite, so they double as
+living documentation.
+
 ## Pipeline
 
 ```python

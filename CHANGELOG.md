@@ -26,6 +26,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   diffraction efficiencies, estimate, VTK) with `load` / `validate` / `run`;
   `hpfem.cli` and the `hpfem` console script (`run`, `validate`, `info`, `materials`);
   `examples/*/project.json`.
+- `examples/notebooks/`: three Jupyter notebooks (Mie cylinder, hp-adaptivity on the
+  L-shape, gold nanowire absorption spectrum) committed without outputs and executed cell
+  by cell in the Python test suite. M7 complete.
 - `hpfem::parallel_for` rethrows an exception of a loop body on the calling thread (the
   remaining indices are skipped) instead of terminating the process.
 
