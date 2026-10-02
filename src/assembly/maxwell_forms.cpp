@@ -142,6 +142,36 @@ ComplexVector<Dim> evaluate_hcurl(const fespace::NedelecDofMap<Dim>& dofs, const
   return phi.values.template cast<Complex>() * coeff;
 }
 
+template <int Dim>
+ComplexCurl<Dim> evaluate_hcurl_curl(const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h,
+                                     Index c, const Point<Dim>& xi) {
+  const fespace::NedelecBasis<Dim> basis(dofs.cell_layout(c));
+  const auto geometry = mesh::cell_geometry(dofs.mesh(), c);
+  const PhysicalBasis<Dim> phi(basis, geometry->evaluate(xi), xi);
+  const Vector coeff = gather(e_h, dofs.cell_dofs(c));
+  return phi.curls.template cast<Complex>() * coeff;
+}
+
+template <int Dim>
+std::optional<ComplexVector<Dim>> evaluate_hcurl(const fespace::NedelecDofMap<Dim>& dofs,
+                                                 const Vector& e_h,
+                                                 const mesh::PointLocator<Dim>& locator,
+                                                 const Point<Dim>& x) {
+  const auto located = locator.locate(x);
+  if (!located) return std::nullopt;
+  return evaluate_hcurl(dofs, e_h, located->cell, located->xi);
+}
+
+template <int Dim>
+std::optional<ComplexCurl<Dim>> evaluate_hcurl_curl(const fespace::NedelecDofMap<Dim>& dofs,
+                                                    const Vector& e_h,
+                                                    const mesh::PointLocator<Dim>& locator,
+                                                    const Point<Dim>& x) {
+  const auto located = locator.locate(x);
+  if (!located) return std::nullopt;
+  return evaluate_hcurl_curl(dofs, e_h, located->cell, located->xi);
+}
+
 template MaxwellElement element_maxwell<2>(const fespace::NedelecBasis<2>&,
                                            const mesh::CellGeometry<2>&, const QuadratureRule<2>&,
                                            const MaxwellForm<2>&);
@@ -162,5 +192,25 @@ template ComplexVector<2> evaluate_hcurl<2>(const fespace::NedelecDofMap<2>&, co
                                             const Point<2>&);
 template ComplexVector<3> evaluate_hcurl<3>(const fespace::NedelecDofMap<3>&, const Vector&, Index,
                                             const Point<3>&);
+template ComplexCurl<2> evaluate_hcurl_curl<2>(const fespace::NedelecDofMap<2>&, const Vector&,
+                                               Index, const Point<2>&);
+template ComplexCurl<3> evaluate_hcurl_curl<3>(const fespace::NedelecDofMap<3>&, const Vector&,
+                                               Index, const Point<3>&);
+template std::optional<ComplexVector<2>> evaluate_hcurl<2>(const fespace::NedelecDofMap<2>&,
+                                                           const Vector&,
+                                                           const mesh::PointLocator<2>&,
+                                                           const Point<2>&);
+template std::optional<ComplexVector<3>> evaluate_hcurl<3>(const fespace::NedelecDofMap<3>&,
+                                                           const Vector&,
+                                                           const mesh::PointLocator<3>&,
+                                                           const Point<3>&);
+template std::optional<ComplexCurl<2>> evaluate_hcurl_curl<2>(const fespace::NedelecDofMap<2>&,
+                                                              const Vector&,
+                                                              const mesh::PointLocator<2>&,
+                                                              const Point<2>&);
+template std::optional<ComplexCurl<3>> evaluate_hcurl_curl<3>(const fespace::NedelecDofMap<3>&,
+                                                              const Vector&,
+                                                              const mesh::PointLocator<3>&,
+                                                              const Point<3>&);
 
 }  // namespace hpfem::assembly

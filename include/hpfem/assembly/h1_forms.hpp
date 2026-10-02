@@ -7,6 +7,7 @@
 /// ADR-0002).
 
 #include <functional>
+#include <optional>
 #include <type_traits>
 
 #include <Eigen/Core>
@@ -16,6 +17,7 @@
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/fespace/h1_basis.hpp"
 #include "hpfem/mesh/geometry.hpp"
+#include "hpfem/mesh/point_location.hpp"
 
 namespace hpfem::assembly {
 
@@ -76,6 +78,14 @@ template <int Dim>
 [[nodiscard]] Complex evaluate_h1(const fespace::DofMap<Dim>& dofs, const Vector& u_h, Index c,
                                   const Point<Dim>& xi);
 
+/// Value of the discrete function at the physical point x located with `locator` (built on
+/// `dofs.mesh()`), or nothing if x lies outside the mesh.
+template <int Dim>
+[[nodiscard]] std::optional<Complex> evaluate_h1(const fespace::DofMap<Dim>& dofs,
+                                                 const Vector& u_h,
+                                                 const mesh::PointLocator<Dim>& locator,
+                                                 const Point<Dim>& x);
+
 extern template ElementContribution element_h1<2>(const fespace::H1Basis<2>&,
                                                   const mesh::CellGeometry<2>&,
                                                   const QuadratureRule<2>&, const ScalarForm<2>&);
@@ -94,5 +104,11 @@ extern template Complex evaluate_h1<2>(const fespace::DofMap<2>&, const Vector&,
                                        const Point<2>&);
 extern template Complex evaluate_h1<3>(const fespace::DofMap<3>&, const Vector&, Index,
                                        const Point<3>&);
+extern template std::optional<Complex> evaluate_h1<2>(const fespace::DofMap<2>&, const Vector&,
+                                                      const mesh::PointLocator<2>&,
+                                                      const Point<2>&);
+extern template std::optional<Complex> evaluate_h1<3>(const fespace::DofMap<3>&, const Vector&,
+                                                      const mesh::PointLocator<3>&,
+                                                      const Point<3>&);
 
 }  // namespace hpfem::assembly

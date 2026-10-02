@@ -70,6 +70,10 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `solvers::gauged_curl_curl_eigenpairs`: shift-invert Lanczos (Spectra 1.2.0, new
   dependency) with the M-orthogonal gauge projector; convergence test #2 (PEC square and
   cube eigenvalues, rate 2p, zero spurious modes).
+- `mesh::PointLocator`: point location with a uniform background grid (affine and curved
+  cells, tolerance, hinted search, lowest-cell-id rule on shared facets);
+  `assembly::evaluate_h1` / `evaluate_hcurl` / new `evaluate_hcurl_curl` overloads that
+  evaluate a discrete field at arbitrary physical points.
 
 ## [0.1.0] — 2026-10-02
 ### Added
