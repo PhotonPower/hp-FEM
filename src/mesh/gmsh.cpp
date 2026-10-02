@@ -36,7 +36,6 @@ std::size_t nodes_per_element(int type) {
     case kTriangle3:
       return 3;
     case 3:  // 4-node quadrangle
-      return 4;
     case kTetrahedron4:
       return 4;
     case 5:  // 8-node hexahedron
