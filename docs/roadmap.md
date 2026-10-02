@@ -62,9 +62,9 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] examples: `cavity_modes`, `mie_cylinder`, `slab_waveguide`, `lamellar_grating`
 
 ## M5 — Adaptivity: a-posteriori estimation and hp-refinement (≈ 10)
-- [ ] residual-based estimator for curl–curl (theory/error-estimation.md):
+- [x] residual-based estimator for curl–curl (theory/error-estimation.md):
       element residual + tangential-curl jump + normal-displacement jump
-- [ ] Dörfler marking
+- [x] Dörfler marking
 - [ ] conforming h-refinement with **hanging edges/faces → constrained DoFs**
       (one-irregular rule), re-numbering, transfer of solution (prolongation)
 - [ ] p-refinement: per-entity order increase, minimum rule on shared entities

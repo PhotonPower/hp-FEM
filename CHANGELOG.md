@@ -132,6 +132,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   with Li's rules written in the test.
 - Examples `cavity_modes`, `mie_cylinder`, `slab_waveguide`, `lamellar_grating` as C++
   drivers (`HPFEM_BUILD_EXAMPLES`, on by default) with READMEs. M4 complete.
+- `adaptivity::residual_estimate`: residual-based a-posteriori estimator for the
+  curl–curl problem (element residual with curl curl, Gauss-law divergence residual,
+  tangential-curl and normal-flux jumps, h/p weights, per-cell forms incl. PML),
+  `physics::Scattering::estimate`; `adaptivity::dorfler_marking` / `maximum_marking`.
+  Convergence test: effectivity index and rate of the estimate on a plane wave (2D/3D).
 
 ## [0.1.0] — 2026-10-02
 ### Added

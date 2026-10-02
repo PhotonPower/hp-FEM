@@ -18,6 +18,7 @@
 #include <span>
 #include <vector>
 
+#include "hpfem/adaptivity/residual_estimator.hpp"
 #include "hpfem/assembly/dirichlet.hpp"
 #include "hpfem/assembly/h1_forms.hpp"
 #include "hpfem/assembly/maxwell_forms.hpp"
@@ -111,6 +112,11 @@ class Scattering {
                                                 std::span<const Index> cells) const;
   /// Cells whose centroid lies inside the PML box of the setup (all cells without PML).
   [[nodiscard]] std::vector<Index> interior_cells() const;
+  /// Residual-based element indicators of the solution (`adaptivity::residual_estimate`
+  /// with the forms of this problem and k0²); PML cells use their stretched tensors.
+  [[nodiscard]] adaptivity::Estimate estimate(
+      const ScatteringSolution<Dim>& solution,
+      const adaptivity::EstimatorOptions& options = {}) const;
 
  private:
   [[nodiscard]] std::vector<Index> facets(const std::vector<mesh::Tag>& tags) const;

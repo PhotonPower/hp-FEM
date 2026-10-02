@@ -33,6 +33,8 @@ add_library(hpfem
   assembly/periodic.cpp
   solvers/eigen_solver.cpp
   solvers/linear_solver.cpp
+  adaptivity/residual_estimator.cpp
+  adaptivity/marking.cpp
 )
 add_library(hpfem::hpfem ALIAS hpfem)
 

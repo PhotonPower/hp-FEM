@@ -22,6 +22,7 @@ SOLVE → ESTIMATE → MARK → DECIDE (h or p) → REFINE → (repeat)
 1. **Estimate**: element indicators $\eta_K$ from [error-estimation.md](error-estimation.md).
 2. **Mark**: Dörfler criterion — smallest set $\mathcal M$ with
    $\sum_{K\in\mathcal M}\eta_K^2 \ge \theta \sum_K \eta_K^2$, $\theta\approx 0.5$.
+   Implemented as `adaptivity::dorfler_marking` (`maximum_marking` as the simpler alternative).
 3. **Decide** per marked $K$:
    - compute the decay of the expansion coefficients of $E_{hp}|_K$ in an orthogonal
      (Legendre/Jacobi) basis; estimate the Sobolev regularity exponent $\sigma_K$

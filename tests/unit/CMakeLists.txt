@@ -58,6 +58,10 @@ hpfem_add_test(test_physics unit
   physics/test_farfield.cpp
   physics/test_propagating_mode.cpp)
 
+hpfem_add_test(test_adaptivity unit
+  adaptivity/test_residual_estimator.cpp
+  adaptivity/test_marking.cpp)
+
 hpfem_add_test(test_solvers unit
   solvers/test_linear_solver.cpp
   solvers/test_eigen_solver.cpp
