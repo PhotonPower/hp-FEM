@@ -24,6 +24,11 @@ namespace hpfem {
   return (order < 0 && (order % 2) != 0) ? -value : value;
 }
 
+/// Derivative @f$ J_n'(x) = J_{n-1}(x) - \frac{n}{x} J_n(x) @f$.
+[[nodiscard]] inline Real bessel_j_derivative(int order, Real x) {
+  return bessel_j(order - 1, x) - static_cast<Real>(order) / x * bessel_j(order, x);
+}
+
 /// Hankel function of the first kind @f$ H_n^{(1)}(x) = J_n(x) + iY_n(x) @f$, x > 0.
 [[nodiscard]] inline Complex hankel1(int order, Real x) {
   return {bessel_j(order, x), bessel_y(order, x)};

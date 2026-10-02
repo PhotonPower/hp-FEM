@@ -16,3 +16,6 @@ hpfem_add_test(convergence_bloch_plane_wave convergence
 
 hpfem_add_test(convergence_curved_boundary convergence
   curved_boundary.cpp)
+
+hpfem_add_test(convergence_mie_cylinder convergence
+  mie_cylinder.cpp)

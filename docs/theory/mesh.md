@@ -116,7 +116,11 @@ v\sqrt{1 - u^2/2})$ (and its three-dimensional analogue), tag the whole boundary
 `kDiscBoundary = 1` and, by default, project the boundary edge nodes onto the circle /
 sphere with `curve_boundary` (geometry order 2); `curved = false` keeps the polygonal
 boundary for comparisons. `curve_boundary(m, tag, project)` does the same for any tagged
-boundary of any mesh with a user-supplied projection.
+boundary of any mesh with a user-supplied projection. `square_with_disc(n, R, W, W_out)`
+builds the scatterer-in-a-box mesh of the Mie test: the inner square of the grid is
+mapped onto the disc of radius $R$, the ring up to the square of half-width $W$ blends
+between circle and square, the grid continues uniformly to $W_{out}$ (PML space); the
+inclusion cells are tagged and the interface edges are curved onto the circle.
 
 ## Gmsh input
 

@@ -154,6 +154,18 @@ of the same kind. An optional `pml::PmlBox` replaces the material tensors by the
 stretched versions ([pml.md](pml.md)). Bloch-periodic constraints, curved elements and
 post-processing (fluxes, cross-sections, far fields) are the following M4 items.
 
+**Mie reference** (`physics/mie.hpp`): for the infinite dielectric cylinder under a plane
+wave with in-plane electric field ($H_z$ polarisation) the scattered field is
+$H_z^s = \sum_n c_n H_n^{(1)}(kr)e^{in\varphi}$ with
+$c_n = i^n\,[n_c J_n'(kR)J_n(n_ckR) - J_n(kR)J_n'(n_ckR)] / [H_n^{(1)}(kR)J_n'(n_ckR) -
+n_c H_n^{(1)\prime}(kR)J_n(n_ckR)]$ (continuity of $H_z$ and of $\varepsilon^{-1}\partial_r H_z$),
+and the scattering width is $\sigma_{sca} = \tfrac{4}{k}(|c_0|^2 + 2\sum_{n\ge1}|c_n|^2)$.
+Convergence test #4 (`tests/convergence/mie_cylinder.cpp`): a lossless cylinder
+($kR = 1.5$, $n_c = 1.5$) in a PML-terminated box on the `square_with_disc` mesh with the
+curved interface, scattered-field formulation; the scattering width from the flux of the
+scattered field through the cylinder surface converges to the series value under
+p-refinement and the absorption cross-section vanishes within the discretisation error.
+
 **Verification** (`tests/convergence/maxwell_scattering.cpp`): with the exact tangential
 trace prescribed on all sides, a plane wave and a dipole field whose source lies outside
 the domain are reproduced with rate $p$ in the $H(\mathrm{curl})$ norm for $p = 1, 2$ in 2D

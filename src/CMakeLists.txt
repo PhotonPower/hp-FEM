@@ -15,6 +15,7 @@ add_library(hpfem
   physics/sources.cpp
   physics/scattering.cpp
   physics/postprocess.cpp
+  physics/mie.cpp
   assembly/quadrature.cpp
   fespace/polynomials.cpp
   fespace/h1_basis.cpp

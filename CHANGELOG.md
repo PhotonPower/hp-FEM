@@ -116,6 +116,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `absorbed_power`, `plane_wave_intensity` and `cross_sections` (scattering, absorption,
   extinction) of a scattering solution; tests against analytic fluxes and the energy
   balance of a lossy scatterer.
+- `physics/mie.hpp` (Mie series of the dielectric cylinder, H_z polarisation),
+  `mesh::square_with_disc` (box with a curved circular inclusion and PML space) and
+  convergence test #4: the FEM scattering width converges to the Mie value.
 
 ## [0.1.0] — 2026-10-02
 ### Added

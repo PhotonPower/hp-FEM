@@ -51,4 +51,15 @@ inline constexpr Tag kDiscBoundary = 1;
 [[nodiscard]] Mesh<3> ball(Index n, const Point<3>& center = Point<3>::Zero(), Real radius = 1.0,
                            bool curved = true);
 
+/// Structured mesh of the square [-outer, outer]^2 with a circular inclusion of the given
+/// radius at the origin whose interface is resolved by (curved) cell edges: the grid of the
+/// inner square is mapped onto the disc as in `disc`, the ring up to `half_width` blends
+/// between the circle and the square, and beyond `half_width` the grid continues uniformly
+/// (space for a PML). n is the number of cells per radius; the cell size is about radius / n
+/// everywhere, so (outer / radius) n must be an integer. The inclusion cells carry
+/// `inclusion_tag`, the outer sides the `box_tag`s. @throws InvalidArgument for inconsistent
+/// sizes.
+[[nodiscard]] Mesh<2> square_with_disc(Index n, Real radius, Real half_width, Real outer,
+                                       Tag inclusion_tag = 2);
+
 }  // namespace hpfem::mesh
