@@ -6,6 +6,7 @@
 #include <utility>
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
@@ -51,6 +52,7 @@ Mesh<Dim>::Mesh(std::vector<Vertex> vertices, std::vector<CellVertices> cells)
   validate();
   derive_edges();
   derive_faces();
+  derive_connectivity();
   if constexpr (Dim == 2) {
     log().debug("Mesh<2>: {} vertices, {} edges, {} cells", num_vertices(), num_edges(),
                 num_cells());
@@ -140,6 +142,67 @@ void Mesh<Dim>::derive_faces() {
     faces_ = number_entities(uses, [this](Index c, LocalIndex i, Index id) {
       cell_faces_[as_size(c)][as_size(i)] = id;
     });
+  }
+}
+
+template <int Dim>
+void Mesh<Dim>::derive_connectivity() {
+  const std::size_t nc = cells_.size();
+  const std::size_t nf = as_size(num_facets());
+  const std::size_t ne = edges_.size();
+
+  // facet -> cells (+ local facet number), rejecting non-manifold facets
+  facet_cells_.assign(nf, FacetCells{kInvalidIndex, kInvalidIndex});
+  facet_local_indices_.assign(nf, FacetLocalIndices{-1, -1});
+  for (std::size_t c = 0; c < nc; ++c) {
+    const CellFacets& facets = cell_facets(static_cast<Index>(c));
+    for (std::size_t k = 0; k < facets.size(); ++k) {
+      const std::size_t f = as_size(facets[k]);
+      FacetCells& fc = facet_cells_[f];
+      std::size_t slot = 2;
+      if (fc[0] == kInvalidIndex) {
+        slot = 0;
+      } else if (fc[1] == kInvalidIndex) {
+        slot = 1;
+      } else {
+        throw InvalidArgument(fmt::format(
+            "Mesh<{}>: facet {} (vertices {}) is shared by cells {}, {} and {}; the mesh is "
+            "not a manifold",
+            Dim, f, fmt::join(facet_vertices(static_cast<Index>(f)), ","), fc[0], fc[1], c));
+      }
+      fc[slot] = static_cast<Index>(c);  // cells are visited in ascending order
+      facet_local_indices_[f][slot] = static_cast<LocalIndex>(k);
+    }
+  }
+
+  // cell -> neighbours, boundary facets
+  CellNeighbors none{};
+  none.fill(kInvalidIndex);
+  cell_neighbors_.assign(nc, none);
+  boundary_facets_.clear();
+  for (std::size_t f = 0; f < nf; ++f) {
+    const FacetCells& fc = facet_cells_[f];
+    const FacetLocalIndices& fl = facet_local_indices_[f];
+    if (fc[1] == kInvalidIndex) {
+      boundary_facets_.push_back(static_cast<Index>(f));
+    } else {
+      cell_neighbors_[as_size(fc[0])][as_size(fl[0])] = fc[1];
+      cell_neighbors_[as_size(fc[1])][as_size(fl[1])] = fc[0];
+    }
+  }
+
+  // edge -> cells as CSR; cells are visited in ascending order, so every row is ascending
+  edge_cell_offsets_.assign(ne + 1, 0);
+  for (const CellEdges& ce : cell_edges_) {
+    for (const Index e : ce) ++edge_cell_offsets_[as_size(e) + 1];
+  }
+  for (std::size_t e = 0; e < ne; ++e) edge_cell_offsets_[e + 1] += edge_cell_offsets_[e];
+  edge_cell_data_.assign(as_size(edge_cell_offsets_[ne]), kInvalidIndex);
+  std::vector<Index> cursor(edge_cell_offsets_.begin(), edge_cell_offsets_.end() - 1);
+  for (std::size_t c = 0; c < nc; ++c) {
+    for (const Index e : cell_edges_[c]) {
+      edge_cell_data_[as_size(cursor[as_size(e)]++)] = static_cast<Index>(c);
+    }
   }
 }
 
