@@ -1,5 +1,10 @@
 #include "hpfem/assembly/interpolation.hpp"
 
+#if defined(__GNUC__) && !defined(__clang__)
+// GCC 13 reports a null dereference inside std::vector growth of EntityPoint (false positive)
+#pragma GCC diagnostic ignored "-Wnull-dereference"
+#endif
+
 #include <algorithm>
 #include <map>
 #include <memory>

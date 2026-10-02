@@ -116,7 +116,7 @@ fespace::Constraints hanging_constraints(const fespace::EntityDofMap<Dim, Counts
       if constexpr (Counts::kVertexDofs == 1) {
         for (const Index v : fv) masters.push_back(dofs.vertex_dof(v));
       }
-      for (const auto [a, b] :
+      for (const auto& [a, b] :
            {std::pair{fv[0], fv[1]}, std::pair{fv[1], fv[2]}, std::pair{fv[0], fv[2]}}) {
         const auto ed = dofs.edge_dofs(mesh.edge_id(a, b));
         masters.insert(masters.end(), ed.begin(), ed.end());

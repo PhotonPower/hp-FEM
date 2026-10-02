@@ -108,7 +108,7 @@ void check_hanging(const Mesh<Dim>& m) {
       REQUIRE(area == Approx(hpfem::mesh::facet_measure(m, h.parent)));
       // the three edges of a hanging face hang as well
       const auto& fv = m.face_vertices(h.parent);
-      for (const auto [a, b] :
+      for (const auto& [a, b] :
            {std::pair{fv[0], fv[1]}, std::pair{fv[1], fv[2]}, std::pair{fv[0], fv[2]}}) {
         const Index e = m.edge_id(a, b);
         REQUIRE(std::any_of(m.hanging_edges().begin(), m.hanging_edges().end(),
