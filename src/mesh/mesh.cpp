@@ -48,11 +48,23 @@ std::vector<std::array<Index, N>> number_entities(std::vector<EntityUse<N>>& use
 
 template <int Dim>
 Mesh<Dim>::Mesh(std::vector<Vertex> vertices, std::vector<CellVertices> cells)
-    : vertices_(std::move(vertices)), cells_(std::move(cells)) {
+    : Mesh(std::move(vertices), std::move(cells), {}) {}
+
+template <int Dim>
+Mesh<Dim>::Mesh(std::vector<Vertex> vertices, std::vector<CellVertices> cells,
+                std::vector<Tag> cell_tags)
+    : vertices_(std::move(vertices)), cells_(std::move(cells)), cell_tags_(std::move(cell_tags)) {
   validate();
   derive_edges();
   derive_faces();
   derive_connectivity();
+  if (cell_tags_.empty()) {
+    cell_tags_.assign(cells_.size(), kNoTag);
+  } else if (cell_tags_.size() != cells_.size()) {
+    throw InvalidArgument(fmt::format("Mesh<{}>: {} cell tags given for {} cells", Dim,
+                                      cell_tags_.size(), cells_.size()));
+  }
+  facet_tags_.assign(as_size(num_facets()), kNoTag);
   if constexpr (Dim == 2) {
     log().debug("Mesh<2>: {} vertices, {} edges, {} cells", num_vertices(), num_edges(),
                 num_cells());
@@ -208,6 +220,128 @@ void Mesh<Dim>::derive_connectivity() {
       edge_cell_data_[as_size(cursor[as_size(e)]++)] = static_cast<Index>(c);
     }
   }
+}
+
+namespace {
+
+/// Index of `key` in the lexicographically sorted `entities`, kInvalidIndex if absent.
+template <std::size_t N>
+Index sorted_lookup(const std::vector<std::array<Index, N>>& entities, std::array<Index, N> key) {
+  std::sort(key.begin(), key.end());
+  const auto it = std::lower_bound(entities.begin(), entities.end(), key);
+  if (it == entities.end() || *it != key) {
+    return kInvalidIndex;
+  }
+  return static_cast<Index>(it - entities.begin());
+}
+
+}  // namespace
+
+template <int Dim>
+Index Mesh<Dim>::edge_id(Index a, Index b) const {
+  return sorted_lookup(edges_, EdgeVertices{a, b});
+}
+
+template <int Dim>
+Index Mesh<Dim>::face_id(Index a, Index b, Index c) const
+  requires(Dim == 3)
+{
+  return sorted_lookup(faces_, FaceVertices{a, b, c});
+}
+
+template <int Dim>
+Index Mesh<Dim>::facet_id(FacetVertices vertices) const {
+  if constexpr (Dim == 2) {
+    return sorted_lookup(edges_, vertices);
+  } else {
+    return sorted_lookup(faces_, vertices);
+  }
+}
+
+template <int Dim>
+void Mesh<Dim>::set_facet_tags(std::span<const FacetVertices> facets, std::span<const Tag> tags) {
+  if (facets.size() != tags.size()) {
+    throw InvalidArgument(
+        fmt::format("Mesh<{}>: {} facets but {} tags given", Dim, facets.size(), tags.size()));
+  }
+  for (std::size_t i = 0; i < facets.size(); ++i) {
+    const Index f = facet_id(facets[i]);
+    if (f == kInvalidIndex) {
+      throw InvalidArgument(fmt::format("Mesh<{}>: facet ({}) is not part of the mesh", Dim,
+                                        fmt::join(facets[i], ",")));
+    }
+    facet_tags_[as_size(f)] = tags[i];
+  }
+}
+
+template <int Dim>
+Index Mesh<Dim>::tag_boundary(Tag tag) {
+  Index count = 0;
+  for (const Index f : boundary_facets_) {
+    Tag& t = facet_tags_[as_size(f)];
+    if (t == kNoTag) {
+      t = tag;
+      ++count;
+    }
+  }
+  return count;
+}
+
+namespace {
+
+std::vector<Index> indices_with_tag(const std::vector<Tag>& tags, Tag tag) {
+  std::vector<Index> out;
+  for (std::size_t i = 0; i < tags.size(); ++i) {
+    if (tags[i] == tag) {
+      out.push_back(static_cast<Index>(i));
+    }
+  }
+  return out;
+}
+
+}  // namespace
+
+template <int Dim>
+std::vector<Index> Mesh<Dim>::cells_with_tag(Tag tag) const {
+  return indices_with_tag(cell_tags_, tag);
+}
+
+template <int Dim>
+std::vector<Index> Mesh<Dim>::facets_with_tag(Tag tag) const {
+  return indices_with_tag(facet_tags_, tag);
+}
+
+template <int Dim>
+std::size_t Mesh<Dim>::names_slot(int dim) {
+  if (dim != Dim && dim != Dim - 1) {
+    throw InvalidArgument(
+        fmt::format("Mesh<{}>: tag names exist for dimensions {} (cells) and {} (facets), not {}",
+                    Dim, Dim, Dim - 1, dim));
+  }
+  return dim == Dim ? 1 : 0;
+}
+
+template <int Dim>
+void Mesh<Dim>::set_tag_name(int dim, Tag tag, std::string name) {
+  tag_names_[names_slot(dim)][tag] = std::move(name);
+}
+
+template <int Dim>
+const std::string& Mesh<Dim>::tag_name(int dim, Tag tag) const {
+  static const std::string empty;
+  const auto& names = tag_names_[names_slot(dim)];
+  const auto it = names.find(tag);
+  return it == names.end() ? empty : it->second;
+}
+
+template <int Dim>
+std::optional<Tag> Mesh<Dim>::tag_by_name(int dim, std::string_view name) const {
+  for (const auto& [tag, n] : tag_names_[names_slot(dim)]) {
+    if (n == name) {
+      return tag;
+    }
+  }
+  return std::nullopt;
 }
 
 template class Mesh<2>;

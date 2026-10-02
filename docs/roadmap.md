@@ -14,7 +14,7 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] `mesh::Mesh<Dim>`: vertices, cells (tri/tet), **derived edges and faces** with
       consistent global orientation (lowest-vertex-first rule, ADR-0003)
 - [x] entity connectivity tables (cell→edge, cell→face, face→cell, edge→cells)
-- [ ] boundary and material tags (physical groups)
+- [x] boundary and material tags (physical groups)
 - [ ] Gmsh `.msh` v4 reader (ASCII), simple structured generators for tests
 - [ ] affine geometry mapping: Jacobian, det, inverse-transpose, per cell
 - [ ] curved (order-2) geometry hook (interface only; implementation in M4)

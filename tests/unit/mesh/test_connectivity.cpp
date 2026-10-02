@@ -95,23 +95,13 @@ void check_connectivity(const Mesh<Dim>& m) {
   REQUIRE(total == Mesh<Dim>::kEdgesPerCell * m.num_cells());
 }
 
-/// Id of the edge with the given (unordered) vertex pair.
-template <int Dim>
-Index find_edge(const Mesh<Dim>& m, Index a, Index b) {
-  const typename Mesh<Dim>::EdgeVertices key{std::min(a, b), std::max(a, b)};
-  const auto edges = m.edges();
-  const auto it = std::find(edges.begin(), edges.end(), key);
-  REQUIRE(it != edges.end());
-  return static_cast<Index>(it - edges.begin());
-}
-
 }  // namespace
 
 // --- 2D -------------------------------------------------------------------------------------
 
 TEST_CASE("two triangles: shared edge, neighbours and boundary", "[mesh]") {
   const Mesh<2> m({{0.0, 0.0}, {1.0, 0.0}, {1.0, 1.0}, {0.0, 1.0}}, {{0, 1, 2}, {0, 2, 3}});
-  const Index diag = find_edge(m, 0, 2);
+  const Index diag = m.edge_id(0, 2);
   REQUIRE(diag == 1);
   REQUIRE(m.facet_cells(diag) == Mesh<2>::FacetCells{0, 1});
   REQUIRE(m.facet_local_indices(diag) == Mesh<2>::FacetLocalIndices{2, 0});
@@ -149,10 +139,10 @@ TEST_CASE("two tetrahedra: shared face and edge rings", "[mesh]") {
           Mesh<3>::CellNeighbors{0, kInvalidIndex, kInvalidIndex, kInvalidIndex});
   // edges of the shared face belong to both cells, edges through vertex 0 or 4 to one
   for (const auto [a, b] : std::array<std::array<Index, 2>, 3>{{{1, 2}, {1, 3}, {2, 3}}}) {
-    REQUIRE(to_vector(m.edge_cells(find_edge(m, a, b))) == std::vector<Index>{0, 1});
+    REQUIRE(to_vector(m.edge_cells(m.edge_id(a, b))) == std::vector<Index>{0, 1});
   }
-  REQUIRE(to_vector(m.edge_cells(find_edge(m, 0, 1))) == std::vector<Index>{0});
-  REQUIRE(to_vector(m.edge_cells(find_edge(m, 4, 2))) == std::vector<Index>{1});
+  REQUIRE(to_vector(m.edge_cells(m.edge_id(0, 1))) == std::vector<Index>{0});
+  REQUIRE(to_vector(m.edge_cells(m.edge_id(4, 2))) == std::vector<Index>{1});
   check_connectivity(m);
 }
 
@@ -164,8 +154,7 @@ TEST_CASE("Kuhn cube: boundary faces and edge rings", "[mesh]") {
   }
   // all six tetrahedra of a single cube share its body diagonal
   const Mesh<3> cube = structured_tetrahedra(1);
-  REQUIRE(to_vector(cube.edge_cells(find_edge(cube, 0, 7))) ==
-          std::vector<Index>{0, 1, 2, 3, 4, 5});
+  REQUIRE(to_vector(cube.edge_cells(cube.edge_id(0, 7))) == std::vector<Index>{0, 1, 2, 3, 4, 5});
 }
 
 // --- invariance and errors ------------------------------------------------------------------

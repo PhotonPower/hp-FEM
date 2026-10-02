@@ -82,6 +82,25 @@ throws `InvalidArgument` naming the facet's vertices. The edge ring `edge_cells(
 edge-based DoFs, hanging-edge constraints and residual jump terms iterate over; in 2D it
 coincides with the facet pair.
 
+## Tags (physical groups)
+
+Materials and boundary conditions are attached through integer tags in the Gmsh
+convention (`Tag`, positive; `kNoTag = 0` means untagged):
+
+- **cell tags** (dimension $d$): the material region of a cell. Given at construction or
+  set later with `set_cell_tag`; `cells_with_tag(t)` lists a region.
+- **facet tags** (dimension $d-1$): boundary facets for boundary conditions, interior
+  facets for material interfaces, flux surfaces or Bloch pairs. `set_facet_tags` takes the
+  facets as vertex tuples in any order, exactly as a mesh file lists boundary elements, and
+  resolves them with `facet_id` by binary search in the lexicographically sorted entity
+  list (`edge_id(a, b)`, `face_id(a, b, c)` do the same for edges and faces). Unknown
+  tuples are an error. `tag_boundary(t)` tags every still-untagged boundary facet, the
+  usual move for generated meshes.
+- **names**: `set_tag_name(dim, tag, name)` / `tag_name` / `tag_by_name` keep Gmsh
+  physical names per dimension, so problem definitions can say `"silicon"` or `"pec"`.
+
+Tags never affect topology or numbering and may be edited after construction.
+
 ## API summary
 
 | call | returns |
@@ -94,6 +113,9 @@ coincides with the facet pair.
 | `cell_facets(c)` | edges in 2D, faces in 3D |
 | `facet_cells(f)`, `facet_local_indices(f)`, `cell_neighbors(c)`, `edge_cells(e)` | inverse connectivity |
 | `boundary_facets()`, `num_boundary_facets()`, `is_boundary_facet(f)` | boundary |
+| `edge_id(a,b)`, `face_id(a,b,c)`, `facet_id(vertices)` | entity lookup by vertices |
+| `cell_tag(c)`, `facet_tag(f)`, `set_*`, `set_facet_tags`, `tag_boundary`, `*_with_tag` | tags |
+| `set_tag_name`, `tag_name`, `tag_by_name` | physical names |
 | `edge_vertices(e)`, `face_vertices(f)`, `facet_vertices(f)` | ascending vertex tuples |
 
 Construction throws `InvalidArgument` naming the cell if a vertex id is out of range or
@@ -111,7 +133,8 @@ repeated. Accessors check indices with `HPFEM_ASSERT`.
 - every inverse table is checked against cell → entity, neighbour relations are symmetric,
   boundary facet counts ($4n$ edges on the $n \times n$ square, $12n^2$ faces on the
   $n \times n \times n$ cube) and edge rings (six tetrahedra on a cube's body diagonal);
-- non-manifold inputs are rejected.
+- non-manifold inputs are rejected;
+- tags: lookup by unordered vertex tuples, tagging from vertex lists, `tag_boundary`
+  counts on structured meshes, names per dimension, error paths.
 
-Still to come in M1: boundary and material tags, Gmsh input, affine geometry maps,
-refinement.
+Still to come in M1: Gmsh input, affine geometry maps, refinement.
