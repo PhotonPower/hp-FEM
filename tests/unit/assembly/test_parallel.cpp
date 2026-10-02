@@ -47,14 +47,19 @@ TEST_CASE("parallel_for visits every index once", "[core][parallel]") {
   hpfem::set_num_threads(0);  // all cores
   const Index n = 10007;
   std::vector<int> visits(as_size(n), 0);
+  std::vector<int> threads(as_size(n), -1);
   std::atomic<Index> sum{0};
+  // no Catch2 assertions inside the body: the assertion handler is not thread-safe
   hpfem::parallel_for(n, [&](Index i, int thread) {
-    REQUIRE(thread >= 0);
-    REQUIRE(thread < hpfem::num_threads());
     visits[as_size(i)]++;
+    threads[as_size(i)] = thread;
     sum += i;
   });
   for (const int v : visits) CHECK(v == 1);
+  for (const int t : threads) {
+    CHECK(t >= 0);
+    CHECK(t < hpfem::num_threads());
+  }
   CHECK(sum == n * (n - 1) / 2);
   CHECK(hpfem::has_openmp() == (hpfem::num_threads() > 1 || hpfem::has_openmp()));
 }
