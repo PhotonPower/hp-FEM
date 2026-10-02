@@ -151,6 +151,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   p-marked cells) and `identity_step`; solutions transfer exactly across p- and hp-steps
   by `assembly::prolongate`. Convergence test: estimator-driven adaptive p-refinement on a
   plane wave converges like exp(-0.41 sqrt(N)).
+- hp decision: `adaptivity::hp_decide_by_prediction` / `predict_indicators` (error
+  prediction after Melenk–Wohlmuth, the default) and `adaptivity::hp_decide` /
+  `coefficient_decay` (decay of the Dubiner coefficients, `fespace::DubinerBasis`,
+  `fespace::jacobi`, order-dependent threshold calibrated on the corner singularity);
+  `hp_refine` spreads p-refinement to lower-order facet neighbours. Convergence test #7:
+  hp-adaptivity on the L-shaped corner, error ~ exp(-0.28 N^(1/3)), 6e-5 at 26 000 DoFs
+  where h-adaptivity with p = 2 needs ~1e-3 at 12 600.
 
 ## [0.1.0] — 2026-10-02
 ### Added

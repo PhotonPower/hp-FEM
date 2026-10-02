@@ -52,4 +52,24 @@ void scaled_integrated_legendre(int n, Real x, Real t, std::span<Real> values, s
   }
 }
 
+void jacobi(int n, Real alpha, Real beta, Real x, std::span<Real> values) {
+  HPFEM_ASSERT(n >= 0, "jacobi: n must be non-negative");
+  HPFEM_ASSERT(values.size() >= static_cast<std::size_t>(n) + 1,
+               "jacobi: output span must have at least n + 1 entries");
+  values[0] = 1.0;
+  if (n == 0) return;
+  values[1] = 0.5 * (alpha - beta + (alpha + beta + 2.0) * x);
+  for (int i = 2; i <= n; ++i) {
+    const Real m = static_cast<Real>(i);
+    const Real ab = alpha + beta;
+    const Real c = 2.0 * m + ab;  // 2n + α + β
+    const Real a1 = 2.0 * m * (m + ab) * (c - 2.0);
+    const Real a2 = (c - 1.0) * (alpha * alpha - beta * beta);
+    const Real a3 = (c - 2.0) * (c - 1.0) * c;
+    const Real a4 = 2.0 * (m + alpha - 1.0) * (m + beta - 1.0) * c;
+    const auto k = static_cast<std::size_t>(i);
+    values[k] = ((a2 + a3 * x) * values[k - 1] - a4 * values[k - 2]) / a1;
+  }
+}
+
 }  // namespace hpfem::fespace

@@ -22,6 +22,7 @@ add_library(hpfem
   physics/propagating_mode.cpp
   assembly/quadrature.cpp
   fespace/polynomials.cpp
+  fespace/orthogonal_basis.cpp
   fespace/h1_basis.cpp
   fespace/nedelec_basis.cpp
   fespace/dof_map.cpp
@@ -40,6 +41,8 @@ add_library(hpfem
   adaptivity/residual_estimator.cpp
   adaptivity/marking.cpp
   adaptivity/refinement.cpp
+  adaptivity/smoothness.cpp
+  adaptivity/prediction.cpp
 )
 add_library(hpfem::hpfem ALIAS hpfem)
 

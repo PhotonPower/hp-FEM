@@ -73,6 +73,24 @@ global ids in basis order, so assembly is a plain gather / scatter. `facet_dofs(
 the DoFs supported on a facet and `dofs_on_tag(t)` their union over a tagged boundary,
 which is what Dirichlet elimination needs.
 
+## Orthogonal basis (`fespace/orthogonal_basis.hpp`)
+
+`DubinerBasis<Dim>(p)` is the $L^2$-orthonormal basis of total degree $\le p$ on the unit
+simplex (Dubiner 1991; Koornwinder): with the collapsed coordinates $a = 2\xi_1/(1-\xi_2) -
+1$, $b = 2\xi_2 - 1$ (and $c = 2\xi_3 - 1$ in 3D)
+
+$$
+\psi_{ij} = P_i(a)\Big(\tfrac{1-b}{2}\Big)^i P_j^{(2i+1,0)}(b), \qquad
+\psi_{ijk} = \psi_{ij}(a,b)\Big(\tfrac{1-c}{2}\Big)^{i+j} P_k^{(2i+2j+2,0)}(c),
+$$
+
+normalised by $\|\psi_{ij}\|^2 = 1/((2i+1)(2i+2j+2))$ and $\|\psi_{ijk}\|^2 =
+1/((2i+1)(2i+2j+2)(2i+2j+2k+3))$; `fespace::jacobi` evaluates the Jacobi polynomials by
+the three-term recurrence. Functions are ordered by total degree (`degree(i)`), which is
+what the smoothness indicator of the hp decision reads. Verified: the Gram matrix with
+the simplex quadrature is the identity to $10^{-11}$ for $p \le 5$ (2D) and $p \le 4$ (3D),
+and a cubic has no coefficients beyond degree 3.
+
 ## Interpolation (`assembly/interpolation.hpp`)
 
 The hierarchical structure of both bases gives a cheap, exact **interpolation operator**:
