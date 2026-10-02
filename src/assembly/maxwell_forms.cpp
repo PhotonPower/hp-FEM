@@ -114,6 +114,46 @@ MaxwellSystem assemble_maxwell(const fespace::NedelecDofMap<Dim>& dofs,
 }
 
 template <int Dim>
+AssembledSystem assemble_maxwell_operator(
+    const fespace::NedelecDofMap<Dim>& dofs,
+    const std::type_identity_t<CellFormFactory<Dim>>& form_of_cell, Real k_squared, int extra_order,
+    StaticCondensation* condensation) {
+  const auto& mesh = dofs.mesh();
+  const Index n = dofs.num_dofs();
+  SparseAssembler assembler(n, n);
+  Vector rhs = Vector::Zero(n);
+  std::map<int, QuadratureRule<Dim>> rules;
+  std::vector<Index> exterior;
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    const int p = dofs.cell_order(c);
+    const fespace::NedelecBasis<Dim> basis(dofs.cell_layout(c));
+    const auto geometry = mesh::cell_geometry(mesh, c);
+    const MaxwellForm<Dim> form = form_of_cell(c);
+    const int order = form.quadrature_order ? *form.quadrature_order
+                                            : 2 * p + extra_order + (geometry->is_affine() ? 0 : 2);
+    auto& rule = rules[order];
+    if (rule.size() == 0) rule = simplex_quadrature<Dim>(order);
+    auto local = element_maxwell(basis, *geometry, rule, form);
+    Matrix a = local.stiffness - k_squared * local.mass;
+    Vector f = std::move(local.load);
+    const auto ids = dofs.cell_dofs(c);
+    if (condensation != nullptr) {
+      condensation->condense(ids, static_cast<Index>(dofs.interior_dofs(c).size()), a, f, exterior);
+      assembler.add(exterior, exterior, a);
+      scatter(rhs, exterior, f);
+    } else {
+      assembler.add(ids, ids, a);
+      scatter(rhs, ids, f);
+    }
+  }
+  if (condensation != nullptr) condensation->add_identity(assembler);
+  log().info("assemble_maxwell_operator<{}>: {} cells, {} DoFs ({} condensed), {} triplets", Dim,
+             mesh.num_cells(), n, condensation != nullptr ? condensation->num_interior() : 0,
+             assembler.num_triplets());
+  return {assembler.finalize(), std::move(rhs)};
+}
+
+template <int Dim>
 HcurlErrorNorms hcurl_error(
     const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h,
     const std::type_identity_t<ComplexVectorField<Dim>>& field,
@@ -216,6 +256,12 @@ template MaxwellSystem assemble_maxwell<2>(const fespace::NedelecDofMap<2>&,
                                            const CellFormFactory<2>&, int);
 template MaxwellSystem assemble_maxwell<3>(const fespace::NedelecDofMap<3>&,
                                            const CellFormFactory<3>&, int);
+template AssembledSystem assemble_maxwell_operator<2>(const fespace::NedelecDofMap<2>&,
+                                                      const CellFormFactory<2>&, Real, int,
+                                                      StaticCondensation*);
+template AssembledSystem assemble_maxwell_operator<3>(const fespace::NedelecDofMap<3>&,
+                                                      const CellFormFactory<3>&, Real, int,
+                                                      StaticCondensation*);
 template HcurlErrorNorms hcurl_error<2>(const fespace::NedelecDofMap<2>&, const Vector&,
                                         const ComplexVectorField<2>&,
                                         const std::function<ComplexCurl<2>(const Point<2>&)>&, int);

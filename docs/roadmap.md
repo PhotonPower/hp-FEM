@@ -81,7 +81,7 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] MUMPS / PARDISO backend behind `solvers::DirectSolver` — MUMPS (sequential complex
       build) behind `solvers::LinearSolver` / `DirectSolverBackend` (ADR-0007); PARDISO
       can follow as another backend
-- [ ] static condensation of interior (cell-bubble) DoFs
+- [x] static condensation of interior (cell-bubble) DoFs
 - [ ] OpenMP parallel assembly (colouring or per-thread COO buffers)
 - [ ] parameter sweeps / reduced basis hooks (frequency, angle, geometry parameters)
 - [ ] optional: MPI domain decomposition (own ADR before starting)

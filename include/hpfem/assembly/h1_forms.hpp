@@ -12,6 +12,7 @@
 
 #include <Eigen/Core>
 
+#include "hpfem/assembly/condensation.hpp"
 #include "hpfem/assembly/quadrature.hpp"
 #include "hpfem/core/types.hpp"
 #include "hpfem/fespace/dof_map.hpp"
@@ -92,22 +93,26 @@ extern template ElementContribution element_h1<2>(const fespace::H1Basis<2>&,
 extern template ElementContribution element_h1<3>(const fespace::H1Basis<3>&,
                                                   const mesh::CellGeometry<3>&,
                                                   const QuadratureRule<3>&, const ScalarForm<3>&);
-/// Per-cell coefficients (materials by tag): `form_of_cell(c)` supplies the form of cell c.
+/// Per-cell coefficients (materials by tag): `form_of_cell(c)` supplies the form of cell c;
+/// with `condensation` the interior DoFs are condensed (`condensation.hpp`).
 template <int Dim>
 using ScalarFormFactory = std::function<ScalarForm<Dim>(Index)>;
 template <int Dim>
 [[nodiscard]] AssembledSystem assemble_h1(
     const fespace::DofMap<Dim>& dofs,
-    const std::type_identity_t<ScalarFormFactory<Dim>>& form_of_cell, int extra_order = 2);
+    const std::type_identity_t<ScalarFormFactory<Dim>>& form_of_cell, int extra_order = 2,
+    StaticCondensation* condensation = nullptr);
 
 extern template AssembledSystem assemble_h1<2>(const fespace::DofMap<2>&, const ScalarForm<2>&,
                                                int);
 extern template AssembledSystem assemble_h1<3>(const fespace::DofMap<3>&, const ScalarForm<3>&,
                                                int);
 extern template AssembledSystem assemble_h1<2>(const fespace::DofMap<2>&,
-                                               const ScalarFormFactory<2>&, int);
+                                               const ScalarFormFactory<2>&, int,
+                                               StaticCondensation*);
 extern template AssembledSystem assemble_h1<3>(const fespace::DofMap<3>&,
-                                               const ScalarFormFactory<3>&, int);
+                                               const ScalarFormFactory<3>&, int,
+                                               StaticCondensation*);
 extern template ErrorNorms h1_error<2>(const fespace::DofMap<2>&, const Vector&,
                                        const ScalarField<2>&, const VectorField<2>&, int);
 extern template ErrorNorms h1_error<3>(const fespace::DofMap<3>&, const Vector&,

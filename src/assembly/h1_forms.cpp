@@ -56,12 +56,13 @@ AssembledSystem assemble_h1(const fespace::DofMap<Dim>& dofs, const ScalarForm<D
 template <int Dim>
 AssembledSystem assemble_h1(const fespace::DofMap<Dim>& dofs,
                             const std::type_identity_t<ScalarFormFactory<Dim>>& form_of_cell,
-                            int extra_order) {
+                            int extra_order, StaticCondensation* condensation) {
   const auto& mesh = dofs.mesh();
   const Index n = dofs.num_dofs();
   SparseAssembler assembler(n, n);
   Vector rhs = Vector::Zero(n);
   std::map<int, QuadratureRule<Dim>> rules;
+  std::vector<Index> exterior;
   for (Index c = 0; c < mesh.num_cells(); ++c) {
     const int p = dofs.cell_order(c);
     const fespace::H1Basis<Dim> basis(dofs.cell_layout(c));
@@ -71,12 +72,21 @@ AssembledSystem assemble_h1(const fespace::DofMap<Dim>& dofs,
     auto& rule = rules[order];
     if (rule.size() == 0) rule = simplex_quadrature<Dim>(order);
     const ScalarForm<Dim> form = form_of_cell(c);
-    const auto local = element_h1(basis, *geometry, rule, form);
+    auto local = element_h1(basis, *geometry, rule, form);
     const auto ids = dofs.cell_dofs(c);
-    assembler.add(ids, ids, local.matrix);
-    scatter(rhs, ids, local.vector);
+    if (condensation != nullptr) {
+      condensation->condense(ids, static_cast<Index>(dofs.interior_dofs(c).size()), local.matrix,
+                             local.vector, exterior);
+      assembler.add(exterior, exterior, local.matrix);
+      scatter(rhs, exterior, local.vector);
+    } else {
+      assembler.add(ids, ids, local.matrix);
+      scatter(rhs, ids, local.vector);
+    }
   }
-  log().info("assemble_h1<{}>: {} cells, {} DoFs, {} triplets", Dim, mesh.num_cells(), n,
+  if (condensation != nullptr) condensation->add_identity(assembler);
+  log().info("assemble_h1<{}>: {} cells, {} DoFs ({} condensed), {} triplets", Dim,
+             mesh.num_cells(), n, condensation != nullptr ? condensation->num_interior() : 0,
              assembler.num_triplets());
   return {assembler.finalize(), std::move(rhs)};
 }
@@ -155,10 +165,10 @@ template ElementContribution element_h1<3>(const fespace::H1Basis<3>&, const mes
                                            const QuadratureRule<3>&, const ScalarForm<3>&);
 template AssembledSystem assemble_h1<2>(const fespace::DofMap<2>&, const ScalarForm<2>&, int);
 template AssembledSystem assemble_h1<3>(const fespace::DofMap<3>&, const ScalarForm<3>&, int);
-template AssembledSystem assemble_h1<2>(const fespace::DofMap<2>&, const ScalarFormFactory<2>&,
-                                        int);
-template AssembledSystem assemble_h1<3>(const fespace::DofMap<3>&, const ScalarFormFactory<3>&,
-                                        int);
+template AssembledSystem assemble_h1<2>(const fespace::DofMap<2>&, const ScalarFormFactory<2>&, int,
+                                        StaticCondensation*);
+template AssembledSystem assemble_h1<3>(const fespace::DofMap<3>&, const ScalarFormFactory<3>&, int,
+                                        StaticCondensation*);
 template ErrorNorms h1_error<2>(const fespace::DofMap<2>&, const Vector&, const ScalarField<2>&,
                                 const VectorField<2>&, int);
 template ErrorNorms h1_error<3>(const fespace::DofMap<3>&, const Vector&, const ScalarField<3>&,

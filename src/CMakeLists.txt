@@ -29,6 +29,7 @@ add_library(hpfem
   fespace/dof_map.cpp
   fespace/constraints.cpp
   assembly/sparse_assembler.cpp
+  assembly/condensation.cpp
   assembly/h1_forms.cpp
   assembly/dirichlet.cpp
   assembly/interpolation.cpp

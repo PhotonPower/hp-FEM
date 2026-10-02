@@ -46,6 +46,37 @@ checks the one-shot interface, the error reporting (singular, non-square, wrong 
 solve before factorisation) and that `kAuto` picks MUMPS when compiled in. With the `mumps`
 preset the complete convergence suite runs on MUMPS (all tolerances unchanged).
 
+## Static condensation (`assembly/condensation.hpp`)
+
+The interior (cell-bubble) functions of the hierarchical bases have support in one cell
+only, so their DoFs couple to nothing but the cell's own exterior DoFs. With the local
+system split into exterior (E) and interior (B) blocks, `StaticCondensation` assembles the
+Schur complement
+
+$$
+\tilde K_{EE} = K_{EE} - K_{EB}K_{BB}^{-1}K_{BE}, \qquad \tilde f_E = f_E - K_{EB}K_{BB}^{-1} f_B
+$$
+
+cell by cell (a dense LU of $K_{BB}$ per cell, $K_{BB}^{-1}K_{BE}$ and $K_{BB}^{-1}f_B$ are
+kept) and recovers $u_B = K_{BB}^{-1}(f_B - K_{BE}u_E)$ after the solve. The global
+numbering is unchanged: the interior rows of the condensed matrix are identity rows with
+zero load, so Dirichlet elimination and the hanging-node / Bloch constraints — which never
+involve interior DoFs — apply exactly as before, and `recover` completes the solution.
+`assemble_maxwell_operator` ($A = S - k^2 M$ with the load in one pass) and the
+per-cell-form `assemble_h1` take an optional `StaticCondensation`; `physics::Scattering`
+condenses by default (`ScatteringSetup::condense`). Not condensed: the eigenproblems (the
+pencil $S - \lambda M$ is not linear in the unknown block) and the DWR adjoint.
+
+Interior DoFs per cell: H1 $(p-1)(p-2)/2$ (2D), Nédélec $p(p-1)$ (2D), i.e. for $p = 4$
+a third of the Nédélec DoFs of a triangle and for $p = 6$ half of them. The direct solver
+then factorises a matrix whose coupled part lives on the entity DoFs only.
+
+Verification (`tests/unit/assembly/test_condensation.cpp`): H1 (2D $p = 3$–$5$, 3D $p = 4$)
+and Maxwell (2D $p = 2$–$4$, 3D $p = 3$) solutions with Dirichlet / PEC data agree with the
+full systems to $10^{-10}$, the condensed matrices have fewer nonzeros and identity interior
+rows, a `Scattering` solve on a hanging mesh with PEC and prescribed traces agrees with the
+uncondensed solve, and singular interior blocks are reported.
+
 ## Eigenvalue solvers
 
 See [maxwell.md](maxwell.md#eigenproblems): Spectra's shift-invert Lanczos / Arnoldi on top

@@ -181,6 +181,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `*_seq` libraries, plain installs), preset `mumps`, CI job on Ubuntu with
   `libmumps-seq-dev`; test executables get the MSYS2 DLL directory on `PATH`.
   ADR-0007, `docs/theory/solvers.md`.
+- Static condensation of the interior DoFs (`assembly::StaticCondensation`,
+  `assemble_maxwell_operator`, `assemble_h1` with a condensation argument): Schur
+  complements per cell, identity rows for the interior DoFs so Dirichlet data and
+  constraints apply unchanged, recovery after the solve; `Scattering::solve` condenses by
+  default (`ScatteringSetup::condense`).
 
 ## [0.1.0] — 2026-10-02
 ### Added

@@ -15,7 +15,10 @@
 
 #include <Eigen/Core>
 
+#include "hpfem/assembly/condensation.hpp"
+#include "hpfem/assembly/h1_forms.hpp"
 #include "hpfem/assembly/quadrature.hpp"
+#include "hpfem/assembly/sparse_assembler.hpp"
 #include "hpfem/core/types.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/fespace/nedelec_basis.hpp"
@@ -97,6 +100,16 @@ template <int Dim>
     const fespace::NedelecDofMap<Dim>& dofs,
     const std::type_identity_t<CellFormFactory<Dim>>& form_of_cell, int extra_order = 2);
 
+/// Assembles the operator @f$ A = S - k^2 M @f$ and the load in one pass over the cells
+/// (per-cell forms), optionally with static condensation of the interior DoFs: the
+/// condensed matrix carries identity rows for them, `condensation->recover` fills them in
+/// after the solve (`condensation.hpp`).
+template <int Dim>
+[[nodiscard]] AssembledSystem assemble_maxwell_operator(
+    const fespace::NedelecDofMap<Dim>& dofs,
+    const std::type_identity_t<CellFormFactory<Dim>>& form_of_cell, Real k_squared,
+    int extra_order = 2, StaticCondensation* condensation = nullptr);
+
 /// Errors of the discrete field against (E, curl E).
 struct HcurlErrorNorms {
   Real l2 = 0;         ///< ‖E_h − E‖_L2
@@ -153,6 +166,12 @@ extern template MaxwellSystem assemble_maxwell<2>(const fespace::NedelecDofMap<2
                                                   const CellFormFactory<2>&, int);
 extern template MaxwellSystem assemble_maxwell<3>(const fespace::NedelecDofMap<3>&,
                                                   const CellFormFactory<3>&, int);
+extern template AssembledSystem assemble_maxwell_operator<2>(const fespace::NedelecDofMap<2>&,
+                                                             const CellFormFactory<2>&, Real, int,
+                                                             StaticCondensation*);
+extern template AssembledSystem assemble_maxwell_operator<3>(const fespace::NedelecDofMap<3>&,
+                                                             const CellFormFactory<3>&, Real, int,
+                                                             StaticCondensation*);
 extern template HcurlErrorNorms hcurl_error<2>(
     const fespace::NedelecDofMap<2>&, const Vector&, const ComplexVectorField<2>&,
     const std::function<ComplexCurl<2>(const Point<2>&)>&, int);
