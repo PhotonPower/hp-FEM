@@ -6,8 +6,10 @@ add_library(hpfem
   mesh/gmsh.cpp
   mesh/geometry.cpp
   mesh/point_location.cpp
+  mesh/subdivision.cpp
   mesh/refinement.cpp
   io/vtk.cpp
+  io/field_export.cpp
   assembly/quadrature.cpp
   fespace/polynomials.cpp
   fespace/h1_basis.cpp

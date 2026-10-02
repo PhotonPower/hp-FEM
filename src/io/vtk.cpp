@@ -240,6 +240,23 @@ std::vector<Real> flatten(std::span<const Point<Dim>> values) {
   return flat;
 }
 
+/// Real and imaginary parts of complex vectors, padded to three components.
+template <int Dim>
+std::pair<std::vector<Real>, std::vector<Real>> split_complex(
+    std::span<const Eigen::Matrix<Complex, Dim, 1>> values) {
+  std::vector<Real> re;
+  std::vector<Real> im;
+  re.reserve(values.size() * 3);
+  im.reserve(values.size() * 3);
+  for (const auto& v : values) {
+    for (int d = 0; d < 3; ++d) {
+      re.push_back(d < Dim ? v(d).real() : 0.0);
+      im.push_back(d < Dim ? v(d).imag() : 0.0);
+    }
+  }
+  return {std::move(re), std::move(im)};
+}
+
 std::ofstream open_output(const std::filesystem::path& file) {
   std::ofstream out(file);
   if (!out) throw InvalidArgument(fmt::format("VtkWriter: cannot create '{}'", file.string()));
@@ -296,6 +313,16 @@ VtkWriter<Dim>& VtkWriter<Dim>::cell_vectors(std::string name, std::span<const P
 }
 
 template <int Dim>
+VtkWriter<Dim>& VtkWriter<Dim>::cell_vectors(
+    std::string name, std::span<const Eigen::Matrix<Complex, Dim, 1>> values) {
+  check_size(name, values.size(), mesh_.num_cells(), "cells");
+  auto [re, im] = split_complex<Dim>(values);
+  cell_arrays_.push_back({name + "_re", 3, std::move(re)});
+  cell_arrays_.push_back({name + "_im", 3, std::move(im)});
+  return *this;
+}
+
+template <int Dim>
 VtkWriter<Dim>& VtkWriter<Dim>::point_scalars(std::string name, std::span<const Real> values) {
   check_size(name, values.size(), num_points(), "points");
   point_arrays_.push_back({std::move(name), 1, std::vector<Real>(values.begin(), values.end())});
@@ -321,6 +348,16 @@ VtkWriter<Dim>& VtkWriter<Dim>::point_vectors(std::string name,
                                               std::span<const Point<Dim>> values) {
   check_size(name, values.size(), num_points(), "points");
   point_arrays_.push_back({std::move(name), 3, flatten<Dim>(values)});
+  return *this;
+}
+
+template <int Dim>
+VtkWriter<Dim>& VtkWriter<Dim>::point_vectors(
+    std::string name, std::span<const Eigen::Matrix<Complex, Dim, 1>> values) {
+  check_size(name, values.size(), num_points(), "points");
+  auto [re, im] = split_complex<Dim>(values);
+  point_arrays_.push_back({name + "_re", 3, std::move(re)});
+  point_arrays_.push_back({name + "_im", 3, std::move(im)});
   return *this;
 }
 

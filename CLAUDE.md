@@ -305,5 +305,10 @@ complete: build system, CI, docs; `mesh::Mesh<Dim>` with oriented entities,
 connectivity, tags, Gmsh input, generators, affine and quadratic geometry, red
 refinement, VTK export; reference element, Gauss–Jacobi quadrature, hierarchical H1
 basis with `DofMap`, sparse assembly, Dirichlet elimination, SparseLU solver and the
-Poisson convergence test. Next: **M3 — Nédélec elements and Maxwell eigenproblems**.
+Poisson convergence test. **M3 (Nédélec elements and Maxwell eigenproblems)** is complete
+as well: hierarchical Nédélec basis with `NedelecDofMap`, curl–curl forms with complex
+tensors, PEC/PMC, discrete gradients and the gauged shift-invert eigensolver (Spectra),
+the PEC cavity convergence test, point location with field evaluation at arbitrary
+points, and VTK export of fields (cell averages and subdivision). Next: **M4 —
+time-harmonic scattering and waveguides**.
 See `docs/roadmap.md`.

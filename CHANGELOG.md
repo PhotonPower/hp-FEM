@@ -74,6 +74,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   cells, tolerance, hinted search, lowest-cell-id rule on shared facets);
   `assembly::evaluate_h1` / `evaluate_hcurl` / new `evaluate_hcurl_curl` overloads that
   evaluate a discrete field at arbitrary physical points.
+- `mesh::subdivide`: uniform subdivision of every cell into n^Dim sub-simplices with
+  per-cell duplicated vertices (curved cells piecewise straight); `io::FieldExporter`
+  writes H1 and Nédélec fields (values and curls, complex as `_re` / `_im`) as point data
+  on the subdivided mesh, `io::cell_averages` / `cell_average_curls` the cell means;
+  `VtkWriter` accepts complex vector arrays. M3 complete.
 
 ## [0.1.0] — 2026-10-02
 ### Added

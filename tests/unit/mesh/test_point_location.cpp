@@ -164,7 +164,14 @@ TEST_CASE("PointLocator: curved cell (quarter disc)", "[mesh][point-location]") 
   // straight triangle x + y <= 1
   Mesh<2> m({{0.0, 0.0}, {1.0, 0.0}, {0.0, 1.0}}, {{0, 1, 2}});
   const Real s = std::numbers::sqrt2 / 2;
-  m.set_edge_nodes({Point<2>(0.5, 0.0), Point<2>(s, s), Point<2>(0.0, 0.5)});
+  // global edges are numbered (0,1), (0,2), (1,2): the hypotenuse is edge_id(1, 2)
+  std::vector<Point<2>> nodes;
+  for (Index e = 0; e < m.num_edges(); ++e) {
+    const auto& ev = m.edge_vertices(e);
+    nodes.push_back(0.5 * (m.vertex(ev[0]) + m.vertex(ev[1])));
+  }
+  nodes[as_size(m.edge_id(1, 2))] = Point<2>(s, s);
+  m.set_edge_nodes(nodes);
   REQUIRE(m.geometry_order() == 2);
   const PointLocator<2> locator(m);
   const auto geometry = cell_geometry(m, 0);
