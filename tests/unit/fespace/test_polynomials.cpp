@@ -110,7 +110,7 @@ TEST_CASE("scaled integrated Legendre: explicit values, homogeneity, zeros, deri
     std::vector<Real> a(n + 1);
     std::vector<Real> b(n + 1);
     std::vector<Real> dummy(n + 1);
-    for (const auto [x, t] :
+    for (const auto& [x, t] :
          std::vector<std::pair<Real, Real>>{{0.2, 0.9}, {-0.4, 0.5}, {0.0, 0.0}, {0.3, 0.3}}) {
       scaled_integrated_legendre(n, x, t, v, dx, dt);
       scaled_integrated_legendre(n, x + h, t, a, dummy, dummy);
