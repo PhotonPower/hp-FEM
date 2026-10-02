@@ -18,7 +18,7 @@ namespace hpfem::io {
 
 /// Encoding of the data arrays: plain text, or inline base64 ("binary" in VTK terms,
 /// uncompressed, roughly 4x smaller than ASCII and exact).
-enum class VtkFormat { kAscii, kBinary };
+enum class VtkFormat : std::uint8_t { kAscii, kBinary };
 
 /// Builds a `.vtu` file from a mesh. Cells are written as (quadratic) triangles or
 /// tetrahedra; a second-order mesh exports its edge nodes as additional points, so curved

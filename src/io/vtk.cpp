@@ -64,7 +64,7 @@ template <class T>
 void append_bytes(std::vector<std::uint8_t>& bytes, const std::vector<T>& values) {
   const std::size_t offset = bytes.size();
   bytes.resize(offset + values.size() * sizeof(T));
-  if (!values.empty()) std::memcpy(bytes.data() + offset, values.data(), values.size() * sizeof(T));
+  if (!values.empty()) std::memcpy(&bytes[offset], values.data(), values.size() * sizeof(T));
 }
 
 template <class T>
@@ -345,8 +345,8 @@ void write_vtu_facets(const mesh::Mesh<Dim>& mesh, std::ostream& out, bool bound
   if (boundary_only) {
     facets.assign(mesh.boundary_facets().begin(), mesh.boundary_facets().end());
   } else {
-    facets.resize(as_size(mesh.num_facets()));
-    for (Index f = 0; f < mesh.num_facets(); ++f) facets[as_size(f)] = f;
+    facets.reserve(as_size(mesh.num_facets()));
+    for (Index f = 0; f < mesh.num_facets(); ++f) facets.push_back(f);
   }
   std::vector<std::int32_t> tags;
   std::vector<std::uint8_t> boundary;
