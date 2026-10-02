@@ -11,7 +11,7 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] Docs site, theory pages, ADRs, this roadmap
 
 ## M1 — Mesh infrastructure (≈ 6)
-- [ ] `mesh::Mesh<Dim>`: vertices, cells (tri/tet), **derived edges and faces** with
+- [x] `mesh::Mesh<Dim>`: vertices, cells (tri/tet), **derived edges and faces** with
       consistent global orientation (lowest-vertex-first rule, ADR-0003)
 - [ ] entity connectivity tables (cell→edge, cell→face, face→cell, edge→cells)
 - [ ] boundary and material tags (physical groups)

@@ -207,8 +207,10 @@ CMake and Ninja (installed via winget), Git for Windows. **Not MSVC.**
   non-polynomial).
 - Reference elements: unit triangle `(0,0),(1,0),(0,1)` and unit tetrahedron
   `(0,0,0),(1,0,0),(0,1,0),(0,0,1)`; local edge/face numbering is **fixed in
-  `fespace/reference_element.hpp` and documented in `docs/theory/nedelec.md`** —
-  never redefine it elsewhere.
+  `mesh/simplex_topology.hpp` (`SimplexTopology<Dim>`, re-used by
+  `fespace/reference_element.hpp`) and documented in `docs/theory/nedelec.md`** —
+  never redefine it elsewhere. Global entity numbering and orientation flags:
+  `docs/theory/mesh.md`.
 - Boundary conditions: PEC (tangential E = 0, via DoF elimination), PMC (natural),
   Bloch-periodic (`E(x+a) = E(x)·exp(ik·a)` via constrained DoFs), transparent
   (PML), and impedance/Robin as first-order absorbing fallback.

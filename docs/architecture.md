@@ -14,7 +14,7 @@ flowchart LR
 | Module | Responsibility | Key types |
 |---|---|---|
 | core | scalar types, constants, errors, logging | `Real`, `Complex`, `Index`, `Error` |
-| mesh | topology (vertices/edges/faces/cells), tags, geometry maps, refinement, Gmsh I/O | `Mesh<Dim>`, `Cell`, `GeometryMap` |
+| mesh | topology (vertices/edges/faces/cells), tags, geometry maps, refinement, Gmsh I/O | `Mesh<Dim>`, `SimplexTopology<Dim>`, `GeometryMap` |
 | fespace | reference elements, quadrature, H1 and H(curl) bases, DoF numbering, constraints | `ReferenceElement`, `NedelecBasis`, `DofMap`, `Constraints` |
 | assembly | element kernels, global sparse assembly, boundary terms | `Assembler`, `ElementMatrix` |
 | materials | ε(ω), μ tensors, dispersion models, material database | `Material`, `Drude`, `Tabulated` |
