@@ -40,14 +40,22 @@ template <int Dim>
 using CurlTensorField = std::function<InversePermeabilityTensor<Dim>(const Point<Dim>&)>;
 template <int Dim>
 using ComplexVectorField = std::function<ComplexVector<Dim>(const Point<Dim>&)>;
+template <int Dim>
+using ComplexCurlField = std::function<ComplexCurl<Dim>(const Point<Dim>&)>;
 
 /// Coefficients of the Maxwell forms; an empty function means the identity (ε = μ = 1,
-/// i.e. dimensionless vacuum) or zero (source).
+/// i.e. dimensionless vacuum) or zero (sources). The load is
+/// @f$ \ell(v) = \int_\Omega f\cdot v + \int_\Omega g\cdot\nabla\times v @f$; the curl source
+/// @f$ g @f$ carries the term @f$ -\nabla\times\big((\mu^{-1} - \mu_b^{-1})\nabla\times
+/// E^{inc}\big)
+/// @f$ of the scattered-field formulation in weak (integrated-by-parts) form, see
+/// docs/theory/maxwell.md#scattered-field-formulation.
 template <int Dim>
 struct MaxwellForm {
   CurlTensorField<Dim> inverse_permeability;  ///< μ⁻¹(x)
   TensorField<Dim> permittivity;              ///< ε(x)
   ComplexVectorField<Dim> source;             ///< f(x), e.g. iωJ
+  ComplexCurlField<Dim> curl_source;          ///< g(x), paired with curl v
 };
 
 /// Element stiffness, mass and load of one cell in `NedelecBasis` function order.

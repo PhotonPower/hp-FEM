@@ -79,6 +79,10 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   writes H1 and Nédélec fields (values and curls, complex as `_re` / `_im`) as point data
   on the subdivided mesh, `io::cell_averages` / `cell_average_curls` the cell means;
   `VtkWriter` accepts complex vector arrays. M3 complete.
+- `assembly::tangential_dirichlet_values`: prescribed tangential trace on the Nédélec
+  space by hierarchical L2 projection (edge functions, then face functions), exact for
+  traces in the discrete space; `MaxwellForm::curl_source` adds a load paired with
+  curl v (the permeability term of the scattered-field formulation).
 
 ## [0.1.0] — 2026-10-02
 ### Added

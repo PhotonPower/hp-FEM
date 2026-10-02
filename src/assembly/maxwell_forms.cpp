@@ -65,6 +65,10 @@ MaxwellElement element_maxwell(const fespace::NedelecBasis<Dim>& basis,
       const ComplexVector<Dim> f = form.source(g.x);
       out.load += dx * (phi.values.transpose().template cast<Complex>() * f);
     }
+    if (form.curl_source) {
+      const ComplexCurl<Dim> gc = form.curl_source(g.x);
+      out.load += dx * (phi.curls.transpose().template cast<Complex>() * gc);
+    }
   }
   return out;
 }
