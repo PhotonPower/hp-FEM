@@ -4,12 +4,16 @@
 /// Piola transforms (docs/theory/nedelec.md#mapping), facet measures and outward normals.
 /// Formulas: docs/theory/mesh.md#geometry.
 
+#include <array>
+#include <cstddef>
+#include <memory>
 #include <vector>
 
 #include <Eigen/Core>
 
 #include "hpfem/core/types.hpp"
 #include "hpfem/mesh/mesh.hpp"
+#include "hpfem/mesh/simplex_topology.hpp"
 
 namespace hpfem::mesh {
 
@@ -63,6 +67,95 @@ template <int Dim>
 template <int Dim>
 [[nodiscard]] Point<Dim> outward_normal(const Mesh<Dim>& mesh, Index c, LocalIndex k);
 
+// --- order-independent cell geometry interface -----------------------------------------------
+
+/// Geometry data of a cell at one reference point.
+template <int Dim>
+struct GeometryPoint {
+  using Matrix = Eigen::Matrix<Real, Dim, Dim>;
+  Point<Dim> x;              ///< physical point [m]
+  Matrix jacobian;           ///< @f$ J(\xi) @f$
+  Matrix inverse_transpose;  ///< @f$ J^{-T}(\xi) @f$
+  Real det = 0;              ///< @f$ \det J(\xi) @f$, signed
+};
+
+/// Geometry of one cell, evaluated pointwise so that affine (order 1) and curved (order 2)
+/// cells can be treated alike by quadrature, basis mapping and point location. Obtain via
+/// `cell_geometry(mesh, c)`.
+template <int Dim>
+class CellGeometry {
+ public:
+  CellGeometry() = default;
+  CellGeometry(const CellGeometry&) = delete;
+  CellGeometry& operator=(const CellGeometry&) = delete;
+  CellGeometry(CellGeometry&&) = delete;
+  CellGeometry& operator=(CellGeometry&&) = delete;
+  virtual ~CellGeometry() = default;
+
+  /// Polynomial order of the map: 1 (affine) or 2.
+  [[nodiscard]] virtual int order() const noexcept = 0;
+  [[nodiscard]] bool is_affine() const noexcept { return order() == 1; }
+  /// @f$ x(\xi), J(\xi), J^{-T}(\xi), \det J(\xi) @f$ at a reference point.
+  [[nodiscard]] virtual GeometryPoint<Dim> evaluate(const Point<Dim>& xi) const = 0;
+  /// Reference coordinates of a physical point (Newton iteration for curved cells).
+  /// @throws Error if the iteration does not converge (point far outside the cell).
+  [[nodiscard]] virtual Point<Dim> to_reference(const Point<Dim>& x) const = 0;
+  /// Cell diameter: longest straight edge [m].
+  [[nodiscard]] virtual Real h() const noexcept = 0;
+};
+
+/// Affine cell: constant Jacobian data from `AffineMap`.
+template <int Dim>
+class AffineGeometry final : public CellGeometry<Dim> {
+ public:
+  explicit AffineGeometry(AffineMap<Dim> map) : map_(std::move(map)) {}
+  [[nodiscard]] int order() const noexcept override { return 1; }
+  [[nodiscard]] GeometryPoint<Dim> evaluate(const Point<Dim>& xi) const override;
+  [[nodiscard]] Point<Dim> to_reference(const Point<Dim>& x) const override {
+    return map_.to_reference(x);
+  }
+  [[nodiscard]] Real h() const noexcept override { return map_.h; }
+  [[nodiscard]] const AffineMap<Dim>& map() const noexcept { return map_; }
+
+ private:
+  AffineMap<Dim> map_;
+};
+
+/// Curved cell with the quadratic Lagrange map
+/// @f$ x(\xi) = \sum_i \lambda_i(2\lambda_i - 1)\, x_i + \sum_{e=(a,b)} 4\lambda_a\lambda_b\, m_e
+/// @f$ in barycentric coordinates @f$ \lambda @f$; @f$ x_i @f$ are the vertices in local order and
+/// @f$ m_e @f$ the edge nodes in local edge order (`SimplexTopology<Dim>::kEdgeVertices`).
+/// With @f$ m_e @f$ at the edge midpoints the map is exactly affine.
+template <int Dim>
+class QuadraticGeometry final : public CellGeometry<Dim> {
+ public:
+  static constexpr std::size_t kNumVertices = static_cast<std::size_t>(Dim + 1);
+  static constexpr std::size_t kNumEdges =
+      static_cast<std::size_t>(SimplexTopology<Dim>::kNumEdges);
+  static constexpr std::size_t kNumNodes = kNumVertices + kNumEdges;  ///< 6 (2D), 10 (3D)
+  using Nodes = std::array<Point<Dim>, kNumNodes>;                    ///< vertices, then edge nodes
+  using ShapeValues = std::array<Real, kNumNodes>;
+  using ShapeGradients = std::array<Point<Dim>, kNumNodes>;  ///< w.r.t. reference coordinates
+
+  explicit QuadraticGeometry(Nodes nodes);
+  [[nodiscard]] int order() const noexcept override { return 2; }
+  [[nodiscard]] GeometryPoint<Dim> evaluate(const Point<Dim>& xi) const override;
+  [[nodiscard]] Point<Dim> to_reference(const Point<Dim>& x) const override;
+  [[nodiscard]] Real h() const noexcept override { return h_; }
+  [[nodiscard]] const Nodes& nodes() const noexcept { return nodes_; }
+
+  /// Quadratic Lagrange shape functions and their reference gradients at @f$ \xi @f$.
+  static void shape_functions(const Point<Dim>& xi, ShapeValues& values, ShapeGradients& gradients);
+
+ private:
+  Nodes nodes_;
+  Real h_ = 0;
+};
+
+/// Geometry of cell c according to `mesh.geometry_order()`.
+template <int Dim>
+[[nodiscard]] std::unique_ptr<CellGeometry<Dim>> cell_geometry(const Mesh<Dim>& mesh, Index c);
+
 extern template struct AffineMap<2>;
 extern template struct AffineMap<3>;
 extern template AffineMap<2> affine_map<2>(const Mesh<2>&, Index);
@@ -73,5 +166,11 @@ extern template Real facet_measure<2>(const Mesh<2>&, Index);
 extern template Real facet_measure<3>(const Mesh<3>&, Index);
 extern template Point<2> outward_normal<2>(const Mesh<2>&, Index, LocalIndex);
 extern template Point<3> outward_normal<3>(const Mesh<3>&, Index, LocalIndex);
+extern template class AffineGeometry<2>;
+extern template class AffineGeometry<3>;
+extern template class QuadraticGeometry<2>;
+extern template class QuadraticGeometry<3>;
+extern template std::unique_ptr<CellGeometry<2>> cell_geometry<2>(const Mesh<2>&, Index);
+extern template std::unique_ptr<CellGeometry<3>> cell_geometry<3>(const Mesh<3>&, Index);
 
 }  // namespace hpfem::mesh

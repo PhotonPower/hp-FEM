@@ -322,6 +322,15 @@ std::size_t Mesh<Dim>::names_slot(int dim) {
 }
 
 template <int Dim>
+void Mesh<Dim>::set_edge_nodes(std::vector<Vertex> nodes) {
+  if (!nodes.empty() && nodes.size() != edges_.size()) {
+    throw InvalidArgument(fmt::format("Mesh<{}>: {} edge nodes given for {} edges", Dim,
+                                      nodes.size(), edges_.size()));
+  }
+  edge_nodes_ = std::move(nodes);
+}
+
+template <int Dim>
 void Mesh<Dim>::set_tag_name(int dim, Tag tag, std::string name) {
   tag_names_[names_slot(dim)][tag] = std::move(name);
 }

@@ -29,6 +29,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - `mesh::AffineMap<Dim>` / `affine_map`: per-cell origin, Jacobian, inverse transpose,
   signed determinant, diameter, `to_physical` / `to_reference`, `volume`, `centroid`;
   `facet_measure` and `outward_normal`; degenerate cells rejected.
+- Curved-geometry hook: `Mesh::set_edge_nodes` (one node per edge, order 2),
+  `CellGeometry<Dim>` interface with `AffineGeometry` and `QuadraticGeometry` (quadratic
+  Lagrange map, Newton inversion), `cell_geometry(mesh, c)` dispatch.
 
 ## [0.1.0] — 2026-10-02
 ### Added

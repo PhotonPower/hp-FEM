@@ -150,7 +150,28 @@ triangle area) and `outward_normal(c, k)`, the unit normal of local facet $k$ po
 of cell $c$; the two normals of an interior facet are opposite.
 
 Degenerate cells ($|\det J| \le 10^{-12} h^d$) are rejected with `InvalidArgument`.
-Curved (order-2) geometry arrives with M4 behind the same interface.
+
+### Curved cells (order 2)
+
+`cell_geometry(m, c)` returns a `CellGeometry<Dim>` that evaluates $x(\xi)$, $J(\xi)$,
+$J^{-T}(\xi)$ and $\det J(\xi)$ at any reference point and inverts the map, so that
+quadrature, basis mapping and point location never need to know whether a cell is
+straight or curved. Affine cells wrap `AffineMap`. For curved cells the mesh carries **one
+extra node per global edge** (`Mesh::set_edge_nodes`), the image of the edge midpoint on
+the true boundary; since the node belongs to the edge it is shared by all adjacent cells
+and needs no orientation. The cell map is the quadratic Lagrange interpolant
+
+$$
+x(\xi) = \sum_{i} \lambda_i(2\lambda_i - 1)\, x_i + \sum_{e=(a,b)} 4\lambda_a\lambda_b\, m_e ,
+$$
+
+with barycentric coordinates $\lambda$, vertices $x_i$ in local order and edge nodes $m_e$
+in local edge order. With $m_e$ at the straight midpoints it reduces exactly to the affine
+map. `to_reference` uses a Newton iteration started from the vertex-based affine map.
+
+What M4 adds on top: reading order-2 elements from Gmsh (node permutation of the
+10-node tetrahedron), projecting edge nodes onto CAD boundaries, quadrature of adequate
+order on curved cells, and the PML-compatible rules.
 
 ## API summary
 
@@ -169,6 +190,8 @@ Curved (order-2) geometry arrives with M4 behind the same interface.
 | `set_tag_name`, `tag_name`, `tag_by_name` | physical names |
 | `affine_map(m, c)`, `affine_maps(m)` | $x_0$, $J$, $J^{-T}$, $\det J$, $h_K$, `to_physical`, `to_reference`, `volume`, `centroid` |
 | `facet_measure(m, f)`, `outward_normal(m, c, k)` | facet geometry |
+| `geometry_order()`, `set_edge_nodes`, `edge_node(e)` | second-order geometry nodes |
+| `cell_geometry(m, c)` → `CellGeometry` (`evaluate`, `to_reference`, `h`, `order`) | order-independent cell geometry |
 | `edge_vertices(e)`, `face_vertices(f)`, `facet_vertices(f)` | ascending vertex tuples |
 
 Construction throws `InvalidArgument` naming the cell if a vertex id is out of range or
@@ -196,6 +219,10 @@ repeated. Accessors check indices with `HPFEM_ASSERT`.
 - geometry: identity on the reference triangle, scaled/rotated/translated cells with a
   non-identity local order, $J^{-T}J^T = I$ and vertex round trips on every cell, signed
   determinants, Kuhn-cube volumes summing to the box volume, facet measures, opposite
-  interior normals and axis-aligned boundary normals, degenerate cells rejected.
+  interior normals and axis-aligned boundary normals, degenerate cells rejected;
+- curved geometry: partition of unity of the quadratic shape functions, exact
+  reproduction of the affine map with midpoint nodes, a quarter-disc approximated by one
+  curved triangle (edge node on the arc, area $4\sqrt2/3 - 1/6$ by the degree-2 midpoint
+  rule, Newton inversion), the same in 3D, `cell_geometry` dispatch, size checks.
 
-Still to come in M1: curved-geometry hook, refinement, VTK export.
+Still to come in M1: refinement, VTK export.

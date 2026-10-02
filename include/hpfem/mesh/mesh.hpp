@@ -42,6 +42,10 @@ inline constexpr Tag kNoTag = 0;
 /// sorted list of boundary facets. A facet shared by more than two cells (non-manifold
 /// mesh) is rejected.
 ///
+/// Geometry order: by default cells are affine (order 1). `set_edge_nodes` installs one
+/// extra node per global edge (order 2, curved boundaries); `cell_geometry()` in
+/// mesh/geometry.hpp evaluates either representation behind one interface.
+///
 /// Tags (physical groups): one material tag per cell and one tag per facet (boundary
 /// facets for boundary conditions, interior facets for interfaces or flux surfaces),
 /// optional names per tag. Tags do not influence topology and may be changed later.
@@ -259,6 +263,24 @@ class Mesh {
   [[nodiscard]] std::vector<Index> cells_with_tag(Tag tag) const;
   [[nodiscard]] std::vector<Index> facets_with_tag(Tag tag) const;
 
+  // --- geometry order --------------------------------------------------------------------
+
+  /// 1: affine cells (vertices only); 2: one extra node per edge (`set_edge_nodes`).
+  [[nodiscard]] int geometry_order() const noexcept { return edge_nodes_.empty() ? 1 : 2; }
+  /// Installs second-order geometry: `nodes[e]` is the image of the midpoint of edge e,
+  /// e.g. its projection onto a curved boundary; straight edges keep their midpoint.
+  /// Shared between the cells of the edge, hence orientation-free. An empty vector
+  /// returns to affine geometry.
+  /// @throws InvalidArgument if `nodes.size()` is neither 0 nor `num_edges()`.
+  void set_edge_nodes(std::vector<Vertex> nodes);
+  /// Second-order node of edge e; requires `geometry_order() == 2`.
+  [[nodiscard]] const Vertex& edge_node(Index e) const {
+    HPFEM_ASSERT(geometry_order() == 2, "mesh has no second-order edge nodes");
+    HPFEM_ASSERT(e >= 0 && e < num_edges(), "edge index out of range");
+    return edge_nodes_[as_size(e)];
+  }
+  [[nodiscard]] std::span<const Vertex> edge_nodes() const noexcept { return edge_nodes_; }
+
   /// Names of physical groups, keyed by entity dimension (`Dim` for cells, `Dim - 1` for
   /// facets) and tag. `tag_name` returns an empty string for unnamed tags.
   /// @throws InvalidArgument for any other `dim`.
@@ -294,6 +316,7 @@ class Mesh {
 
   std::vector<Tag> cell_tags_;
   std::vector<Tag> facet_tags_;
+  std::vector<Vertex> edge_nodes_;  ///< empty (order 1) or one node per edge (order 2)
   std::array<std::map<Tag, std::string>, 2> tag_names_;  ///< [0]: facets, [1]: cells
 };
 
