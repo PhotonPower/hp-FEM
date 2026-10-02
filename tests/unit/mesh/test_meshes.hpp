@@ -1,6 +1,5 @@
 #pragma once
-// Small structured meshes and helpers shared by the mesh unit tests. Test-local until the
-// mesh generators of roadmap M1 land in the library.
+// Helpers shared by the mesh unit tests.
 
 #include <algorithm>
 #include <array>
@@ -9,62 +8,19 @@
 #include <utility>
 #include <vector>
 
+#include "hpfem/mesh/generators.hpp"
 #include "hpfem/mesh/mesh.hpp"
 
 namespace hpfem::mesh::testing {
 
-/// n x n unit square, every square split along its diagonal into two triangles.
+/// n x n unit square without side tags (tests that count untagged facets rely on it).
 inline Mesh<2> structured_triangles(Index n) {
-  std::vector<Point<2>> vertices;
-  for (Index j = 0; j <= n; ++j) {
-    for (Index i = 0; i <= n; ++i) {
-      vertices.emplace_back(static_cast<Real>(i) / static_cast<Real>(n),
-                            static_cast<Real>(j) / static_cast<Real>(n));
-    }
-  }
-  const auto id = [n](Index i, Index j) { return j * (n + 1) + i; };
-  std::vector<Mesh<2>::CellVertices> cells;
-  for (Index j = 0; j < n; ++j) {
-    for (Index i = 0; i < n; ++i) {
-      cells.push_back({id(i, j), id(i + 1, j), id(i + 1, j + 1)});
-      cells.push_back({id(i, j), id(i + 1, j + 1), id(i, j + 1)});
-    }
-  }
-  return Mesh<2>(std::move(vertices), std::move(cells));
+  return rectangle(n, n, Point<2>::Zero(), Point<2>::Ones(), /*tag_sides=*/false);
 }
 
-/// n x n x n unit cube, every cube split into six tetrahedra (Kuhn / Freudenthal).
+/// n x n x n unit cube (Kuhn tetrahedra) without side tags.
 inline Mesh<3> structured_tetrahedra(Index n) {
-  std::vector<Point<3>> vertices;
-  for (Index k = 0; k <= n; ++k) {
-    for (Index j = 0; j <= n; ++j) {
-      for (Index i = 0; i <= n; ++i) {
-        vertices.emplace_back(static_cast<Real>(i) / static_cast<Real>(n),
-                              static_cast<Real>(j) / static_cast<Real>(n),
-                              static_cast<Real>(k) / static_cast<Real>(n));
-      }
-    }
-  }
-  const auto id = [n](Index i, Index j, Index k) { return (k * (n + 1) + j) * (n + 1) + i; };
-  std::vector<Mesh<3>::CellVertices> cells;
-  for (Index k = 0; k < n; ++k) {
-    for (Index j = 0; j < n; ++j) {
-      for (Index i = 0; i < n; ++i) {
-        std::array<std::size_t, 3> axes{0, 1, 2};
-        do {  // one tetrahedron per path along the cube edges, i.e. per axis permutation
-          std::array<Index, 3> off{0, 0, 0};
-          Mesh<3>::CellVertices tet{};
-          tet[0] = id(i, j, k);
-          for (std::size_t s = 0; s < 3; ++s) {
-            off[axes[s]] = 1;
-            tet[s + 1] = id(i + off[0], j + off[1], k + off[2]);
-          }
-          cells.push_back(tet);
-        } while (std::next_permutation(axes.begin(), axes.end()));
-      }
-    }
-  }
-  return Mesh<3>(std::move(vertices), std::move(cells));
+  return box(n, n, n, Point<3>::Zero(), Point<3>::Ones(), /*tag_sides=*/false);
 }
 
 /// Returns a copy of `m` with randomly renumbered vertices, shuffled cells and randomly

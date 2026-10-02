@@ -23,6 +23,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - `mesh::Mesh<Dim>` tags (physical groups): material tag per cell, tag per facet,
   tagging from unordered vertex tuples (`set_facet_tags`), `tag_boundary`, lookups
   `edge_id` / `face_id` / `facet_id` by binary search, physical names per dimension.
+- `mesh::rectangle` / `mesh::box` structured generators with per-side boundary tags
+  (`box_tag`), and `mesh::read_gmsh<Dim>` for Gmsh MSH 4.1 ASCII files (cells, facet
+  tags and physical names from physical groups, sparse node tags, unit scale).
 
 ## [0.1.0] — 2026-10-02
 ### Added
