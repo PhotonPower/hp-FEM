@@ -129,6 +129,29 @@ error, and second-order elements raise `NotImplemented` until the curved-geometr
 M4 exists: export with element order 1 for now. Unknown sections (`$Periodic`,
 `$NodeData`, …) are skipped.
 
+## Geometry
+
+`mesh/geometry.hpp` provides the affine map of a cell,
+
+$$
+x(\xi) = x_0 + J\,\xi, \qquad x_0 = x(v_0), \qquad J_{:,i-1} = x(v_i) - x(v_0),
+$$
+
+with the reference simplex and local vertex order of `SimplexTopology<Dim>`. `AffineMap`
+stores $x_0$, $J$, $J^{-T}$ (the covariant Piola factor of the
+[Nédélec mapping](nedelec.md#mapping)), the **signed** $\det J$ and the diameter $h_K$
+(longest edge). The local vertex order of a cell is not required to be positively oriented,
+because entity orientation is fixed by global vertex ids (ADR-0003); integrals therefore
+use `volume()` $= |\det J| / d!$ and the Piola transforms use $\det J$ consistently.
+`to_reference(x) = J^{-1}(x - x_0)$ is exact for affine cells and serves point location.
+
+Facet quantities for boundary terms and jump residuals: `facet_measure(f)` (edge length,
+triangle area) and `outward_normal(c, k)`, the unit normal of local facet $k$ pointing out
+of cell $c$; the two normals of an interior facet are opposite.
+
+Degenerate cells ($|\det J| \le 10^{-12} h^d$) are rejected with `InvalidArgument`.
+Curved (order-2) geometry arrives with M4 behind the same interface.
+
 ## API summary
 
 | call | returns |
@@ -144,6 +167,8 @@ M4 exists: export with element order 1 for now. Unknown sections (`$Periodic`,
 | `edge_id(a,b)`, `face_id(a,b,c)`, `facet_id(vertices)` | entity lookup by vertices |
 | `cell_tag(c)`, `facet_tag(f)`, `set_*`, `set_facet_tags`, `tag_boundary`, `*_with_tag` | tags |
 | `set_tag_name`, `tag_name`, `tag_by_name` | physical names |
+| `affine_map(m, c)`, `affine_maps(m)` | $x_0$, $J$, $J^{-T}$, $\det J$, $h_K$, `to_physical`, `to_reference`, `volume`, `centroid` |
+| `facet_measure(m, f)`, `outward_normal(m, c, k)` | facet geometry |
 | `edge_vertices(e)`, `face_vertices(f)`, `facet_vertices(f)` | ascending vertex tuples |
 
 Construction throws `InvalidArgument` naming the cell if a vertex id is out of range or
@@ -167,6 +192,10 @@ repeated. Accessors check indices with `HPFEM_ASSERT`.
 - generators: counts, exact corner coordinates, one side tag per boundary facet;
 - Gmsh: hand-written 2D/3D files with physical groups, a round trip of a generated
   rectangle with sparse node tags, the file overload, rejected formats and elements,
-  skipped sections.
+  skipped sections;
+- geometry: identity on the reference triangle, scaled/rotated/translated cells with a
+  non-identity local order, $J^{-T}J^T = I$ and vertex round trips on every cell, signed
+  determinants, Kuhn-cube volumes summing to the box volume, facet measures, opposite
+  interior normals and axis-aligned boundary normals, degenerate cells rejected.
 
-Still to come in M1: affine geometry maps, refinement, VTK export.
+Still to come in M1: curved-geometry hook, refinement, VTK export.

@@ -8,4 +8,5 @@ hpfem_add_test(test_mesh unit
   mesh/test_connectivity.cpp
   mesh/test_tags.cpp
   mesh/test_generators.cpp
-  mesh/test_gmsh.cpp)
+  mesh/test_gmsh.cpp
+  mesh/test_geometry.cpp)
