@@ -23,8 +23,8 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] VTK (`.vtu`) export of mesh + cell data
 
 ## M2 — Scalar FEM on the infrastructure (≈ 4)
-- [ ] `fespace::ReferenceElement<Dim>` with **fixed local numbering** (theory/nedelec.md)
-- [ ] Gauss–Jacobi quadrature on triangle/tetrahedron, exactness tests up to order 20
+- [x] `fespace::ReferenceElement<Dim>` with **fixed local numbering** (theory/nedelec.md)
+- [x] Gauss–Jacobi quadrature on triangle/tetrahedron, exactness tests up to order 20
 - [ ] hierarchical H1 Lagrange basis, arbitrary order p (Legendre/Jacobi based)
 - [ ] `fespace::DofMap`: vertex/edge/face/cell DoFs, variable p per entity
 - [ ] global sparse assembly (COO → CSR), element loop with `std::span`
