@@ -34,6 +34,10 @@ class Constraints {
   /// @throws InvalidArgument if an index is out of range, the slave is already constrained,
   ///         or a master equals the slave.
   void add(Index slave, std::vector<Term> terms);
+  /// Adds every constraint of `other` (same number of DoFs), e.g. hanging-node constraints
+  /// followed by Bloch-periodic ones. @throws InvalidArgument on a size mismatch or a DoF
+  /// constrained by both.
+  void append(const Constraints& other);
 
   [[nodiscard]] Index num_dofs() const noexcept { return num_dofs_; }
   [[nodiscard]] Index num_constrained() const noexcept { return num_constrained_; }

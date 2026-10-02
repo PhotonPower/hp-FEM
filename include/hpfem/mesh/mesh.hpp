@@ -50,7 +50,12 @@ inline constexpr Tag kNoTag = 0;
 /// facets for boundary conditions, interior facets for interfaces or flux surfaces),
 /// optional names per tag. Tags do not influence topology and may be changed later.
 ///
-/// Topology only: the geometry mapping is a separate roadmap item.
+/// Locally refined meshes (`AdaptiveMesh`) are one-irregular: a coarse edge or face may face
+/// the two half edges / four child faces of refined neighbours. Such *hanging* entities are
+/// registered with `set_hanging`; the parent and child facets then have one cell each but
+/// are not boundary facets, and `cell_neighbors` stays `kInvalidIndex` across them. The
+/// DoF maps constrain the child DoFs to the parent ones (docs/theory/hp-adaptivity.md).
+///
 /// Construction costs O(N log N) in the number of cells.
 template <int Dim>
 class Mesh {
@@ -203,7 +208,10 @@ class Mesh {
     HPFEM_ASSERT(f >= 0 && f < num_facets(), "facet index out of range");
     return facet_local_indices_[as_size(f)];
   }
-  [[nodiscard]] bool is_boundary_facet(Index f) const { return facet_cells(f)[1] == kInvalidIndex; }
+  /// A facet with one cell that is neither a hanging parent nor a hanging child.
+  [[nodiscard]] bool is_boundary_facet(Index f) const {
+    return facet_cells(f)[1] == kInvalidIndex && facet_hanging_role(f) == HangingRole::kNone;
+  }
   /// Ids of all boundary facets, ascending.
   [[nodiscard]] std::span<const Index> boundary_facets() const noexcept { return boundary_facets_; }
   [[nodiscard]] Index num_boundary_facets() const noexcept {
@@ -221,6 +229,52 @@ class Mesh {
     const auto end = as_size(edge_cell_offsets_[as_size(e) + 1]);
     return std::span<const Index>(edge_cell_data_).subspan(begin, end - begin);
   }
+
+  // --- hanging entities (one-irregular local refinement) ---------------------------------
+
+  /// A coarse edge (parent) facing the two half edges of refined neighbours, split at the
+  /// hanging vertex; `children[0]` contains `edge_vertices(parent)[0]`.
+  struct HangingEdge {
+    Index parent;
+    std::array<Index, 2> children;
+    Index vertex;
+  };
+  /// A coarse face (parent) facing the four child faces of refined neighbours (3D): the
+  /// three corner faces in the order of the parent's vertices, then the inner face.
+  struct HangingFace {
+    Index parent;
+    std::array<Index, 4> children;
+  };
+  enum class HangingRole : std::uint8_t { kNone, kParent, kChild };
+
+  /// Registers the hanging entities of a one-irregular mesh (replacing earlier ones) and
+  /// recomputes the boundary facets. Edges of hanging faces must be listed among the
+  /// hanging edges as well.
+  /// @throws InvalidArgument if an entity is out of range, a parent or child facet has two
+  ///         cells, or a facet is both parent and child.
+  void set_hanging(std::vector<HangingEdge> edges, std::vector<HangingFace> faces);
+  [[nodiscard]] std::span<const HangingEdge> hanging_edges() const noexcept {
+    return hanging_edges_;
+  }
+  [[nodiscard]] std::span<const HangingFace> hanging_faces() const noexcept {
+    return hanging_faces_;
+  }
+  /// True if the mesh has no hanging entities.
+  [[nodiscard]] bool is_conforming() const noexcept { return hanging_edges_.empty(); }
+  /// Role of facet f: hanging parent (coarse side), hanging child (fine side) or none.
+  [[nodiscard]] HangingRole facet_hanging_role(Index f) const {
+    HPFEM_ASSERT(f >= 0 && f < num_facets(), "facet index out of range");
+    return facet_hanging_role_.empty() ? HangingRole::kNone
+                                       : static_cast<HangingRole>(facet_hanging_role_[as_size(f)]);
+  }
+  /// Parent facet of a hanging child facet, `kInvalidIndex` for any other facet.
+  [[nodiscard]] Index hanging_parent_facet(Index f) const {
+    return facet_hanging_role(f) == HangingRole::kChild ? facet_hanging_link_[as_size(f)]
+                                                        : kInvalidIndex;
+  }
+  /// Child facets of a hanging parent facet (two edges in 2D, four faces in 3D), empty for
+  /// any other facet.
+  [[nodiscard]] std::span<const Index> hanging_child_facets(Index f) const;
 
   // --- lookup by vertices ----------------------------------------------------------------
 
@@ -317,6 +371,11 @@ class Mesh {
   std::vector<Index> boundary_facets_;    ///< ascending
   std::vector<Index> edge_cell_offsets_;  ///< CSR offsets, size num_edges() + 1
   std::vector<Index> edge_cell_data_;     ///< CSR data: cell ids per edge, ascending
+
+  std::vector<HangingEdge> hanging_edges_;
+  std::vector<HangingFace> hanging_faces_;
+  std::vector<std::uint8_t> facet_hanging_role_;  ///< per facet (empty: conforming)
+  std::vector<Index> facet_hanging_link_;         ///< child: parent facet; parent: list index
 
   std::vector<Tag> cell_tags_;
   std::vector<Tag> facet_tags_;

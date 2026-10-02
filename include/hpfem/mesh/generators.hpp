@@ -3,6 +3,9 @@
 /// Structured simplicial meshes of axis-aligned boxes, for tests and simple studies.
 /// Numbering and tagging conventions: docs/theory/mesh.md#generators.
 
+#include <functional>
+#include <span>
+
 #include "hpfem/core/types.hpp"
 #include "hpfem/mesh/mesh.hpp"
 
@@ -61,5 +64,22 @@ inline constexpr Tag kDiscBoundary = 1;
 /// sizes.
 [[nodiscard]] Mesh<2> square_with_disc(Index n, Real radius, Real half_width, Real outer,
                                        Tag inclusion_tag = 2);
+
+/// Sub-mesh of the given cells (in the given order) of a conforming mesh: vertices are
+/// renumbered ascending, cell tags, the facet tags of facets kept, tag names and curved edge
+/// nodes transfer. New boundary facets (cut through the interior) stay untagged, e.g. for
+/// an L-shaped domain cut from a `rectangle`. @throws InvalidArgument for a cell out of
+/// range or a cell listed twice.
+template <int Dim>
+[[nodiscard]] Mesh<Dim> extract(const Mesh<Dim>& mesh, std::span<const Index> cells);
+/// Sub-mesh of the cells for which `keep(centroid)` is true.
+template <int Dim>
+[[nodiscard]] Mesh<Dim> extract(const Mesh<Dim>& mesh,
+                                const std::function<bool(const Point<Dim>&)>& keep);
+
+extern template Mesh<2> extract<2>(const Mesh<2>&, std::span<const Index>);
+extern template Mesh<3> extract<3>(const Mesh<3>&, std::span<const Index>);
+extern template Mesh<2> extract<2>(const Mesh<2>&, const std::function<bool(const Point<2>&)>&);
+extern template Mesh<3> extract<3>(const Mesh<3>&, const std::function<bool(const Point<3>&)>&);
 
 }  // namespace hpfem::mesh

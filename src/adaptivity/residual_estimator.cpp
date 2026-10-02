@@ -228,10 +228,16 @@ Estimate residual_estimate(const fespace::NedelecDofMap<Dim>& dofs, const Vector
 
   // --- facet jumps ----------------------------------------------------------------------------
   for (Index f = 0; f < mesh.num_facets(); ++f) {
-    if (mesh.is_boundary_facet(f)) continue;
     const auto& cells = mesh.facet_cells(f);
     const Index c0 = cells[0];
-    const Index c1 = cells[1];
+    Index c1 = cells[1];
+    if (c1 == kInvalidIndex) {
+      // boundary facets and hanging parents (covered by their children) carry no jump; a
+      // hanging child facet faces the cell of its parent facet
+      const Index parent = mesh.hanging_parent_facet(f);
+      if (parent == kInvalidIndex) continue;
+      c1 = mesh.facet_cells(parent)[0];
+    }
     const LocalIndex k0 = mesh.facet_local_indices(f)[0];
     CellSampler<Dim> sample0 = make_sampler(c0);
     CellSampler<Dim> sample1 = make_sampler(c1);

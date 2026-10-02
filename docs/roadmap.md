@@ -65,7 +65,7 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] residual-based estimator for curl–curl (theory/error-estimation.md):
       element residual + tangential-curl jump + normal-displacement jump
 - [x] Dörfler marking
-- [ ] conforming h-refinement with **hanging edges/faces → constrained DoFs**
+- [x] conforming h-refinement with **hanging edges/faces → constrained DoFs**
       (one-irregular rule), re-numbering, transfer of solution (prolongation)
 - [ ] p-refinement: per-entity order increase, minimum rule on shared entities
 - [ ] hp-decision: Legendre-coefficient decay / analyticity estimate per element

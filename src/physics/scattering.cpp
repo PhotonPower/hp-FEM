@@ -6,6 +6,7 @@
 
 #include <fmt/format.h>
 
+#include "hpfem/assembly/hanging_constraints.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
 #include "hpfem/mesh/geometry.hpp"
@@ -131,34 +132,58 @@ assembly::DirichletData Scattering<Dim>::dirichlet() const {
 }
 
 template <int Dim>
-assembly::AssembledSystem Scattering<Dim>::assemble() const {
+assembly::AssembledSystem Scattering<Dim>::assemble_raw() const {
   auto system = assembly::assemble_maxwell(
       *dofs_, [this](Index cell) { return form_of_cell(cell); }, setup_.extra_quadrature_order);
-  assembly::AssembledSystem out{system.stiffness - k0_ * k0_ * system.mass, std::move(system.rhs)};
+  return {system.stiffness - k0_ * k0_ * system.mass, std::move(system.rhs)};
+}
+
+template <int Dim>
+assembly::AssembledSystem Scattering<Dim>::assemble() const {
+  assembly::AssembledSystem out = assemble_raw();
   assembly::apply_dirichlet(out.matrix, out.rhs, dirichlet());
   return out;
 }
 
 template <int Dim>
 fespace::Constraints Scattering<Dim>::constraints() const {
-  if (setup_.periodic.empty()) return fespace::Constraints(dofs_->num_dofs());
-  return assembly::bloch_constraints<Dim>(*dofs_, setup_.periodic);
+  fespace::Constraints c = assembly::hanging_constraints(*dofs_);
+  if (!setup_.periodic.empty()) c.append(assembly::bloch_constraints<Dim>(*dofs_, setup_.periodic));
+  return c;
 }
 
 template <int Dim>
 ScatteringSolution<Dim> Scattering<Dim>::solve() const {
-  const auto system = assemble();
+  const bool constrained = !setup_.periodic.empty() || !dofs_->mesh().is_conforming();
+  const auto system = constrained ? assemble_raw() : assemble();
   log().info("Scattering<{}>: k0 = {:.6g} 1/m, {} DoFs, {} formulation", Dim, k0_,
              dofs_->num_dofs(),
              setup_.formulation == Formulation::kTotalField ? "total-field" : "scattered-field");
-  if (setup_.periodic.empty()) {
+  if (setup_.periodic.empty() && dofs_->mesh().is_conforming()) {
     return {setup_.formulation, solvers::solve_direct(system.matrix, system.rhs)};
   }
+  // constrained DoFs: reduce the raw system by P^H A P, then impose the Dirichlet data on the
+  // free DoFs (a constrained Dirichlet DoF follows from its masters, whose data is consistent)
   const fespace::Constraints c = constraints();
   const auto [reduced, rhs] = c.reduce(system.matrix, system.rhs);
-  log().info("Scattering<{}>: {} Bloch-constrained DoFs, {} free", Dim, c.num_constrained(),
-             c.num_free());
-  return {setup_.formulation, c.expand(solvers::solve_direct(reduced, rhs))};
+  const assembly::DirichletData full = dirichlet();
+  assembly::DirichletData data;
+  for (Index i = 0; i < full.size(); ++i) {
+    const Index dof = full.dofs[as_size(i)];
+    if (c.is_constrained(dof)) continue;
+    data.dofs.push_back(c.reduced_index(dof));
+  }
+  data.values.resize(data.size());
+  Index j = 0;
+  for (Index i = 0; i < full.size(); ++i) {
+    if (!c.is_constrained(full.dofs[as_size(i)])) data.values(j++) = full.values(i);
+  }
+  auto matrix = reduced;
+  auto load = rhs;
+  assembly::apply_dirichlet(matrix, load, data);
+  log().info("Scattering<{}>: {} constrained DoFs, {} free, {} Dirichlet", Dim, c.num_constrained(),
+             c.num_free(), data.size());
+  return {setup_.formulation, c.expand(solvers::solve_direct(matrix, load))};
 }
 
 template <int Dim>

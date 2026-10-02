@@ -41,7 +41,10 @@ struct NedelecCounts {
 /// Numbers the DoFs of a hierarchical space on a mesh: vertex DoFs (if the space has them),
 /// then the edge functions edge by edge, the face functions (3D) and the interior functions
 /// cell by cell. The order of an edge or face is the minimum of the orders of its cells, so
-/// the space is conforming and every entity function is shared by all adjacent cells.
+/// the space is conforming and every entity function is shared by all adjacent cells. On a
+/// one-irregular mesh (`mesh::Mesh::hanging_edges`) a hanging parent entity additionally
+/// takes at most the order of its children, whose DoFs `assembly::hanging_constraints`
+/// expresses through the parent's.
 /// Cell-local DoF lists follow the function order of the corresponding basis, with
 /// `cell_layout(c)` supplying orders and orientations.
 template <int Dim, class Counts>

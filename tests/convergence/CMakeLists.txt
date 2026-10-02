@@ -28,3 +28,6 @@ hpfem_add_test(convergence_lamellar_grating convergence
 
 hpfem_add_test(convergence_estimator_effectivity convergence
   estimator_effectivity.cpp)
+
+hpfem_add_test(convergence_adaptive_h_refinement convergence
+  adaptive_h_refinement.cpp)

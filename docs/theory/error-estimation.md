@@ -55,6 +55,8 @@ the scatterer boundary).
   forms. $h_F$ is the edge length (2D) or the longest edge of the face (3D),
   $p_F = \max(p_{K_0}, p_{K_1})$; each adjacent cell receives $h_F/(2p_F)$ times the jump
   integral. In 2D the tangential jump of the scalar curl is $|[\![w]\!]|$.
+- **Hanging facets** (locally refined meshes): the jump is integrated over each child
+  facet against the cell of the parent facet; the parent facet itself carries no term.
 - **Boundary facets** carry no term: PEC and prescribed tangential traces are imposed
   exactly, PMC (natural) and Bloch-periodic facets are not yet accounted for.
 - **Quadrature** degree $2p + $ `extra_order` (+2 on curved cells), or the cell's own

@@ -64,11 +64,34 @@ changing the interface.
 ($0 \dots V-1$), then the edge functions edge by edge, then (3D) the face functions, then
 the interior functions cell by cell. The order of an edge or face is the **minimum** of
 the orders of its cells (minimum rule), so the trace spaces of neighbouring cells match
-and the global space is conforming for arbitrary per-cell orders. Per cell the map
+and the global space is conforming for arbitrary per-cell orders. On a locally refined
+mesh a hanging parent entity additionally takes at most the order of its child entities,
+so its trace is representable on the fine side (see
+[hp-adaptivity.md](hp-adaptivity.md#hanging-nodes-and-constraints)). Per cell the map
 provides the `H1Layout` (orders and orientation codes straight from the mesh) and the
 global ids in basis order, so assembly is a plain gather / scatter. `facet_dofs(f)` lists
 the DoFs supported on a facet and `dofs_on_tag(t)` their union over a tagged boundary,
 which is what Dirichlet elimination needs.
+
+## Interpolation (`assembly/interpolation.hpp`)
+
+The hierarchical structure of both bases gives a cheap, exact **interpolation operator**:
+vertex values first (H1), then on every edge the $L^2$ projection along the edge of the
+remainder (the function minus the already fixed lower-dimensional contributions) onto the
+edge functions, then the same on faces (tangential trace for H(curl)) and finally the
+projection of the remainder onto the interior functions. Each step solves a small Gram
+system of the entity's functions, evaluated through the cell basis of one adjacent cell
+(so orientation codes and curved geometry are handled by the basis and the cell map). For a
+function of the discrete space the result reproduces its coefficients exactly, otherwise
+it is the hierarchical interpolant. `interpolate(dofs, EntitySet, sampler)` works on any
+set of entities (`of_facets`, `of_cells`, `all`); the sampler receives the cell, the
+reference point and the physical point. Uses: Dirichlet data (`dirichlet_values`,
+`tangential_dirichlet_values`), hanging-node constraints (`hanging_constraints`) and the
+transfer of solutions to refined meshes (`prolongate`).
+
+Verification (`tests/unit/assembly/test_interpolation.cpp`): random coefficient vectors of
+the H1 and H(curl) spaces are reproduced to $10^{-10}$ for $p \le 4$ (2D), $p \le 3$ (3D)
+and on curved cells; a smooth function is interpolated with exponential accuracy in $p$.
 
 Verification (`tests/unit/fespace/`): recurrences against explicit polynomials, finite
 difference gradients, trace properties, SPD mass matrix and exact reproduction of all

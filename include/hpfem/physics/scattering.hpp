@@ -10,7 +10,9 @@
 /// @f$ -(\mu_r^{-1} - \mu_{r,b}^{-1})\nabla\times E^{inc} @f$ live on the scatterer only.
 /// Boundary conditions: PEC, prescribed incident field, PMC (natural), PML as complex
 /// coordinate stretching of the material tensors (`pml::PmlBox`) and Bloch-periodic
-/// directions as DoF constraints (`assembly::bloch_constraints`).
+/// directions as DoF constraints (`assembly::bloch_constraints`). Locally refined meshes
+/// (`mesh::AdaptiveMesh`) are supported through `assembly::hanging_constraints`; Dirichlet
+/// data on hanging DoFs is taken from the parent DoFs.
 /// See docs/theory/maxwell.md#scattering-problems.
 
 #include <cstdint>
@@ -81,11 +83,15 @@ class Scattering {
   [[nodiscard]] assembly::MaxwellForm<Dim> form_of_cell(Index cell) const;
   /// Dirichlet data of the unknown field on the PEC and incident facets.
   [[nodiscard]] assembly::DirichletData dirichlet() const;
-  /// @f$ A = S - k_0^2 M @f$ and the load with the Dirichlet data applied.
+  /// @f$ A = S - k_0^2 M @f$ and the load without boundary conditions.
+  [[nodiscard]] assembly::AssembledSystem assemble_raw() const;
+  /// @f$ A = S - k_0^2 M @f$ and the load with the Dirichlet data applied (conforming
+  /// meshes without periodic directions; otherwise `solve` reduces by the constraints first).
   [[nodiscard]] assembly::AssembledSystem assemble() const;
-  /// Bloch-periodic constraints of the setup (empty without periodic directions).
+  /// Hanging-node constraints of a locally refined mesh followed by the Bloch-periodic
+  /// constraints of the setup (empty on a conforming mesh without periodic directions).
   [[nodiscard]] fespace::Constraints constraints() const;
-  /// Assembles, reduces by the periodic constraints and solves with the direct solver.
+  /// Assembles, reduces by the constraints and solves with the direct solver.
   [[nodiscard]] ScatteringSolution<Dim> solve() const;
 
   /// Total / scattered field at reference point ξ of cell c (the incident field is added or

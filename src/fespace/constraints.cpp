@@ -46,6 +46,18 @@ void Constraints::add(Index slave, std::vector<Term> terms) {
   resolved_ = false;
 }
 
+void Constraints::append(const Constraints& other) {
+  if (other.num_dofs_ != num_dofs_) {
+    throw InvalidArgument(fmt::format("Constraints::append: {} DoFs cannot take constraints of {}",
+                                      num_dofs_, other.num_dofs_));
+  }
+  for (Index slave = 0; slave < num_dofs_; ++slave) {
+    if (!other.is_constrained(slave)) continue;
+    const auto terms = other.terms(slave);
+    add(slave, std::vector<Term>(terms.begin(), terms.end()));
+  }
+}
+
 void Constraints::resolve() const {
   if (resolved_) return;
   auto& terms = const_cast<std::vector<std::vector<Term>>&>(terms_);
