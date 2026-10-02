@@ -9,6 +9,7 @@
 /// docs/theory/maxwell.md#discrete-forms.
 
 #include <functional>
+#include <optional>
 #include <type_traits>
 
 #include <Eigen/Core>
@@ -18,6 +19,7 @@
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/fespace/nedelec_basis.hpp"
 #include "hpfem/mesh/geometry.hpp"
+#include "hpfem/mesh/point_location.hpp"
 
 namespace hpfem::assembly {
 
@@ -93,6 +95,22 @@ template <int Dim>
 template <int Dim>
 [[nodiscard]] ComplexVector<Dim> evaluate_hcurl(const fespace::NedelecDofMap<Dim>& dofs,
                                                 const Vector& e_h, Index c, const Point<Dim>& xi);
+/// Physical curl of the discrete field at reference point ξ of cell c (e.g. for
+/// @f$ H = (i\omega\mu)^{-1}\nabla\times E @f$).
+template <int Dim>
+[[nodiscard]] ComplexCurl<Dim> evaluate_hcurl_curl(const fespace::NedelecDofMap<Dim>& dofs,
+                                                   const Vector& e_h, Index c,
+                                                   const Point<Dim>& xi);
+/// Value / curl at the physical point x located with `locator` (built on `dofs.mesh()`), or
+/// nothing if x lies outside the mesh.
+template <int Dim>
+[[nodiscard]] std::optional<ComplexVector<Dim>> evaluate_hcurl(
+    const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h,
+    const mesh::PointLocator<Dim>& locator, const Point<Dim>& x);
+template <int Dim>
+[[nodiscard]] std::optional<ComplexCurl<Dim>> evaluate_hcurl_curl(
+    const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h,
+    const mesh::PointLocator<Dim>& locator, const Point<Dim>& x);
 
 extern template MaxwellElement element_maxwell<2>(const fespace::NedelecBasis<2>&,
                                                   const mesh::CellGeometry<2>&,
@@ -114,5 +132,21 @@ extern template ComplexVector<2> evaluate_hcurl<2>(const fespace::NedelecDofMap<
                                                    Index, const Point<2>&);
 extern template ComplexVector<3> evaluate_hcurl<3>(const fespace::NedelecDofMap<3>&, const Vector&,
                                                    Index, const Point<3>&);
+extern template ComplexCurl<2> evaluate_hcurl_curl<2>(const fespace::NedelecDofMap<2>&,
+                                                      const Vector&, Index, const Point<2>&);
+extern template ComplexCurl<3> evaluate_hcurl_curl<3>(const fespace::NedelecDofMap<3>&,
+                                                      const Vector&, Index, const Point<3>&);
+extern template std::optional<ComplexVector<2>> evaluate_hcurl<2>(const fespace::NedelecDofMap<2>&,
+                                                                  const Vector&,
+                                                                  const mesh::PointLocator<2>&,
+                                                                  const Point<2>&);
+extern template std::optional<ComplexVector<3>> evaluate_hcurl<3>(const fespace::NedelecDofMap<3>&,
+                                                                  const Vector&,
+                                                                  const mesh::PointLocator<3>&,
+                                                                  const Point<3>&);
+extern template std::optional<ComplexCurl<2>> evaluate_hcurl_curl<2>(
+    const fespace::NedelecDofMap<2>&, const Vector&, const mesh::PointLocator<2>&, const Point<2>&);
+extern template std::optional<ComplexCurl<3>> evaluate_hcurl_curl<3>(
+    const fespace::NedelecDofMap<3>&, const Vector&, const mesh::PointLocator<3>&, const Point<3>&);
 
 }  // namespace hpfem::assembly

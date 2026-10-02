@@ -41,7 +41,7 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] Maxwell eigenproblem: shift-invert Arnoldi (Spectra) on `(S − σM)`
 - [x] gauge handling / kernel filtering (discrete gradients); spurious-mode test
 - [x] **convergence test #2**: PEC box eigenvalues, rate 2p; zero spurious modes
-- [ ] field evaluation at arbitrary points (point location + reference-coordinate inversion)
+- [x] field evaluation at arbitrary points (point location + reference-coordinate inversion)
 - [ ] VTK export of vector fields (cell-averaged + high-order via subdivision)
 
 ## M4 — Time-harmonic scattering & waveguides (≈ 10)

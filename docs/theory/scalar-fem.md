@@ -73,7 +73,9 @@ arrive in M6 behind the same interface.
 ## Error norms and convergence test #1
 
 `h1_error` integrates $\|u_h - u\|_{L^2}$ and $\|\nabla u_h - \nabla u\|_{L^2}$ (and the
-norms of $u$ for relative errors) with the same per-cell rules. The convergence test
+norms of $u$ for relative errors) with the same per-cell rules; `evaluate_h1` returns
+$u_h$ at a reference point of a cell or, with a `mesh::PointLocator`, at an arbitrary
+physical point ([mesh.md](mesh.md#point-location)). The convergence test
 (`tests/convergence/poisson.cpp`) solves $-\Delta u = f$ for the manufactured solution
 $u = \sin(\pi x)\,e^{y}$ (2D, $f = (\pi^2 - 1)u$) and $u = \sin(\pi x)\,e^{y}\cos z$ (3D,
 $f = \pi^2 u$) with Dirichlet data from $u$ on all sides, prints DoF / h / error / rate

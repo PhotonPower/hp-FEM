@@ -5,6 +5,7 @@ add_library(hpfem
   mesh/generators.cpp
   mesh/gmsh.cpp
   mesh/geometry.cpp
+  mesh/point_location.cpp
   mesh/refinement.cpp
   io/vtk.cpp
   assembly/quadrature.cpp

@@ -173,6 +173,33 @@ What M4 adds on top: reading order-2 elements from Gmsh (node permutation of the
 10-node tetrahedron), projecting edge nodes onto CAD boundaries, quadrature of adequate
 order on curved cells, and the PML-compatible rules.
 
+### Point location
+
+`PointLocator(m, tol)` (`mesh/point_location.hpp`) answers "which cell contains the
+physical point $x$, and at which reference coordinates $\xi$?" — the basis of field
+evaluation at arbitrary points (detectors, line scans, mode overlaps) and of
+interpolation between meshes. It builds a **uniform background grid** over the bounding
+box of the mesh with about one cell per bucket (buckets shaped like the box, so a long
+thin domain gets a long thin grid); every bucket lists the cells whose bounding box meets
+it, in ascending cell order. For curved cells the bounding box uses the Bézier control
+points $2m_e - (x_a + x_b)/2$ of the quadratic edges, because the Bernstein form of the
+Lagrange map has the convex-hull property while the Lagrange nodes do not.
+
+A query maps $x$ to its bucket and tests the candidates with `to_reference`
+(exact for affine cells, Newton for curved ones; a diverging Newton iteration means
+"outside"). A cell contains $x$ if all barycentric coordinates satisfy $\lambda_i \ge
+-\text{tol}$ with the dimensionless tolerance (default $10^{-10}$), so points on facets
+and vertices are found and rounding noise is absorbed; the returned $\xi$ is not
+clamped. Points on a shared facet are assigned to the **lowest adjacent cell id**, which
+makes results independent of the grid resolution. `locate(x, hint)` first tries `hint`
+and its facet neighbours, which makes sequences of nearby points (line scans, particle
+tracks) O(1) per point. Build cost is O(#cells), a query costs the number of candidates
+in one bucket.
+
+`assembly::evaluate_h1`, `evaluate_hcurl` and `evaluate_hcurl_curl` have overloads taking
+a `PointLocator` and a physical point; they return `std::nullopt` for points outside the
+mesh.
+
 ## Refinement
 
 `refine_uniform(m)` (`mesh/refinement.hpp`) performs one **red (regular) refinement** of
@@ -236,6 +263,7 @@ export).
 | `facet_measure(m, f)`, `outward_normal(m, c, k)` | facet geometry |
 | `geometry_order()`, `set_edge_nodes`, `edge_node(e)` | second-order geometry nodes |
 | `cell_geometry(m, c)` → `CellGeometry` (`evaluate`, `to_reference`, `h`, `order`) | order-independent cell geometry |
+| `PointLocator(m, tol)` → `locate(x)`, `locate(x, hint)`, `reference_coordinates(c, x)` | point location (background grid) |
 | `refine_uniform(m)` → `Refined` (`mesh`, `parent_cell`, `edge_vertex`) | red refinement |
 | `io::VtkWriter(m).cell_scalars(...).point_vectors(...).write(path)`, `io::write_vtu_facets` | VTK export |
 | `edge_vertices(e)`, `face_vertices(f)`, `facet_vertices(f)` | ascending vertex tuples |
@@ -270,6 +298,12 @@ repeated. Accessors check indices with `HPFEM_ASSERT`.
   reproduction of the affine map with midpoint nodes, a quarter-disc approximated by one
   curved triangle (edge node on the arc, area $4\sqrt2/3 - 1/6$ by the degree-2 midpoint
   rule, Newton inversion), the same in 3D, `cell_geometry` dispatch, size checks;
+- point location: random points of structured 2D/3D meshes (also randomly renumbered
+  with mixed local orientations) agree with a brute-force scan and with the hinted
+  search and map back to $x$; vertices and centroids are found; outside points, the
+  tolerance, lowest-cell-id assignment on shared facets, grid aspect ratio, and a curved
+  quarter-disc cell whose bulge beyond the straight triangle is located while points
+  beyond the arc are rejected;
 - refinement: child volumes sum to the parent, equal child volumes, Euler
   characteristic invariant, refined rectangle equals the finer generated rectangle in
   counts, tags and vertex set, boundary tags quadruple on the box, repeated refinement,

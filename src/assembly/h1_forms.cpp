@@ -128,6 +128,14 @@ Complex evaluate_h1(const fespace::DofMap<Dim>& dofs, const Vector& u_h, Index c
   return result;
 }
 
+template <int Dim>
+std::optional<Complex> evaluate_h1(const fespace::DofMap<Dim>& dofs, const Vector& u_h,
+                                   const mesh::PointLocator<Dim>& locator, const Point<Dim>& x) {
+  const auto located = locator.locate(x);
+  if (!located) return std::nullopt;
+  return evaluate_h1(dofs, u_h, located->cell, located->xi);
+}
+
 template ElementContribution element_h1<2>(const fespace::H1Basis<2>&, const mesh::CellGeometry<2>&,
                                            const QuadratureRule<2>&, const ScalarForm<2>&);
 template ElementContribution element_h1<3>(const fespace::H1Basis<3>&, const mesh::CellGeometry<3>&,
@@ -140,5 +148,9 @@ template ErrorNorms h1_error<3>(const fespace::DofMap<3>&, const Vector&, const 
                                 const VectorField<3>&, int);
 template Complex evaluate_h1<2>(const fespace::DofMap<2>&, const Vector&, Index, const Point<2>&);
 template Complex evaluate_h1<3>(const fespace::DofMap<3>&, const Vector&, Index, const Point<3>&);
+template std::optional<Complex> evaluate_h1<2>(const fespace::DofMap<2>&, const Vector&,
+                                               const mesh::PointLocator<2>&, const Point<2>&);
+template std::optional<Complex> evaluate_h1<3>(const fespace::DofMap<3>&, const Vector&,
+                                               const mesh::PointLocator<3>&, const Point<3>&);
 
 }  // namespace hpfem::assembly

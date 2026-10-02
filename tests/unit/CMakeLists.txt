@@ -11,6 +11,7 @@ hpfem_add_test(test_mesh unit
   mesh/test_gmsh.cpp
   mesh/test_geometry.cpp
   mesh/test_curved_geometry.cpp
+  mesh/test_point_location.cpp
   mesh/test_refinement.cpp)
 
 hpfem_add_test(test_io unit
@@ -34,7 +35,8 @@ hpfem_add_test(test_assembly unit
 
 hpfem_add_test(test_maxwell unit
   assembly/test_maxwell_forms.cpp
-  assembly/test_discrete_gradient.cpp)
+  assembly/test_discrete_gradient.cpp
+  assembly/test_field_evaluation.cpp)
 
 hpfem_add_test(test_solvers unit
   solvers/test_linear_solver.cpp

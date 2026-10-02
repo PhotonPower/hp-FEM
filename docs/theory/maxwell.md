@@ -50,7 +50,10 @@ $\varepsilon$ is a complex $d\times d$ tensor, $\mu^{-1}$ a complex tensor actin
 ($3\times3$ in 3D, a scalar in 2D); PML cells supply stretched tensors ([pml.md](pml.md)).
 `assemble_maxwell` returns $S$, $M$ and $b$ separately so that scattering ($S - \omega^2 M$)
 and eigenproblems ($S e = \lambda M e$) share one assembly. `hcurl_error` measures
-$\|E_h - E\|_{L^2}$ and $\|\nabla\times(E_h - E)\|_{L^2}$, `evaluate_hcurl` the physical field.
+$\|E_h - E\|_{L^2}$ and $\|\nabla\times(E_h - E)\|_{L^2}$, `evaluate_hcurl` /
+`evaluate_hcurl_curl` the physical field and its curl (for $H = (i\omega\mu)^{-1}\nabla\times
+E$) at a reference point of a cell or, with a `mesh::PointLocator`, at an arbitrary
+physical point ([mesh.md](mesh.md#point-location)).
 **PEC** is `homogeneous_dirichlet` on the Nédélec DoF map (all edge and face DoFs of the
 tagged facets, i.e. the tangential trace) followed by `apply_dirichlet`; **PMC** needs no
 action. Verified by unit tests: symmetric and positive element matrices, gradient
