@@ -46,6 +46,14 @@ These tables are the single source of truth in `mesh/simplex_topology.hpp`
 `fespace/reference_element.hpp` re-uses them. Global numbering and orientation of the
 derived mesh entities: [Mesh topology](mesh.md).
 
+`fespace::ReferenceElement<Dim>` adds the geometry of the reference simplex: vertices
+$e_0 = 0, e_i$, barycentric coordinates $\lambda_0 = 1 - \sum_i \xi_i$, $\lambda_i = \xi_i$
+with their constant gradients, the outward unit normal and measure of every local
+facet, the vertex opposite a facet, and affine parametrisations of edges ($t \in [0,1]$
+from the first to the second local vertex) and facets (reference interval / triangle
+onto the facet with its vertices in table order). Quadrature on facets composes
+`facet_point` with the rules of [Quadrature](quadrature.md).
+
 ## Orientation
 
 Edge and face functions depend on the orientation of the entity. Two neighbouring cells

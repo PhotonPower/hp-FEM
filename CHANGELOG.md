@@ -39,6 +39,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   second-order meshes, `cell_tag`, fluent cell/point scalars, ids, complex and vector
   data; `io::write_vtu_facets` for boundary/interface facets with tags.
 - Milestone M1 (mesh infrastructure) complete.
+- `fespace::ReferenceElement<Dim>`: reference simplex geometry (vertices, barycentric
+  coordinates and gradients, facet normals/measures, edge and facet parametrisations)
+  on the binding local numbering of `mesh::SimplexTopology`.
+- `assembly::gauss_legendre`, `gauss_jacobi` (Golub–Welsch, any order) and collapsed
+  `simplex_quadrature<Dim>(order)` on triangle/tetrahedron, positive weights, interior
+  points, exactness verified up to order 20; `docs/theory/quadrature.md`.
 
 ## [0.1.0] — 2026-10-02
 ### Added

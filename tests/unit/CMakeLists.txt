@@ -15,3 +15,9 @@ hpfem_add_test(test_mesh unit
 
 hpfem_add_test(test_io unit
   io/test_vtk.cpp)
+
+hpfem_add_test(test_fespace unit
+  fespace/test_reference_element.cpp)
+
+hpfem_add_test(test_assembly unit
+  assembly/test_quadrature.cpp)

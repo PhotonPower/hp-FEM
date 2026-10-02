@@ -7,6 +7,7 @@ add_library(hpfem
   mesh/geometry.cpp
   mesh/refinement.cpp
   io/vtk.cpp
+  assembly/quadrature.cpp
 )
 add_library(hpfem::hpfem ALIAS hpfem)
 
