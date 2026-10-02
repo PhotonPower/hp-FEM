@@ -76,6 +76,15 @@ MaxwellElement element_maxwell(const fespace::NedelecBasis<Dim>& basis,
 template <int Dim>
 MaxwellSystem assemble_maxwell(const fespace::NedelecDofMap<Dim>& dofs,
                                const MaxwellForm<Dim>& form, int extra_order) {
+  return assemble_maxwell(
+      dofs, std::type_identity_t<CellFormFactory<Dim>>([&form](Index) { return form; }),
+      extra_order);
+}
+
+template <int Dim>
+MaxwellSystem assemble_maxwell(const fespace::NedelecDofMap<Dim>& dofs,
+                               const std::type_identity_t<CellFormFactory<Dim>>& form_of_cell,
+                               int extra_order) {
   const auto& mesh = dofs.mesh();
   const Index n = dofs.num_dofs();
   SparseAssembler stiffness(n, n);
@@ -88,6 +97,7 @@ MaxwellSystem assemble_maxwell(const fespace::NedelecDofMap<Dim>& dofs,
     if (rule.size() == 0) rule = simplex_quadrature<Dim>(2 * p + extra_order);
     const fespace::NedelecBasis<Dim> basis(dofs.cell_layout(c));
     const auto geometry = mesh::cell_geometry(mesh, c);
+    const MaxwellForm<Dim> form = form_of_cell(c);
     const auto local = element_maxwell(basis, *geometry, rule, form);
     const auto ids = dofs.cell_dofs(c);
     stiffness.add(ids, ids, local.stiffness);
@@ -186,6 +196,10 @@ template MaxwellSystem assemble_maxwell<2>(const fespace::NedelecDofMap<2>&, con
                                            int);
 template MaxwellSystem assemble_maxwell<3>(const fespace::NedelecDofMap<3>&, const MaxwellForm<3>&,
                                            int);
+template MaxwellSystem assemble_maxwell<2>(const fespace::NedelecDofMap<2>&,
+                                           const CellFormFactory<2>&, int);
+template MaxwellSystem assemble_maxwell<3>(const fespace::NedelecDofMap<3>&,
+                                           const CellFormFactory<3>&, int);
 template HcurlErrorNorms hcurl_error<2>(const fespace::NedelecDofMap<2>&, const Vector&,
                                         const ComplexVectorField<2>&,
                                         const std::function<ComplexCurl<2>(const Point<2>&)>&, int);

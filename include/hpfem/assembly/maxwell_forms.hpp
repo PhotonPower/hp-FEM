@@ -84,6 +84,14 @@ struct MaxwellSystem {
 template <int Dim>
 [[nodiscard]] MaxwellSystem assemble_maxwell(const fespace::NedelecDofMap<Dim>& dofs,
                                              const MaxwellForm<Dim>& form, int extra_order = 2);
+/// Per-cell coefficients (materials by tag, PML regions): `form_of_cell(c)` supplies the
+/// form of cell c.
+template <int Dim>
+using CellFormFactory = std::function<MaxwellForm<Dim>(Index)>;
+template <int Dim>
+[[nodiscard]] MaxwellSystem assemble_maxwell(
+    const fespace::NedelecDofMap<Dim>& dofs,
+    const std::type_identity_t<CellFormFactory<Dim>>& form_of_cell, int extra_order = 2);
 
 /// Errors of the discrete field against (E, curl E).
 struct HcurlErrorNorms {
@@ -130,6 +138,10 @@ extern template MaxwellSystem assemble_maxwell<2>(const fespace::NedelecDofMap<2
                                                   const MaxwellForm<2>&, int);
 extern template MaxwellSystem assemble_maxwell<3>(const fespace::NedelecDofMap<3>&,
                                                   const MaxwellForm<3>&, int);
+extern template MaxwellSystem assemble_maxwell<2>(const fespace::NedelecDofMap<2>&,
+                                                  const CellFormFactory<2>&, int);
+extern template MaxwellSystem assemble_maxwell<3>(const fespace::NedelecDofMap<3>&,
+                                                  const CellFormFactory<3>&, int);
 extern template HcurlErrorNorms hcurl_error<2>(
     const fespace::NedelecDofMap<2>&, const Vector&, const ComplexVectorField<2>&,
     const std::function<ComplexCurl<2>(const Point<2>&)>&, int);

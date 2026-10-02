@@ -4,3 +4,6 @@ hpfem_add_test(convergence_poisson convergence
 
 hpfem_add_test(convergence_maxwell_cavity convergence
   maxwell_cavity.cpp)
+
+hpfem_add_test(convergence_maxwell_scattering convergence
+  maxwell_scattering.cpp)

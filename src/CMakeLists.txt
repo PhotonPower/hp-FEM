@@ -10,6 +10,9 @@ add_library(hpfem
   mesh/refinement.cpp
   io/vtk.cpp
   io/field_export.cpp
+  materials/material.cpp
+  physics/sources.cpp
+  physics/scattering.cpp
   assembly/quadrature.cpp
   fespace/polynomials.cpp
   fespace/h1_basis.cpp

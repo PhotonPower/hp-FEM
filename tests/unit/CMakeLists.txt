@@ -1,6 +1,7 @@
 hpfem_add_test(test_core unit
   core/test_version.cpp
-  core/test_error.cpp)
+  core/test_error.cpp
+  core/test_special_functions.cpp)
 
 hpfem_add_test(test_mesh unit
   mesh/test_simplex_topology.cpp
@@ -40,6 +41,13 @@ hpfem_add_test(test_maxwell unit
   assembly/test_discrete_gradient.cpp
   assembly/test_field_evaluation.cpp
   assembly/test_tangential_dirichlet.cpp)
+
+hpfem_add_test(test_materials unit
+  materials/test_material.cpp)
+
+hpfem_add_test(test_physics unit
+  physics/test_sources.cpp
+  physics/test_scattering.cpp)
 
 hpfem_add_test(test_solvers unit
   solvers/test_linear_solver.cpp

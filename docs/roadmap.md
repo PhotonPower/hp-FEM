@@ -45,7 +45,7 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] VTK export of vector fields (cell-averaged + high-order via subdivision)
 
 ## M4 — Time-harmonic scattering & waveguides (≈ 10)
-- [ ] `physics::Scattering`: total/scattered-field formulation, plane-wave and
+- [x] `physics::Scattering`: total/scattered-field formulation, plane-wave and
       dipole sources (theory/maxwell.md)
 - [ ] PML as complex coordinate stretching in boundary layer cells (theory/pml.md),
       polynomial profile, adaptive σ from wavelength and cell size
