@@ -11,7 +11,10 @@
 #include "hpfem/assembly/quadrature.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/fespace/h1_basis.hpp"
+#include "hpfem/fespace/nedelec_basis.hpp"
 #include "hpfem/fespace/polynomials.hpp"
+#include "hpfem/mesh/geometry.hpp"
+#include "hpfem/mesh/simplex_topology.hpp"
 
 namespace hpfem::assembly {
 
@@ -114,6 +117,140 @@ void project_face(const fespace::DofMap<3>& dofs, Index f, const ScalarField<3>&
   for (Index i = 0; i < n_face; ++i) values[ids[as_size(i)]] = coeff(i);
 }
 
+/// Reference vertex i of the simplex (0 = origin).
+template <int Dim>
+Point<Dim> reference_vertex(LocalIndex i) {
+  Point<Dim> xi = Point<Dim>::Zero();
+  if (i > 0) xi(i - 1) = 1.0;
+  return xi;
+}
+
+/// Solves gram c = rhs for complex rhs with a real SPD Gram matrix.
+Vector solve_gram(const Eigen::MatrixXd& gram, const Vector& rhs) {
+  const auto ldlt = gram.ldlt();
+  return ldlt.solve(rhs.real()).template cast<Complex>() +
+         Complex(0.0, 1.0) * ldlt.solve(rhs.imag()).template cast<Complex>();
+}
+
+/// Non-conjugating dot product of a complex and a real vector.
+template <class C, class R>
+Complex dot_real(const C& c, const R& r) {
+  return (c.transpose() * r.template cast<Complex>())(0);
+}
+
+/// L2 projection of g . t along edge e onto the tangential traces of the p_e edge
+/// functions (Whitney function and gradients, whose traces are the Legendre polynomials
+/// up to degree p_e - 1 on the edge); the functions are those of the first adjacent cell.
+template <int Dim>
+void project_edge_tangential(const fespace::NedelecDofMap<Dim>& dofs, Index e,
+                             const std::type_identity_t<ComplexVectorField<Dim>>& g,
+                             std::map<Index, Complex>& values) {
+  const auto& mesh = dofs.mesh();
+  const Index c = mesh.edge_cells(e)[0];
+  const auto& ce = mesh.cell_edges(c);
+  std::size_t k = 0;
+  while (ce[k] != e) ++k;
+  const auto& lv = mesh::SimplexTopology<Dim>::kEdgeVertices[k];
+  const Point<Dim> xi_a = reference_vertex<Dim>(lv[0]);
+  const Point<Dim> xi_b = reference_vertex<Dim>(lv[1]);
+  const fespace::NedelecBasis<Dim> basis(dofs.cell_layout(c));
+  const auto geometry = mesh::cell_geometry(mesh, c);
+  const int p = dofs.edge_order(e);
+  const Index n = fespace::nedelec_edge_functions(p);
+  const Index offset = basis.edge_offset(k);
+  const auto rule = gauss_legendre(p + 2);
+  std::vector<Point<Dim>> phi(as_size(basis.size()));
+  Eigen::MatrixXd gram = Eigen::MatrixXd::Zero(n, n);
+  Vector rhs = Vector::Zero(n);
+  Eigen::VectorXd trace(n);
+  for (std::size_t q = 0; q < rule.size(); ++q) {
+    const Real t = rule.points[q](0);
+    const Point<Dim> xi = xi_a + t * (xi_b - xi_a);
+    const auto gp = geometry->evaluate(xi);
+    const Point<Dim> tangent = gp.jacobian * (xi_b - xi_a);
+    const Real length = tangent.norm();
+    const Point<Dim> unit = tangent / length;
+    basis.evaluate(xi, phi, {});
+    for (Index i = 0; i < n; ++i) {
+      trace(i) = (gp.inverse_transpose * phi[as_size(offset + i)]).dot(unit);
+    }
+    const Real w = rule.weights[q] * length;
+    gram += w * trace * trace.transpose();
+    rhs += (w * dot_real(g(gp.x), unit)) * trace.template cast<Complex>();
+  }
+  const Vector coeff = solve_gram(gram, rhs);
+  const auto ids = dofs.edge_dofs(e);
+  for (Index i = 0; i < n; ++i) values[ids[as_size(i)]] = coeff(i);
+}
+
+/// L2 projection of the tangential remainder (g minus the edge functions' contribution,
+/// both projected onto the face plane) onto the face functions of face f (3D).
+void project_face_tangential(const fespace::NedelecDofMap<3>& dofs, Index f,
+                             const ComplexVectorField<3>& g, std::map<Index, Complex>& values) {
+  using Topology = mesh::SimplexTopology<3>;
+  const auto& mesh = dofs.mesh();
+  const Index c = mesh.facet_cells(f)[0];
+  const auto k = as_size(mesh.facet_local_indices(f)[0]);
+  const auto& lv = Topology::kFaceVertices[k];
+  const Point<3> xi_a = reference_vertex<3>(lv[0]);
+  const Point<3> xi_b = reference_vertex<3>(lv[1]);
+  const Point<3> xi_c = reference_vertex<3>(lv[2]);
+  const fespace::NedelecBasis<3> basis(dofs.cell_layout(c));
+  const auto geometry = mesh::cell_geometry(mesh, c);
+  const int p = dofs.face_order(f);
+  const Index n_face = fespace::nedelec_face_functions(p);
+  if (n_face == 0) return;
+  const Index offset = basis.face_offset(k);
+
+  // edge functions of the three face edges with their already projected coefficients
+  struct EdgeTerm {
+    Index local;  ///< basis function index
+    Complex coeff;
+  };
+  std::vector<EdgeTerm> edge_terms;
+  const auto& ce = mesh.cell_edges(c);
+  for (const LocalIndex le : Topology::kFaceEdges[k]) {
+    const Index e = ce[as_size(le)];
+    const auto ids = dofs.edge_dofs(e);
+    for (std::size_t i = 0; i < ids.size(); ++i) {
+      edge_terms.push_back(
+          {basis.edge_offset(as_size(le)) + static_cast<Index>(i), values.at(ids[i])});
+    }
+  }
+
+  const auto rule = simplex_quadrature<2>(2 * p + 2);
+  std::vector<Point<3>> phi(as_size(basis.size()));
+  Eigen::MatrixXd gram = Eigen::MatrixXd::Zero(n_face, n_face);
+  Vector rhs = Vector::Zero(n_face);
+  Eigen::Matrix<Real, 3, Eigen::Dynamic> face_trace(3, n_face);
+  for (std::size_t q = 0; q < rule.size(); ++q) {
+    const auto& eta = rule.points[q];
+    const Point<3> xi = xi_a + eta(0) * (xi_b - xi_a) + eta(1) * (xi_c - xi_a);
+    const auto gp = geometry->evaluate(xi);
+    const Point<3> ta = gp.jacobian * (xi_b - xi_a);
+    const Point<3> tb = gp.jacobian * (xi_c - xi_a);
+    const Point<3> normal = ta.cross(tb);
+    const Real area = normal.norm();
+    const Point<3> unit = normal / area;
+    const Eigen::Matrix3d tangential = Eigen::Matrix3d::Identity() - unit * unit.transpose();
+    basis.evaluate(xi, phi, {});
+    ComplexVector<3> remainder = tangential.cast<Complex>() * g(gp.x);
+    for (const auto& term : edge_terms) {
+      remainder -= term.coeff *
+                   (tangential * (gp.inverse_transpose * phi[as_size(term.local)])).cast<Complex>();
+    }
+    for (Index j = 0; j < n_face; ++j) {
+      face_trace.col(j) = tangential * (gp.inverse_transpose * phi[as_size(offset + j)]);
+    }
+    const Real w = rule.weights[q] * area;
+    gram += w * face_trace.transpose() * face_trace;
+    rhs += w * (face_trace.transpose().cast<Complex>() * remainder);
+  }
+  const Vector coeff = solve_gram(gram, rhs);
+  const auto ids = dofs.face_dofs(f);
+  for (Index j = 0; j < n_face; ++j) values[ids[as_size(j)]] = coeff(j);
+}
+
 }  // namespace
 
 template <int Dim>
@@ -150,6 +287,37 @@ DirichletData dirichlet_values(const fespace::DofMap<Dim>& dofs, mesh::Tag tag,
                                const std::type_identity_t<ScalarField<Dim>>& g) {
   const auto facets = dofs.mesh().facets_with_tag(tag);
   return dirichlet_values(dofs, std::span<const Index>(facets), g);
+}
+
+template <int Dim>
+DirichletData tangential_dirichlet_values(const fespace::NedelecDofMap<Dim>& dofs,
+                                          std::span<const Index> facets,
+                                          const std::type_identity_t<ComplexVectorField<Dim>>& g) {
+  const auto& mesh = dofs.mesh();
+  std::map<Index, Complex> values;
+  std::set<Index> edges;
+  for (const Index f : facets) {
+    if constexpr (Dim == 2) {
+      edges.insert(f);
+    } else {
+      const auto& fv = mesh.facet_vertices(f);
+      edges.insert(mesh.edge_id(fv[0], fv[1]));
+      edges.insert(mesh.edge_id(fv[1], fv[2]));
+      edges.insert(mesh.edge_id(fv[0], fv[2]));
+    }
+  }
+  for (const Index e : edges) project_edge_tangential(dofs, e, g, values);
+  if constexpr (Dim == 3) {
+    for (const Index f : facets) project_face_tangential(dofs, f, g, values);
+  }
+  return to_data(values);
+}
+
+template <int Dim>
+DirichletData tangential_dirichlet_values(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag tag,
+                                          const std::type_identity_t<ComplexVectorField<Dim>>& g) {
+  const auto facets = dofs.mesh().facets_with_tag(tag);
+  return tangential_dirichlet_values(dofs, std::span<const Index>(facets), g);
 }
 
 template <int Dim, class Counts>
@@ -212,6 +380,16 @@ template DirichletData dirichlet_values<2>(const fespace::DofMap<2>&, mesh::Tag,
                                            const ScalarField<2>&);
 template DirichletData dirichlet_values<3>(const fespace::DofMap<3>&, mesh::Tag,
                                            const ScalarField<3>&);
+template DirichletData tangential_dirichlet_values<2>(const fespace::NedelecDofMap<2>&,
+                                                      std::span<const Index>,
+                                                      const ComplexVectorField<2>&);
+template DirichletData tangential_dirichlet_values<3>(const fespace::NedelecDofMap<3>&,
+                                                      std::span<const Index>,
+                                                      const ComplexVectorField<3>&);
+template DirichletData tangential_dirichlet_values<2>(const fespace::NedelecDofMap<2>&, mesh::Tag,
+                                                      const ComplexVectorField<2>&);
+template DirichletData tangential_dirichlet_values<3>(const fespace::NedelecDofMap<3>&, mesh::Tag,
+                                                      const ComplexVectorField<3>&);
 template DirichletData homogeneous_dirichlet<2, fespace::H1Counts>(const fespace::DofMap<2>&,
                                                                    std::span<const Index>);
 template DirichletData homogeneous_dirichlet<3, fespace::H1Counts>(const fespace::DofMap<3>&,
