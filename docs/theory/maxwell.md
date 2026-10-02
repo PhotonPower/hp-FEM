@@ -310,6 +310,17 @@ volume integral of the total field (energy balance).
   Gauss rules along one period and `diffraction_efficiencies` gives
   $\eta_m = \mathrm{Re}(k_{x,m})|A_m|^2/(k_x^{inc}|E_0|^2)$ with $k_{x,m} = \sqrt{k^2n^2 - k_{y,m}^2}$
   (evanescent orders: $\eta_m = 0$). Verified with a Bloch plane wave (only the zeroth order,
-  efficiency one, analytically and from the discrete solution).
+  efficiency one, analytically and from the discrete solution) and by convergence test #6
+  (`tests/convergence/lamellar_grating.cpp`): a lamellar grating (period 1, fill 0.5,
+  thickness 0.5, ridge index 2 on a substrate of index 1.5, $\lambda = 0.8$, normal
+  incidence) in a Bloch-periodic unit cell with PML in $\pm x$, scattered-field
+  formulation; the reflected orders come from the scattered field above the grating and
+  the transmitted ones from the total field below. The reference is an RCWA for the
+  $H_z$ polarisation with Li's factorisation rules (Laurent's rule for $\varepsilon^{-1}
+  \partial_x H$, the inverse rule for $\varepsilon^{-1}\partial_y H$), written in the test and
+  checked by energy conservation ($\sum R + T = 1$ to $10^{-6}$) and truncation
+  independence; the FEM efficiencies converge to it under p-refinement (maximal
+  deviation $1.1\cdot10^{-1}$, $3.1\cdot10^{-2}$, $2.0\cdot10^{-3}$ for $p = 1, 2, 3$ on eight
+  cells per unit length, energy sum $1.002$ at $p = 3$).
 
 Planned: Purcell factor $F_P = P_{\mathrm{emitted}}/P_{\mathrm{bulk}}$ for a point dipole.
