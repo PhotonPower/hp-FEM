@@ -22,6 +22,10 @@ hpfem_add_test(test_fespace unit
   fespace/test_h1_basis.cpp
   fespace/test_dof_map.cpp)
 
+hpfem_add_test(test_nedelec unit
+  fespace/test_nedelec_basis.cpp
+  fespace/test_nedelec_dof_map.cpp)
+
 hpfem_add_test(test_assembly unit
   assembly/test_quadrature.cpp
   assembly/test_sparse_assembler.cpp

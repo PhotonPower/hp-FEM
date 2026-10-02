@@ -10,6 +10,7 @@ add_library(hpfem
   assembly/quadrature.cpp
   fespace/polynomials.cpp
   fespace/h1_basis.cpp
+  fespace/nedelec_basis.cpp
   fespace/dof_map.cpp
   assembly/sparse_assembler.cpp
   assembly/h1_forms.cpp
