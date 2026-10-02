@@ -68,11 +68,14 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] conforming h-refinement with **hanging edges/faces → constrained DoFs**
       (one-irregular rule), re-numbering, transfer of solution (prolongation)
 - [x] p-refinement: per-entity order increase, minimum rule on shared entities
-- [ ] hp-decision: Legendre-coefficient decay / analyticity estimate per element
+- [x] hp-decision: Legendre-coefficient decay / analyticity estimate per element
+      (plus the error-prediction strategy, which is the default: the decay of the
+      Galerkin solution misjudges unresolved corner cells)
 - [ ] goal-oriented (dual-weighted) estimator for a scalar quantity of interest
       (e.g. a Fourier coefficient) — needed for scatterometry accuracy claims
-- [ ] **convergence test #7**: exponential convergence at re-entrant corner (L-shape,
-      then plasmonic wedge)
+- [x] **convergence test #7**: exponential convergence at re-entrant corner (L-shape,
+      then plasmonic wedge) — L-shape done (`adaptive_hp_refinement`); the plasmonic
+      wedge follows with the `plasmonic_dimer` example
 - [ ] example `plasmonic_dimer`
 
 ## M6 — Solvers & performance (≈ 8)

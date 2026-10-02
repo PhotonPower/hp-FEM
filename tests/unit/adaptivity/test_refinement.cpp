@@ -1,5 +1,6 @@
 // p- and hp-refinement steps: order bookkeeping, inheritance by children, the minimum rule
 // on shared entities, and exact transfer of solutions across a combined step.
+#include <algorithm>
 #include <random>
 #include <vector>
 
@@ -94,7 +95,7 @@ TEST_CASE("hp_refine: children inherit, p-marked cells are raised, min rule on e
   const std::vector<int> orders(8, 2);
   const std::vector<Index> h_marked{0};
   const std::vector<Index> p_marked{1, 7, 0};  // 0 is h-refined too: its children get 3
-  const HpStep hp = hp_refine<2>(adaptive, orders, h_marked, p_marked);
+  const HpStep hp = hp_refine<2>(adaptive, orders, h_marked, p_marked, 1, 0, false);
   const Mesh<2>& m = adaptive.mesh();
   REQUIRE(hp.step.num_cells() == m.num_cells());
   REQUIRE(static_cast<Index>(hp.orders.size()) == m.num_cells());
@@ -112,6 +113,33 @@ TEST_CASE("hp_refine: children inherit, p-marked cells are raised, min rule on e
   CHECK(dofs.max_order() == 3);
   const std::vector<int> wrong(3, 1);
   CHECK_THROWS_AS(hp_refine<2>(adaptive, wrong, {}, {}), hpfem::InvalidArgument);
+}
+
+TEST_CASE("hp_refine spreads p-refinement to lower-order facet neighbours",
+          "[adaptivity][refinement]") {
+  AdaptiveMesh<2> adaptive(rectangle(2, 2));
+  const Mesh<2>& m = adaptive.mesh();
+  std::vector<int> orders(8, 2);
+  const std::vector<Index> p_marked{3};
+  orders[3] = 4;  // raised to 5: neighbours at 2 go to 3 (one increment), not to 5
+  std::vector<Index> neighbours;
+  for (const Index n : m.cell_neighbors(3)) {
+    if (n != hpfem::kInvalidIndex) neighbours.push_back(n);
+  }
+  REQUIRE(!neighbours.empty());
+  const HpStep hp = hp_refine<2>(adaptive, orders, {}, p_marked);
+  CHECK(hp.orders[3] == 5);
+  for (Index c = 0; c < 8; ++c) {
+    const bool neighbour = std::find(neighbours.begin(), neighbours.end(), c) != neighbours.end();
+    CHECK(hp.orders[as_size(c)] == (c == 3 ? 5 : (neighbour ? 3 : 2)));
+  }
+  // an h-marked neighbour is split instead and its children keep their order
+  AdaptiveMesh<2> other(rectangle(2, 2));
+  const std::vector<Index> h_marked{neighbours.front()};
+  const HpStep hp2 = hp_refine<2>(other, orders, h_marked, p_marked);
+  for (Index c = 0; c < hp2.step.num_cells(); ++c) {
+    if (hp2.step.parent[as_size(c)] == neighbours.front()) CHECK(hp2.orders[as_size(c)] == 2);
+  }
 }
 
 TEST_CASE("solutions transfer exactly across p- and hp-steps", "[adaptivity][refinement]") {

@@ -23,14 +23,16 @@ SOLVE → ESTIMATE → MARK → DECIDE (h or p) → REFINE → (repeat)
 2. **Mark**: Dörfler criterion — smallest set $\mathcal M$ with
    $\sum_{K\in\mathcal M}\eta_K^2 \ge \theta \sum_K \eta_K^2$, $\theta\approx 0.5$.
    Implemented as `adaptivity::dorfler_marking` (`maximum_marking` as the simpler alternative).
-3. **Decide** per marked $K$:
-   - compute the decay of the expansion coefficients of $E_{hp}|_K$ in an orthogonal
-     (Legendre/Jacobi) basis; estimate the Sobolev regularity exponent $\sigma_K$
-     (Mavriplis 1994; Houston & Süli 2005; Eibner & Melenk 2007);
-   - if $\sigma_K > p_K + 1$ (smooth): **p-refine** ($p_K \leftarrow p_K+1$);
-   - else: **h-refine**.
-   Alternative to be implemented later: the "reference solution" strategy of Demkowicz
-   (solve on $h/2, p+1$ and project) — more expensive but very robust.
+3. **Decide** per marked $K$ (see [hp decision](#hp-decision) below):
+   - **error prediction** (Melenk & Wohlmuth 2001, `adaptivity::hp_decide_by_prediction`):
+     a cell whose indicator fell to the value predicted for a smooth solution after the
+     last refinement is **p-refined**, one that fell short is **h-refined** — the default;
+   - **coefficient decay** (Mavriplis 1994; Houston & Süli 2005,
+     `adaptivity::hp_decide`): the decay rate $\sigma_K$ of the Legendre (Dubiner)
+     coefficients of $E_{hp}|_K$, p-refinement above a threshold — reliable only once the
+     local singularity is resolved;
+   - to be implemented later: the "reference solution" strategy of Demkowicz (solve on
+     $h/2, p+1$ and project) — more expensive but very robust.
 4. **Refine**:
    - $h$: red refinement of the marked cells with the **one-irregular rule** (a face or
      edge may be shared by at most two levels), `mesh::AdaptiveMesh::refine`. Hanging
@@ -48,6 +50,55 @@ SOLVE → ESTIMATE → MARK → DECIDE (h or p) → REFINE → (repeat)
 5. **Transfer**: prolongate the previous solution (`assembly::prolongate`, exact by
    hierarchical interpolation) as the initial guess for iterative solvers; direct solvers
    ignore it.
+
+## hp decision
+
+### Error prediction (`adaptivity/prediction.hpp`)
+
+After a refinement step every new cell carries the indicator it would have if the solution
+were smooth there (Melenk & Wohlmuth 2001):
+
+$$
+\eta^{\text{pred}}_{K'} = \gamma_p\,\eta_K \ \text{(p-refined)},\qquad
+\eta^{\text{pred}}_{K'} = \frac{\gamma_h\, 2^{-p_K}}{\sqrt{n_{\text{children}}}}\,\eta_K \ \text{(child of } K),\qquad
+\eta^{\text{pred}}_{K'} = \gamma_n\,\eta_K \ \text{(unchanged)},
+$$
+
+with $\gamma_p = 0.63 \approx \sqrt{0.4}$, $\gamma_h = 2$, $\gamma_n = 1$ (`PredictionOptions`,
+the defaults of deal.II). A marked cell with $\eta_{K'} \le \eta^{\text{pred}}_{K'}$ achieved
+the smooth rate and is p-refined next, otherwise it is h-refined; in the first step (no
+prediction) everything is h-refined. The corner cells of a singular solution never reach
+the predicted $2^{-p}$ reduction, so they are h-refined for ever, while cells at a fixed
+distance-to-size ratio gain the predicted factor from each p-step.
+
+`hp_refine` with `spread_p` (default) also raises the lower-order facet neighbours of a
+p-refined cell by one: under the minimum rule the shared edges would otherwise stay at the
+neighbour's order and the raised cell would only gain interior functions, which the
+estimator keeps marking. Spreading raised the exponential rate $b$ of the L-shape run from
+$0.23$ to $0.28$ and halved the error at $12\,000$ DoFs.
+
+### Coefficient decay (`adaptivity/smoothness.hpp`)
+
+$E_{hp}|_K$ is expanded component-wise in the $L^2$-orthonormal Dubiner basis of the
+reference cell (`fespace::DubinerBasis`, Legendre and Jacobi polynomials in collapsed
+coordinates). With $a_n^2 = \sum_{|\alpha| = n}|c_\alpha|^2$ the least-squares fit
+$\log a_n \approx C - \sigma n$ over $n = 0 \dots p_K$ gives the decay rate; a field
+represented exactly ($a_{p} = 0$) counts as infinitely smooth. A cell is p-refined if
+$\sigma_K \ge \tau(p_K) = $ `smooth_threshold` $+$ `threshold_scale`$/p_K$ with the
+defaults $1 + 3.5/p$, and cells below `min_decision_order` $= 2$ are p-refined without a
+decision. The $1/p$ term was calibrated on the interpolant of the corner singularity
+$\nabla(r^{2/3}\sin\tfrac{2\theta}{3})$: a sequence that decays algebraically looks
+exponential over few modes, and its fitted rate drops with $p$ (corner cells: $4.1, 2.0,
+1.4, 1.1, 0.9, 0.7$ for $p = 1 \dots 6$, cells away from the corner stay above
+$1.4$).
+
+**Measured limitation.** The decay of the *Galerkin solution* is not the decay of the
+exact field: on an unresolved corner cell the discrete solution is a smooth polynomial,
+with rates $3.1$–$3.9$ at $p = 2$ and $2.0$–$2.5$ at $p = 4$, above the thresholds, so the
+corner is p-refined up to $p = 6$ before the first h-step and the loop converges no
+faster than h-adaptivity. This is why the error prediction is the default; the decay
+indicator remains available for solutions whose singularities are resolved, and as the
+smoothness measure of the prolongated solution in later strategies.
 
 ## Hanging nodes and constraints
 
@@ -91,6 +142,23 @@ $\exp(-0.41\sqrt{N})$, from $1$ at $56$ DoFs ($p = 1$) to $2.5\cdot 10^{-8}$ at 
 grows with $p$). The transferred solution agrees pointwise with the previous one in every
 step.
 
+### hp-adaptivity on the L-shape (`tests/convergence/adaptive_hp_refinement.cpp`, test #7)
+
+Same problem, starting from $p = 1$ on 24 cells, Dörfler $\theta = 0.5$, decision by error
+prediction, p-spreading, hanging-node h-refinement:
+
+| DoF | 44 | 1 300 | 4 100 | 8 000 | 11 800 | 16 700 | 21 800 | 26 300 |
+|---|---|---|---|---|---|---|---|---|
+| $\|E - E_{hp}\|_{H(\mathrm{curl})}$ | $6.2\cdot10^{-1}$ | $2.9\cdot10^{-2}$ | $2.4\cdot10^{-3}$ | $9.1\cdot10^{-4}$ | $3.9\cdot10^{-4}$ | $1.6\cdot10^{-4}$ | $9.8\cdot10^{-5}$ | $6.2\cdot10^{-5}$ |
+
+Fit $\exp(-b N^{1/3})$ over the last ten steps: $b = 0.28$; the algebraic slope for
+$N \ge 4000$ is $-2.2$, steeper than any fixed-$p$ h-adaptivity with $p \le 4$ reaches,
+and the error at $12\,000$ DoFs is $2.7\times$ below the $p = 2$ h-adaptive run. The final
+mesh has 20 levels of geometric grading at the corner with $p = 2$ in the innermost rings
+and $p$ up to $6$–$7$ outside; the corner cells are never p-refined; the effectivity index
+stays between $2$ and $4$. Beyond $\approx 40\,000$ DoFs the error stalls near $10^{-5}$:
+the direct solver's accuracy on the graded high-order system (M6).
+
 ### Adaptive h-refinement on the L-shape (`tests/convergence/adaptive_h_refinement.cpp`)
 
 $E = \nabla(r^{2/3}\sin\tfrac{2\theta}{3})$ on $[-1,1]^2 \setminus [0,1]\times[-1,0]$ with
@@ -111,7 +179,7 @@ the $hp$ decision).
 
 - DoF numbering is **entity-based** (vertex → edge → face → cell) with a per-entity order,
   not a per-cell block of fixed size.
-- The mesh keeps parent/child relations and level numbers.
+- The mesh keeps parent/child relations and level numbers (`mesh::AdaptiveMesh`).
 - `fespace::Constraints` (`slave = Σ c_i master_i`) serves Bloch-periodic boundaries and
   hanging nodes alike (`append` combines them) and reduces the assembled system by
   $P^H A P$; `physics::Scattering` imposes the Dirichlet data on the free DoFs after the

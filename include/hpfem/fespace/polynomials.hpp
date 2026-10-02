@@ -23,4 +23,9 @@ void legendre(int n, Real x, std::span<Real> values, std::span<Real> derivatives
 void scaled_integrated_legendre(int n, Real x, Real t, std::span<Real> values, std::span<Real> dx,
                                 std::span<Real> dt);
 
+/// Jacobi polynomials @f$ P_0^{(\alpha,\beta)}, \dots, P_n^{(\alpha,\beta)} @f$ at x ∈ [-1, 1]
+/// (standard normalisation @f$ P_n^{(\alpha,\beta)}(1) = \binom{n+\alpha}{n} @f$), α, β > -1;
+/// `values` must have at least n + 1 entries. @f$ P_n^{(0,0)} @f$ are the Legendre polynomials.
+void jacobi(int n, Real alpha, Real beta, Real x, std::span<Real> values);
+
 }  // namespace hpfem::fespace

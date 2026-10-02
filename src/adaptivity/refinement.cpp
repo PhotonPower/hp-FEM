@@ -48,15 +48,43 @@ mesh::RefinementStep identity_step(Index num_cells) {
 template <int Dim>
 HpStep hp_refine(mesh::AdaptiveMesh<Dim>& mesh, std::span<const int> orders,
                  std::span<const Index> h_marked, std::span<const Index> p_marked, int increment,
-                 int max_order) {
-  const Index num_cells = mesh.mesh().num_cells();
+                 int max_order, bool spread_p) {
+  const mesh::Mesh<Dim>& leaf = mesh.mesh();
+  const Index num_cells = leaf.num_cells();
   if (static_cast<Index>(orders.size()) != num_cells) {
     throw InvalidArgument(
         fmt::format("hp_refine: {} orders given for {} cells", orders.size(), num_cells));
   }
   check_marked(h_marked, num_cells, "hp_refine");
   // raise first on the old cells, then let the children inherit
-  const std::vector<int> raised = p_refine(orders, p_marked, increment, max_order);
+  std::vector<int> raised = p_refine(orders, p_marked, increment, max_order);
+  if (spread_p) {
+    std::vector<char> split(as_size(num_cells), 0);
+    for (const Index c : h_marked) split[as_size(c)] = 1;
+    std::vector<char> marked(as_size(num_cells), 0);
+    for (const Index c : p_marked) marked[as_size(c)] = 1;
+    for (const Index c : p_marked) {
+      const int target = raised[as_size(c)];
+      std::vector<Index> neighbours;
+      for (const Index f : leaf.cell_facets(c)) {
+        const auto& fc = leaf.facet_cells(f);
+        if (fc[1] != kInvalidIndex) neighbours.push_back(fc[0] == c ? fc[1] : fc[0]);
+        const Index parent = leaf.hanging_parent_facet(f);
+        if (parent != kInvalidIndex) neighbours.push_back(leaf.facet_cells(parent)[0]);
+        for (const Index child : leaf.hanging_child_facets(f)) {
+          neighbours.push_back(leaf.facet_cells(child)[0]);
+        }
+      }
+      for (const Index n : neighbours) {
+        if (split[as_size(n)] != 0 || marked[as_size(n)] != 0) continue;
+        int& q = raised[as_size(n)];
+        if (q < target) {
+          q = std::min(q + increment, target);
+          if (max_order > 0) q = std::min(q, max_order);
+        }
+      }
+    }
+  }
   HpStep out;
   out.step = mesh.refine(h_marked);
   out.orders.resize(as_size(out.step.num_cells()));
@@ -71,8 +99,8 @@ HpStep hp_refine(mesh::AdaptiveMesh<Dim>& mesh, std::span<const int> orders,
 }
 
 template HpStep hp_refine<2>(mesh::AdaptiveMesh<2>&, std::span<const int>, std::span<const Index>,
-                             std::span<const Index>, int, int);
+                             std::span<const Index>, int, int, bool);
 template HpStep hp_refine<3>(mesh::AdaptiveMesh<3>&, std::span<const int>, std::span<const Index>,
-                             std::span<const Index>, int, int);
+                             std::span<const Index>, int, int, bool);
 
 }  // namespace hpfem::adaptivity
