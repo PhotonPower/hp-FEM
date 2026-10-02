@@ -241,8 +241,30 @@ VTK XML unstructured grid (`.vtu`) for ParaView, VisIt or pyvista:
 
 `io::write_vtu_facets` writes the boundary (or all) facets as lines / triangles with
 `facet_tag`, `facet_index` and `is_boundary`, sharing the point numbering of the cell file
-so the two overlay exactly. Fields on high-order bases arrive with M3 (sub-division
-export).
+so the two overlay exactly.
+
+### Subdivision
+
+`subdivide(m, n)` (`mesh/subdivision.hpp`) splits every cell into $n^d$ sub-simplices of
+equal reference volume: the lattice $\xi = (i, j[, k])/n$ with $i + j [+ k] \le n$, upward
+and downward triangles in 2D and, per lattice cube, a corner tetrahedron, an octahedron cut
+into four and an inverted tetrahedron in 3D (Freudenthal–Bey). Sub-vertices are placed
+with the parent cell map, so curved cells become piecewise straight, and they are
+**duplicated per parent cell**, so that fields which jump across facets (normal components
+of $E$, curls) stay discontinuous in the output. Cell tags are inherited; the result also
+records the parent cell of every sub-cell and the parent cell and reference coordinates of
+every sub-vertex.
+
+### Field export
+
+`io::FieldExporter(m, n)` (`io/field_export.hpp`) wraps a `VtkWriter` on the $n$-fold
+subdivided mesh and evaluates discrete fields at the sub-vertices: `h1(name, dofs, u_h)`
+writes a scalar field, `hcurl(name, dofs, e_h)` a Nédélec field (physical components via
+the covariant Piola map) together with its curl as `curl_<name>` (scalar in 2D, vector in
+3D), complex data as `_re` / `_im`; parent-cell data is broadcast to the sub-cells. Choose
+$n$ of the order of the polynomial degree. For a coarse overview on the original mesh,
+`io::cell_averages` / `cell_average_curls` return $|K|^{-1}\int_K u_h$ per cell for
+`VtkWriter::cell_scalars` / `cell_vectors` (which accept complex vectors as well).
 
 ## API summary
 
@@ -266,6 +288,8 @@ export).
 | `PointLocator(m, tol)` → `locate(x)`, `locate(x, hint)`, `reference_coordinates(c, x)` | point location (background grid) |
 | `refine_uniform(m)` → `Refined` (`mesh`, `parent_cell`, `edge_vertex`) | red refinement |
 | `io::VtkWriter(m).cell_scalars(...).point_vectors(...).write(path)`, `io::write_vtu_facets` | VTK export |
+| `subdivide(m, n)` → `Subdivided` (`mesh`, `parent_cell`, `vertex_parent`, `vertex_xi`) | uniform subdivision for visualisation |
+| `io::FieldExporter(m, n).h1(...).hcurl(...).write(path)`, `io::cell_averages`, `io::cell_average_curls` | field export |
 | `edge_vertices(e)`, `face_vertices(f)`, `facet_vertices(f)` | ascending vertex tuples |
 
 Construction throws `InvalidArgument` naming the cell if a vertex id is out of range or
@@ -308,6 +332,12 @@ repeated. Accessors check indices with `HPFEM_ASSERT`.
   characteristic invariant, refined rectangle equals the finer generated rectangle in
   counts, tags and vertex set, boundary tags quadruple on the box, repeated refinement,
   curved P2 area invariant;
+- subdivision: counts, equal sub-volumes with the parent's orientation, sub-vertices on
+  the parent map and on the lattice, inherited tags, $n = 1$ reproduces the cells with
+  duplicated vertices, a curved cell's sub-mesh area converging to the P2 quarter disc
+  from below; field export (`tests/unit/io/`): cell averages of projected fields, and
+  the written point coordinates and arrays parsed back and compared with the exact
+  fields (value and curl, 2D and 3D), broadcast cell data, error paths;
 - VTK: ASCII arrays parsed back (points, connectivity, offsets, types, cell tags, real,
   complex and vector data), binary arrays base64-decoded back to the exact values,
   quadratic cells with VTK's edge order, size checks, file output, facet files.

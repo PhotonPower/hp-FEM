@@ -53,7 +53,9 @@ and eigenproblems ($S e = \lambda M e$) share one assembly. `hcurl_error` measur
 $\|E_h - E\|_{L^2}$ and $\|\nabla\times(E_h - E)\|_{L^2}$, `evaluate_hcurl` /
 `evaluate_hcurl_curl` the physical field and its curl (for $H = (i\omega\mu)^{-1}\nabla\times
 E$) at a reference point of a cell or, with a `mesh::PointLocator`, at an arbitrary
-physical point ([mesh.md](mesh.md#point-location)).
+physical point ([mesh.md](mesh.md#point-location)). `io::FieldExporter` writes $E_h$ and
+$\nabla\times E_h$ on a subdivided mesh and `io::cell_averages` the cell means for VTK
+([mesh.md](mesh.md#field-export)).
 **PEC** is `homogeneous_dirichlet` on the Nédélec DoF map (all edge and face DoFs of the
 tagged facets, i.e. the tangential trace) followed by `apply_dirichlet`; **PMC** needs no
 action. Verified by unit tests: symmetric and positive element matrices, gradient

@@ -12,10 +12,12 @@ hpfem_add_test(test_mesh unit
   mesh/test_geometry.cpp
   mesh/test_curved_geometry.cpp
   mesh/test_point_location.cpp
+  mesh/test_subdivision.cpp
   mesh/test_refinement.cpp)
 
 hpfem_add_test(test_io unit
-  io/test_vtk.cpp)
+  io/test_vtk.cpp
+  io/test_field_export.cpp)
 
 hpfem_add_test(test_fespace unit
   fespace/test_reference_element.cpp

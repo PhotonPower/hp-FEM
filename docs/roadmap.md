@@ -32,7 +32,7 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] solver interface + Eigen SparseLU backend
 - [x] **convergence test #1**: Poisson, manufactured solution, rate p+1 in L2, p in H1
 
-## M3 — Nédélec elements and Maxwell eigenproblems (≈ 8)
+## M3 — Nédélec elements and Maxwell eigenproblems (≈ 8) ✅
 - [x] hierarchical H(curl) Nédélec-I basis, 2D (p ≤ 6) and 3D (p ≤ 4), per
       Schöberl–Zaglmayr (theory/nedelec.md)
 - [x] orientation-aware local→global mapping of edge/face functions
@@ -42,7 +42,7 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] gauge handling / kernel filtering (discrete gradients); spurious-mode test
 - [x] **convergence test #2**: PEC box eigenvalues, rate 2p; zero spurious modes
 - [x] field evaluation at arbitrary points (point location + reference-coordinate inversion)
-- [ ] VTK export of vector fields (cell-averaged + high-order via subdivision)
+- [x] VTK export of vector fields (cell-averaged + high-order via subdivision)
 
 ## M4 — Time-harmonic scattering & waveguides (≈ 10)
 - [ ] `physics::Scattering`: total/scattered-field formulation, plane-wave and

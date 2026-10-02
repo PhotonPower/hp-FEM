@@ -11,6 +11,8 @@
 #include <variant>
 #include <vector>
 
+#include <Eigen/Core>
+
 #include "hpfem/core/types.hpp"
 #include "hpfem/mesh/mesh.hpp"
 
@@ -40,9 +42,12 @@ class VtkWriter {
   VtkWriter& cell_scalars(std::string name, std::span<const Complex> values);
   VtkWriter& cell_scalars(std::string name, std::span<const Index> values);
   VtkWriter& cell_vectors(std::string name, std::span<const Point<Dim>> values);
+  VtkWriter& cell_vectors(std::string name, std::span<const Eigen::Matrix<Complex, Dim, 1>> values);
   VtkWriter& point_scalars(std::string name, std::span<const Real> values);
   VtkWriter& point_scalars(std::string name, std::span<const Complex> values);
   VtkWriter& point_vectors(std::string name, std::span<const Point<Dim>> values);
+  VtkWriter& point_vectors(std::string name,
+                           std::span<const Eigen::Matrix<Complex, Dim, 1>> values);
 
   void write(std::ostream& out) const;
   /// @throws InvalidArgument if the file cannot be created.
