@@ -1,5 +1,5 @@
 # 0009 — Layered background for the scattered-field formulation
-**Status:** proposed
+**Status:** accepted
 **Date:** 2026-10-03
 
 ## Context
