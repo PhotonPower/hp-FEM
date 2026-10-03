@@ -3,6 +3,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- GPU backend for hp-adaptive systems: the GPU library equilibrates the matrix diagonally
+  (`D (sA) D`, `d_i = 1/√|a_ii|`) before the cuDSS factorisation, which removes the
+  perturbed pivots of systems with hanging nodes and high orders entirely (0 in every step
+  of the L-shape and plasmonic-wedge tests against up to 16 356 before), so these systems
+  no longer fall back to the CPU; with every system on cuDSS the C++ and Python suites pass
+  without a refused factorisation. `HPFEM_GPU_EQUILIBRATE=0` switches it off for
+  comparisons; the self-test covers rows scaled 1e-8 … 1e8.
 - cuDSS hybrid memory mode for factors beyond the device memory: the GPU library decides
   per factorisation from the peak-memory estimates after the analysis (factors partly in
   host memory above ~90 % of the free device memory; `HPFEM_GPU_HYBRID` forces it), fails
