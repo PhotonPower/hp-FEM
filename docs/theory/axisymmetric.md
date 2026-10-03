@@ -149,8 +149,84 @@ $3.7\cdot10^{-2}$, $2.0\cdot10^{-3}$, $2.3\cdot10^{-5}$, $2.0\cdot10^{-6}$ (TM) 
 $p = 1 \ldots 4$, with Arnoldi residuals below $10^{-8}$. The unit test also checks the PML
 tensors against the formula and that a layer on the axis side is rejected.
 
+## Scattering (`physics::AxisymmetricScattering`)
+
+The scattered-field formulation of `maxwell.md` carries over order by order: the incident
+field is a solution in the background medium, its $m$-th Fourier component in the scaled
+components $(E_r, v, E_z)$ drives the volume source $k_0^2(\varepsilon_r -
+\varepsilon_{bg})E^{inc}_m$ in the cells whose material differs from the background (nowhere
+inside the PML), and the operator $S_m - k_0^2 M_m$ with the cylindrical PML is solved for the
+scattered field of that order. The source enters the forms through the same pairing as the
+mass term, $\int (f_r V_r + f_z V_z)\,r + f_v\,w / r$ with $f_v = -i\,r f_\varphi$
+(`AxisymmetricForm::source`). An $x$-polarised plane wave along the axis,
+$E_0\hat x\,e^{ikz}$, has the orders $m = \pm1$ only:
+
+$$
+(E_r, E_\varphi, E_z)_{\pm1} = \tfrac{E_0}{2}\,(1,\ \pm i,\ 0)\,e^{ikz}, \qquad
+(E_r, v, E_z)_{\pm1} = \tfrac{E_0}{2}\,(1,\ \pm r,\ 0)\,e^{ikz}
+$$
+
+(`axial_plane_wave`); the two orders are mirror images and carry the same power, so one
+solve suffices. Orders do not mix in quadratic quantities: the power of the full field through
+a surface of revolution is the sum over $m$ of
+
+$$
+P_m = \int_\Gamma 2\pi r\,\tfrac12\,\mathrm{Re}\big(E_m\times H_m^*\big)\cdot n\,ds, \qquad
+H_m = \frac{\nabla\times E_m}{i\omega\mu},
+$$
+
+with the cylindrical curl of the mode (the azimuthal component is minus the 2D scalar curl
+of the meridian field) over the meridian curve $\Gamma$ of `postprocess::Surface`
+(`axisymmetric_poynting_flux`); the scattering cross-section is $\sigma = P^{sca} / I^{inc}$
+with $I^{inc} = |E_0|^2 / (2Z_0)$ in vacuum.
+
+**Verification** (`tests/convergence/axisymmetric_mie_sphere.cpp`,
+`tests/unit/physics/test_axisymmetric_scattering.cpp`): for the dielectric sphere $n = 2$,
+$ka = 1.5$ the Mie series (Bohren–Huffman $a_l$, $b_l$ with Riccati–Bessel functions by
+downward recurrence, computed in the test) gives $\sigma / \pi a^2 = 4.2315$; the scattered
+power of the order $m = 1$ through the sphere interface, doubled, converges to it under
+p-refinement with relative errors $1.9\cdot10^{-1}$, $3.9\cdot10^{-3}$, $1.3\cdot10^{-3}$,
+$3.9\cdot10^{-6}$ for $p = 1 \ldots 4$ — the 2.5D counterpart of convergence test #4. The unit
+tests check the plane-wave orders, the Rayleigh limit of the Mie series, the equality of the
+$m = \pm1$ powers, and that the discrete Poynting flux through the shell between the sphere
+and the box $r, |z| < 2a$ vanishes up to the discretisation error.
+
+## Dipoles on the axis (`axisymmetric_gaussian_dipole`)
+
+A point emitter on the axis is a current moment $p$ [A m] at $(r, z) = (0, z_0)$. With the
+total-field formulation (`AxisymmetricScatteringSetup::current`, the source
+$f = i\omega\mu_0 J$ in every cell, the PML absorbing the emitted field) and the Gaussian
+smearing of `maxwell.md` the orders are
+
+$$
+\text{axial } (p \parallel \hat z):\ m = 0,\quad (f_r, f_v, f_z) = i\omega\mu_0\,p\,g\,(0, 0, 1);
+\qquad
+\text{transverse } (p \parallel \hat x):\ m = \pm1,\quad
+(f_r, f_v, f_z) = i\omega\mu_0\,\tfrac{p}{2}\,g\,(1, \pm r, 0),
+$$
+
+with $g = e^{-(r^2 + (z - z_0)^2)/2\sigma^2} / ((2\pi)^{3/2}\sigma^3)$. The emitted power is
+the Poynting flux through any surface enclosing the source, and the Purcell factor its
+ratio to the free-space value. For the smeared dipole in vacuum the total power is
+*exactly* $P_0\,e^{-k^2\sigma^2}$ with the Larmor power $P_0 = Z_0 k_0^2 |p|^2 / (12\pi)$
+(`dipole_vacuum_power`): the Gaussian form factor $e^{-k^2\sigma^2/2}$ multiplies the far
+field in every direction, and in a lossless medium the emitted power equals the radiated
+one. This gives an analytic reference without any limit $\sigma \to 0$.
+
+**Verification** (`tests/convergence/axisymmetric_dipole.cpp`,
+`tests/unit/physics/test_axisymmetric_dipole.cpp`): for $ka = 1.5$ and $\sigma = 0.08a$ the
+axial ($m = 0$) and the transverse dipole ($m = \pm1$, doubled) converge to
+$P_0 e^{-k^2\sigma^2}$ with relative errors $1.7\cdot10^{-1}$ / $3.9\cdot10^{-2}$,
+$1.9\cdot10^{-3}$ / $4.8\cdot10^{-3}$, $2.0\cdot10^{-4}$ / $6.4\cdot10^{-5}$ and
+$2.4\cdot10^{-5}$ / $2.2\cdot10^{-5}$ for $p = 1\ldots4$. The unit test places the axial
+dipole at the centre of the sphere $n = 3$: the electric dipole couples to the
+$\mathrm{TM}_1$ modes, and the Purcell factor peaks at $\mathrm{Re}\,x_{\mathrm{TM}}$ of the
+Mie pole found by the resonance solver, which ties the three problem classes together.
+
 ## Roadmap
 
-Stage 3 adds scattering by the axial plane wave ($m = \pm1$, Mie cross-section), dipole
-sources on the axis (Purcell factor), the far field from the $m$ contributions, the Python
-bindings and the micropillar example.
+Still open: the far field from the $m$ contributions, the micropillar / VCSEL example
+(Python), coupled orders for oblique incidence and
+adaptivity on the meridian plane with the $r$-weighted estimator. The Python bindings
+(`AxisymmetricCavity`, `AxisymmetricResonance`, `AxisymmetricScattering`, `axial_plane_wave`,
+`axisymmetric_gaussian_dipole`, `axisymmetric_poynting_flux`) follow the C++ API one to one.

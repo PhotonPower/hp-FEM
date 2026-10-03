@@ -70,7 +70,9 @@ hpfem_add_test(test_physics unit
   physics/test_band_structure.cpp
   physics/test_time_domain.cpp
   physics/test_axisymmetric.cpp
-  physics/test_axisymmetric_resonance.cpp)
+  physics/test_axisymmetric_resonance.cpp
+  physics/test_axisymmetric_scattering.cpp
+  physics/test_axisymmetric_dipole.cpp)
 
 hpfem_add_test(test_hanging unit
   assembly/test_interpolation.cpp
