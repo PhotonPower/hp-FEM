@@ -88,6 +88,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   TM_1 Mie pole. Python: `AxisymmetricCavity`, `AxisymmetricResonance`,
   `AxisymmetricScattering`, `axial_plane_wave`, `axisymmetric_gaussian_dipole`,
   `axisymmetric_poynting_flux`, `AxisDipole`.
+- `physics::axisymmetric_far_field` (M11): near-to-far transform of one azimuthal order on
+  a surface of revolution with the analytic azimuthal integration (Bessel functions J_m,
+  J_m±1), pattern F_θ/F_φ(θ) and radiated power; unit tests (Larmor pattern of the axial
+  dipole, power balance, sphere scattering vs flux and Mie), far-field column in the Mie
+  convergence test, Python `axisymmetric_far_field`. M11 complete.
 - `examples/micropillar_qd` (M11): GaAs/AlAs micropillar as a body of revolution —
   fundamental m = 1 resonance (934.6 nm, Q ≈ 1000 for 10/16 pairs, r = 1 µm), Purcell
   spectrum of the in-plane quantum-dot dipole peaking on the resonance (F_P = 5.1) and the
