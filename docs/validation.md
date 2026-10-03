@@ -327,3 +327,79 @@ converged to $10^{-5}$ and energy-consistent to $10^{-6}$.
 | -44.9757 + 2.9524i | 0.10156 | 0.84848 | 0.04996 |
 
 **Assessment.** Two of the three depths agree with the four-digit modal reference within the tolerance $3\cdot 10^{-4}$ ($h = 0.1$ µm to $0.5\cdot 10^{-4}$, $h = 4.8$ µm to $2.9\cdot 10^{-4}$) with the assumed fill factor $f = 0.5$, which the sensitivity table rules out changing. The $h = 1$ µm case is reported but not asserted (decision with the dev agent, 2026-10-03): the slot is resonant there, the published digits depend on the unstated exact $\varepsilon$ and $h$ of the reference computation, and our result is converged to $10^{-5}$ with an energy balance of $10^{-6}$ and reproduces the Fresnel limit to $10^{-6}$. Nothing was fitted or loosened. Lesson for the library: a PML of one wavelength with the quadratic profile and target reflection $10^{-10}$ is not enough for efficiencies at the $10^{-4}$ level; 3 µm, order 4 and $10^{-14}$ are. Cost: about 1 s per solve at $p = 5$ on 25 000–40 000 unknowns; the whole long study takes a few minutes.
+
+## D. Slit–groove diffraction in a silver film with a layered background
+
+**Sources.** M. Besbes, J. P. Hugonin, P. Lalanne, S. van Haver, O. T. A. Janssen, A. M.
+Nugrowati, M. Xu, S. F. Pereira, H. P. Urbach, A. S. van de Nes, P. Bienstman, G. Granet,
+A. Moreau, S. Helfert, M. Sukharev, T. Seideman, F. I. Baida, B. Guizal, D. Van Labeke,
+"Numerical analysis of a slit-groove diffraction problem", *J. Eur. Opt. Soc. Rapid Publ.*
+**2**, 07022 (2007), DOI 10.2971/jeos.2007.07022 (substrate index 1.45, best values
+$S/S_0 = 2.200952$ (MM3), $2.200940$ (HYB), $2.200904$ (MM2), $2.201143$ (FEM2)); S. Burger,
+L. Zschiedrich, J. Pomplun, F. Schmidt, "Finite-element based electromagnetic field
+simulations: Benchmark results for isolated structures", *Proc. SPIE* **8880**, 88801Z
+(2013), arXiv:1310.2732 (substrate $\varepsilon = 2.25$, $S/S_0 = 2.198825944 \pm 2\cdot 10^{-9}$).
+
+**Set-up.** A 400 nm silver film ($\varepsilon_\text{Ag} = -33.22 + 1.17i$) on a substrate
+under air is cut by a 100 nm wide slit through the film at $x = 0$ and carries a 100 nm wide,
+100 nm deep groove in its top surface centred at $x = -500$ nm. A plane wave of wavelength
+852 nm falls normally from above with the magnetic field parallel to slit and groove
+(in-plane $E$). The benchmark quantity is $S/S_0$, the downward Poynting flux of the total
+field through the segment $y = -800$ nm, $|x| \le 100$ nm in the substrate with the groove
+divided by the same flux without it. The two sources disagree about the substrate
+($n = 1.45$, i.e. $\varepsilon = 2.1025$, versus $\varepsilon = 2.25$); both are computed and the
+hypothesis that this explains the 0.1 % difference between the published values is tested.
+
+**Discretisation** (`tests/convergence/slit_groove.cpp`). The feature of ADR-0009: the
+background is the layer stack air / silver / substrate (`physics::LayerStack<2>`), whose
+analytic plane-wave field is the incident field, so that the scattered-field source lives in
+the slit and the groove only and the PML sees outgoing waves alone. PML on all four sides
+(the surface plasmons on the silver are weakly damped: the lateral interior half-width and
+the PML thickness are varied), graded tensor-product mesh (`tensor_mesh.hpp`) towards the
+twelve metal corners and the three interfaces, $p$-refinement. $S$ and $S_0$ are two
+solutions on the same mesh family (the groove filled with silver for $S_0$).
+
+**Results** (long run `convergence_slit_groove "[validation-long]"`,
+`benchmarks/results/2026-10-03-validation-slit-groove.json`):
+
+*p-convergence* (lateral interior half-width 3 µm, 1 µm of air above and 1.2 µm of substrate
+below the film inside the PML, PML 2 µm of order 4 with target reflection $10^{-10}$, spacing
+100 nm with three geometric levels at the corners):
+
+| ε_sub | p | DoF | S | S₀ | S/S₀ | reference | rel. deviation | time [s] (S + S₀) |
+|---|---|---|---|---|---|---|---|---|
+| 2.25 | 2 | 101,212 | 2.941302e-08 | 1.338461e-08 | 2.19752498 | 2.19882594 | -5.9e-04 | 2 |
+| 2.25 | 3 | 212,298 | 2.798531e-08 | 1.272789e-08 | 2.19873967 | 2.19882594 | -3.9e-05 | 7 |
+| 2.25 | 4 | 363,704 | 2.796181e-08 | 1.271659e-08 | 2.19884572 | 2.19882594 | +9.0e-06 | 17 |
+| 2.25 | 5 | 555,430 | 2.797766e-08 | 1.272375e-08 | 2.19885398 | 2.19882594 | +1.3e-05 | 41 |
+| 2.25 | 6 | 787,476 | 2.797965e-08 | 1.272463e-08 | 2.19885700 | 2.19882594 | +1.4e-05 | 83 |
+| 2.1025 | 2 | 101,212 | 2.914905e-08 | 1.325134e-08 | 2.19970539 | 2.20094600 | -5.6e-04 | 2 |
+| 2.1025 | 3 | 212,298 | 2.781641e-08 | 1.263879e-08 | 2.20087529 | 2.20094600 | -3.2e-05 | 7 |
+| 2.1025 | 4 | 363,704 | 2.779928e-08 | 1.263043e-08 | 2.20097630 | 2.20094600 | +1.4e-05 | 15 |
+| 2.1025 | 5 | 555,430 | 2.781310e-08 | 1.263667e-08 | 2.20098327 | 2.20094600 | +1.7e-05 | 38 |
+| 2.1025 | 6 | 787,476 | 2.781482e-08 | 1.263744e-08 | 2.20098560 | 2.20094600 | +1.8e-05 | 111 |
+
+*Domain, PML and mesh sensitivity* ($\varepsilon_\text{sub} = 2.25$, $p = 4$; the deviation refers to
+Burger's value):
+
+| variant | lateral [nm] | PML [nm] / order | above / below [nm] | levels / spacing [nm] | DoF | S/S₀ | rel. deviation (Burger) |
+|---|---|---|---|---|---|---|---|
+| lateral_3000_pml_1000_3 | 3000 | 1000 / 3 | 1000 / 1200 | 3 / 100 | 229,624 | 2.19966243 | +3.8e-04 |
+| lateral_3000_pml_1500_3 | 3000 | 1500 / 3 | 1000 / 1200 | 3 / 100 | 293,064 | 2.19890469 | +3.6e-05 |
+| lateral_3000_pml_1000_4 | 3000 | 1000 / 4 | 1000 / 1200 | 3 / 100 | 229,624 | 2.19995920 | +5.2e-04 |
+| lateral_3000_pml_2000_3 | 3000 | 2000 / 3 | 1000 / 1200 | 3 / 100 | 363,704 | 2.19879897 | -1.2e-05 |
+| lateral_3000_pml_2000_4 | 3000 | 2000 / 4 | 1000 / 1200 | 3 / 100 | 363,704 | 2.19884572 | +9.0e-06 |
+| lateral_3000_pml_3000_4 | 3000 | 3000 / 4 | 1000 / 1200 | 3 / 100 | 526,584 | 2.19880155 | -1.1e-05 |
+| lateral_2000_pml_2000_4 | 2000 | 2000 / 4 | 1000 / 1200 | 3 / 100 | 306,024 | 2.19883365 | +3.5e-06 |
+| lateral_4000_pml_2000_4 | 4000 | 2000 / 4 | 1000 / 1200 | 3 / 100 | 421,384 | 2.19887287 | +2.1e-05 |
+| vertical_600_1200 | 3000 | 2000 / 4 | 600 / 1200 | 3 / 100 | 345,544 | 2.19896605 | +6.4e-05 |
+| vertical_1000_1200 | 3000 | 2000 / 4 | 1000 / 1200 | 3 / 100 | 363,704 | 2.19884572 | +9.0e-06 |
+| vertical_1400_1200 | 3000 | 2000 / 4 | 1400 / 1200 | 3 / 100 | 381,864 | 2.19879809 | -1.3e-05 |
+| vertical_1000_1600 | 3000 | 2000 / 4 | 1000 / 1600 | 3 / 100 | 381,864 | 2.19884572 | +9.0e-06 |
+| grading_0_100 | 3000 | 2000 / 4 | 1000 / 1200 | 0 / 100 | 228,320 | 2.19962621 | +3.6e-04 |
+| grading_2_100 | 3000 | 2000 / 4 | 1000 / 1200 | 2 / 100 | 315,120 | 2.19881672 | -4.2e-06 |
+| grading_3_100 | 3000 | 2000 / 4 | 1000 / 1200 | 3 / 100 | 363,704 | 2.19884572 | +9.0e-06 |
+| grading_4_100 | 3000 | 2000 / 4 | 1000 / 1200 | 4 / 100 | 415,744 | 2.19885695 | +1.4e-05 |
+| grading_3_50 | 3000 | 2000 / 4 | 1000 / 1200 | 3 / 50 | 1,146,552 | 2.19885683 | +1.4e-05 |
+
+**Assessment.** With the layered background the slit–groove problem converges in $p$ to $S/S_0 = 2.198857$ for $\varepsilon_\text{sub} = 2.25$ and $2.200986$ for $2.1025$; from $p = 4$ on the discretisation changes the result by less than $10^{-5}$ and the finest mesh (spacing 50 nm, $1.1\cdot 10^6$ unknowns) agrees with the default one to $5\cdot 10^{-6}$. Against Burger et al. the converged value lies $1.4\cdot 10^{-5}$ high, against the mean of the two best methods of Besbes et al. $1.8\cdot 10^{-5}$ high; the CI tolerances ($10^{-4}$ and $2\cdot 10^{-4}$) hold with a wide margin at $p = 4$ in about 35 s for the four solves. The $10^{-6}$ target of the long run against Burger is **not** reached: the remaining $10^{-5}$ is the truncation of the surface plasmons on the silver, as the domain study shows (lateral extent 2–4 µm, PML 2–3 µm and 1–1.4 µm of air above the film each move the result by $1$–$2\cdot 10^{-5}$, the mesh does not). A thinner PML or less air above the film costs an order of magnitude (the 1 µm PML of order 3 that the other benchmarks use leaves $4\cdot 10^{-4}$). Burger et al. reach $10^{-9}$ with adaptive PML / pole condition techniques that this code does not have; closing the last $10^{-5}$ needs a plasmon-aware termination, not more unknowns. The hypothesis about the two sources is confirmed: our two substrates give the ratio $2.200986 / 2.198857 = 1.000968$, the published values $2.200946 / 2.198826 = 1.000964$, so the 0.1 % difference between Besbes et al. and Burger et al. is the substrate permittivity to within $4\cdot 10^{-6}$. No parameter was adjusted.
