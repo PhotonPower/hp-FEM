@@ -57,6 +57,34 @@ absorbed power, `total_power(q)` integrates source coefficients. Convective (Rob
 and temperature-dependent material data follow with the feedback loop of the next
 roadmap item.
 
+## Feedback: temperature-dependent permittivity
+
+With a thermo-optic coefficient the loop closes: the permittivity of a material follows its
+temperature, $\varepsilon_r(T) = \varepsilon_r(T_0) + \frac{d\varepsilon_r}{dT}(T - T_0)$ with a
+complex coefficient per tag (the imaginary part changes the absorption, the real part the
+resonance position), and the optical problem has to be solved again. `physics::ThermoOptical`
+runs the fixed-point iteration
+
+$$
+\mathbf{E}^{(n)} = \text{Scattering}\big(\varepsilon_r(T^{(n-1)})\big), \qquad
+T^{(n)} = (1 - r)\,T^{(n-1)} + r\,\text{Thermal}\big(q(\mathbf{E}^{(n)})\big),
+$$
+
+starting from $T^{(0)} = T_0$, until $\max|T^{(n)} - T^{(n-1)}|$ falls below a tolerance;
+the permittivity is evaluated at the cell centroid and stored as a per-cell override of the
+`MaterialMap` (`set_cell`), so every downstream quantity — forms, absorbed power, load —
+sees the heated material. The relaxation $r \in (0, 1]$ damps the iteration when the
+coupling is strong (absorption that grows with temperature can run away physically, too);
+without any thermo-optic coefficient the first pass is the answer. The state returned
+carries the final solution, temperature, materials, absorbed power and the history of the
+temperature changes.
+
+**Verification** (`tests/unit/physics/test_thermo_optical.cpp`): without a coefficient the
+loop reproduces `Scattering` + `Thermal` in one pass; with one, the fixed point is
+self-consistent (the permittivities of the final temperature reproduce the final temperature
+to $10^{-5}$ K), the temperature shift scales linearly with a small coefficient (ratio 2
+for twice the coefficient, within 10 %), and under-relaxation reaches the same fixed point.
+
 A thermal problem on the optical mesh is usually over-resolved in the metal and
 under-resolved far away — the optical PML region has no thermal meaning and is simply part
 of the conducting domain (the heat sink is wherever the fixed temperature is set).

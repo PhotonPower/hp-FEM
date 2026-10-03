@@ -89,6 +89,11 @@ void bind_materials(py::module_& m) {
       .def(py::init<Material>(), py::arg("background") = Material::vacuum())
       .def("set", &MaterialMap::set, py::arg("tag"), py::arg("material"),
            py::return_value_policy::reference_internal, "returns self for chaining")
+      .def("set_cell", &MaterialMap::set_cell, py::arg("cell"), py::arg("material"),
+           py::return_value_policy::reference_internal,
+           "overrides the material of one cell (takes precedence over its tag)")
+      .def("clear_cells", &MaterialMap::clear_cells)
+      .def_property_readonly("num_cell_overrides", &MaterialMap::num_cell_overrides)
       .def_property_readonly("background", &MaterialMap::background)
       .def("has", &MaterialMap::has, py::arg("tag"))
       .def("at", &MaterialMap::at, py::arg("tag"), "material of a tag, the background if unlisted")

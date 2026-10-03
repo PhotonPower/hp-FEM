@@ -28,7 +28,8 @@ struct Material {
 };
 
 /// Materials by cell tag; cells whose tag is not listed (including untagged cells) get the
-/// background material.
+/// background material. Individual cells may override their tag's material (`set_cell`),
+/// e.g. for a temperature-dependent permittivity that varies from cell to cell.
 class MaterialMap {
  public:
   explicit MaterialMap(Material background = Material::vacuum()) : background_(background) {}
@@ -39,15 +40,28 @@ class MaterialMap {
   [[nodiscard]] bool has(mesh::Tag tag) const { return materials_.contains(tag); }
   /// Material of a tag, the background if unlisted.
   [[nodiscard]] const Material& at(mesh::Tag tag) const;
-  /// Material of cell c of a mesh.
+  /// Overrides the material of one cell (takes precedence over the tag).
+  /// @throws InvalidArgument for a negative cell index.
+  MaterialMap& set_cell(Index cell, Material material);
+  /// Removes all per-cell overrides.
+  void clear_cells() { cells_.clear(); }
+  [[nodiscard]] Index num_cell_overrides() const noexcept {
+    return static_cast<Index>(cells_.size());
+  }
+  /// Material of cell c of a mesh: the cell's override if set, otherwise its tag's.
   template <int Dim>
   [[nodiscard]] const Material& of_cell(const mesh::Mesh<Dim>& mesh, Index c) const {
+    if (!cells_.empty()) {
+      const auto it = cells_.find(c);
+      if (it != cells_.end()) return it->second;
+    }
     return at(mesh.cell_tag(c));
   }
 
  private:
   Material background_;
   std::map<mesh::Tag, Material> materials_;
+  std::map<Index, Material> cells_;
 };
 
 }  // namespace hpfem::materials
