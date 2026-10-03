@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "hpfem"
-version = "0.1.0"
+version = "0.2.0"
 description = "Adaptive hp-FEM suite for nano-optics (time-harmonic Maxwell)"
 readme = "README.md"
 license = { file = "LICENSE" }

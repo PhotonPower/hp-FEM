@@ -2,6 +2,18 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+
+## [0.2.0] — 2026-10-03
+Second release: everything from the Nédélec elements to the multiphysics step —
+milestones M3 to M9 of `docs/roadmap.md`. Highlights: hierarchical Nédélec spaces with the
+gauged Maxwell eigensolver, time-harmonic scattering with PML, Bloch periodicity and curved
+elements, waveguide modes, residual and goal-oriented error estimation with hp-adaptivity
+(exponential convergence on the L-shape and the plasmonic wedge), MUMPS, static
+condensation, OpenMP and parameter sweeps, the complete Python API (`hpfem` with units,
+material library, project files and command line, meshio / pyvista / matplotlib interop,
+notebooks), the resonance solver for quasi-normal modes, ten application examples and the
+optical–thermal coupling with carrier-generation export. Convergence tests #1–#7 of
+CLAUDE.md §8 plus the Fabry–Pérot resonance and heat-conduction tests are part of the CI.
 ### Added
 - `examples/ring_resonator/run.py` (M8): ring resonator in the 2D effective-index model —
   resonance wavelengths and Q from `Resonance2D` on the ring-plus-bus structure, bus
@@ -84,19 +96,6 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   by cell in the Python test suite. M7 complete.
 - `hpfem::parallel_for` rethrows an exception of a loop body on the calling thread (the
   remaining indices are skipped) instead of terminating the process.
-
-### Fixed
-- `solvers::gauged_curl_curl_eigenpairs` and `generalized_eigenpairs_near` scale the pencil
-  to O(1) matrices internally: on SI meshes (mass entries ~ 1e-14, eigenvalues ~ 1e13)
-  Spectra's absolute thresholds made the Lanczos iteration stop early with non-converged,
-  run-to-run varying eigenvalues. Unit test: eigenvalues of the 1 µm box equal those of
-  the unit box times 1e12 and are reproducible.
-- MinGW builds link the GCC runtime (libstdc++, libgcc, winpthread) statically
-  (`HPFEM_STATIC_RUNTIME`, default ON), so test executables no longer crash with
-  `STATUS_ENTRYPOINT_NOT_FOUND` when an older `libstdc++-6.dll` (Git for Windows) is
-  first on `PATH`.
-
-### Added
 - `mesh::SimplexTopology<Dim>`: binding local numbering of the reference triangle and
   tetrahedron (vertices, edges, faces, face-edge table, face permutation codes).
 - `mesh::Mesh<Dim>` (2D/3D): vertices and cells with derived, lexicographically numbered
@@ -289,6 +288,17 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `recover(x, load)`, `Constraints::reduce_rhs`, `assemble_maxwell_load`;
   `solvers::ReducedBasis` (orthonormal snapshot basis, Galerkin projections, lift) for
   affine frequency sweeps. M6 complete apart from the optional MPI item.
+
+### Fixed
+- `solvers::gauged_curl_curl_eigenpairs` and `generalized_eigenpairs_near` scale the pencil
+  to O(1) matrices internally: on SI meshes (mass entries ~ 1e-14, eigenvalues ~ 1e13)
+  Spectra's absolute thresholds made the Lanczos iteration stop early with non-converged,
+  run-to-run varying eigenvalues. Unit test: eigenvalues of the 1 µm box equal those of
+  the unit box times 1e12 and are reproducible.
+- MinGW builds link the GCC runtime (libstdc++, libgcc, winpthread) statically
+  (`HPFEM_STATIC_RUNTIME`, default ON), so test executables no longer crash with
+  `STATUS_ENTRYPOINT_NOT_FOUND` when an older `libstdc++-6.dll` (Git for Windows) is
+  first on `PATH`.
 
 ## [0.1.0] — 2026-10-02
 ### Added
