@@ -97,6 +97,8 @@ class TimeDomain {
   [[nodiscard]] const SparseMatrix& damping() const noexcept { return c_; }
 
  private:
+  /// One Newmark step on the reduced (free-DoF) vectors; `time` is advanced by dt.
+  void step_reduced(Vector& u, Vector& v, Vector& a, Real& time) const;
   [[nodiscard]] Vector restrict(const Vector& full) const;
   [[nodiscard]] Vector expand(const Vector& reduced) const;
 

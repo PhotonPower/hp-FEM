@@ -273,22 +273,29 @@ TimeState<Dim> TimeDomain<Dim>::initialize(Real t0) const {
 }
 
 template <int Dim>
-void TimeDomain<Dim>::step(TimeState<Dim>& state) const {
+void TimeDomain<Dim>::step_reduced(Vector& u, Vector& v, Vector& a, Real& time) const {
   const Real dt = setup_.dt;
   const Real beta = setup_.beta;
   const Real gamma = setup_.gamma;
-  const Vector u = restrict(state.u);
-  const Vector v = restrict(state.v);
-  const Vector a = restrict(state.a);
   const Vector u_pred = u + dt * v + (dt * dt * (0.5 - beta)) * a;
   const Vector v_pred = v + (dt * (1.0 - gamma)) * a;
-  const Real t_new = state.time + dt;
+  const Real t_new = time + dt;
   const Vector rhs = load(t_new) - c_ * v_pred - s_ * u_pred;
-  const Vector a_new = newmark_->solve(rhs);
-  state.u = expand(Vector(u_pred + (beta * dt * dt) * a_new));
-  state.v = expand(Vector(v_pred + (gamma * dt) * a_new));
-  state.a = expand(a_new);
-  state.time = t_new;
+  a = newmark_->solve(rhs);
+  u = u_pred + (beta * dt * dt) * a;
+  v = v_pred + (gamma * dt) * a;
+  time = t_new;
+}
+
+template <int Dim>
+void TimeDomain<Dim>::step(TimeState<Dim>& state) const {
+  Vector u = restrict(state.u);
+  Vector v = restrict(state.v);
+  Vector a = restrict(state.a);
+  step_reduced(u, v, a, state.time);
+  state.u = expand(u);
+  state.v = expand(v);
+  state.a = expand(a);
   ++state.step;
 }
 
@@ -296,9 +303,25 @@ template <int Dim>
 void TimeDomain<Dim>::run(TimeState<Dim>& state, int steps,
                           const std::function<void(const TimeState<Dim>&)>& observer) const {
   if (steps < 0) throw InvalidArgument("TimeDomain::run: the number of steps must not be negative");
+  // the loop works on the reduced vectors; the full state is only rebuilt for the observer
+  // and at the end
+  Vector u = restrict(state.u);
+  Vector v = restrict(state.v);
+  Vector a = restrict(state.a);
   for (int i = 0; i < steps; ++i) {
-    step(state);
-    if (observer) observer(state);
+    step_reduced(u, v, a, state.time);
+    ++state.step;
+    if (observer) {
+      state.u = expand(u);
+      state.v = expand(v);
+      state.a = expand(a);
+      observer(state);
+    }
+  }
+  if (!observer) {
+    state.u = expand(u);
+    state.v = expand(v);
+    state.a = expand(a);
   }
   log().debug("TimeDomain<{}>: {} steps to t = {:.3e} s, energy {:.3e} J", Dim, steps, state.time,
               energy(state));

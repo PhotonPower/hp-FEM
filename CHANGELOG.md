@@ -3,6 +3,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `physics::TimeDomain::run` works on the reduced (free-DoF) vectors and rebuilds the full
+  state only for the observer and at the end (`step_reduced`); 164 k DoF, p = 2 on the CPU:
+  54 → 44 ms per step. The reduced step is the hook for the GPU time stepper.
 - GPU backend for hp-adaptive systems: the GPU library equilibrates the matrix diagonally
   (`D (sA) D`, `d_i = 1/√|a_ii|`) before the cuDSS factorisation, which removes the
   perturbed pivots of systems with hanging nodes and high orders entirely (0 in every step
