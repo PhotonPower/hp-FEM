@@ -65,7 +65,8 @@ hpfem_add_test(test_physics unit
   physics/test_sweep.cpp
   physics/test_resonance.cpp
   physics/test_thermal.cpp
-  physics/test_thermo_optical.cpp)
+  physics/test_thermo_optical.cpp
+  physics/test_band_structure.cpp)
 
 hpfem_add_test(test_hanging unit
   assembly/test_interpolation.cpp
@@ -77,6 +78,7 @@ hpfem_add_test(test_adaptivity unit
   adaptivity/test_marking.cpp
   adaptivity/test_refinement.cpp
   adaptivity/test_smoothness.cpp
+  adaptivity/test_hypercircle.cpp
   adaptivity/test_prediction.cpp)
 
 hpfem_add_test(test_solvers unit

@@ -3,6 +3,12 @@
 #include <complex>
 #include <vector>
 
+#if defined(__GNUC__) && !defined(__clang__)
+// GCC reports a potential null dereference inside Eigen's dense storage (false positive,
+// as in complex_eigen_solver.cpp)
+#pragma GCC diagnostic ignored "-Wnull-dereference"
+#endif
+
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 #include <catch2/catch_approx.hpp>
@@ -104,4 +110,55 @@ TEST_CASE("complex_eigenpairs_near rejects bad input", "[solvers][eigen][complex
   tiny.tolerance = 1e-300;  // cannot be met: non-convergence is reported
   REQUIRE_THROWS_AS(complex_eigenpairs_near(a, b, Complex{1.5, 0.0}, tiny), hpfem::Error);
   (void)reference;
+}
+
+TEST_CASE("complex_eigenpairs_near_gauged skips the kernel spanned by the gradient",
+          "[solvers][eigen][complex][gauge]") {
+  // A = C^H C with a four-dimensional kernel range(G), B Hermitian positive definite: the
+  // pencil has four eigenvalues at zero; the gauged solver must return the smallest
+  // non-zero ones (dense reference) although the shift is closest to zero
+  const Index n = 24;
+  const Index kernel = 4;
+  Matrix random(n, n);
+  for (Index i = 0; i < n; ++i) {
+    for (Index j = 0; j < n; ++j) {
+      random(i, j) = Complex(std::sin(1.3 * static_cast<Real>(i * n + j)),
+                             std::cos(0.7 * static_cast<Real>(i + 2 * j)));
+    }
+  }
+  const Matrix q = Eigen::HouseholderQR<Matrix>(random).householderQ();
+  const Matrix g_dense = q.leftCols(kernel) * (Matrix::Identity(kernel, kernel) +
+                                               0.3 * random.topLeftCorner(kernel, kernel));
+  Vector weights(n - kernel);
+  for (Index i = 0; i < n - kernel; ++i) weights(i) = 1.0 + 0.5 * static_cast<Real>(i);
+  const Matrix a_dense =
+      q.rightCols(n - kernel) * weights.asDiagonal() * q.rightCols(n - kernel).adjoint();
+  Matrix b_dense = Matrix::Identity(n, n);
+  for (Index i = 0; i < n; ++i) b_dense(i, i) = 1.0 + 0.1 * static_cast<Real>(i % 3);
+  const SparseMatrix a = a_dense.sparseView();
+  const SparseMatrix b = b_dense.sparseView();
+  const SparseMatrix g = g_dense.sparseView();
+  const Complex sigma{-0.2, 0.0};
+  std::vector<Complex> reference = dense_near(a, b, sigma);
+  std::erase_if(reference, [](Complex v) { return std::abs(v) < 1e-8; });
+  REQUIRE(reference.size() == static_cast<std::size_t>(n - kernel));
+  EigenOptions options;
+  options.num_eigenvalues = 5;
+  options.krylov_dimension = 16;
+  const auto result = hpfem::solvers::complex_eigenpairs_near_gauged(a, b, g, sigma, options);
+  REQUIRE(result.num_converged == 5);
+  for (Index i = 0; i < 5; ++i) {
+    REQUIRE(std::abs(result.eigenvalues(i)) > 0.1);
+    REQUIRE(std::abs(result.eigenvalues(i) - reference[static_cast<std::size_t>(i)]) < 1e-8);
+    // the eigenvector is B-orthogonal to the kernel and satisfies the pencil
+    const Vector x = result.eigenvectors.col(i);
+    REQUIRE((g_dense.adjoint() * (b_dense * x)).norm() < 1e-8);
+    REQUIRE((a_dense * x - result.eigenvalues(i) * (b_dense * x)).norm() < 1e-8);
+  }
+  // the ungauged solver finds the kernel first
+  const auto plain = complex_eigenpairs_near(a, b, sigma, options);
+  REQUIRE(std::abs(plain.eigenvalues(0)) < 1e-8);
+  REQUIRE_THROWS_AS(
+      hpfem::solvers::complex_eigenpairs_near_gauged(a, b, SparseMatrix(n - 1, 2), sigma, options),
+      hpfem::InvalidArgument);
 }

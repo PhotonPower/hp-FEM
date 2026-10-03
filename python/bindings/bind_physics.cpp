@@ -6,6 +6,7 @@
 
 #include "common.hpp"
 #include "hpfem/adaptivity/residual_estimator.hpp"
+#include "hpfem/physics/band_structure.hpp"
 #include "hpfem/physics/propagating_mode.hpp"
 #include "hpfem/physics/resonance.hpp"
 #include "hpfem/physics/scattering.hpp"
@@ -307,6 +308,45 @@ void bind_physics_dim(py::module_& m) {
       },
       py::arg("problem"), py::arg("wave_vectors"), py::arg("polarisation"), Release(),
       "Angle sweep: plane waves of the given wave vectors with polarisation(k)");
+  using physics::Bands;
+  using physics::BandStructure;
+  using physics::BandStructureSetup;
+  py::class_<BandStructureSetup<Dim>>(
+      m, named("BandStructureSetup", Dim).c_str(),
+      "Floquet-Bloch band-structure problem: lossless materials by tag, the lattice as one "
+      "PeriodicPair per lattice vector (phases are set per wave vector), optional PEC walls, "
+      "the number of bands and the shift-invert shift in units of (2 pi / a)^2")
+      .def(py::init<>())
+      .def_readwrite("materials", &BandStructureSetup<Dim>::materials)
+      .def_readwrite("lattice", &BandStructureSetup<Dim>::lattice)
+      .def_readwrite("pec_tags", &BandStructureSetup<Dim>::pec_tags)
+      .def_readwrite("num_bands", &BandStructureSetup<Dim>::num_bands)
+      .def_readwrite("shift", &BandStructureSetup<Dim>::shift)
+      .def_readwrite("krylov_dimension", &BandStructureSetup<Dim>::krylov_dimension)
+      .def_readwrite("tolerance", &BandStructureSetup<Dim>::tolerance)
+      .def_readwrite("max_iterations", &BandStructureSetup<Dim>::max_iterations)
+      .def_readwrite("solver", &BandStructureSetup<Dim>::solver)
+      .def_readwrite("extra_quadrature_order", &BandStructureSetup<Dim>::extra_quadrature_order);
+  py::class_<Bands<Dim>>(m, named("Bands", Dim).c_str(),
+                         "The bands at one Bloch wave vector: wavenumbers k0 ascending [1/m]")
+      .def_readonly("wave_vector", &Bands<Dim>::wave_vector)
+      .def_readonly("wavenumber", &Bands<Dim>::wavenumber)
+      .def_readonly("residual", &Bands<Dim>::residual)
+      .def("normalised", &Bands<Dim>::normalised, py::arg("lattice_constant"),
+           "omega a / (2 pi c0) = k0 a / (2 pi)");
+  py::class_<BandStructure<Dim>>(
+      m, named("BandStructure", Dim).c_str(),
+      "Assembles the lossless pencil once and solves the Bloch eigenproblem per wave vector "
+      "with the gradient kernel projected out (no spurious modes)")
+      .def(py::init<const ND&, const H1&, BandStructureSetup<Dim>>(), py::arg("dofs"),
+           py::arg("h1"), py::arg("setup"), py::keep_alive<1, 2>(), py::keep_alive<1, 3>())
+      .def_property_readonly("setup", &BandStructure<Dim>::setup,
+                             py::return_value_policy::reference_internal)
+      .def_property_readonly("lattice_constant", &BandStructure<Dim>::lattice_constant)
+      .def("bands", &BandStructure<Dim>::bands, py::arg("wave_vector"), Release(),
+           "bands at the Bloch wave vector k [1/m]")
+      .def("path", &BandStructure<Dim>::path, py::arg("corners"), py::arg("segments"), Release(),
+           "bands along the polyline of wave vectors, corners included");
 }
 
 }  // namespace

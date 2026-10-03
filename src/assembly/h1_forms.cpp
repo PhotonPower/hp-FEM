@@ -21,6 +21,8 @@ ElementContribution element_h1(const fespace::H1Basis<Dim>& basis,
   std::vector<Point<Dim>> ref_gradients(as_size(n));
   Eigen::Matrix<Real, Dim, Eigen::Dynamic> gradients(Dim, n);
   const bool has_diffusion = static_cast<bool>(form.diffusion);
+  const bool has_tensor = static_cast<bool>(form.diffusion_tensor);
+  const bool has_gradient_source = static_cast<bool>(form.gradient_source);
   const bool has_reaction = static_cast<bool>(form.reaction);
   const bool has_source = static_cast<bool>(form.source);
   const bool has_reference_source = static_cast<bool>(form.source_reference);
@@ -30,11 +32,22 @@ ElementContribution element_h1(const fespace::H1Basis<Dim>& basis,
     const Real dx = rule.weights[q] * std::abs(g.det);
     basis.evaluate(rule.points[q], values, ref_gradients);
     const Eigen::Map<const Eigen::VectorXd> phi(values.data(), n);
-    if (has_diffusion) {
+    if (has_diffusion || has_tensor || has_gradient_source) {
       for (Index i = 0; i < n; ++i)
         gradients.col(i) = g.inverse_transpose * ref_gradients[as_size(i)];
+    }
+    if (has_diffusion) {
       const Complex alpha = form.diffusion(g.x) * dx;
       out.matrix += alpha * (gradients.transpose() * gradients).template cast<Complex>();
+    }
+    if (has_tensor) {
+      const Eigen::Matrix<Complex, Dim, Dim> a = form.diffusion_tensor(g.x) * dx;
+      out.matrix +=
+          gradients.transpose().template cast<Complex>() * a * gradients.template cast<Complex>();
+    }
+    if (has_gradient_source) {
+      const Eigen::Matrix<Complex, Dim, 1> gs = form.gradient_source(g.x) * dx;
+      out.vector += gradients.transpose().template cast<Complex>() * gs;
     }
     if (has_reaction) {
       const Complex beta = form.reaction(g.x) * dx;

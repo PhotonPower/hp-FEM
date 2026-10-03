@@ -135,3 +135,38 @@ TEST_CASE("assembled matrix is complex symmetric and the mass form integrates co
   const Vector mass_residual = mu - Complex{1.0, 0.5} * system.rhs;
   REQUIRE(mass_residual.norm() < 1e-12);
 }
+
+#include "hpfem/assembly/interpolation.hpp"
+#include "hpfem/mesh/generators.hpp"
+
+TEST_CASE("scalar form: tensor diffusion equals the scalar one, gradient source is (g, grad v)",
+          "[assembly][h1]") {
+  using hpfem::Complex;
+  using hpfem::Point;
+  using hpfem::Vector;
+  using hpfem::assembly::assemble_h1;
+  using hpfem::assembly::ScalarForm;
+  const hpfem::mesh::Mesh<2> m = hpfem::mesh::rectangle(3, 3);
+  const hpfem::fespace::DofMap<2> dofs(m, 2);
+  const Complex alpha{2.0, 0.5};
+  ScalarForm<2> scalar;
+  scalar.diffusion = [alpha](const Point<2>&) { return alpha; };
+  ScalarForm<2> tensor;
+  tensor.diffusion_tensor = [alpha](const Point<2>&) {
+    return Eigen::Matrix<Complex, 2, 2>(alpha * Eigen::Matrix<Complex, 2, 2>::Identity());
+  };
+  const auto a = assemble_h1(dofs, scalar);
+  const auto b = assemble_h1(dofs, tensor);
+  REQUIRE((a.matrix - b.matrix).norm() < 1e-12 * a.matrix.norm());
+  // (g, grad v) with g = (1, 0) = grad x equals K u for the interpolant u of x (unit diffusion)
+  ScalarForm<2> source;
+  source.diffusion = [](const Point<2>&) { return Complex{1.0, 0.0}; };
+  source.gradient_source = [](const Point<2>&) {
+    return Eigen::Matrix<Complex, 2, 1>(Complex{1.0, 0.0}, Complex{0.0, 0.0});
+  };
+  const auto c = assemble_h1(dofs, source);
+  const Vector u = hpfem::assembly::interpolate<2>(
+      dofs, hpfem::assembly::physical_sampler<2>([](const Point<2>& x) { return Complex(x(0)); }));
+  REQUIRE(c.rhs.norm() > 0.1);
+  REQUIRE((c.rhs - c.matrix * u).norm() < 1e-12 * c.rhs.norm());
+}

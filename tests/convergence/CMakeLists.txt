@@ -32,6 +32,12 @@ hpfem_add_test(convergence_fabry_perot_resonance convergence
 hpfem_add_test(convergence_heat_conduction convergence
   heat_conduction.cpp)
 
+hpfem_add_test(convergence_empty_lattice_bands convergence
+  empty_lattice_bands.cpp)
+
+hpfem_add_test(convergence_hypercircle_bound convergence
+  hypercircle_bound.cpp)
+
 hpfem_add_test(convergence_estimator_effectivity convergence
   estimator_effectivity.cpp)
 

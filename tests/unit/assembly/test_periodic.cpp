@@ -178,3 +178,35 @@ TEST_CASE("Scattering with Bloch-periodic sides reproduces a plane wave on a ren
     REQUIRE(std::abs(solution.unknown(i) - expected) < 1e-12);
   }
 }
+
+TEST_CASE("bloch_constraints on the H1 space: the interpolant of a Bloch function obeys them",
+          "[assembly][periodic][h1]") {
+  const Mesh<2> mesh = rectangle(3, 2);
+  const hpfem::fespace::DofMap<2> h1(mesh, 3);
+  const Point<2> k(0.8, -0.4);
+  const std::vector<PeriodicPair<2>> pairs{
+      PeriodicPair<2>{box_tag::kXMin, box_tag::kXMax, Point<2>(1.0, 0.0),
+                      bloch_phase<2>(k, Point<2>(1.0, 0.0))},
+      PeriodicPair<2>{box_tag::kYMin, box_tag::kYMax, Point<2>(0.0, 1.0),
+                      bloch_phase<2>(k, Point<2>(0.0, 1.0))}};
+  const auto constraints = bloch_constraints<2>(h1, pairs);
+  // every slave DoF on x_max / y_max is constrained, interior and master DoFs are free
+  REQUIRE(constraints.num_constrained() ==
+          static_cast<hpfem::Index>(h1.dofs_on_tag(box_tag::kXMax).size() +
+                                    h1.dofs_on_tag(box_tag::kYMax).size() - 1));
+  // u(x) = (1 + 0.5 cos(2 pi x) sin(2 pi y)) exp(i k.x) is Bloch-periodic: its interpolant
+  // satisfies the constraints exactly (same hierarchical projections on both sides)
+  const hpfem::Vector u = hpfem::assembly::interpolate<2>(
+      h1, hpfem::assembly::physical_sampler<2>([k](const Point<2>& x) {
+        const hpfem::Real periodic = 1.0 + 0.5 * std::cos(2 * std::numbers::pi * x(0)) *
+                                               std::sin(2 * std::numbers::pi * x(1));
+        return periodic * std::exp(hpfem::kI * k.dot(x));
+      }));
+  for (hpfem::Index dof = 0; dof < h1.num_dofs(); ++dof) {
+    if (!constraints.is_constrained(dof)) continue;
+    hpfem::Complex combination = 0;
+    for (const auto& term : constraints.terms(dof))
+      combination += term.coefficient * u(term.master);
+    REQUIRE(std::abs(combination - u(dof)) < 1e-10 * u.norm());
+  }
+}
