@@ -46,6 +46,7 @@ add_library(hpfem
   solvers/reduced_basis.cpp
   physics/sweep.cpp
   physics/resonance.cpp
+  physics/thermal.cpp
   $<$<BOOL:${HPFEM_ENABLE_MUMPS}>:solvers/mumps_solver.cpp>
   adaptivity/residual_estimator.cpp
   adaptivity/marking.cpp

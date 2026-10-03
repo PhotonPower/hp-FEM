@@ -11,6 +11,7 @@
 #include "hpfem/physics/scattering.hpp"
 #include "hpfem/physics/sources.hpp"
 #include "hpfem/physics/sweep.hpp"
+#include "hpfem/physics/thermal.hpp"
 
 namespace hpfem::python {
 
@@ -211,6 +212,47 @@ void bind_physics_dim(py::module_& m) {
       .def("form_of_cell", &Resonance<Dim>::form_of_cell, py::arg("cell"))
       .def("solve", &Resonance<Dim>::solve, Release(),
            "modes ordered by the distance of omega to the target");
+  using physics::Thermal;
+  using H1 = fespace::DofMap<Dim>;
+  m.def(
+      "absorbed_power_density",
+      [](const ND& dofs, const Vector& e, Real omega, const materials::MaterialMap& materials,
+         const H1& h1) {
+        return physics::absorbed_power_density<Dim>(dofs, e, omega, materials, h1);
+      },
+      py::arg("dofs"), py::arg("e"), py::arg("omega"), py::arg("materials"), py::arg("h1"),
+      Release(),
+      "Absorbed power density omega eps0 / 2 Im(eps_r) |E|^2 [W/m^3] as the H1 interpolant on "
+      "the same mesh (for export; jumps at interfaces are smeared over a cell)");
+  m.def(
+      "absorbed_power_load",
+      [](const ND& dofs, const Vector& e, Real omega, const materials::MaterialMap& materials,
+         const H1& h1, int extra_order) {
+        return physics::absorbed_power_load<Dim>(dofs, e, omega, materials, h1, extra_order);
+      },
+      py::arg("dofs"), py::arg("e"), py::arg("omega"), py::arg("materials"), py::arg("h1"),
+      py::arg("extra_order") = 2, Release(),
+      "Load vector of the absorbed power on the H1 map (cell-wise exact), the right-hand "
+      "side of Thermal.solve_load");
+  py::class_<Thermal<Dim>>(m, named("Thermal", Dim).c_str(),
+                           "Steady heat conduction -div(kappa grad T) = q on an H1 space with "
+                           "conductivities by cell tag, fixed temperatures on tagged facets "
+                           "and adiabatic walls elsewhere")
+      .def(py::init<const H1&, physics::ThermalSetup>(), py::arg("dofs"), py::arg("setup"),
+           py::keep_alive<1, 2>())
+      .def_property_readonly("dofs", &Thermal<Dim>::dofs,
+                             py::return_value_policy::reference_internal)
+      .def_property_readonly("setup", &Thermal<Dim>::setup,
+                             py::return_value_policy::reference_internal)
+      .def("conductivity", &Thermal<Dim>::conductivity, py::arg("cell"))
+      .def("stiffness", &Thermal<Dim>::stiffness, Release())
+      .def("mass", &Thermal<Dim>::mass, Release())
+      .def("solve", &Thermal<Dim>::solve, py::arg("q"), Release(),
+           "temperature for source coefficients q on the map (K T = M q)")
+      .def("solve_load", &Thermal<Dim>::solve_load, py::arg("load"), Release(),
+           "temperature for an assembled load, e.g. absorbed_power_load")
+      .def("total_power", &Thermal<Dim>::total_power, py::arg("q"), Release(),
+           "integral of source coefficients q [W] (3D) or [W/m] (2D)");
   m.def(
       "solve_many",
       [](const Scattering<Dim>& problem, const std::vector<IncidentField<Dim>>& incidents) {
@@ -237,6 +279,16 @@ void bind_physics(py::module_& m) {
       .value("SCATTERED_FIELD", physics::Formulation::kScatteredField,
              "unknown E - E_inc; the incident field enters as a volume source");
   m.def("vacuum_wavenumber", &physics::vacuum_wavenumber, py::arg("omega"), "k0 = omega / c0");
+  py::class_<physics::ThermalSetup>(m, "ThermalSetup",
+                                    "Heat-conduction problem: conductivities kappa [W/(m K)] by "
+                                    "cell tag and for the background, fixed temperatures [K] "
+                                    "as (facet tag, T) pairs, solver backend")
+      .def(py::init<>())
+      .def_readwrite("background_conductivity", &physics::ThermalSetup::background_conductivity)
+      .def_readwrite("conductivity", &physics::ThermalSetup::conductivity)
+      .def_readwrite("fixed_temperature", &physics::ThermalSetup::fixed_temperature)
+      .def_readwrite("solver", &physics::ThermalSetup::solver)
+      .def_readwrite("extra_quadrature_order", &physics::ThermalSetup::extra_quadrature_order);
   py::class_<physics::ResonantMode>(m, "ResonantMode",
                                     "Complex angular frequency (Im < 0: decaying), vacuum "
                                     "wavelength of the real part, quality factor "

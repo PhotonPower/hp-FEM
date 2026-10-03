@@ -27,12 +27,19 @@ using ScalarField = std::function<Complex(const Point<Dim>&)>;
 template <int Dim>
 using VectorField = std::function<Eigen::Matrix<Complex, Dim, 1>(const Point<Dim>&)>;
 
+/// Source sampled at reference point ξ of the cell being assembled (physical point x):
+/// for sources given per cell, e.g. a discrete field of another space.
+template <int Dim>
+using ReferenceScalarField = std::function<Complex(const Point<Dim>& xi, const Point<Dim>& x)>;
+
 /// Coefficients of the scalar form; an empty function means zero.
 template <int Dim>
 struct ScalarForm {
   ScalarField<Dim> diffusion;  ///< α(x) [problem units]
   ScalarField<Dim> reaction;   ///< β(x)
   ScalarField<Dim> source;     ///< f(x)
+  /// Additional source f(ξ, x) in reference coordinates of the cell (per-cell forms).
+  ReferenceScalarField<Dim> source_reference;
 };
 
 /// Element matrix and load vector of one cell in `H1Basis` function order.

@@ -131,7 +131,11 @@ holds. Estimated effort is in rough "focused sessions".
       at the eigenmode resonance)
 
 ## M9 — Multiphysics (≈ 8)
-- [ ] absorbed-power density → heat-conduction solve on the same mesh (H1)
+- [x] absorbed-power density → heat-conduction solve on the same mesh (H1) —
+      `physics::absorbed_power_load` / `absorbed_power_density`, `physics::Thermal`
+      (κ by tag, fixed temperatures, hanging nodes), convergence test `heat_conduction`
+      (damped wave in a lossy slab against the closed-form temperature), Python bindings,
+      `docs/theory/multiphysics.md`
 - [ ] temperature-dependent ε feedback loop
 - [ ] carrier-generation profile export for PV device solvers
 
