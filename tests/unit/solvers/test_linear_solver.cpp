@@ -10,6 +10,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "hpfem/core/error.hpp"
+#include "hpfem/solvers/device_matrix.hpp"
+#include "hpfem/solvers/device_stepper.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
 
 using hpfem::Complex;
@@ -156,6 +158,96 @@ TEST_CASE("direct solver backends: complex-symmetric systems through the LDL^T p
     // a general factorisation of the same matrix agrees
     CHECK((solve_direct(a, rhs, backend, Symmetry::kGeneral) - x).norm() < 1e-9 * x.norm());
   }
+}
+
+TEST_CASE("DeviceMatrix: products on the GPU agree with the host", "[solvers][gpu]") {
+  using hpfem::solvers::DeviceMatrix;
+  const Index n = 500;
+  const SparseMatrix a = random_system(n, 31);
+  if (!DeviceMatrix::available()) {
+    CHECK_THROWS_AS(DeviceMatrix(a), hpfem::Error);
+    return;
+  }
+  const DeviceMatrix device(a);
+  CHECK(device.rows() == n);
+  const Vector x = random_vector(n, 32);
+  const Vector y = device.apply(x);
+  const Vector reference = a * x;
+  CHECK((y - reference).norm() < 1e-14 * reference.norm());
+  Matrix xs(n, 3);
+  for (Index j = 0; j < 3; ++j) xs.col(j) = random_vector(n, static_cast<unsigned>(40 + j));
+  const Matrix ys = device.apply_many(xs);
+  CHECK((ys - a * xs).norm() < 1e-14 * (a * xs).norm());
+  CHECK(device.apply_many(Matrix(n, 0)).cols() == 0);
+  CHECK_THROWS_AS(device.apply(Vector::Ones(n + 1)), hpfem::InvalidArgument);
+  // a move keeps the device matrix usable
+  DeviceMatrix moved(std::move(const_cast<DeviceMatrix&>(device)));
+  CHECK((moved.apply(x) - reference).norm() < 1e-14 * reference.norm());
+}
+
+TEST_CASE("DeviceStepper: the Newmark recursion on the GPU matches the host loop",
+          "[solvers][gpu]") {
+  using hpfem::solvers::DeviceStepper;
+  const Index n = 400;
+  // S symmetric positive, M = h I, C = 0.1 M; K = M + gamma dt C + beta dt^2 S
+  const SparseMatrix b = random_system(n, 61);
+  SparseMatrix s = b + SparseMatrix(b.transpose());
+  s.makeCompressed();
+  const Real h = 1.0 / static_cast<Real>(n);
+  const Real dt = 0.5 * h;
+  const Real beta = 0.25;
+  const Real gamma = 0.6;
+  SparseMatrix m(n, n);
+  m.setIdentity();
+  m *= Complex{h, 0.0};
+  SparseMatrix c = 0.1 * m;
+  SparseMatrix k = m + (gamma * dt) * c + (beta * dt * dt) * s;
+  k.makeCompressed();
+  auto newmark = make_direct_solver(DirectSolverBackend::kCudss);
+  if (!available(DirectSolverBackend::kCudss)) {
+    CHECK(!DeviceStepper::available(*make_direct_solver(DirectSolverBackend::kSparseLu)));
+    return;
+  }
+  newmark->factorize(k);
+  REQUIRE(DeviceStepper::available(*newmark));
+  CHECK(!DeviceStepper::available(*make_direct_solver(DirectSolverBackend::kSparseLu)));
+  const Vector load = random_vector(n, 62);
+  DeviceStepper stepper(*newmark, &c, s, &load, dt, beta, gamma);
+  Vector u = random_vector(n, 63);
+  Vector v = Vector::Zero(n);
+  Vector a = Vector::Zero(n);
+  stepper.set_state(u, v, a);
+  // host loop with the same factorisation
+  const int steps = 60;
+  for (int i = 0; i < steps; ++i) {
+    const Real scale = std::sin(0.3 * (i + 1));
+    const Vector u_pred = u + dt * v + (dt * dt * (0.5 - beta)) * a;
+    const Vector v_pred = v + (dt * (1.0 - gamma)) * a;
+    const Vector rhs = scale * load - c * v_pred - s * u_pred;
+    const Vector a_new = newmark->solve(rhs);
+    u = u_pred + (beta * dt * dt) * a_new;
+    v = v_pred + (gamma * dt) * a_new;
+    a = a_new;
+    stepper.step(scale);
+  }
+  Vector gu, gv, ga;
+  stepper.get_state(gu, gv, ga);
+  CHECK((gu - u).norm() < 1e-12 * u.norm());
+  CHECK((gv - v).norm() < 1e-12 * v.norm());
+  CHECK((ga - a).norm() < 1e-12 * a.norm());
+  // without damping and without a load
+  DeviceStepper free(*newmark, nullptr, s, nullptr, dt, beta, gamma);
+  free.set_state(u, v, a);
+  free.step(123.0);  // the scale is ignored without a load
+  Vector fu, fv, fa;
+  free.get_state(fu, fv, fa);
+  const Vector u_pred = u + dt * v + (dt * dt * (0.5 - beta)) * a;
+  const Vector a_ref = newmark->solve(Vector(-(s * u_pred)));
+  CHECK((fa - a_ref).norm() < 1e-12 * a_ref.norm());
+  CHECK_THROWS_AS(stepper.set_state(Vector::Ones(n + 1), v, a), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(DeviceStepper(*make_direct_solver(DirectSolverBackend::kSparseLu), nullptr, s,
+                                nullptr, dt, beta, gamma),
+                  hpfem::Error);
 }
 
 TEST_CASE("direct solver backends: availability and automatic choice", "[solvers]") {

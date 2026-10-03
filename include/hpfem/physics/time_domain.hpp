@@ -23,6 +23,7 @@
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/mesh.hpp"
+#include "hpfem/solvers/device_stepper.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
 
 namespace hpfem::physics {
@@ -99,6 +100,8 @@ class TimeDomain {
  private:
   /// One Newmark step on the reduced (free-DoF) vectors; `time` is advanced by dt.
   void step_reduced(Vector& u, Vector& v, Vector& a, Real& time) const;
+  /// The GPU stepper if the backend allows it (created once), otherwise null.
+  [[nodiscard]] solvers::DeviceStepper* device_stepper() const;
   [[nodiscard]] Vector restrict(const Vector& full) const;
   [[nodiscard]] Vector expand(const Vector& reduced) const;
 
@@ -109,6 +112,11 @@ class TimeDomain {
   Vector current_load_;  ///< (J, φ_i) on the free DoFs
   std::unique_ptr<solvers::LinearSolver> newmark_;
   std::unique_ptr<solvers::LinearSolver> mass_solver_;
+  /// Newmark loop on the GPU when the operator was factorised by cuDSS (created on the
+  /// first `run`, the state stays on the device between steps; `HPFEM_GPU_STEPPER=0`
+  /// disables it for comparisons). See docs/theory/solvers.md.
+  mutable std::unique_ptr<solvers::DeviceStepper> device_stepper_;
+  mutable bool device_stepper_tried_ = false;
 };
 
 extern template struct TimeDomainSetup<2>;

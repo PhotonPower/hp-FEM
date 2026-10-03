@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <vector>
 
 #include <Eigen/Dense>
@@ -273,6 +274,26 @@ TimeState<Dim> TimeDomain<Dim>::initialize(Real t0) const {
 }
 
 template <int Dim>
+solvers::DeviceStepper* TimeDomain<Dim>::device_stepper() const {
+  if (device_stepper_tried_) return device_stepper_.get();
+  device_stepper_tried_ = true;
+  if (const char* env = std::getenv("HPFEM_GPU_STEPPER"); env != nullptr && *env == '0') {
+    return nullptr;
+  }
+  if (!solvers::DeviceStepper::available(*newmark_)) return nullptr;
+  try {
+    device_stepper_ = std::make_unique<solvers::DeviceStepper>(
+        *newmark_, c_.nonZeros() > 0 ? &c_ : nullptr, s_, setup_.current ? &current_load_ : nullptr,
+        setup_.dt, setup_.beta, setup_.gamma);
+    log().info("TimeDomain<{}>: Newmark loop on the GPU ({} free DoFs)", Dim, free_.size());
+  } catch (const Error& error) {
+    log().warn("TimeDomain<{}>: GPU time stepping unavailable ({}); stepping on the host", Dim,
+               error.what());
+  }
+  return device_stepper_.get();
+}
+
+template <int Dim>
 void TimeDomain<Dim>::step_reduced(Vector& u, Vector& v, Vector& a, Real& time) const {
   const Real dt = setup_.dt;
   const Real beta = setup_.beta;
@@ -308,20 +329,44 @@ void TimeDomain<Dim>::run(TimeState<Dim>& state, int steps,
   Vector u = restrict(state.u);
   Vector v = restrict(state.v);
   Vector a = restrict(state.a);
-  for (int i = 0; i < steps; ++i) {
-    step_reduced(u, v, a, state.time);
-    ++state.step;
-    if (observer) {
+  if (solvers::DeviceStepper* stepper = device_stepper(); stepper != nullptr) {
+    // the whole loop on the GPU: the state is downloaded only for the observer and at the end
+    stepper->set_state(u, v, a);
+    for (int i = 0; i < steps; ++i) {
+      const Real t_new = state.time + setup_.dt;
+      stepper->step(setup_.current ? -setup_.signal.derivative(t_new) : 0.0);
+      state.time = t_new;
+      ++state.step;
+      if (observer) {
+        stepper->get_state(u, v, a);
+        state.u = expand(u);
+        state.v = expand(v);
+        state.a = expand(a);
+        observer(state);
+      }
+    }
+    if (!observer) {
+      stepper->get_state(u, v, a);
       state.u = expand(u);
       state.v = expand(v);
       state.a = expand(a);
-      observer(state);
     }
-  }
-  if (!observer) {
-    state.u = expand(u);
-    state.v = expand(v);
-    state.a = expand(a);
+  } else {
+    for (int i = 0; i < steps; ++i) {
+      step_reduced(u, v, a, state.time);
+      ++state.step;
+      if (observer) {
+        state.u = expand(u);
+        state.v = expand(v);
+        state.a = expand(a);
+        observer(state);
+      }
+    }
+    if (!observer) {
+      state.u = expand(u);
+      state.v = expand(v);
+      state.a = expand(a);
+    }
   }
   log().debug("TimeDomain<{}>: {} steps to t = {:.3e} s, energy {:.3e} J", Dim, steps, state.time,
               energy(state));

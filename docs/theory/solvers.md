@@ -181,6 +181,25 @@ The hybrid factorisation keeps about half of MUMPS's time where the factors (23 
 longer fit the device, and the solve stays an order of magnitude faster; forcing the hybrid
 mode where the factors would fit costs about 6 % in the factorisation and a slower solve.
 
+### Time stepping on the device (`solvers::DeviceStepper`)
+
+With the cuDSS backend the transient solver keeps the whole Newmark loop on the GPU:
+`solvers::DeviceMatrix` uploads the stiffness and damping matrices once (own warp-per-row
+complex SpMV kernel, so the GPU library still depends on the cuDSS DLL alone), and
+`solvers::DeviceStepper` keeps the state $u, v, a$ on the device and performs per step the
+two products, the fused vector updates and the solve with the factorised Newmark operator
+without host contact; only the scalar of the current load crosses per step. The recursion is
+exactly that of `TimeDomain::step` (predictors, $a = K^{-1}(f - Cv - Su)$, correctors), so
+the results agree with the host loop to round-off (self-test and unit test: $10^{-16}$ over
+50–60 steps). `TimeDomain::run` uses it automatically whenever its operator was factorised by
+cuDSS (also through `kAuto` above the threshold) and downloads the state only for an
+observer call and at the end; `HPFEM_GPU_STEPPER=0` keeps the host loop for comparisons.
+C interface: API version 3 (`hpfem_gpu_matrix_*`, `hpfem_gpu_stepper_*`); older libraries
+still load without these objects. Measured (`bench_solver_integration`, PEC cavity n = 128, p = 2, 164 k
+DoFs, 200 steps, after the reduced-state loop of `TimeDomain::run`): 60 ms per step on
+SparseLU, 43 ms on MUMPS, 8.3 ms with cuDSS and the host loop, 3.5 ms with the loop on the
+device — 12× faster than MUMPS; the energy drift stays at $10^{-14}$.
+
 ### Where the backend is applied repeatedly
 
 Every problem class with a `solver` field passes it on, so `kCudss` can be selected where

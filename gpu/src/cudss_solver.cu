@@ -23,28 +23,9 @@
 #include <vector>
 
 #include "hpfem_gpu.h"
+#include "internal.hpp"
 
 namespace {
-
-struct DeviceBuffer {
-  void* ptr = nullptr;
-  size_t bytes = 0;
-
-  ~DeviceBuffer() { release(); }
-  void release() {
-    if (ptr != nullptr) cudaFree(ptr);
-    ptr = nullptr;
-    bytes = 0;
-  }
-  /// Allocates at least `needed` bytes (keeps a larger existing allocation).
-  cudaError_t reserve(size_t needed) {
-    if (needed <= bytes && ptr != nullptr) return cudaSuccess;
-    release();
-    const cudaError_t status = cudaMalloc(&ptr, needed);
-    if (status == cudaSuccess) bytes = needed;
-    return status;
-  }
-};
 
 /// Free physical host memory in bytes (0 if unknown).
 size_t free_host_memory() {
@@ -60,7 +41,9 @@ size_t free_host_memory() {
 #endif
 }
 
-const char* cudss_status_name(cudssStatus_t status) {
+}  // namespace
+
+const char* hpfem_gpu_cudss_status_name(cudssStatus_t status) {
   switch (status) {
     case CUDSS_STATUS_SUCCESS:
       return "success";
@@ -81,71 +64,58 @@ const char* cudss_status_name(cudssStatus_t status) {
   }
 }
 
-}  // namespace
+/// out = factor * d[i] * in (d may be null: out = factor * in), column major n x nrhs.
+__global__ void hpfem_gpu_scale_rows(int64_t n, int64_t nrhs, const double* __restrict__ d,
+                                     double factor, const cuDoubleComplex* __restrict__ in,
+                                     cuDoubleComplex* __restrict__ out) {
+  const int64_t idx = static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+  if (idx >= n * nrhs) return;
+  const int64_t i = idx % n;
+  const double f = d != nullptr ? d[i] * factor : factor;
+  out[idx] = make_cuDoubleComplex(in[idx].x * f, in[idx].y * f);
+}
 
-struct hpfem_gpu_solver {
-  cudssHandle_t handle = nullptr;
-  cudssConfig_t config = nullptr;
-  cudssData_t data = nullptr;
-  cudssMatrix_t matrix = nullptr;
-  cudaStream_t stream = nullptr;
+namespace {}  // namespace
 
-  int64_t n = 0;
-  int64_t nnz = 0;
-  bool factorized = false;
-  double scale = 1.0;                 // the factors are those of scale * A (max |a_ij| = 1)
-  bool hybrid = false;                // factors (partly) in host memory
-  std::vector<double> equilibration;  // D of the factorised D (scale A) D; empty: none
-  size_t device_estimate = 0;
-  size_t host_estimate = 0;
-  size_t device_free = 0;
-
-  DeviceBuffer row_ptr;
-  DeviceBuffer col;
-  DeviceBuffer values;
-  DeviceBuffer rhs;
-  DeviceBuffer solution;
-
-  std::string last_error;
-
-  hpfem_gpu_status fail(hpfem_gpu_status status, const std::string& message) {
-    last_error = message;
-    return status;
+hpfem_gpu_status hpfem_gpu_solve_device(hpfem_gpu_solver* solver, int64_t nrhs,
+                                        const cuDoubleComplex* d_b, cuDoubleComplex* d_x) {
+  if (!solver->factorized) {
+    return solver->fail(HPFEM_GPU_ERR_NOT_FACTORIZED,
+                        "solve: no factorisation (call factorize first)");
   }
-  hpfem_gpu_status fail_cuda(const char* what, cudaError_t status) {
-    cudaGetLastError();  // reset the sticky error
-    return fail(
-        status == cudaErrorMemoryAllocation ? HPFEM_GPU_ERR_OUT_OF_MEMORY : HPFEM_GPU_ERR_CUDA,
-        std::string(what) + ": " + cudaGetErrorString(status));
+  const size_t count = static_cast<size_t>(solver->n) * static_cast<size_t>(nrhs);
+  HPFEM_GPU_CUDA(solver, "solve: allocate right-hand side",
+                 solver->rhs.reserve(count * sizeof(cuDoubleComplex)));
+  HPFEM_GPU_CUDA(solver, "solve: allocate solution",
+                 solver->solution.reserve(count * sizeof(cuDoubleComplex)));
+  const unsigned blocks = static_cast<unsigned>((count + 255) / 256);
+  const double* d = solver->equilibrated ? solver->equilibration.as<double>() : nullptr;
+  // (D A D) y = D b: the scaled right-hand side cuDSS reads
+  hpfem_gpu_scale_rows<<<blocks, 256, 0, solver->stream>>>(solver->n, nrhs, d, 1.0, d_b,
+                                                           solver->rhs.as<cuDoubleComplex>());
+  HPFEM_GPU_CUDA(solver, "solve: scale right-hand side", cudaGetLastError());
+  cudssMatrix_t dx = nullptr;
+  cudssMatrix_t db = nullptr;
+  cudssStatus_t status = cudssMatrixCreateDn(&dx, solver->n, nrhs, solver->n, solver->solution.ptr,
+                                             CUDSS_C_64F, CUDSS_LAYOUT_COL_MAJOR);
+  if (status == CUDSS_STATUS_SUCCESS) {
+    status = cudssMatrixCreateDn(&db, solver->n, nrhs, solver->n, solver->rhs.ptr, CUDSS_C_64F,
+                                 CUDSS_LAYOUT_COL_MAJOR);
   }
-  hpfem_gpu_status fail_cudss(const char* what, cudssStatus_t status) {
-    return fail(
-        status == CUDSS_STATUS_ALLOC_FAILED ? HPFEM_GPU_ERR_OUT_OF_MEMORY : HPFEM_GPU_ERR_CUDSS,
-        std::string(what) + ": cuDSS " + cudss_status_name(status) + " (" +
-            std::to_string(static_cast<int>(status)) + ")");
+  if (status == CUDSS_STATUS_SUCCESS) {
+    status = cudssExecute(solver->handle, CUDSS_PHASE_SOLVE, solver->config, solver->data,
+                          solver->matrix, dx, db);
   }
-
-  void destroy_matrix() {
-    if (matrix != nullptr) cudssMatrixDestroy(matrix);
-    matrix = nullptr;
-  }
-  void destroy_data() {
-    if (data != nullptr && handle != nullptr) cudssDataDestroy(handle, data);
-    data = nullptr;
-  }
-};
-
-#define HPFEM_GPU_CUDA(solver, what, call)                                                     \
-  do {                                                                                         \
-    const cudaError_t hpfem_gpu_status_ = (call);                                              \
-    if (hpfem_gpu_status_ != cudaSuccess) return (solver)->fail_cuda(what, hpfem_gpu_status_); \
-  } while (0)
-#define HPFEM_GPU_CUDSS(solver, what, call)                 \
-  do {                                                      \
-    const cudssStatus_t hpfem_gpu_status_ = (call);         \
-    if (hpfem_gpu_status_ != CUDSS_STATUS_SUCCESS)          \
-      return (solver)->fail_cudss(what, hpfem_gpu_status_); \
-  } while (0)
+  if (dx != nullptr) cudssMatrixDestroy(dx);
+  if (db != nullptr) cudssMatrixDestroy(db);
+  if (status != CUDSS_STATUS_SUCCESS) return solver->fail_cudss("solve", status);
+  // x = scale * D * y, the solution of the original system
+  hpfem_gpu_scale_rows<<<blocks, 256, 0, solver->stream>>>(
+      solver->n, nrhs, d, solver->scale, solver->solution.as<cuDoubleComplex>(), d_x);
+  HPFEM_GPU_CUDA(solver, "solve: rescale solution", cudaGetLastError());
+  HPFEM_GPU_CUDA(solver, "solve: synchronise", cudaStreamSynchronize(solver->stream));
+  return HPFEM_GPU_OK;
+}
 
 extern "C" {
 
@@ -273,10 +243,10 @@ hpfem_gpu_status hpfem_gpu_factorize(hpfem_gpu_solver* solver, int64_t n, int64_
   // interior functions, which cuDSS's static pivoting is sensitive to: on hp systems with
   // hanging nodes it removes every perturbed pivot (ADR-0008). HPFEM_GPU_EQUILIBRATE=0
   // switches it off for comparisons.
-  solver->equilibration.clear();
+  solver->equilibrated = false;
+  std::vector<double> d;
   const char* equilibrate = std::getenv("HPFEM_GPU_EQUILIBRATE");
   if (equilibrate == nullptr || *equilibrate != '0') {
-    std::vector<double>& d = solver->equilibration;
     d.assign(n_size, 1.0);
     for (int64_t i = 0; i < n; ++i) {
       double diagonal = 0.0;
@@ -299,6 +269,12 @@ hpfem_gpu_status hpfem_gpu_factorize(hpfem_gpu_solver* solver, int64_t n, int64_
         scaled[2 * k + 1] *= factor;
       }
     }
+    HPFEM_GPU_CUDA(solver, "factorize: allocate equilibration",
+                   solver->equilibration.reserve(n_size * sizeof(double)));
+    HPFEM_GPU_CUDA(solver, "factorize: upload equilibration",
+                   cudaMemcpy(solver->equilibration.ptr, d.data(), n_size * sizeof(double),
+                              cudaMemcpyHostToDevice));
+    solver->equilibrated = true;
   }
   HPFEM_GPU_CUDA(solver, "factorize: allocate row pointer",
                  solver->row_ptr.reserve((n_size + 1) * sizeof(int64_t)));
@@ -469,63 +445,19 @@ hpfem_gpu_status hpfem_gpu_solve(hpfem_gpu_solver* solver, int64_t nrhs, const d
     return solver->fail(HPFEM_GPU_ERR_INVALID_ARG, "solve: null array or nrhs <= 0");
   }
   const size_t count = static_cast<size_t>(solver->n) * static_cast<size_t>(nrhs);
-  HPFEM_GPU_CUDA(solver, "solve: allocate right-hand side",
-                 solver->rhs.reserve(count * 2 * sizeof(double)));
-  HPFEM_GPU_CUDA(solver, "solve: allocate solution",
-                 solver->solution.reserve(count * 2 * sizeof(double)));
-  const double* upload = b;
-  std::vector<double> equilibrated;
-  if (!solver->equilibration.empty()) {
-    // (D A D) y = D b, x = D y
-    equilibrated.resize(2 * count);
-    const size_t rows = static_cast<size_t>(solver->n);
-    for (size_t j = 0; j < static_cast<size_t>(nrhs); ++j) {
-      for (size_t i = 0; i < rows; ++i) {
-        const double factor = solver->equilibration[i];
-        equilibrated[2 * (j * rows + i)] = b[2 * (j * rows + i)] * factor;
-        equilibrated[2 * (j * rows + i) + 1] = b[2 * (j * rows + i) + 1] * factor;
-      }
-    }
-    upload = equilibrated.data();
-  }
+  HPFEM_GPU_CUDA(solver, "solve: allocate input",
+                 solver->input.reserve(count * sizeof(cuDoubleComplex)));
+  HPFEM_GPU_CUDA(solver, "solve: allocate output",
+                 solver->output.reserve(count * sizeof(cuDoubleComplex)));
   HPFEM_GPU_CUDA(solver, "solve: upload right-hand side",
-                 cudaMemcpyAsync(solver->rhs.ptr, upload, count * 2 * sizeof(double),
+                 cudaMemcpyAsync(solver->input.ptr, b, count * sizeof(cuDoubleComplex),
                                  cudaMemcpyHostToDevice, solver->stream));
-  cudssMatrix_t dx = nullptr;
-  cudssMatrix_t db = nullptr;
-  cudssStatus_t status = cudssMatrixCreateDn(&dx, solver->n, nrhs, solver->n, solver->solution.ptr,
-                                             CUDSS_C_64F, CUDSS_LAYOUT_COL_MAJOR);
-  if (status == CUDSS_STATUS_SUCCESS) {
-    status = cudssMatrixCreateDn(&db, solver->n, nrhs, solver->n, solver->rhs.ptr, CUDSS_C_64F,
-                                 CUDSS_LAYOUT_COL_MAJOR);
-  }
-  if (status == CUDSS_STATUS_SUCCESS) {
-    status = cudssExecute(solver->handle, CUDSS_PHASE_SOLVE, solver->config, solver->data,
-                          solver->matrix, dx, db);
-  }
-  cudaError_t copy = cudaSuccess;
-  if (status == CUDSS_STATUS_SUCCESS) {
-    copy = cudaMemcpyAsync(x, solver->solution.ptr, count * 2 * sizeof(double),
-                           cudaMemcpyDeviceToHost, solver->stream);
-  }
-  const cudaError_t sync = cudaStreamSynchronize(solver->stream);
-  if (dx != nullptr) cudssMatrixDestroy(dx);
-  if (db != nullptr) cudssMatrixDestroy(db);
-  if (status != CUDSS_STATUS_SUCCESS) return solver->fail_cudss("solve", status);
-  if (copy != cudaSuccess) return solver->fail_cuda("solve: download solution", copy);
-  if (sync != cudaSuccess) return solver->fail_cuda("solve: synchronise", sync);
-  if (solver->scale != 1.0) {
-    for (size_t k = 0; k < 2 * count; ++k) x[k] *= solver->scale;
-  }
-  if (!solver->equilibration.empty()) {
-    const size_t rows = static_cast<size_t>(solver->n);
-    for (size_t j = 0; j < static_cast<size_t>(nrhs); ++j) {
-      for (size_t i = 0; i < rows; ++i) {
-        x[2 * (j * rows + i)] *= solver->equilibration[i];
-        x[2 * (j * rows + i) + 1] *= solver->equilibration[i];
-      }
-    }
-  }
+  const hpfem_gpu_status status = hpfem_gpu_solve_device(
+      solver, nrhs, solver->input.as<cuDoubleComplex>(), solver->output.as<cuDoubleComplex>());
+  if (status != HPFEM_GPU_OK) return status;
+  HPFEM_GPU_CUDA(
+      solver, "solve: download solution",
+      cudaMemcpy(x, solver->output.ptr, count * sizeof(cuDoubleComplex), cudaMemcpyDeviceToHost));
   return HPFEM_GPU_OK;
 }
 
