@@ -9,6 +9,8 @@
 /// so no assumptions on orientation or order are needed; the parent order never exceeds the
 /// child orders (minimum rule of the DoF map). See docs/theory/hp-adaptivity.md#hanging-nodes.
 
+#include <span>
+
 #include "hpfem/core/types.hpp"
 #include "hpfem/fespace/constraints.hpp"
 #include "hpfem/fespace/dof_map.hpp"
@@ -20,6 +22,17 @@ namespace hpfem::assembly {
 template <int Dim, class Counts>
 [[nodiscard]] fespace::Constraints hanging_constraints(
     const fespace::EntityDofMap<Dim, Counts>& dofs, Real tolerance = 1e-12);
+
+/// The constraints of `full` restricted to the DoFs listed in `free` (e.g. after PEC
+/// elimination): slaves and masters are renumbered to their positions in `free`; masters
+/// that are not free are dropped, a slave whose masters are all eliminated is set to zero.
+[[nodiscard]] fespace::Constraints restrict_constraints(const fespace::Constraints& full,
+                                                        std::span<const Index> free);
+
+/// Constraints of a block vector @f$ (x_0, x_1) @f$: those of `first` on the leading block and
+/// those of `second` shifted by `first.num_dofs()`.
+[[nodiscard]] fespace::Constraints block_constraints(const fespace::Constraints& first,
+                                                     const fespace::Constraints& second);
 
 extern template fespace::Constraints hanging_constraints<2, fespace::H1Counts>(
     const fespace::DofMap<2>&, Real);
