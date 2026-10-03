@@ -228,3 +228,45 @@ TEST_CASE("square_with_disc: inclusion cells, curved interface on the circle, ou
   REQUIRE_THROWS_AS(hpfem::mesh::square_with_disc(3, r, 1.0, 1.1), hpfem::InvalidArgument);
   REQUIRE_THROWS_AS(hpfem::mesh::square_with_disc(2, 0.5, 0.4, 1.0), hpfem::InvalidArgument);
 }
+
+TEST_CASE("box_with_ball: inclusion cells, curved interface on the sphere, outer tags",
+          "[mesh][generators]") {
+  const Real r = 0.5;
+  const Mesh<3> m = hpfem::mesh::box_with_ball(1, r, 1.0, 1.5, 2);
+  REQUIRE(m.num_cells() == 6 * 6 * 6 * 6);  // (1.5 / 0.5) n = 3 cubes per half axis, 6 tets each
+  REQUIRE(m.geometry_order() == 2);
+  Index inclusion = 0;
+  Index curved_edges = 0;
+  for (Index c = 0; c < m.num_cells(); ++c) {
+    const bool tagged = m.cell_tag(c) == 2;
+    if (tagged) ++inclusion;
+    // inclusion cells lie in the ball, all other cells outside (vertices on or beyond the sphere)
+    for (const Index v : m.cell_vertices(c)) {
+      if (tagged) REQUIRE(m.vertex(v).norm() <= r * (1 + 1e-12));
+      if (!tagged) REQUIRE(m.vertex(v).norm() >= r * (1 - 1e-12));
+    }
+  }
+  // the edges of the interface faces are curved: their nodes lie on the sphere (a chord edge
+  // inside the ball whose end points happen to lie on the sphere stays straight)
+  for (Index f = 0; f < m.num_facets(); ++f) {
+    const auto& fc = m.facet_cells(f);
+    if (fc[1] == kInvalidIndex) continue;
+    if ((m.cell_tag(fc[0]) == 2) == (m.cell_tag(fc[1]) == 2)) continue;
+    const auto& fv = m.facet_vertices(f);
+    for (const auto& [a, b] :
+         {std::pair{fv[0], fv[1]}, std::pair{fv[1], fv[2]}, std::pair{fv[0], fv[2]}}) {
+      REQUIRE(m.vertex(a).norm() == Approx(r).epsilon(1e-12));
+      REQUIRE(m.edge_node(m.edge_id(a, b)).norm() == Approx(r).epsilon(1e-12));
+      ++curved_edges;
+    }
+  }
+  REQUIRE(inclusion == 6 * 2 * 2 * 2);  // the inner cube [-1, 1]^3 has 2n = 2 cubes per axis
+  REQUIRE(curved_edges > 0);
+  for (const Index f : m.boundary_facets()) REQUIRE(m.facet_tag(f) != kNoTag);
+  REQUIRE(m.facets_with_tag(box_tag::kZMax).size() == 2 * 6 * 6);
+  Real volume = 0;
+  for (Index c = 0; c < m.num_cells(); ++c) volume += hpfem::mesh::affine_map(m, c).volume();
+  REQUIRE(volume == Approx(27.0).epsilon(1e-12));
+  REQUIRE_THROWS_AS(hpfem::mesh::box_with_ball(3, r, 1.0, 1.1), hpfem::InvalidArgument);
+  REQUIRE_THROWS_AS(hpfem::mesh::box_with_ball(1, 0.5, 0.4, 1.0), hpfem::InvalidArgument);
+}

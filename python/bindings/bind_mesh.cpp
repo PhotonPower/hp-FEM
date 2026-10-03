@@ -358,6 +358,11 @@ void bind_mesh(py::module_& m) {
         "Square [-outer, outer]^2 with a curved circular inclusion of the given radius at the "
         "origin (cells tagged inclusion_tag), n cells per radius, uniform grid beyond half_width "
         "(space for a PML); (outer / radius) n must be an integer");
+  m.def("box_with_ball", &mesh::box_with_ball, py::arg("n"), py::arg("radius"),
+        py::arg("half_width"), py::arg("outer"), py::arg("inclusion_tag") = 2,
+        "Cube [-outer, outer]^3 with a curved spherical inclusion of the given radius at the "
+        "origin (cells tagged inclusion_tag), n cells per radius, uniform grid beyond half_width "
+        "(space for a PML); (outer / radius) n must be an integer");
   m.def(
       "read_gmsh",
       [](const std::filesystem::path& file, Real scale, int dim) -> py::object {

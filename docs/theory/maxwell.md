@@ -219,6 +219,32 @@ curved interface, scattered-field formulation; the scattering width from the flu
 scattered field through the cylinder surface converges to the series value under
 p-refinement and the absorption cross-section vanishes within the discretisation error.
 
+**Mie sphere** (`physics::mie_sphere`, Bohren & Huffman ch. 4): a sphere of radius $a$ and
+complex permittivity $\varepsilon_r$ in a lossless background of index $n_b$ under the plane
+wave $\hat x\,e^{ikz}$, $k = n_b k_0$, size parameter $x = ka$, relative index
+$m = \sqrt{\varepsilon_r}/n_b$. With the Riccati–Bessel functions $\psi_n(\rho) = \rho j_n(\rho)$,
+$\xi_n(\rho) = \rho h_n^{(1)}(\rho)$ and the logarithmic derivative
+$D_n(mx) = \psi_n'(mx)/\psi_n(mx)$, evaluated for complex $mx$ by the downward recurrence of
+$j_n$ (`spherical_bessel_j(max_order, z)` in `core/special_functions.hpp`),
+$$
+a_n = \frac{(D_n/m + n/x)\psi_n(x) - \psi_{n-1}(x)}{(D_n/m + n/x)\xi_n(x) - \xi_{n-1}(x)},\qquad
+b_n = \frac{(mD_n + n/x)\psi_n(x) - \psi_{n-1}(x)}{(mD_n + n/x)\xi_n(x) - \xi_{n-1}(x)},
+$$
+$Q_{sca} = \tfrac{2}{x^2}\sum_n (2n+1)(|a_n|^2 + |b_n|^2)$,
+$Q_{ext} = \tfrac{2}{x^2}\sum_n (2n+1)\,\mathrm{Re}(a_n + b_n)$, $Q_{abs} = Q_{ext} - Q_{sca}$,
+cross-sections $\sigma = Q\pi a^2$. The fields are the vector spherical harmonic expansions
+$E^{sca} = \sum_n E_n(i a_n N^{(3)}_{e1n} - b_n M^{(3)}_{o1n})$ outside and
+$E^{int} = \sum_n E_n(c_n M^{(1)}_{o1n} - i d_n N^{(1)}_{e1n})$ inside,
+$E_n = i^n(2n+1)/(n(n+1))$, with the internal coefficients
+$c_n = m\,W_n/(\psi_n(mx)\xi_n'(x) - m\,\xi_n(x)\psi_n'(mx))$,
+$d_n = m\,W_n/(m\,\psi_n(mx)\xi_n'(x) - \xi_n(x)\psi_n'(mx))$, $W_n = \psi_n\xi_n' - \xi_n\psi_n' = i$.
+The unit tests check the optical theorem, the Rayleigh limit, the lossless limit and the
+continuity of the tangential field and of $\varepsilon E_r$ across the surface, which ties the
+four coefficient families and the harmonics together. The 3D half of convergence test #4 and
+validation benchmark C (`tests/convergence/mie_sphere.cpp`, [validation.md](../validation.md))
+compare $Q_{sca}$, $Q_{abs}$ and the total field at points inside and outside against the
+series on the `box_with_ball` mesh.
+
 **Verification** (`tests/convergence/maxwell_scattering.cpp`): with the exact tangential
 trace prescribed on all sides, a plane wave and a dipole field whose source lies outside
 the domain are reproduced with rate $p$ in the $H(\mathrm{curl})$ norm for $p = 1, 2$ in 2D

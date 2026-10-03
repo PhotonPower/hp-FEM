@@ -211,6 +211,39 @@ void bind_postprocess(py::module_& m) {
   m.def("mie_cylinder_scattering_width", &physics::mie_cylinder_scattering_width, py::arg("k"),
         py::arg("radius"), py::arg("refractive_index"), py::arg("max_order") = -1,
         "Scattering width [m] of the cylinder from the Mie series");
+  py::class_<physics::MieSphere>(
+      m, "MieSphere",
+      "Mie series of a sphere (Bohren & Huffman ch. 4): x-polarised unit "
+      "plane wave along +z, sphere of radius `radius` and relative "
+      "permittivity eps_r at the origin in a lossless background")
+      .def_readonly("k", &physics::MieSphere::k, "background wavenumber [1/m]")
+      .def_readonly("radius", &physics::MieSphere::radius)
+      .def_readonly("eps_r", &physics::MieSphere::eps_r)
+      .def_readonly("background_index", &physics::MieSphere::background_index)
+      .def_readonly("m", &physics::MieSphere::m, "relative refractive index")
+      .def_readonly("a", &physics::MieSphere::a, "a_n, n = 1.. (index n - 1)")
+      .def_readonly("b", &physics::MieSphere::b)
+      .def_readonly("c", &physics::MieSphere::c, "internal-field coefficients")
+      .def_readonly("d", &physics::MieSphere::d)
+      .def_property_readonly("max_order", &physics::MieSphere::max_order)
+      .def_property_readonly("size_parameter", &physics::MieSphere::size_parameter)
+      .def("scattering_efficiency", &physics::MieSphere::scattering_efficiency)
+      .def("extinction_efficiency", &physics::MieSphere::extinction_efficiency)
+      .def("absorption_efficiency", &physics::MieSphere::absorption_efficiency)
+      .def("scattering_cross_section", &physics::MieSphere::scattering_cross_section, "[m^2]")
+      .def("extinction_cross_section", &physics::MieSphere::extinction_cross_section, "[m^2]")
+      .def("absorption_cross_section", &physics::MieSphere::absorption_cross_section, "[m^2]")
+      .def("incident_field", &physics::MieSphere::incident_field, py::arg("x"))
+      .def("scattered_field", &physics::MieSphere::scattered_field, py::arg("x"),
+           "scattered E at x (outside the sphere)")
+      .def("internal_field", &physics::MieSphere::internal_field, py::arg("x"),
+           "E at x inside the sphere")
+      .def("total_field", &physics::MieSphere::total_field, py::arg("x"));
+  m.def("mie_sphere", &physics::mie_sphere, py::arg("k"), py::arg("radius"), py::arg("eps_r"),
+        py::arg("background_index") = 1.0, py::arg("max_order") = -1,
+        "Mie series of a sphere with complex permittivity in a lossless background of the "
+        "given index; k is the background wavenumber, max_order < 0 selects the Wiscombe "
+        "cut-off");
 }
 
 }  // namespace hpfem::python

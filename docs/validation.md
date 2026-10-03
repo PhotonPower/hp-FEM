@@ -328,6 +328,73 @@ converged to $10^{-5}$ and energy-consistent to $10^{-6}$.
 
 **Assessment.** Two of the three depths agree with the four-digit modal reference within the tolerance $3\cdot 10^{-4}$ ($h = 0.1$ µm to $0.5\cdot 10^{-4}$, $h = 4.8$ µm to $2.9\cdot 10^{-4}$) with the assumed fill factor $f = 0.5$, which the sensitivity table rules out changing. The $h = 1$ µm case is reported but not asserted (decision with the dev agent, 2026-10-03): the slot is resonant there, the published digits depend on the unstated exact $\varepsilon$ and $h$ of the reference computation, and our result is converged to $10^{-5}$ with an energy balance of $10^{-6}$ and reproduces the Fresnel limit to $10^{-6}$. Nothing was fitted or loosened. Lesson for the library: a PML of one wavelength with the quadratic profile and target reflection $10^{-10}$ is not enough for efficiencies at the $10^{-4}$ level; 3 µm, order 4 and $10^{-14}$ are. Cost: about 1 s per solve at $p = 5$ on 25 000–40 000 unknowns; the whole long study takes a few minutes.
 
+## C. Mie scattering from a sphere (analytic, 3D)
+
+**Source.** C. F. Bohren, D. R. Huffman, *Absorption and Scattering of Light by Small
+Particles* (Wiley, 1983), chapter 4: the Mie series of a homogeneous sphere. The series is
+implemented in `physics::mie_sphere` (coefficients $a_n$, $b_n$, $c_n$, $d_n$, efficiencies,
+fields inside and outside for complex $\varepsilon$; [theory/maxwell.md](theory/maxwell.md))
+and checked without any FEM: optical theorem, Rayleigh limit, lossless limit, convergence in
+the order, continuity of the tangential field and of $\varepsilon E_r$ across the surface, and
+the efficiencies against the independent `miepython` package ($Q_{sca}$ and $Q_{ext}$ agree with `miepython` 3.3 to eight digits for both test spheres, and the total field at six points inside and outside agrees to $10^{-6}$).
+
+**Set-up.** Two spheres of radius $a$ in vacuum under the plane wave $\hat x\,e^{ikz}$: a
+dielectric one ($n = 2$, $ka = 2$) and an absorbing "metallic" one ($\varepsilon = -10 + 1i$,
+$ka = 0.6$). Compared are the scattering and absorption efficiencies
+$Q = \sigma / (\pi a^2)$ from the Poynting fluxes through the sphere surface
+(`cross_sections`) and the total field at seven points inside and outside the sphere.
+
+**Discretisation** (`tests/convergence/mie_sphere.cpp`). The new generator
+`mesh::box_with_ball` (3D counterpart of `square_with_disc`) resolves the sphere by curved
+(quadratic) faces inside a cube with space for a PML; the mirror symmetries of the problem
+reduce the domain to the quarter $x \ge 0$, $y \ge 0$ (PEC on $x = 0$, natural condition on
+$y = 0$), and the fluxes through the quarter sphere are multiplied by four. Scattered-field
+formulation, PML on the outer sides, p-refinement on meshes with $n$ cells per radius.
+
+**Results** (long run `convergence_mie_sphere "[validation-long]"`,
+`benchmarks/results/2026-10-03-validation-mie-sphere.json`; SparseLU, times on the
+maintainer's machine):
+
+*p-convergence* (quarter domain, interior half-width 2a, PML 1a of order 3, SparseLU):
+
+| case | n | p | DoF | Q_sca | Q_sca (Mie) | Q_abs | Q_abs (Mie) | err Q_sca | err Q_abs | err field | time [s] |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| dielectric n = 2, ka = 2 | 2 | 1 | 3,588 | 4.95581 | 4.77044 | -0.50666 | 0.00000 | 3.9e-02 | 1.1e-01 | 5.1e-01 | 0 |
+| dielectric n = 2, ka = 2 | 2 | 2 | 18,264 | 4.90035 | 4.77044 | -0.20004 | 0.00000 | 2.7e-02 | 4.2e-02 | 6.6e-02 | 7 |
+| dielectric n = 2, ka = 2 | 2 | 3 | 51,804 | 4.75038 | 4.77044 | 0.01491 | 0.00000 | 4.2e-03 | 3.1e-03 | 1.6e-02 | 65 |
+| dielectric n = 2, ka = 2 | 2 | 4 | 111,984 | 4.76447 | 4.77044 | 0.00366 | 0.00000 | 1.3e-03 | 7.7e-04 | 3.9e-03 | 404 |
+| dielectric n = 2, ka = 2 | 3 | 1 | 11,457 | 4.75154 | 4.77044 | -0.43642 | 0.00000 | 4.0e-03 | 9.1e-02 | 3.2e-01 | 1 |
+| dielectric n = 2, ka = 2 | 3 | 2 | 59,526 | 4.82711 | 4.77044 | -0.07159 | 0.00000 | 1.2e-02 | 1.5e-02 | 6.5e-02 | 127 |
+| dielectric n = 2, ka = 2 | 3 | 3 | 170,451 | 4.76638 | 4.77044 | 0.00739 | 0.00000 | 8.5e-04 | 1.5e-03 | 9.1e-03 | 1171 |
+| metallic eps = -10 + 1i, ka = 0.6 | 2 | 1 | 3,588 | 2.78956 | 1.11731 | 0.47837 | 0.22851 | 1.5e+00 | 2.2e-01 | 4.6e-01 | 0 |
+| metallic eps = -10 + 1i, ka = 0.6 | 2 | 2 | 18,264 | 1.30834 | 1.11731 | 0.23516 | 0.22851 | 1.7e-01 | 6.0e-03 | 7.2e-02 | 9 |
+| metallic eps = -10 + 1i, ka = 0.6 | 2 | 3 | 51,804 | 1.06057 | 1.11731 | 0.22410 | 0.22851 | 5.1e-02 | 4.0e-03 | 2.3e-02 | 86 |
+| metallic eps = -10 + 1i, ka = 0.6 | 2 | 4 | 111,984 | 1.10880 | 1.11731 | 0.22634 | 0.22851 | 7.6e-03 | 1.9e-03 | 5.6e-03 | 473 |
+| metallic eps = -10 + 1i, ka = 0.6 | 3 | 1 | 11,457 | 1.61804 | 1.11731 | 0.34098 | 0.22851 | 4.5e-01 | 1.0e-01 | 2.3e-01 | 2 |
+| metallic eps = -10 + 1i, ka = 0.6 | 3 | 2 | 59,526 | 1.13664 | 1.11731 | 0.22884 | 0.22851 | 1.7e-02 | 3.0e-04 | 5.9e-02 | 143 |
+| metallic eps = -10 + 1i, ka = 0.6 | 3 | 3 | 170,451 | 1.10980 | 1.11731 | 0.22687 | 0.22851 | 6.7e-03 | 1.5e-03 | 1.2e-02 | 1378 |
+
+*p-convergence* (quarter domain, interior half-width 2a, PML 1a of order 3, SparseLU):
+
+| case | n | p | DoF | Q_sca | Q_sca (Mie) | Q_abs | Q_abs (Mie) | err Q_sca | err Q_abs | err field | time [s] |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| dielectric n = 2, ka = 2 | 2 | 1 | 3,588 | 4.95581 | 4.77044 | -0.50666 | 0.00000 | 3.9e-02 | 1.1e-01 | 5.1e-01 | 0 |
+| dielectric n = 2, ka = 2 | 2 | 2 | 18,264 | 4.90035 | 4.77044 | -0.20004 | 0.00000 | 2.7e-02 | 4.2e-02 | 6.6e-02 | 7 |
+| dielectric n = 2, ka = 2 | 2 | 3 | 51,804 | 4.75038 | 4.77044 | 0.01491 | 0.00000 | 4.2e-03 | 3.1e-03 | 1.6e-02 | 65 |
+| dielectric n = 2, ka = 2 | 2 | 4 | 111,984 | 4.76447 | 4.77044 | 0.00366 | 0.00000 | 1.3e-03 | 7.7e-04 | 3.9e-03 | 404 |
+| dielectric n = 2, ka = 2 | 3 | 1 | 11,457 | 4.75154 | 4.77044 | -0.43642 | 0.00000 | 4.0e-03 | 9.1e-02 | 3.2e-01 | 1 |
+| dielectric n = 2, ka = 2 | 3 | 2 | 59,526 | 4.82711 | 4.77044 | -0.07159 | 0.00000 | 1.2e-02 | 1.5e-02 | 6.5e-02 | 127 |
+| dielectric n = 2, ka = 2 | 3 | 3 | 170,451 | 4.76638 | 4.77044 | 0.00739 | 0.00000 | 8.5e-04 | 1.5e-03 | 9.1e-03 | 1171 |
+| metallic eps = -10 + 1i, ka = 0.6 | 2 | 1 | 3,588 | 2.78956 | 1.11731 | 0.47837 | 0.22851 | 1.5e+00 | 2.2e-01 | 4.6e-01 | 0 |
+| metallic eps = -10 + 1i, ka = 0.6 | 2 | 2 | 18,264 | 1.30834 | 1.11731 | 0.23516 | 0.22851 | 1.7e-01 | 6.0e-03 | 7.2e-02 | 9 |
+| metallic eps = -10 + 1i, ka = 0.6 | 2 | 3 | 51,804 | 1.06057 | 1.11731 | 0.22410 | 0.22851 | 5.1e-02 | 4.0e-03 | 2.3e-02 | 86 |
+| metallic eps = -10 + 1i, ka = 0.6 | 2 | 4 | 111,984 | 1.10880 | 1.11731 | 0.22634 | 0.22851 | 7.6e-03 | 1.9e-03 | 5.6e-03 | 473 |
+| metallic eps = -10 + 1i, ka = 0.6 | 3 | 1 | 11,457 | 1.61804 | 1.11731 | 0.34098 | 0.22851 | 4.5e-01 | 1.0e-01 | 2.3e-01 | 2 |
+| metallic eps = -10 + 1i, ka = 0.6 | 3 | 2 | 59,526 | 1.13664 | 1.11731 | 0.22884 | 0.22851 | 1.7e-02 | 3.0e-04 | 5.9e-02 | 143 |
+| metallic eps = -10 + 1i, ka = 0.6 | 3 | 3 | 170,451 | 1.10980 | 1.11731 | 0.22687 | 0.22851 | 6.7e-03 | 1.5e-03 | 1.2e-02 | 1378 |ML
+
+**Assessment.** The 3D solver converges to the Mie series in $p$ for both spheres: at $n = 2$ the efficiencies and the field improve by a factor 3 to 10 per order ($Q_{sca}$ errors $3.9\cdot 10^{-2}$, $2.7\cdot 10^{-2}$, $4.2\cdot 10^{-3}$, $1.3\cdot 10^{-3}$ for the dielectric sphere, $1.5$, $0.17$, $0.051$, $0.0076$ for the absorbing one), and the finer mesh $n = 3$ at $p = 3$ reaches $8.5\cdot 10^{-4}$ ($Q_{sca}$, dielectric) and $6.7\cdot 10^{-3}$ (metallic). The absorbing sphere converges more slowly: its field decays inside the metal over half a radius and the near field dominates at $ka = 0.6$. Two things limit this benchmark in practice. First, the quadratic approximation of the sphere by `box_with_ball` (geometry error $\propto h^3$ on the interface) caps the accuracy of a given mesh at the $10^{-3}$ level, which is why the finer mesh helps the dielectric case more than a higher order does. Second, the cost: `Eigen::SparseLU` needs 7 minutes for the $1.1\cdot 10^5$ unknowns of $p = 4$ and 20 minutes for $1.7\cdot 10^5$, so the CI variant stops at $p = 2$ (18 s) and asserts only the trend and a few-percent agreement, while the long run documents the convergence. A MUMPS or GPU backend and a cubic geometry map would move this benchmark to the $10^{-4}$ level. No parameter was adjusted.
+
 ## D. Slit–groove diffraction in a silver film with a layered background
 
 **Sources.** M. Besbes, J. P. Hugonin, P. Lalanne, S. van Haver, O. T. A. Janssen, A. M.
