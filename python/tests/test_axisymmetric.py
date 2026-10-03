@@ -120,3 +120,12 @@ def test_dipole_in_vacuum_radiates_the_larmor_power():
     )
     reference = hpfem.dipole_vacuum_power(1.0, setup.omega) * np.exp(-(x**2) * sigma**2)
     assert np.isclose(power, reference, rtol=3e-2)
+    # far field: Larmor pattern sin(theta), no azimuthal component, same power
+    theta = np.linspace(0.0, np.pi, 181)
+    far = hpfem.axisymmetric_far_field(
+        nd, h1, field.meridian, field.azimuthal, 0, setup.omega, setup.materials, surface, theta
+    )
+    f_theta = np.abs(np.array(far.f_theta))
+    assert np.max(np.abs(np.array(far.f_phi))) < 1e-6 * f_theta.max()
+    assert np.allclose(f_theta[30:151] / f_theta[90], np.sin(theta[30:151]), rtol=1e-2)
+    assert np.isclose(far.radiated_power(), power, rtol=1e-2)

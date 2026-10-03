@@ -223,10 +223,43 @@ dipole at the centre of the sphere $n = 3$: the electric dipole couples to the
 $\mathrm{TM}_1$ modes, and the Purcell factor peaks at $\mathrm{Re}\,x_{\mathrm{TM}}$ of the
 Mie pole found by the resonance solver, which ties the three problem classes together.
 
+## Far field (`axisymmetric_far_field`)
+
+The near-to-far transform of `maxwell.md` (Stratton–Chu with the equivalent currents
+$J = n\times H$, $M = -n\times E$ on a closed surface in the background medium,
+$F = \frac{ik}{4\pi}[Z N_t - \hat r\times L]$ with $N = \int J e^{-ik\hat r\cdot x'}$,
+$L = \int M e^{-ik\hat r\cdot x'}$) is applied to one order: on a surface of revolution the
+azimuthal integration of $e^{im\varphi'}$ against the plane-wave phase
+$e^{-ik\rho\sin\theta\cos(\varphi' - \varphi)}$ is analytic,
+
+$$
+\int_0^{2\pi} e^{im\varphi'}\,e^{-ik\rho\sin\theta\cos(\varphi'-\varphi)}\,d\varphi'
+= 2\pi\,(-i)^m J_m(k\rho\sin\theta)\,e^{im\varphi},
+$$
+
+and the Cartesian components of a cylindrical vector bring the factors $\cos\varphi'$,
+$\sin\varphi'$, i.e. the orders $m \pm 1$. Only the meridian curve is integrated numerically
+(same quadrature as the flux), and the pattern of order $m$ is
+$E \approx F(\theta)\,e^{im\varphi}\,e^{ikR}/R$ with the spherical components $F_\theta$,
+$F_\varphi$ evaluated at $\varphi = 0$. The radiated power $\int |F|^2 d\Omega / (2Z)$ of the
+order (trapezoidal rule over the sampled polar angles) must equal the Poynting flux of the
+order through the same surface; the total pattern of a field with several orders is the sum
+of the $F_m e^{im\varphi}$.
+
+**Verification** (`tests/unit/physics/test_axisymmetric_farfield.cpp`,
+`tests/convergence/axisymmetric_mie_sphere.cpp`): the axial dipole in vacuum radiates the
+Larmor pattern, $|F_\theta| \propto \sin\theta$ to $2\cdot10^{-3}$ with $F_\varphi = 0$, and
+its far-field power equals the near-field flux to $2\cdot10^{-3}$ (and the analytic
+$P_0 e^{-k^2\sigma^2}$ to $5\cdot10^{-3}$) at $p = 3$; the transverse dipole radiates along
+the axis and conserves power likewise; for the sphere scattering the cross-section from the
+far-field power agrees with the flux and converges to the Mie value (the convergence test
+prints both columns).
+
 ## Roadmap
 
-Still open: the far field from the $m$ contributions, the micropillar / VCSEL example
-(Python), coupled orders for oblique incidence and
+The micropillar example (`examples/micropillar_qd`) exercises resonance, Purcell factor and
+β factor together. Still open: coupled orders for oblique incidence and
 adaptivity on the meridian plane with the $r$-weighted estimator. The Python bindings
 (`AxisymmetricCavity`, `AxisymmetricResonance`, `AxisymmetricScattering`, `axial_plane_wave`,
-`axisymmetric_gaussian_dipole`, `axisymmetric_poynting_flux`) follow the C++ API one to one.
+`axisymmetric_gaussian_dipole`, `axisymmetric_poynting_flux`, `axisymmetric_far_field`) follow the
+C++ API one to one.
