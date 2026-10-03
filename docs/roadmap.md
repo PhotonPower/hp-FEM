@@ -211,5 +211,16 @@ Bodies of revolution on the meridian mesh, one 2D problem per azimuthal order m.
   `DirectSolverBackend::kCudss` opt-in, separately built `hpfem_gpu` library in `gpu/` loaded
   at run time behind `HPFEM_ENABLE_CUDA`, `LinearSolver::solve_many`); GPU assembly deferred
   (FP64 rate of consumer GPUs, MSVC-only toolchain)
+- [ ] GPU backend for *hp*-adaptive systems: cuDSS pivots statically and perturbs tiny
+  pivots on systems with hanging nodes and high orders even after the scaling to
+  max |a_ij| = 1 (L-shape test: 28 of 12 846, 103 of 16 359 and 2 612 of 21 623 pivots;
+  plasmonic wedge likewise), so `kAuto` sends them to MUMPS / SparseLU. Accepting the
+  perturbed factorisation with two steps of cuDSS iterative refinement stayed accurate at
+  103 pivots but lost accuracy at 2 612 (L-shape error 9e-5 → 2.7e-4). Candidates: a
+  residual-checked acceptance (keep the GPU factorisation, verify ‖Ax − b‖ of every solve,
+  refactorise on the CPU when it degrades) and a diagonal equilibration D A D before the
+  factorisation (the complex-symmetric matrices mix edge and high-order interior functions
+  of very different scale, which a global scale cannot fix); cuDSS matching / reordering
+  options to be tried alongside.
 - [x] `physics::PropagatingMode<2>` on adaptive meshes: apply the hanging-node constraints
   as `Resonance` does (found during M10 validation; fixed in PR #63)
