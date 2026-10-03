@@ -88,6 +88,8 @@ if(HPFEM_ENABLE_MUMPS)
   target_link_libraries(hpfem PRIVATE MUMPS::MUMPS)
   target_compile_definitions(hpfem PUBLIC HPFEM_HAVE_MUMPS)
 endif()
+set_source_files_properties(solvers/linear_solver.cpp PROPERTIES
+  COMPILE_DEFINITIONS "HPFEM_GPU_MIN_UNKNOWNS_DEFAULT=${HPFEM_GPU_MIN_UNKNOWNS}")
 if(HPFEM_ENABLE_CUDA)
   # only the C interface of the separately built hpfem_gpu library; no CUDA at build time
   target_include_directories(hpfem PRIVATE "${PROJECT_SOURCE_DIR}/gpu/include")

@@ -3,6 +3,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `DirectSolverBackend::kAuto` prefers cuDSS for systems of at least `HPFEM_GPU_MIN_UNKNOWNS`
+  unknowns (CMake cache variable, default 10 000, environment variable of the same name
+  overrides; 0 always, negative never) when the GPU library and a device are present; the
+  choice is made in `factorize`, the GPU library is loaded only then, `name()` reports
+  "auto: <backend>". The default is where the GPU factorisation draws level with sequential
+  MUMPS on the RTX 3090 (`bench_backend_threshold`,
+  `benchmarks/results/2026-10-03-VR-backend-threshold.json`). If cuDSS refuses a system
+  (perturbed pivots, as on hp-adaptive systems with hanging nodes), `kAuto` warns and
+  factorises it with MUMPS / SparseLU instead. Python: `gpu_min_unknowns()`.
 - cuDSS and `solve_many` where one factorisation serves many solves (ADR-0008 follow-up):
   `ScatteringOperator::solve_many(incidents, current)` assembles the loads of several
   incident fields and applies the factorisation in one batched solve (`physics::solve_many`
