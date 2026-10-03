@@ -252,6 +252,76 @@ Mesh<2> square_with_disc(Index n, Real radius, Real half_width, Real outer, Tag 
   return m;
 }
 
+Mesh<3> box_with_ball(Index n, Real radius, Real half_width, Real outer, Tag inclusion_tag) {
+  if (n < 1 || !(radius > 0) || !(half_width > radius) || !(outer >= half_width)) {
+    throw InvalidArgument(fmt::format(
+        "box_with_ball: need n >= 1, 0 < radius < half_width <= outer (got n = {}, radius = {}, "
+        "half_width = {}, outer = {})",
+        n, radius, half_width, outer));
+  }
+  if (inclusion_tag == kNoTag)
+    throw InvalidArgument("box_with_ball: inclusion tag must be non-zero");
+  const Real l = half_width / radius;  // grid coordinate of the inner cube
+  const Real l_out = outer / radius;   // grid coordinate of the outer boundary
+  const Real cells_real = static_cast<Real>(n) * l_out;
+  const Index cells = static_cast<Index>(std::lround(cells_real));
+  if (std::abs(cells_real - static_cast<Real>(cells)) > 1e-9) {
+    throw InvalidArgument(fmt::format(
+        "box_with_ball: (outer / radius) n = {} must be an integer number of cells", cells_real));
+  }
+  const Mesh<3> grid = box(2 * cells, 2 * cells, 2 * cells, Point<3>(-l_out, -l_out, -l_out),
+                           Point<3>(l_out, l_out, l_out), false);
+  // the cube [-1, 1]^3 onto the unit ball (same map as `ball`)
+  const auto to_ball = [](const Point<3>& q) {
+    const Real u = q(0);
+    const Real v = q(1);
+    const Real w = q(2);
+    return Point<3>(u * std::sqrt(1.0 - 0.5 * v * v - 0.5 * w * w + v * v * w * w / 3.0),
+                    v * std::sqrt(1.0 - 0.5 * w * w - 0.5 * u * u + w * w * u * u / 3.0),
+                    w * std::sqrt(1.0 - 0.5 * u * u - 0.5 * v * v + u * u * v * v / 3.0));
+  };
+  const auto sup = [](const Point<3>& q) {
+    return std::max({std::abs(q(0)), std::abs(q(1)), std::abs(q(2))});
+  };
+  std::vector<Point<3>> vertices;
+  vertices.reserve(as_size(grid.num_vertices()));
+  for (const auto& q : grid.vertices()) {
+    const Real s = sup(q);
+    Point<3> x;
+    if (s <= 1.0 + 1e-12) {
+      x = radius * to_ball(q);
+    } else if (s <= l + 1e-12) {
+      const Real t = (s - 1.0) / (l - 1.0);
+      x = (1.0 - t) * radius * to_ball(q / s) + t * radius * q;
+    } else {
+      x = radius * q;
+    }
+    vertices.push_back(x);
+  }
+  std::vector<Mesh<3>::CellVertices> cells_list(grid.cells().begin(), grid.cells().end());
+  std::vector<Tag> tags;
+  tags.reserve(cells_list.size());
+  for (const auto& cv : cells_list) {
+    bool inside = true;
+    for (const Index v : cv) {
+      if (sup(grid.vertex(v)) > 1.0 + 1e-12) inside = false;
+    }
+    tags.push_back(inside ? inclusion_tag : kNoTag);
+  }
+  Mesh<3> m(std::move(vertices), std::move(cells_list), std::move(tags));
+  tag_box_sides(m, Point<3>(-outer, -outer, -outer), Point<3>(outer, outer, outer));
+  std::vector<Index> interface;
+  for (Index f = 0; f < m.num_facets(); ++f) {
+    const auto& fc = m.facet_cells(f);
+    if (fc[1] == kInvalidIndex) continue;
+    if ((m.cell_tag(fc[0]) == inclusion_tag) != (m.cell_tag(fc[1]) == inclusion_tag))
+      interface.push_back(f);
+  }
+  curve_boundary<3>(m, std::span<const Index>(interface),
+                    [radius](const Point<3>& x) { return Point<3>(radius * x.normalized()); });
+  return m;
+}
+
 template <int Dim>
 Mesh<Dim> extract(const Mesh<Dim>& mesh, std::span<const Index> cells) {
   std::vector<Index> new_vertex(as_size(mesh.num_vertices()), kInvalidIndex);

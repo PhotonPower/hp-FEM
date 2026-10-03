@@ -60,6 +60,8 @@ hpfem_add_test(test_physics unit
   physics/test_postprocess.cpp
   physics/test_mie.cpp
   physics/test_layer_stack.cpp
+
+  physics/test_mie_sphere.cpp
   physics/test_farfield.cpp
   physics/test_propagating_mode.cpp
   physics/test_goal_oriented.cpp

@@ -91,3 +91,9 @@ hpfem_add_test(convergence_slit_groove "convergence;validation"
 add_test(NAME validation_long_slit_groove
   COMMAND convergence_slit_groove "[validation-long]")
 set_tests_properties(validation_long_slit_groove PROPERTIES LABELS "validation-long")
+
+hpfem_add_test(convergence_mie_sphere "convergence;validation"
+  mie_sphere.cpp)
+add_test(NAME validation_long_mie_sphere
+  COMMAND convergence_mie_sphere "[validation-long]")
+set_tests_properties(validation_long_mie_sphere PROPERTIES LABELS "validation-long")

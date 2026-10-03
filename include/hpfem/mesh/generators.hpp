@@ -65,6 +65,17 @@ inline constexpr Tag kDiscBoundary = 1;
 [[nodiscard]] Mesh<2> square_with_disc(Index n, Real radius, Real half_width, Real outer,
                                        Tag inclusion_tag = 2);
 
+/// 3D counterpart of `square_with_disc`: the cube [-outer, outer]^3 with a spherical inclusion
+/// of the given radius at the origin resolved by (curved) cell faces. The grid of the inner cube
+/// is mapped onto the ball as in `ball`, the shell up to `half_width` blends between the sphere
+/// and the cube, beyond `half_width` the grid is uniform (space for a PML). n is the number of
+/// cells per radius; (outer / radius) n must be an integer. Cells: 6 (2 (outer / radius) n)^3
+/// Kuhn tetrahedra. The inclusion cells carry `inclusion_tag`, the outer sides the `box_tag`s,
+/// the interface faces become quadratic (geometry order 2). @throws InvalidArgument for
+/// inconsistent sizes.
+[[nodiscard]] Mesh<3> box_with_ball(Index n, Real radius, Real half_width, Real outer,
+                                    Tag inclusion_tag = 2);
+
 /// Sub-mesh of the given cells (in the given order) of a conforming mesh: vertices are
 /// renumbered ascending, cell tags, the facet tags of facets kept, tag names and curved edge
 /// nodes transfer. New boundary facets (cut through the interior) stay untagged, e.g. for
