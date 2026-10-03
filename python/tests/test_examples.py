@@ -74,3 +74,17 @@ def test_euv_mask_bare_mirror_against_the_transfer_matrix(tmp_path, monkeypatch)
         0.0 < result.reflectivity < result.reflectivity_bare_fem
     )  # the absorber pad darkens the cell
     assert (tmp_path / "euv_mask.vtu").stat().st_size > 1000
+
+
+def test_ring_resonator_dip_at_the_eigenmode_resonance():
+    example = load_example("ring_resonator")
+    cell = 120 * example.units.nm
+    res, _, _, _ = example.resonances(order=2, cell=cell, num_modes=1)
+    assert len(res.wavelength_nm) == 1 and res.quality[0] > 20
+    lam_res = res.wavelength_nm[0] * example.units.nm
+    width = lam_res / res.quality[0]
+    spec = example.transmission(
+        [lam_res - 4 * width, lam_res, lam_res + 4 * width], order=2, cell=cell
+    )
+    assert spec.transmission[1] < 0.8 * min(spec.transmission[0], spec.transmission[2])  # the dip
+    assert all(0.0 < t < 1.05 for t in spec.transmission)

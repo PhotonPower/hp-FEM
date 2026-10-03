@@ -337,5 +337,10 @@ assembly and estimation, parameter sweeps (`physics::ScatteringOperator`,
 `hpfem.units`, the `hpfem.materials` library (refractiveindex.info data with sources),
 `hpfem.project` files with the `hpfem` command line, `hpfem.interop` (meshio, pyvista,
 matplotlib) and the example notebooks; `docs/python.md` is the user guide.
-Next: **M8 — application examples**.
+**M8 (application examples)** is complete: Python drivers in `examples/` for the
+metasurface unit cell, the VCSEL cavity (with the new complex eigensolver
+`solvers::complex_eigenpairs_near` and `physics::Resonance` for quasi-normal modes), the
+quantum-dot Purcell factor (`physics::gaussian_current`), the 3D EUV mask and the ring
+resonator, each with a README and a regression test in `python/tests/test_examples.py`.
+Next: **M9 — multiphysics**.
 See `docs/roadmap.md`.

@@ -3,6 +3,10 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `examples/ring_resonator/run.py` (M8): ring resonator in the 2D effective-index model —
+  resonance wavelengths and Q from `Resonance2D` on the ring-plus-bus structure, bus
+  transmission from a Gaussian line current normalised by the bare bus, dips at the
+  eigenmode resonances. M8 complete.
 - `examples/euv_mask/run.py` (M8): 3D EUV mask unit cell — tantalum pad on a Mo/Si
   multilayer at 13.5 nm under 6° incidence, Bloch-periodic in x and y with PML above and in
   the substrate, Kuhn tetrahedra with nodes on every layer interface, reflectivity from the
