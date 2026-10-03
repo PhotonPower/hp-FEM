@@ -10,6 +10,27 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `benchmarks/results/2026-10-03-VR-backend-symmetry.json`); SparseLU ignores the flag,
   `kAuto` forwards it. The caller guarantees `A = Aᵀ`; helpers `upper_triangle`,
   `asymmetry`. Python: `Symmetry`, `asymmetry`, `symmetry` arguments.
+
+- Layered background for the scattered-field formulation (ADR-0009, M10 D1):
+  `physics::LayerStack<Dim>` (planar layers perpendicular to the last coordinate, stable
+  Airy / S-matrix recursion with layer-local amplitudes, `plane_wave` returns the exact
+  field as `IncidentField` plus R, T, A), `ScatteringSetup::background` (source only where a
+  cell deviates from the stack, `Scattering::background_material` /
+  `incidence_material`, straddling cells rejected), Python `LayerStack2D/3D`, `Layer`,
+  `Polarisation`, `ScatteringSetup.background`; theory section in docs/theory/maxwell.md.
+- Mie series of the sphere (M10 C): `physics::mie_sphere` / `MieSphere` (a_n, b_n, c_n, d_n,
+  Q_sca / Q_ext / Q_abs, cross-sections, fields inside and outside for complex ε), spherical
+  Bessel functions incl. complex `spherical_bessel_j` by downward recurrence,
+  `mesh::box_with_ball` (cube with a curved spherical inclusion), Python bindings; the 3D half
+  of convergence test #4 (`mie_sphere`, quarter domain by symmetry) and a cross-check of the
+  series against `miepython` (eight digits, near field to 1e-6).
+- Validation benchmarks B (metallic lamellar grating, Granet & Guizal 1996) and D2
+  (slit–groove in silver, Besbes et al. 2007 / Burger et al. 2013) with their long local
+  studies in `benchmarks/results/`; `docs/validation.md` sections B–D. Findings: the PML of
+  one wavelength / order 2 leaves a 1e-4 energy defect in efficiencies (3 µm / order 4 /
+  1e-14 fixes it); the slit–groove result is limited to ~1e-5 by the surface-plasmon
+  truncation, and the 0.1 % difference between the two slit–groove sources is their
+  substrate permittivity.
 - `DirectSolverBackend::kAuto` prefers cuDSS for systems of at least `HPFEM_GPU_MIN_UNKNOWNS`
   unknowns (CMake cache variable, default 10 000, environment variable of the same name
   overrides; 0 always, negative never) when the GPU library and a device are present; the
