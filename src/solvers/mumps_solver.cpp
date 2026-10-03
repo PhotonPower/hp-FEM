@@ -34,11 +34,13 @@ void ensure_mpi_initialised() {
 
 class MumpsSolver final : public LinearSolver {
  public:
-  MumpsSolver() {
+  explicit MumpsSolver(Symmetry symmetry) : symmetric_(symmetry == Symmetry::kComplexSymmetric) {
     ensure_mpi_initialised();
     id_.comm_fortran = kUseCommWorld;
     id_.par = 1;  // the host takes part in the factorisation
-    id_.sym = 0;  // general unsymmetric (complex symmetric systems are not Hermitian)
+    // 0: general unsymmetric LU; 2: general symmetric (A = A^T, indefinite) LDL^T on one
+    // triangle — complex symmetric systems are not Hermitian, so SYM = 1 never applies
+    id_.sym = symmetric_ ? 2 : 0;
     id_.job = -1;
     zmumps_c(&id_);
     check("initialisation");
@@ -64,13 +66,20 @@ class MumpsSolver final : public LinearSolver {
     }
     ready_ = false;
     size_ = matrix.rows();
-    const Index nnz = matrix.nonZeros();
+    // SYM = 2 takes one triangle only (entries given twice would be summed)
+    const SparseMatrix* input = &matrix;
+    SparseMatrix upper;
+    if (symmetric_) {
+      upper = upper_triangle(matrix);
+      input = &upper;
+    }
+    const Index nnz = input->nonZeros();
     rows_.resize(as_size(nnz));
     cols_.resize(as_size(nnz));
     values_.resize(as_size(nnz));
     std::size_t k = 0;
-    for (Index row = 0; row < matrix.outerSize(); ++row) {
-      for (SparseMatrix::InnerIterator it(matrix, row); it; ++it) {
+    for (Index row = 0; row < input->outerSize(); ++row) {
+      for (SparseMatrix::InnerIterator it(*input, row); it; ++it) {
         rows_[k] = static_cast<MUMPS_INT>(it.row() + 1);
         cols_[k] = static_cast<MUMPS_INT>(it.col() + 1);
         values_[k].r = it.value().real();
@@ -134,7 +143,7 @@ class MumpsSolver final : public LinearSolver {
 
   [[nodiscard]] Index size() const noexcept override { return size_; }
   [[nodiscard]] std::string name() const override {
-    return fmt::format("MUMPS {} (sequential)", MUMPS_VERSION);
+    return fmt::format("MUMPS {} (sequential{})", MUMPS_VERSION, symmetric_ ? ", LDL^T" : "");
   }
 
  private:
@@ -148,6 +157,7 @@ class MumpsSolver final : public LinearSolver {
     }
   }
 
+  bool symmetric_;
   ZMUMPS_STRUC_C id_{};
   std::vector<MUMPS_INT> rows_;
   std::vector<MUMPS_INT> cols_;
@@ -158,8 +168,8 @@ class MumpsSolver final : public LinearSolver {
 
 }  // namespace
 
-std::unique_ptr<LinearSolver> make_mumps() {
-  return std::make_unique<MumpsSolver>();
+std::unique_ptr<LinearSolver> make_mumps(Symmetry symmetry) {
+  return std::make_unique<MumpsSolver>(symmetry);
 }
 
 }  // namespace hpfem::solvers

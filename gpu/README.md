@@ -9,7 +9,8 @@ needed to build the library (`HPFEM_ENABLE_CUDA` only compiles the loader), and 
 or GPU degrades gracefully: `available(kCudss)` is false and `kAuto` picks MUMPS or SparseLU.
 Rationale and measurements: `docs/adr/0008-gpu-backend.md`.
 
-What the DLL does: analysis + LU (or LDLᵀ for complex-symmetric input) factorisation of a
+What the DLL does: analysis + LU (or LDLᵀ for complex-symmetric input, selected by the
+library through `solvers::Symmetry::kComplexSymmetric`) factorisation of a
 complex double CSR matrix on the device, then solves for one or many right-hand sides
 (factorise once, solve many). Indices are 64-bit end to end (`CUDSS_R_64I`), exactly the
 storage of `hpfem::SparseMatrix`, so no host-side conversion is needed. The matrix is

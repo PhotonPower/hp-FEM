@@ -26,6 +26,7 @@ using hpfem::solvers::DirectSolverBackend;
 using hpfem::solvers::gpu_min_unknowns;
 using hpfem::solvers::make_direct_solver;
 using hpfem::solvers::solve_direct;
+using hpfem::solvers::Symmetry;
 
 namespace {
 
@@ -106,6 +107,41 @@ TEST_CASE("direct solver backends solve random sparse complex systems", "[solver
     // errors: wrong size, solve before factorize
     CHECK_THROWS_AS(solver->solve(Vector::Ones(n + 1)), hpfem::InvalidArgument);
     CHECK_THROWS_AS(make_direct_solver(backend)->solve(b), hpfem::Error);
+  }
+}
+
+TEST_CASE("direct solver backends: complex-symmetric systems through the LDL^T paths",
+          "[solvers]") {
+  const Index n = 600;
+  const SparseMatrix b = random_system(n, 11);
+  SparseMatrix a = b + SparseMatrix(b.transpose());  // complex symmetric, not Hermitian
+  a.makeCompressed();
+  REQUIRE(hpfem::solvers::asymmetry(a) == 0.0);
+  REQUIRE(hpfem::solvers::asymmetry(b) > 0.1);
+  const SparseMatrix upper = hpfem::solvers::upper_triangle(a);
+  CHECK(upper.nonZeros() < a.nonZeros());
+  CHECK((SparseMatrix(upper + SparseMatrix(upper.transpose())) -
+         SparseMatrix(a + SparseMatrix(a.diagonal().asDiagonal())))
+            .norm() < 1e-12 * a.norm());
+  const Vector x_exact = random_vector(n, 12);
+  const Vector rhs = a * x_exact;
+  std::vector<DirectSolverBackend> backends = available_backends();
+  backends.push_back(DirectSolverBackend::kAuto);
+  for (const DirectSolverBackend backend : backends) {
+    INFO(backend_name(backend));
+    auto solver = make_direct_solver(backend, Symmetry::kComplexSymmetric);
+    solver->factorize(a);
+    const Vector x = solver->solve(rhs);
+    CHECK((x - x_exact).norm() < 1e-10 * x_exact.norm());
+    Matrix many(n, 2);
+    many.col(0) = rhs;
+    many.col(1) = a * random_vector(n, 13);
+    const Matrix xs = solver->solve_many(many);
+    CHECK((a * xs - many).norm() < 1e-10 * many.norm());
+    CHECK((solve_direct(a, rhs, backend, Symmetry::kComplexSymmetric) - x_exact).norm() <
+          1e-10 * x_exact.norm());
+    // a general factorisation of the same matrix agrees
+    CHECK((solve_direct(a, rhs, backend, Symmetry::kGeneral) - x).norm() < 1e-9 * x.norm());
   }
 }
 

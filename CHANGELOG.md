@@ -3,6 +3,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `solvers::Symmetry::kComplexSymmetric` on `make_direct_solver` / `solve_direct`: cuDSS
+  factorises the upper triangle as LDLᵀ (`CUDSS_MTYPE_SYMMETRIC`) and MUMPS runs with
+  `SYM = 2`, both with about half the factor work (RTX 3090: 164 k unknowns in 2D 1.16 →
+  0.85 s on MUMPS, 0.72 → 0.52 s on cuDSS; 70 k in 3D 4.65 → 2.39 s and 1.84 → 1.24 s;
+  `benchmarks/results/2026-10-03-VR-backend-symmetry.json`); SparseLU ignores the flag,
+  `kAuto` forwards it. The caller guarantees `A = Aᵀ`; helpers `upper_triangle`,
+  `asymmetry`. Python: `Symmetry`, `asymmetry`, `symmetry` arguments.
 - `DirectSolverBackend::kAuto` prefers cuDSS for systems of at least `HPFEM_GPU_MIN_UNKNOWNS`
   unknowns (CMake cache variable, default 10 000, environment variable of the same name
   overrides; 0 always, negative never) when the GPU library and a device are present; the

@@ -45,6 +45,16 @@ enum class DirectSolverBackend {
   kCudss,     ///< NVIDIA cuDSS on the GPU, needs `HPFEM_ENABLE_CUDA` and the hpfem_gpu library
 };
 
+/// Structure of the system matrix that a backend may exploit. The caller guarantees it: a
+/// complex-symmetric matrix (A = Aᵀ, not Hermitian — the curl–curl operators with symmetric
+/// material tensors, PML and Dirichlet elimination, also after static condensation and
+/// hanging-node constraints; not with Bloch phases) lets cuDSS and MUMPS factorise one
+/// triangle (LDLᵀ, about half the work and memory). SparseLU ignores it.
+enum class Symmetry {
+  kGeneral,           ///< no structure assumed (LU)
+  kComplexSymmetric,  ///< A = Aᵀ with complex entries; only the upper triangle is used
+};
+
 /// Size from which `kAuto` prefers cuDSS: the CMake cache variable `HPFEM_GPU_MIN_UNKNOWNS`
 /// (default 10000, where the GPU factorisation draws level with sequential MUMPS on the
 /// RTX 3090, ADR-0008), overridden at run time by the environment variable of the same name;
@@ -58,17 +68,19 @@ enum class DirectSolverBackend {
 
 /// Eigen's supernodal sparse LU with COLAMD ordering; general (non-symmetric) complex
 /// matrices, O(fill) memory. Adequate up to a few 10^5 unknowns in 2D.
-[[nodiscard]] std::unique_ptr<LinearSolver> make_sparse_lu();
-/// MUMPS multifrontal LU (sequential build, unsymmetric complex double, automatic
-/// ordering); the backend of choice for 3D and for many right-hand sides.
+[[nodiscard]] std::unique_ptr<LinearSolver> make_sparse_lu(Symmetry symmetry = Symmetry::kGeneral);
+/// MUMPS multifrontal LU (sequential build, complex double, automatic ordering; `SYM = 2`
+/// LDLᵀ on the upper triangle for `kComplexSymmetric`); the backend of choice for 3D and for
+/// many right-hand sides.
 /// @throws Error if the library was not compiled in.
-[[nodiscard]] std::unique_ptr<LinearSolver> make_mumps();
+[[nodiscard]] std::unique_ptr<LinearSolver> make_mumps(Symmetry symmetry = Symmetry::kGeneral);
 /// NVIDIA cuDSS (LU on the GPU, factors stay on the device): the backend for many solves of
 /// one factorisation (time stepping, Arnoldi, sweeps). The solver lives in the separately
 /// built hpfem_gpu library (`gpu/README.md`), found through `HPFEM_GPU_DLL`.
+/// With `kComplexSymmetric` only the upper triangle goes to the device (cuDSS LDLᵀ).
 /// @throws Error if the library was not compiled with `HPFEM_ENABLE_CUDA`, the hpfem_gpu
 ///         library cannot be loaded or no CUDA device is present.
-[[nodiscard]] std::unique_ptr<LinearSolver> make_cudss();
+[[nodiscard]] std::unique_ptr<LinearSolver> make_cudss(Symmetry symmetry = Symmetry::kGeneral);
 /// Why the cuDSS backend is (un)available in this process: library path, versions and
 /// device if usable, otherwise the loading error. Never throws.
 [[nodiscard]] std::string cudss_status();
@@ -77,10 +89,16 @@ enum class DirectSolverBackend {
 /// library is only loaded when cuDSS is actually chosen.
 /// @throws Error if the backend is not available.
 [[nodiscard]] std::unique_ptr<LinearSolver> make_direct_solver(
-    DirectSolverBackend backend = DirectSolverBackend::kAuto);
+    DirectSolverBackend backend = DirectSolverBackend::kAuto,
+    Symmetry symmetry = Symmetry::kGeneral);
 
 /// Factorise and solve in one go.
 [[nodiscard]] Vector solve_direct(const SparseMatrix& matrix, const Vector& rhs,
-                                  DirectSolverBackend backend = DirectSolverBackend::kAuto);
+                                  DirectSolverBackend backend = DirectSolverBackend::kAuto,
+                                  Symmetry symmetry = Symmetry::kGeneral);
+/// Upper triangle (column ≥ row) of a square matrix, compressed; the input of the LDLᵀ paths.
+[[nodiscard]] SparseMatrix upper_triangle(const SparseMatrix& matrix);
+/// Largest |a_ij − a_ji| relative to the largest |a_ij| (0 for a symmetric matrix).
+[[nodiscard]] Real asymmetry(const SparseMatrix& matrix);
 
 }  // namespace hpfem::solvers

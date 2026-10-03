@@ -20,6 +20,13 @@ void bind_solvers(py::module_& m) {
       .value("MUMPS", DirectSolverBackend::kMumps)
       .value("CUDSS", DirectSolverBackend::kCudss,
              "NVIDIA cuDSS on the GPU (HPFEM_ENABLE_CUDA, hpfem_gpu library loaded at run time)");
+  py::enum_<solvers::Symmetry>(m, "Symmetry",
+                               "Structure of the system matrix a backend may exploit")
+      .value("GENERAL", solvers::Symmetry::kGeneral)
+      .value("COMPLEX_SYMMETRIC", solvers::Symmetry::kComplexSymmetric,
+             "A = A^T (not Hermitian): cuDSS / MUMPS factorise one triangle (LDL^T)");
+  m.def("asymmetry", &solvers::asymmetry, py::arg("matrix"),
+        "largest |a_ij - a_ji| relative to the largest |a_ij|");
   m.def("available", &solvers::available, py::arg("backend"), "backend usable in this build");
   m.def("gpu_min_unknowns", &solvers::gpu_min_unknowns,
         "Unknowns from which AUTO prefers cuDSS (HPFEM_GPU_MIN_UNKNOWNS; 0 always, < 0 never)");
@@ -28,7 +35,8 @@ void bind_solvers(py::module_& m) {
   m.def("available_backends", &solvers::available_backends);
   m.def("backend_name", &solvers::backend_name, py::arg("backend"));
   m.def("solve_direct", &solvers::solve_direct, py::arg("matrix"), py::arg("rhs"),
-        py::arg("backend") = DirectSolverBackend::kAuto, Release(),
+        py::arg("backend") = DirectSolverBackend::kAuto,
+        py::arg("symmetry") = solvers::Symmetry::kGeneral, Release(),
         "Factorise and solve A x = b (complex sparse A as scipy.sparse.csr_matrix)");
 
   py::class_<solvers::LinearSolver, std::unique_ptr<solvers::LinearSolver>>(
@@ -40,7 +48,10 @@ void bind_solvers(py::module_& m) {
       .def_property_readonly("size", &solvers::LinearSolver::size)
       .def_property_readonly("name", &solvers::LinearSolver::name);
   m.def("make_direct_solver", &solvers::make_direct_solver,
-        py::arg("backend") = DirectSolverBackend::kAuto, "The requested backend (AUTO resolved)");
+        py::arg("backend") = DirectSolverBackend::kAuto,
+        py::arg("symmetry") = solvers::Symmetry::kGeneral,
+        "The requested backend (AUTO chooses in factorize); symmetry as guaranteed by the "
+        "caller");
 
   py::class_<solvers::EigenOptions>(m, "EigenOptions")
       .def(py::init([](Index num_eigenvalues, Real shift, Index krylov_dimension, Real tolerance,
