@@ -70,8 +70,11 @@ if(HPFEM_GPU_BUILD_SELFTEST)
   set_target_properties(hpfem_gpu_selftest PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
   add_test(NAME hpfem_gpu_selftest COMMAND hpfem_gpu_selftest 20000)
+  # the same cases with the factors forced into host memory (hybrid memory mode)
+  add_test(NAME hpfem_gpu_selftest_hybrid COMMAND hpfem_gpu_selftest 20000)
+  set_tests_properties(hpfem_gpu_selftest_hybrid PROPERTIES ENVIRONMENT "HPFEM_GPU_HYBRID=1")
   if(HPFEM_CUDSS_BIN_DIR)
-    set_tests_properties(hpfem_gpu_selftest PROPERTIES
+    set_tests_properties(hpfem_gpu_selftest hpfem_gpu_selftest_hybrid PROPERTIES
       ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${HPFEM_CUDSS_BIN_DIR}")
   endif()
 endif()

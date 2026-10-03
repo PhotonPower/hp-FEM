@@ -7,6 +7,17 @@
 #include <cstring>
 #include <cuda_runtime.h>
 #include <cudss.h>
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#else
+#include <sys/sysinfo.h>
+#endif
 #include <new>
 #include <string>
 #include <vector>
@@ -34,6 +45,20 @@ struct DeviceBuffer {
     return status;
   }
 };
+
+/// Free physical host memory in bytes (0 if unknown).
+size_t free_host_memory() {
+#if defined(_WIN32)
+  MEMORYSTATUSEX status{};
+  status.dwLength = sizeof(status);
+  if (GlobalMemoryStatusEx(&status) == 0) return 0;
+  return static_cast<size_t>(status.ullAvailPhys);
+#else
+  struct sysinfo info {};
+  if (sysinfo(&info) != 0) return 0;
+  return static_cast<size_t>(info.freeram) * info.mem_unit;
+#endif
+}
 
 const char* cudss_status_name(cudssStatus_t status) {
   switch (status) {
@@ -68,7 +93,11 @@ struct hpfem_gpu_solver {
   int64_t n = 0;
   int64_t nnz = 0;
   bool factorized = false;
-  double scale = 1.0;  // the factors are those of scale * A (max |a_ij| = 1)
+  double scale = 1.0;   // the factors are those of scale * A (max |a_ij| = 1)
+  bool hybrid = false;  // factors (partly) in host memory
+  size_t device_estimate = 0;
+  size_t host_estimate = 0;
+  size_t device_free = 0;
 
   DeviceBuffer row_ptr;
   DeviceBuffer col;
@@ -277,9 +306,69 @@ hpfem_gpu_status hpfem_gpu_factorize(hpfem_gpu_solver* solver, int64_t n, int64_
       cudssMatrixCreateDn(&x, n, 1, n, solver->solution.ptr, CUDSS_C_64F, CUDSS_LAYOUT_COL_MAJOR));
   cudssStatus_t status =
       cudssMatrixCreateDn(&b, n, 1, n, solver->rhs.ptr, CUDSS_C_64F, CUDSS_LAYOUT_COL_MAJOR);
+  // hybrid memory mode: the factors live (partly) in host memory when they would not fit
+  // the device. cuDSS wants the mode set before the analysis, so: analysis in the mode
+  // requested or guessed, then the peak-memory estimates decide; a wrong guess repeats the
+  // (cheap) analysis in the other mode. HPFEM_GPU_HYBRID=1/0 forces the mode.
+  size_t free_device = 0, total_device = 0;
+  if (status == CUDSS_STATUS_SUCCESS &&
+      cudaMemGetInfo(&free_device, &total_device) != cudaSuccess) {
+    cudaGetLastError();
+    free_device = 0;
+  }
+  solver->device_free = free_device;
+  const char* forced = std::getenv("HPFEM_GPU_HYBRID");
+  const int force = (forced == nullptr || *forced == '\0') ? -1 : (*forced == '1' ? 1 : 0);
+  int64_t estimates[16] = {};
+  size_t written = 0;
+  auto analyse = [&](bool hybrid) -> cudssStatus_t {
+    int mode = hybrid ? 1 : 0;
+    cudssStatus_t st =
+        cudssConfigSet(solver->config, CUDSS_CONFIG_HYBRID_MEMORY_MODE, &mode, sizeof(mode));
+    if (st != CUDSS_STATUS_SUCCESS) return st;
+    st = cudssExecute(solver->handle, CUDSS_PHASE_ANALYSIS, solver->config, solver->data,
+                      solver->matrix, x, b);
+    if (st != CUDSS_STATUS_SUCCESS) return st;
+    return cudssDataGet(solver->handle, solver->data, CUDSS_DATA_MEMORY_ESTIMATES, estimates,
+                        sizeof(estimates), &written);
+  };
+  bool hybrid = force == 1;
+  if (status == CUDSS_STATUS_SUCCESS) status = analyse(hybrid);
+  if (status == CUDSS_STATUS_SUCCESS && force == -1 && !hybrid) {
+    const size_t peak = static_cast<size_t>(estimates[1] > 0 ? estimates[1] : 0);
+    if (free_device > 0 && peak > free_device * 9 / 10) {
+      // too large for the device: redo the analysis in hybrid mode
+      hybrid = true;
+      cudssDataDestroy(solver->handle, solver->data);
+      solver->data = nullptr;
+      status = cudssDataCreate(solver->handle, &solver->data);
+      if (status == CUDSS_STATUS_SUCCESS) status = analyse(true);
+    }
+  }
+  solver->hybrid = hybrid;
   if (status == CUDSS_STATUS_SUCCESS) {
-    status = cudssExecute(solver->handle, CUDSS_PHASE_ANALYSIS, solver->config, solver->data,
-                          solver->matrix, x, b);
+    // [0]/[1] device stable/peak, [2]/[3] host stable/peak, [4]/[5] hybrid peak GPU/CPU
+    solver->device_estimate = static_cast<size_t>(hybrid ? estimates[4] : estimates[1]);
+    solver->host_estimate = static_cast<size_t>(hybrid ? estimates[5] : estimates[3]);
+    if (hybrid) {
+      const size_t free_host = free_host_memory();
+      if (free_host > 0 && solver->host_estimate > free_host * 9 / 10) {
+        if (x != nullptr) cudssMatrixDestroy(x);
+        if (b != nullptr) cudssMatrixDestroy(b);
+        return solver->fail(
+            HPFEM_GPU_ERR_OUT_OF_MEMORY,
+            "factorize: the factors need about " + std::to_string(solver->host_estimate >> 20) +
+                " MB of host memory in hybrid mode (" +
+                std::to_string(solver->device_estimate >> 20) + " MB on the device), but only " +
+                std::to_string(free_host >> 20) + " MB of host memory are free");
+      }
+      if (free_device > 0) {
+        // leave a reserve for the work vectors and other users of the device
+        int64_t limit = static_cast<int64_t>(free_device - free_device / 10);
+        status = cudssConfigSet(solver->config, CUDSS_CONFIG_HYBRID_DEVICE_MEMORY_LIMIT, &limit,
+                                sizeof(limit));
+      }
+    }
   }
   if (status == CUDSS_STATUS_SUCCESS) {
     status = cudssExecute(solver->handle, CUDSS_PHASE_FACTORIZATION, solver->config, solver->data,
@@ -288,11 +377,19 @@ hpfem_gpu_status hpfem_gpu_factorize(hpfem_gpu_solver* solver, int64_t n, int64_
   cudaError_t sync = cudaStreamSynchronize(solver->stream);
   if (x != nullptr) cudssMatrixDestroy(x);
   if (b != nullptr) cudssMatrixDestroy(b);
+  if (status == CUDSS_STATUS_ALLOC_FAILED) {
+    return solver->fail(HPFEM_GPU_ERR_OUT_OF_MEMORY,
+                        std::string("factorize: cuDSS ran out of memory (") +
+                            (hybrid ? "hybrid mode, " : "device mode, ") + "estimates: device " +
+                            std::to_string(solver->device_estimate >> 20) + " MB, host " +
+                            std::to_string(solver->host_estimate >> 20) + " MB; free device " +
+                            std::to_string(free_device >> 20) + " MB)");
+  }
   if (status != CUDSS_STATUS_SUCCESS) return solver->fail_cudss("factorize", status);
   if (sync != cudaSuccess) return solver->fail_cuda("factorize: synchronise", sync);
 
   int info = 0;
-  size_t written = 0;
+  written = 0;
   status =
       cudssDataGet(solver->handle, solver->data, CUDSS_DATA_INFO, &info, sizeof(info), &written);
   if (status != CUDSS_STATUS_SUCCESS) return solver->fail_cudss("factorize: query info", status);
@@ -375,6 +472,27 @@ hpfem_gpu_status hpfem_gpu_solve(hpfem_gpu_solver* solver, int64_t nrhs, const d
   return HPFEM_GPU_OK;
 }
 
+hpfem_gpu_status hpfem_gpu_factor_info2(const hpfem_gpu_solver* solver,
+                                        hpfem_gpu_factor_info_t* info) {
+  if (solver == nullptr || info == nullptr) return HPFEM_GPU_ERR_INVALID_ARG;
+  *info = hpfem_gpu_factor_info_t{};
+  hpfem_gpu_factor_info(solver, &info->nnz_factors, &info->device_bytes);
+  info->hybrid = solver->hybrid ? 1 : 0;
+  info->device_estimate = solver->factorized ? solver->device_estimate : 0;
+  info->host_estimate = solver->factorized ? solver->host_estimate : 0;
+  info->device_free = solver->device_free;
+  if (solver->factorized && solver->hybrid) {
+    // the host part of the factors: cuDSS's stable host estimate of the hybrid mode
+    int64_t estimates[16] = {};
+    size_t written = 0;
+    if (cudssDataGet(solver->handle, solver->data, CUDSS_DATA_MEMORY_ESTIMATES, estimates,
+                     sizeof(estimates), &written) == CUDSS_STATUS_SUCCESS) {
+      info->host_bytes = static_cast<size_t>(estimates[5] > 0 ? estimates[5] : 0);
+    }
+  }
+  return HPFEM_GPU_OK;
+}
+
 hpfem_gpu_status hpfem_gpu_factor_info(const hpfem_gpu_solver* solver, int64_t* nnz_factors,
                                        size_t* device_bytes) {
   if (solver == nullptr) return HPFEM_GPU_ERR_INVALID_ARG;
@@ -398,7 +516,10 @@ hpfem_gpu_status hpfem_gpu_factor_info(const hpfem_gpu_solver* solver, int64_t* 
       size_t written = 0;
       if (cudssDataGet(solver->handle, solver->data, CUDSS_DATA_MEMORY_ESTIMATES, estimates,
                        sizeof(estimates), &written) == CUDSS_STATUS_SUCCESS) {
-        *device_bytes += static_cast<size_t>(estimates[0] > 0 ? estimates[0] : 0);
+        // device mode: the stable device estimate; hybrid mode: the device part of the
+        // hybrid peak (the rest of the factors lives in host memory)
+        const int64_t device_part = solver->hybrid ? estimates[4] : estimates[0];
+        *device_bytes += static_cast<size_t>(device_part > 0 ? device_part : 0);
       }
     }
   }

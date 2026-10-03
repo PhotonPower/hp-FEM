@@ -33,6 +33,10 @@ class LinearSolver {
   [[nodiscard]] virtual Matrix solve_many(const Matrix& rhs) const;
   [[nodiscard]] virtual Index size() const noexcept = 0;
   [[nodiscard]] virtual std::string name() const = 0;
+  /// Backend-specific facts about the current factorisation for logs and benchmarks
+  /// (entries in the factors, memory, mode); empty before `factorize` or if the backend
+  /// has nothing to say.
+  [[nodiscard]] virtual std::string details() const { return {}; }
 };
 
 /// Direct solver backends.

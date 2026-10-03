@@ -132,6 +132,35 @@ problems as above): the LDLᵀ factorisation takes 0.85 s instead of 1.16 s on M
 and 1.24 s instead of 1.84 s (cuDSS) at 70 k unknowns in 3D; below about 20 k unknowns the
 gain vanishes on the GPU, solves and residuals are unchanged.
 
+### Factors larger than the device memory (hybrid memory mode)
+
+cuDSS can keep the factors (partly) in host memory. The GPU library decides this per
+factorisation: after the analysis it reads cuDSS's peak-memory estimates and, if the device
+peak exceeds about 90 % of the free device memory, repeats the (cheap) analysis in the hybrid
+memory mode with the device limit set to the free memory minus a reserve; if even the hybrid
+estimate exceeds the free host memory the factorisation fails with an `Error` that names
+the numbers, and `kAuto` falls back to MUMPS. `HPFEM_GPU_HYBRID=1` / `0` forces the mode
+(the self-test runs both). The mode, the estimates and the memory held are reported by
+`LinearSolver::details()` (also for MUMPS: entries in the factors and host memory), the
+first hybrid factorisation of a process is logged at info level, and the backend name
+carries "hybrid memory". The C interface grew to API version 2 for this
+(`hpfem_gpu_factor_info2`); the loader accepts version 1 libraries without the hybrid
+information. `bench_hybrid_memory` records factor size, mode and time against MUMPS on the
+3D Maxwell operator at growing size (`benchmarks/results/2026-10-03-VR-hybrid-memory.json`,
+RTX 3090 with 24 GB, 128 GB host, sequential MUMPS, both LDLᵀ):
+
+| n (p = 2) | unknowns | factors (entries) | MUMPS factorise / solve | cuDSS mode | cuDSS factorise / solve |
+|---|---|---|---|---|---|
+| 20 | 316 k | 0.20 G | 24 s / 3.7 s | device (4.2 GB) | 8.8 s / 15 ms |
+| 20 | 316 k | 0.20 G | | hybrid forced (1.3 GB device, 3.4 GB host) | 9.3 s / 39 ms |
+| 24 | 543 k | 0.45 G | 52 s / 11 s | device (8.7 GB) | 21 s / 48 ms |
+| 28 | 858 k | 0.86 G | 106 s / 20 s | device (16 GB) | 45 s / 44 ms |
+| 32 | 1.28 M | 1.43 G | 186 s / 34 s | hybrid, automatic (5.2 GB device, 28 GB host) | 105 s / 1.9 s |
+
+The hybrid factorisation keeps about half of MUMPS's time where the factors (23 GB) no
+longer fit the device, and the solve stays an order of magnitude faster; forcing the hybrid
+mode where the factors would fit costs about 6 % in the factorisation and a slower solve.
+
 ### Where the backend is applied repeatedly
 
 Every problem class with a `solver` field passes it on, so `kCudss` can be selected where

@@ -88,7 +88,9 @@ struct GpuApi {
   hpfem_gpu_factorize_fn factorize = nullptr;
   hpfem_gpu_solve_fn solve = nullptr;
   hpfem_gpu_factor_info_fn factor_info = nullptr;
+  hpfem_gpu_factor_info2_fn factor_info2 = nullptr;  // API version 2 only
   hpfem_gpu_last_error_fn last_error = nullptr;
+  int api_version = 0;
 
   [[nodiscard]] bool usable() const noexcept { return failure.empty(); }
 };
@@ -135,6 +137,7 @@ GpuApi load_gpu_api() {
   api.factorize = api.library.symbol<hpfem_gpu_factorize_fn>("hpfem_gpu_factorize");
   api.solve = api.library.symbol<hpfem_gpu_solve_fn>("hpfem_gpu_solve");
   api.factor_info = api.library.symbol<hpfem_gpu_factor_info_fn>("hpfem_gpu_factor_info");
+  api.factor_info2 = api.library.symbol<hpfem_gpu_factor_info2_fn>("hpfem_gpu_factor_info2");
   api.last_error = api.library.symbol<hpfem_gpu_last_error_fn>("hpfem_gpu_last_error");
   if (api_version == nullptr || version == nullptr || device_info == nullptr ||
       api.create == nullptr || api.destroy == nullptr || api.factorize == nullptr ||
@@ -142,9 +145,18 @@ GpuApi load_gpu_api() {
     api.failure = fmt::format("{} does not export the hpfem_gpu interface", api.path);
     return api;
   }
-  if (api_version() != HPFEM_GPU_API_VERSION) {
-    api.failure = fmt::format("{} implements hpfem_gpu API version {}, the library expects {}",
-                              api.path, api_version(), HPFEM_GPU_API_VERSION);
+  // version 2 added hpfem_gpu_factor_info2 and the hybrid memory mode; a version-1 library
+  // still serves every call of version 1
+  api.api_version = api_version();
+  if (api.api_version < 1 || api.api_version > HPFEM_GPU_API_VERSION) {
+    api.failure = fmt::format("{} implements hpfem_gpu API version {}, the library expects 1..{}",
+                              api.path, api.api_version, HPFEM_GPU_API_VERSION);
+    return api;
+  }
+  if (api.api_version < 2) api.factor_info2 = nullptr;
+  if (api.api_version >= 2 && api.factor_info2 == nullptr) {
+    api.failure = fmt::format("{} claims API version {} but lacks hpfem_gpu_factor_info2", api.path,
+                              api.api_version);
     return api;
   }
   api.version = version();
@@ -215,13 +227,41 @@ class CudssSolver final : public LinearSolver {
                               api_.last_error(solver_)));
     }
     ready_ = true;
-    int64_t nnz_factors = 0;
-    std::size_t device_bytes = 0;
-    api_.factor_info(solver_, &nnz_factors, &device_bytes);
-    log().info(
-        "cuDSS: factorised {} unknowns, {} nonzeros, {} entries in the factors, {:.1f} MB "
-        "on the device",
-        size_, csr->nonZeros(), nnz_factors, static_cast<double>(device_bytes) / 1e6);
+    info_ = hpfem_gpu_factor_info_t{};
+    if (api_.factor_info2 != nullptr) {
+      api_.factor_info2(solver_, &info_);
+    } else {
+      api_.factor_info(solver_, &info_.nnz_factors, &info_.device_bytes);
+    }
+    hybrid_ = info_.hybrid != 0;
+    if (hybrid_) {
+      static bool announced = false;  // once per process
+      if (!announced) {
+        announced = true;
+        log().info(
+            "cuDSS: hybrid memory mode in use (factors in host memory): {} unknowns need about "
+            "{:.1f} GB on the device and {:.1f} GB on the host, {:.1f} GB of device memory were "
+            "free",
+            size_, static_cast<double>(info_.device_estimate) / 1e9,
+            static_cast<double>(info_.host_estimate) / 1e9,
+            static_cast<double>(info_.device_free) / 1e9);
+      }
+    }
+    log().info("cuDSS: factorised {} unknowns, {} nonzeros; {}", size_, csr->nonZeros(), details());
+  }
+
+  [[nodiscard]] std::string details() const override {
+    if (!ready_) return {};
+    return fmt::format("factors {} entries, {:.1f} MB on the device{}{}", info_.nnz_factors,
+                       static_cast<double>(info_.device_bytes) / 1e6,
+                       hybrid_ ? fmt::format(", {:.1f} MB in host memory (hybrid mode)",
+                                             static_cast<double>(info_.host_bytes) / 1e6)
+                               : std::string(),
+                       info_.device_estimate > 0
+                           ? fmt::format("; estimates device {:.1f} MB, host {:.1f} MB",
+                                         static_cast<double>(info_.device_estimate) / 1e6,
+                                         static_cast<double>(info_.host_estimate) / 1e6)
+                           : std::string());
   }
 
   [[nodiscard]] Vector solve(const Vector& rhs) const override {
@@ -261,13 +301,16 @@ class CudssSolver final : public LinearSolver {
 
   [[nodiscard]] Index size() const noexcept override { return size_; }
   [[nodiscard]] std::string name() const override {
-    return fmt::format("cuDSS ({}, {}{})", api_.version, api_.device, symmetric_ ? ", LDL^T" : "");
+    return fmt::format("cuDSS ({}, {}{}{})", api_.version, api_.device, symmetric_ ? ", LDL^T" : "",
+                       hybrid_ ? ", hybrid memory" : "");
   }
 
  private:
   const GpuApi& api_;
   Symmetry symmetry_;
   bool symmetric_ = false;
+  bool hybrid_ = false;
+  hpfem_gpu_factor_info_t info_{};
   hpfem_gpu_solver* solver_ = nullptr;
   bool ready_ = false;
   Index size_ = 0;

@@ -53,7 +53,9 @@ void bind_solvers(py::module_& m) {
       .def("solve_many", &solvers::LinearSolver::solve_many, py::arg("rhs"), Release(),
            "Several right-hand sides at once, one per column (n x nrhs)")
       .def_property_readonly("size", &solvers::LinearSolver::size)
-      .def_property_readonly("name", &solvers::LinearSolver::name);
+      .def_property_readonly("name", &solvers::LinearSolver::name)
+      .def_property_readonly("details", &solvers::LinearSolver::details,
+                             "backend facts about the factorisation (entries, memory, mode)");
   m.def("make_direct_solver", &solvers::make_direct_solver,
         py::arg("backend") = DirectSolverBackend::kAuto,
         py::arg("symmetry") = solvers::Symmetry::kGeneral,

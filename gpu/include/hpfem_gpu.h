@@ -25,8 +25,10 @@
 extern "C" {
 #endif
 
-/* Bumped whenever the ABI changes; the loader refuses a DLL with another version. */
-#define HPFEM_GPU_API_VERSION 1
+/* Bumped whenever the ABI changes. Version 2 adds hpfem_gpu_factor_info2() and the hybrid
+ * memory mode; everything of version 1 is unchanged, so a version-1 library still works
+ * with a loader that knows version 2 (without the hybrid information). */
+#define HPFEM_GPU_API_VERSION 2
 
 #if defined(_WIN32)
 #if defined(HPFEM_GPU_BUILD)
@@ -89,6 +91,27 @@ HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_solve(hpfem_gpu_solver* solver, int64_t
 HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_factor_info(const hpfem_gpu_solver* solver,
                                                      int64_t* nnz_factors, size_t* device_bytes);
 
+/* Memory and mode of the current factorisation (API version 2). The device and host
+ * estimates are cuDSS's peak estimates for the chosen mode, the *_bytes fields what the
+ * object holds after the factorisation (device: input arrays, work vectors and the factors
+ * resident on the device; host: factors kept in host memory in hybrid mode). `hybrid` is 1
+ * when the factors live (partly) in host memory: chosen automatically when the device
+ * estimate exceeds about 90 % of the free device memory, forced on/off by the environment
+ * variable HPFEM_GPU_HYBRID=1/0. If even the hybrid estimate exceeds the free host memory,
+ * factorize() fails with HPFEM_GPU_ERR_OUT_OF_MEMORY and the numbers in the message. */
+typedef struct hpfem_gpu_factor_info_t {
+  int64_t nnz_factors;    /* nonzeros in L + U (or L + D + L^T) */
+  size_t device_bytes;    /* bytes held on the device by this object */
+  size_t host_bytes;      /* bytes of factors held in host memory (hybrid mode) */
+  size_t device_estimate; /* cuDSS peak device-memory estimate of the chosen mode */
+  size_t host_estimate;   /* cuDSS peak host-memory estimate of the chosen mode */
+  size_t device_free;     /* free device memory seen before the factorisation */
+  int hybrid;             /* 1: factors in host memory (hybrid memory mode) */
+} hpfem_gpu_factor_info_t;
+
+HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_factor_info2(const hpfem_gpu_solver* solver,
+                                                      hpfem_gpu_factor_info_t* info);
+
 /* Message of the last failed call on this object (empty string if none); valid until the
  * next call on the same object. */
 HPFEM_GPU_API const char* hpfem_gpu_last_error(const hpfem_gpu_solver* solver);
@@ -105,6 +128,8 @@ typedef hpfem_gpu_status (*hpfem_gpu_factorize_fn)(hpfem_gpu_solver*, int64_t, i
 typedef hpfem_gpu_status (*hpfem_gpu_solve_fn)(hpfem_gpu_solver*, int64_t, const double*, double*);
 typedef hpfem_gpu_status (*hpfem_gpu_factor_info_fn)(const hpfem_gpu_solver*, int64_t*, size_t*);
 typedef const char* (*hpfem_gpu_last_error_fn)(const hpfem_gpu_solver*);
+typedef hpfem_gpu_status (*hpfem_gpu_factor_info2_fn)(const hpfem_gpu_solver*,
+                                                      hpfem_gpu_factor_info_t*);
 
 #ifdef __cplusplus
 }
