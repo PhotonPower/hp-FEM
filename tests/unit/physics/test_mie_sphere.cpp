@@ -118,12 +118,13 @@ TEST_CASE("Mie sphere: fields satisfy the interface conditions and the incident 
       const Point<3> n = dir.normalized();
       const Point<3> outside = (1.0 + 1e-9) * a * n;
       const Point<3> inside = (1.0 - 1e-9) * a * n;
-      const auto e_out = s.incident_field(outside) + s.scattered_field(outside);
-      const auto e_in = s.internal_field(inside);
+      const Eigen::Matrix<Complex, 3, 1> e_out =
+          s.incident_field(outside) + s.scattered_field(outside);
+      const Eigen::Matrix<Complex, 3, 1> e_in = s.internal_field(inside);
       const Complex normal_out = n.cast<Complex>().dot(e_out);
       const Complex normal_in = n.cast<Complex>().dot(e_in);
-      const auto tangential_out = e_out - normal_out * n.cast<Complex>();
-      const auto tangential_in = e_in - normal_in * n.cast<Complex>();
+      const Eigen::Matrix<Complex, 3, 1> tangential_out = e_out - normal_out * n.cast<Complex>();
+      const Eigen::Matrix<Complex, 3, 1> tangential_in = e_in - normal_in * n.cast<Complex>();
       const Real scale = e_out.norm() + 1e-300;
       REQUIRE((tangential_out - tangential_in).norm() < 1e-7 * scale);
       REQUIRE(std::abs(normal_out - eps * normal_in) < 1e-7 * scale);
