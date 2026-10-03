@@ -182,8 +182,10 @@ assessment: `docs/validation.md`.
   Newmark-β on the second-order E wave equation, conductivity, PEC, first-order absorbing
   boundary, current sources with time signals; convergence test `time_domain_cavity`,
   Python `TimeDomain2D/3D`)
-- GPU backend: cuDSS direct solver behind `solvers::LinearSolver` (ADR-0008, measured on the
-  RTX 3090: factorisation 2×, repeated solves 30–140× against MUMPS); GPU assembly deferred
+- [x] GPU backend: cuDSS direct solver behind `solvers::LinearSolver` (ADR-0008, measured on
+  the RTX 3090: factorisation 2×, repeated solves 30–140× against MUMPS;
+  `DirectSolverBackend::kCudss` opt-in, separately built `hpfem_gpu` library in `gpu/` loaded
+  at run time behind `HPFEM_ENABLE_CUDA`, `LinearSolver::solve_many`); GPU assembly deferred
   (FP64 rate of consumer GPUs, MSVC-only toolchain)
 - `physics::PropagatingMode<2>` on adaptive meshes: apply the hanging-node constraints as
   `Resonance` does (found during M10 validation)
