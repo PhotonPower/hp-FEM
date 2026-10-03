@@ -26,6 +26,5 @@ Template:
 | 0006 | Local h-refinement: red refinement, hanging nodes, constraints by interpolation | accepted |
 | 0007 | Direct solver backends behind one interface (SparseLU, MUMPS) | accepted, amended by 0008 |
 | 0008 | GPU backend: cuDSS direct solver behind `LinearSolver`, no GPU assembly | accepted |
-| 0010 | Axisymmetric (body-of-revolution, 2.5D) Maxwell solver | accepted |
-| 0009 | Layered background for the scattered-field formulation | proposed |
 | 0009 | Layered background for the scattered-field formulation | accepted |
+| 0010 | Axisymmetric (body-of-revolution, 2.5D) Maxwell solver | accepted |

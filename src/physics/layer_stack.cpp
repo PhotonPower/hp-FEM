@@ -63,7 +63,7 @@ struct WaveData {
     const Complex u_up = scale * up[idx] * lateral * std::exp(kI * kz[idx] * (z - z_bottom));
     assembly::ComplexVector<Dim> e = assembly::ComplexVector<Dim>::Zero();
     Eigen::Matrix<Complex, 3, 1> h3 = Eigen::Matrix<Complex, 3, 1>::Zero();
-    for (const auto [u, sign] : {std::pair{u_down, -1.0}, std::pair{u_up, 1.0}}) {
+    for (const auto& [u, sign] : {std::pair{u_down, -1.0}, std::pair{u_up, 1.0}}) {
       if (u == Complex{0.0, 0.0}) continue;
       Eigen::Matrix<Complex, 3, 1> k = Eigen::Matrix<Complex, 3, 1>::Zero();
       for (int i = 0; i < Dim - 1; ++i) k(i) = k_parallel(i);
