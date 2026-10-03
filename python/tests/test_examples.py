@@ -50,3 +50,13 @@ def test_vcsel_cavity_matches_the_transfer_matrix_pole():
     assert abs(result.wavelength_tmm_nm - 850.0) < 0.5  # designed for 850 nm
     more = example.compare(4, 6, cells_per_layer=2, order=3)
     assert more.quality > 1.5 * result.quality  # Q grows with the mirror pairs
+
+
+def test_quantum_dot_purcell_mirror_check_and_spectrum():
+    example = load_example("quantum_dot_purcell")
+    fem, exact = example.check_mirror(cells=32, order=3, sigma=0.06)
+    assert abs(fem - exact) < 1e-2 * exact  # Gaussian current against the image dipole
+    wavelengths = np.array([945.0, 950.0, 957.5]) * example.units.nm
+    spec = example.spectrum(wavelengths, top_pairs=3, bottom_pairs=6, order=2, cell_fraction=0.1)
+    assert max(spec.purcell) > 1.2  # enhancement near the cavity resonance
+    assert all(0.0 < b <= 1.0 + 1e-6 for b in spec.beta_top)  # a fraction of the emitted power

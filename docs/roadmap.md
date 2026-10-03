@@ -117,7 +117,10 @@ holds. Estimated effort is in rough "focused sessions".
       `physics::Resonance` (quasi-normal modes with PML), convergence test
       `fabry_perot_resonance` (exact complex Fabry–Pérot resonances),
       `examples/vcsel_cavity/run.py` (GaAs/AlAs DBR cavity against the transfer-matrix pole)
-- [ ] `quantum_dot_purcell`: dipole in micropillar, Purcell factor, β-factor
+- [x] `quantum_dot_purcell`: dipole in micropillar, Purcell factor, β-factor —
+      `examples/quantum_dot_purcell/run.py` (line dipole in a DBR ridge cavity, scattered
+      field of the analytic dipole, emitted power from the flux around the dipole, Purcell
+      and beta spectra; validated against the image dipole in front of a PEC mirror)
 - [ ] `euv_mask`: 3D absorber on multilayer, oblique incidence, near-field export
 - [ ] `ring_resonator`: coupling + resonance (2D effective-index model first)
 

@@ -5,6 +5,7 @@
 
 #include <fmt/format.h>
 
+#include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/special_functions.hpp"
 
@@ -109,7 +110,27 @@ IncidentField<Dim> dipole_field(const Point<Dim>& position,
 
 template IncidentField<2> plane_wave<2>(const assembly::ComplexVector<2>&, const Point<2>&);
 template IncidentField<3> plane_wave<3>(const assembly::ComplexVector<3>&, const Point<3>&);
+template <int Dim>
+assembly::ComplexVectorField<Dim> gaussian_current(const Point<Dim>& position,
+                                                   const assembly::ComplexVector<Dim>& moment,
+                                                   Real sigma, Real omega) {
+  if (!(sigma > 0)) throw InvalidArgument("gaussian_current: sigma must be positive");
+  const Real norm = std::pow(2 * constants::pi, -0.5 * Dim) * std::pow(sigma, -Dim);
+  const Complex prefactor = kI * omega * constants::mu0 * norm;
+  return [position, moment, sigma, prefactor](const Point<Dim>& x) {
+    const Real r2 = (x - position).squaredNorm();
+    return assembly::ComplexVector<Dim>(prefactor * std::exp(-0.5 * r2 / (sigma * sigma)) * moment);
+  };
+}
+
 template IncidentField<2> dipole_field<2>(const Point<2>&, const assembly::ComplexVector<2>&, Real);
 template IncidentField<3> dipole_field<3>(const Point<3>&, const assembly::ComplexVector<3>&, Real);
+
+template assembly::ComplexVectorField<2> gaussian_current<2>(const Point<2>&,
+                                                             const assembly::ComplexVector<2>&,
+                                                             Real, Real);
+template assembly::ComplexVectorField<3> gaussian_current<3>(const Point<3>&,
+                                                             const assembly::ComplexVector<3>&,
+                                                             Real, Real);
 
 }  // namespace hpfem::physics

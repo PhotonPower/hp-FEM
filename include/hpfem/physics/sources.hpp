@@ -41,11 +41,27 @@ template <int Dim>
 [[nodiscard]] IncidentField<Dim> dipole_field(const Point<Dim>& position,
                                               const assembly::ComplexVector<Dim>& moment, Real k);
 
+/// Volume source @f$ f = i\omega\mu_0 J @f$ of a dipole of moment density `moment` [A m / m^Dim
+/// per unit ...] smeared over the normalised Gaussian @f$ g(x) = \exp(-|x - x_0|^2 / 2\sigma^2)
+/// / ((2\pi)^{Dim/2}\sigma^{Dim}) @f$: a point (3D) or line (2D) dipole resolved by the mesh
+/// (choose @f$ \sigma @f$ a fraction of the cell size and well below the wavelength), for the
+/// total-field formulation (`ScatteringSetup::current`) where the analytic `dipole_field`
+/// cannot serve as incident field, e.g. an emitter inside a layered structure. Evaluated in
+/// C++, so it costs nothing in the parallel assembly. @throws InvalidArgument for σ ≤ 0.
+template <int Dim>
+[[nodiscard]] assembly::ComplexVectorField<Dim> gaussian_current(
+    const Point<Dim>& position, const assembly::ComplexVector<Dim>& moment, Real sigma, Real omega);
+
 extern template IncidentField<2> plane_wave<2>(const assembly::ComplexVector<2>&, const Point<2>&);
 extern template IncidentField<3> plane_wave<3>(const assembly::ComplexVector<3>&, const Point<3>&);
 extern template IncidentField<2> dipole_field<2>(const Point<2>&, const assembly::ComplexVector<2>&,
                                                  Real);
 extern template IncidentField<3> dipole_field<3>(const Point<3>&, const assembly::ComplexVector<3>&,
                                                  Real);
+
+extern template assembly::ComplexVectorField<2> gaussian_current<2>(
+    const Point<2>&, const assembly::ComplexVector<2>&, Real, Real);
+extern template assembly::ComplexVectorField<3> gaussian_current<3>(
+    const Point<3>&, const assembly::ComplexVector<3>&, Real, Real);
 
 }  // namespace hpfem::physics

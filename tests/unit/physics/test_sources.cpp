@@ -123,3 +123,26 @@ TEST_CASE("dipole fields solve the curl-curl equation away from the source", "[p
   check_maxwell_solution<3>(d3, k, {Point<3>(0.3, 0.2, 0.4), Point<3>(-1.0, 0.5, 1.0)});
   REQUIRE_THROWS_AS(dipole_field<3>(y0, p3, 0.0), hpfem::InvalidArgument);
 }
+
+TEST_CASE("gaussian_current: normalised smeared dipole", "[physics][sources]") {
+  const Real omega = 2.0e15;
+  const Real sigma = 0.3;
+  const hpfem::assembly::ComplexVector<2> moment(Complex{1.0, 0.0}, Complex{0.0, 2.0});
+  const auto f = hpfem::physics::gaussian_current<2>(Point<2>(0.5, -0.2), moment, sigma, omega);
+  // peak value i omega mu0 moment / (2 pi sigma^2), isotropic Gaussian decay
+  const Complex scale =
+      hpfem::kI * omega * hpfem::constants::mu0 / (2 * std::numbers::pi * sigma * sigma);
+  REQUIRE(std::abs(f(Point<2>(0.5, -0.2))(1) - scale * moment(1)) < 1e-12 * std::abs(scale));
+  REQUIRE(std::abs(f(Point<2>(0.5 + sigma, -0.2))(0) - scale * moment(0) * std::exp(-0.5)) <
+          1e-12 * std::abs(scale));
+  // the integral over the plane is i omega mu0 moment (midpoint rule on a fine grid)
+  Complex integral = 0;
+  const Real h = 0.02;
+  for (Real x = -2.0; x < 3.0; x += h) {
+    for (Real y = -2.5; y < 2.5; y += h) integral += f(Point<2>(x + h / 2, y + h / 2))(0) * h * h;
+  }
+  REQUIRE(std::abs(integral - hpfem::kI * omega * hpfem::constants::mu0 * moment(0)) <
+          1e-6 * std::abs(hpfem::kI * omega * hpfem::constants::mu0));
+  REQUIRE_THROWS_AS(hpfem::physics::gaussian_current<2>(Point<2>::Zero(), moment, 0.0, omega),
+                    hpfem::InvalidArgument);
+}

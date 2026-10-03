@@ -3,6 +3,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `physics::gaussian_current` (Python `gaussian_current`): the volume source iωμ₀J of a
+  dipole smeared over a normalised Gaussian, evaluated in C++ — a point or line emitter
+  inside a structure for the total-field formulation (a Python callback would serialise the
+  parallel assembly on the GIL).
+- `examples/quantum_dot_purcell/run.py` (M8): Purcell factor and beta factor of a line
+  dipole in a GaAs/AlAs DBR ridge cavity over the wavelength — the scattered field of the
+  analytic dipole field of the host (no singularity discretised), the emitted power as the
+  Poynting flux of the total field through a circle around the dipole; the dipole in front
+  of a PEC mirror checks the post-processing against the image solution.
 - `solvers::complex_eigenpairs_near`: eigenpairs of a complex pencil closest to a complex
   shift (shift-invert Arnoldi with explicit restarts on a direct factorisation; lossy media,
   PML, complex frequencies), scaled internally like the real solvers.
