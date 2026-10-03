@@ -180,7 +180,8 @@ ShiftInvert prepare(const SparseMatrix& a_full, const SparseMatrix& b_full, Comp
   SparseMatrix shifted = a_full / scale_a - op.sigma_scaled * (b_full / scale_b);
   shifted.makeCompressed();
   op.b = b_full / scale_b;
-  op.solver = make_direct_solver(backend);
+  // complex-symmetric pencils (curl–curl without Bloch phases) take the LDL^T paths
+  op.solver = make_direct_solver(backend, Symmetry::kDetect);
   try {
     op.solver->factorize(shifted);
   } catch (const Error& error) {
@@ -222,7 +223,7 @@ ComplexEigenResult complex_eigenpairs_near_gauged(const SparseMatrix& a_full,
   const SparseMatrix gt = gradient.adjoint();
   SparseMatrix k = gt * bg;
   k.makeCompressed();
-  std::unique_ptr<LinearSolver> gauge = make_direct_solver(backend);
+  std::unique_ptr<LinearSolver> gauge = make_direct_solver(backend, Symmetry::kDetect);
   try {
     gauge->factorize(k);
   } catch (const Error& error) {

@@ -205,7 +205,8 @@ ScatteringSolution<Dim> Scattering<Dim>::solve() const {
   if (!constrained) {
     assembly::apply_dirichlet(system.matrix, system.rhs, dirichlet());
     return {setup_.formulation,
-            recover(solvers::solve_direct(system.matrix, system.rhs, setup_.solver))};
+            recover(solvers::solve_direct(system.matrix, system.rhs, setup_.solver,
+                                          solvers::Symmetry::kDetect))};
   }
   // constrained DoFs: reduce the raw system by P^H A P, then impose the Dirichlet data on the
   // free DoFs (a constrained Dirichlet DoF follows from its masters, whose data is consistent)
@@ -228,8 +229,8 @@ ScatteringSolution<Dim> Scattering<Dim>::solve() const {
   assembly::apply_dirichlet(matrix, load, data);
   log().info("Scattering<{}>: {} constrained DoFs, {} free, {} Dirichlet", Dim, c.num_constrained(),
              c.num_free(), data.size());
-  return {setup_.formulation,
-          recover(c.expand(solvers::solve_direct(matrix, load, setup_.solver)))};
+  return {setup_.formulation, recover(c.expand(solvers::solve_direct(matrix, load, setup_.solver,
+                                                                     solvers::Symmetry::kDetect)))};
 }
 
 template <int Dim>

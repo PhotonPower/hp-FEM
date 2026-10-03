@@ -33,7 +33,8 @@ ScatteringOperator<Dim>::ScatteringOperator(const Scattering<Dim>& problem) : pr
   }
   elimination_ =
       std::make_unique<assembly::DirichletElimination>(matrix, std::move(reduced_dirichlet));
-  solver_ = solvers::make_direct_solver(setup.solver);
+  // the operator is complex symmetric unless Bloch phases enter: LDL^T on cuDSS / MUMPS
+  solver_ = solvers::make_direct_solver(setup.solver, solvers::Symmetry::kDetect);
   solver_->factorize(matrix);
   log().info(
       "ScatteringOperator<{}>: {} DoFs ({} condensed, {} constrained, {} Dirichlet) "

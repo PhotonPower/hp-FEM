@@ -24,9 +24,16 @@ void bind_solvers(py::module_& m) {
                                "Structure of the system matrix a backend may exploit")
       .value("GENERAL", solvers::Symmetry::kGeneral)
       .value("COMPLEX_SYMMETRIC", solvers::Symmetry::kComplexSymmetric,
-             "A = A^T (not Hermitian): cuDSS / MUMPS factorise one triangle (LDL^T)");
+             "A = A^T (not Hermitian): cuDSS / MUMPS factorise one triangle (LDL^T)")
+      .value("DETECT", solvers::Symmetry::kDetect,
+             "cuDSS / MUMPS measure the asymmetry in factorize and take LDL^T if it is "
+             "below 1e-12 (what the problem classes pass)");
   m.def("asymmetry", &solvers::asymmetry, py::arg("matrix"),
         "largest |a_ij - a_ji| relative to the largest |a_ij|");
+  m.def("detect_symmetry", &solvers::detect_symmetry, py::arg("matrix"),
+        py::arg("tolerance") = 1e-12,
+        "COMPLEX_SYMMETRIC if asymmetry(matrix) <= tolerance, what the problem classes pass "
+        "to the direct solvers");
   m.def("available", &solvers::available, py::arg("backend"), "backend usable in this build");
   m.def("gpu_min_unknowns", &solvers::gpu_min_unknowns,
         "Unknowns from which AUTO prefers cuDSS (HPFEM_GPU_MIN_UNKNOWNS; 0 always, < 0 never)");

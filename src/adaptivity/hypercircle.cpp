@@ -171,7 +171,7 @@ Vector dual_solution(const DualDofMap<Dim>& dual_dofs,
   assembly::apply_dirichlet(system.matrix, system.rhs, essential);
   log().debug("dual_solution<{}>: {} DoFs, {} essential", Dim, dual_dofs.num_dofs(),
               essential.size());
-  return solvers::solve_direct(system.matrix, system.rhs, backend);
+  return solvers::solve_direct(system.matrix, system.rhs, backend, solvers::Symmetry::kDetect);
 }
 
 Real HypercircleEstimate::total() const {

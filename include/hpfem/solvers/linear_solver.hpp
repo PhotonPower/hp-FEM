@@ -53,6 +53,9 @@ enum class DirectSolverBackend {
 enum class Symmetry {
   kGeneral,           ///< no structure assumed (LU)
   kComplexSymmetric,  ///< A = Aᵀ with complex entries; only the upper triangle is used
+  kDetect,            ///< the backend checks `asymmetry(A) <= 1e-12` in `factorize` (once per
+                      ///< matrix, only cuDSS and MUMPS, which can exploit it) and takes the
+                      ///< LDLᵀ path if it holds; what the problem classes pass
 };
 
 /// Size from which `kAuto` prefers cuDSS: the CMake cache variable `HPFEM_GPU_MIN_UNKNOWNS`
@@ -98,7 +101,20 @@ enum class Symmetry {
                                   Symmetry symmetry = Symmetry::kGeneral);
 /// Upper triangle (column ≥ row) of a square matrix, compressed; the input of the LDLᵀ paths.
 [[nodiscard]] SparseMatrix upper_triangle(const SparseMatrix& matrix);
-/// Largest |a_ij − a_ji| relative to the largest |a_ij| (0 for a symmetric matrix).
+/// Largest |a_ij − a_ji| relative to the largest |a_ij| (0 for a symmetric matrix); one pass
+/// over the nonzeros with a binary search of the mirrored entry per row, no copy.
 [[nodiscard]] Real asymmetry(const SparseMatrix& matrix);
+/// `kComplexSymmetric` if `asymmetry(matrix) <= tolerance`, otherwise `kGeneral`: what the
+/// problem classes pass to the direct solvers, so that symmetric curl–curl systems take the
+/// LDLᵀ paths and systems with Bloch phases or non-symmetric material tensors do not.
+/// Costs one pass over the nonzeros (O(nnz log n), far below a factorisation).
+[[nodiscard]] Symmetry detect_symmetry(const SparseMatrix& matrix, Real tolerance = 1e-12);
+/// Backend helper: whether a factorisation with the given request takes the symmetric path
+/// (`kDetect` measures the matrix and logs the result at debug level; `kComplexSymmetric` is
+/// verified in Debug builds, `kGeneral` is never checked).
+/// @throws InvalidArgument in Debug builds if `kComplexSymmetric` was requested for a
+///         non-symmetric matrix.
+[[nodiscard]] bool exploit_symmetry(Symmetry symmetry, const SparseMatrix& matrix,
+                                    const char* backend);
 
 }  // namespace hpfem::solvers
