@@ -101,8 +101,8 @@ struct Parameters {
   Real lateral = 3000.0;  ///< interior half-width in x (from the slit centre), nm
   Real above = 600.0;     ///< interior air above the film, nm
   Real below = 1200.0;    ///< interior substrate below the film surface, nm
-  Real pml = 1000.0;      ///< PML thickness on all sides, nm
-  int pml_order = 3;
+  Real pml = 2000.0;      ///< PML thickness on all sides, nm (the surface plasmons need it)
+  int pml_order = 4;
   Real pml_reflection = 1e-10;
 };
 
@@ -277,9 +277,10 @@ TEST_CASE("Slit-groove in silver: convergence and sensitivity study",
     fmt::print("\n=== lateral interior half-width / PML thickness / order, p = 4\n");
     print_header();
     for (const auto& [lateral, pml, order] :
-         {std::tuple{2000.0, 1000.0, 3}, std::tuple{3000.0, 1000.0, 3},
-          std::tuple{4000.0, 1000.0, 3}, std::tuple{3000.0, 500.0, 3},
-          std::tuple{3000.0, 1500.0, 3}, std::tuple{3000.0, 1000.0, 4}}) {
+         {std::tuple{3000.0, 1000.0, 3}, std::tuple{3000.0, 1500.0, 3},
+          std::tuple{3000.0, 1000.0, 4}, std::tuple{3000.0, 2000.0, 3},
+          std::tuple{3000.0, 2000.0, 4}, std::tuple{3000.0, 3000.0, 4},
+          std::tuple{2000.0, 2000.0, 4}, std::tuple{4000.0, 2000.0, 4}}) {
       par.lateral = lateral;
       par.pml = pml;
       par.pml_order = order;
