@@ -41,6 +41,21 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   with the stretched radius) and the complex gauged shift-invert solver; modes with ω, λ, Q
   and residual. Convergence test `axisymmetric_sphere_resonance` (TE_1 and TM_1 Mie poles
   of a dielectric sphere, exponential in p down to 2e-6), unit tests of the PML tensors.
+- `physics::AxisymmetricScattering` (M11): scattered-field formulation of one azimuthal
+  order with the axial plane wave (`axial_plane_wave`, m = ±1), volume sources in the
+  axisymmetric forms, and `axisymmetric_poynting_flux` for the power through surfaces of
+  revolution; convergence test `axisymmetric_mie_sphere` against the Mie cross-section of a
+  sphere (exponential in p). Dipole sources on the axis (`axisymmetric_gaussian_dipole`,
+  axial m = 0, transverse m = ±1) with the total-field formulation
+  (`AxisymmetricScatteringSetup::current`) and `dipole_vacuum_power`; convergence test
+  `axisymmetric_dipole` against the Larmor power of the smeared dipole, Purcell peak at the
+  TM_1 Mie pole. Python: `AxisymmetricCavity`, `AxisymmetricResonance`,
+  `AxisymmetricScattering`, `axial_plane_wave`, `axisymmetric_gaussian_dipole`,
+  `axisymmetric_poynting_flux`, `AxisDipole`.
+- `examples/micropillar_qd` (M11): GaAs/AlAs micropillar as a body of revolution —
+  fundamental m = 1 resonance (934.6 nm, Q ≈ 1000 for 10/16 pairs, r = 1 µm), Purcell
+  spectrum of the in-plane quantum-dot dipole peaking on the resonance (F_P = 5.1) and the
+  β factor (0.47); regression test in the quick configuration.
 - cuDSS GPU direct solver (backlog "GPU backend", ADR-0008): `DirectSolverBackend::kCudss`
   behind `solvers::LinearSolver`, opt-in (`kAuto` unchanged). The solver lives in the
   separately built shared library `hpfem_gpu` (`gpu/`: nvcc + MSVC or GCC, cuDSS 0.8, pure C
