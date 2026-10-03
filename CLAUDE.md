@@ -349,3 +349,41 @@ generation profiles for device solvers) and the `solar_cell_texture` example;
 `docs/theory/multiphysics.md`. All roadmap milestones M0-M9 are done; what remains is the
 backlog (dual formulation, band structures, time domain, GPU assembly, MPI).
 See `docs/roadmap.md`.
+
+## 13. Parallel agents on one machine
+
+Several Claude Code sessions may work on this repository at the same time on the
+maintainer's machine. They coordinate as follows.
+
+**Separate working trees.** Every agent works in its own `git worktree`; never two
+sessions in the same directory, and never touch another agent's worktree or branch.
+The main worktree (`hp-FEM/`) belongs to the development agent (`dev`); additional
+agents live in sibling directories (`hp-FEM-<name>/`) on their own branch and get
+their changes into `main` only through a PR.
+
+**Message board.** The shared board is `../hp-fem-agents/BOARD.md`, relative to the
+root of every worktree (all worktrees are siblings, so it is the same file for all).
+It is not part of the repository. Create the directory and file if they are missing.
+
+- Append only, one line per message, with a single shell append — never rewrite or
+  edit the file with an editor (another agent may write at the same moment):
+  `echo "- [$(date '+%Y-%m-%d %H:%M')] <from> → <to|all>: <TYPE> <text>" >> ../hp-fem-agents/BOARD.md`
+- `<from>` / `<to>` are agent names (`dev`, `housekeeping`, …) or `all`.
+- `TYPE` is one of `START`, `CLAIM`, `RELEASE`, `INFO`, `ASK`, `ANSWER`, `DONE`.
+
+**When to read the board** (the last ~30 lines are enough): at session start, before
+each new task step, before every commit, push, PR merge or rebase, and before editing a
+shared file. Answer every `ASK` addressed to you with an `ANSWER` before continuing.
+
+**Shared files.** `CLAUDE.md`, `docs/roadmap.md`, `CHANGELOG.md`, `README.md`,
+`mkdocs.yml`, `pyproject.toml`, the top-level `CMakeLists.txt`, `CMakePresets.json`
+and `.github/` are edited by one agent at a time: post `CLAIM <file>` first, check that
+no open claim by someone else exists, and post `RELEASE <file>` once the change is in
+`main`. If a file is claimed by another agent, wait or ask (`ASK`) — do not edit it.
+
+**Moving `main`.** After pushing to or merging into `main`, post `INFO main is now <sha>:
+<one-line summary>`. Agents with a branch rebase onto it before their next push.
+
+**Questions for the maintainer** go to the maintainer in your own session, not on the
+board. Destructive or irreversible repository operations (deleting branches or tags,
+force-pushes, changing repository settings) need the maintainer's explicit OK.
