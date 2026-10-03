@@ -3,6 +3,14 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `solvers::Symmetry::kDetect`: cuDSS and MUMPS measure the asymmetry of a matrix once per
+  factorisation and take the LDLᵀ path when it is below 1e-12 (upper triangle as given,
+  debug log line); the problem classes (`Scattering`, `ScatteringOperator`, `TimeDomain`,
+  the complex shift-invert eigensolvers and with them `Resonance`, `BandStructure` and the
+  axisymmetric problems, `AxisymmetricScattering`, `Thermal`, hypercircle and goal-oriented
+  solves) pass it, so symmetric curl–curl systems get the half-cost factorisation and Bloch
+  phases or non-symmetric tensors the general one. `asymmetry` without a transpose,
+  `detect_symmetry`; Python `Symmetry.DETECT`, `detect_symmetry`.
 - `solvers::Symmetry::kComplexSymmetric` on `make_direct_solver` / `solve_direct`: cuDSS
   factorises the upper triangle as LDLᵀ (`CUDSS_MTYPE_SYMMETRIC`) and MUMPS runs with
   `SYM = 2`, both with about half the factor work (RTX 3090: 164 k unknowns in 2D 1.16 →
