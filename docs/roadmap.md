@@ -156,14 +156,22 @@ assessment: `docs/validation.md`.
       quasi-TE and quasi-TM effective indices for five lateral thicknesses within the
       four-digit reference — `tests/convergence/rib_waveguide.cpp`, test helper
       `tests/convergence/tensor_mesh.hpp` (graded tensor meshes), PR #58
-- [ ] B. metallic lamellar grating, H parallel to the ridges (Granet & Guizal, J. Opt. Soc.
-      Am. A 13, 1019, 1996, Table 1): Littrow and specular efficiencies for three depths
-- [ ] C. Mie sphere (Bohren & Huffman ch. 4): `physics::mie_sphere` (coefficients,
-      efficiencies, fields inside and outside for complex ε), `mesh::box_with_ball`,
-      3D convergence test `mie_sphere` (dielectric and absorbing sphere), Python bindings
-- [ ] D. layered background for the scattered-field formulation (ADR-0008) and the
-      slit–groove benchmark in silver (Besbes et al., J. Eur. Opt. Soc. Rapid Publ. 2,
-      07022, 2007; Burger et al., Proc. SPIE 8880, 88801Z, 2013)
+- [x] B. metallic lamellar grating, H parallel to the ridges (Granet & Guizal, J. Opt. Soc.
+      Am. A 13, 1019, 1996, Table 1): Littrow and specular efficiencies — h = 0.1 and 4.8 µm
+      within 3·10⁻⁴ with the validated fill factor 0.5, h = 1 µm (resonant slot) reported
+      only; PML needs 3 µm / order 4 for a 10⁻⁶ energy balance —
+      `tests/convergence/metal_grating.cpp`, PR #64
+- [x] C. Mie sphere (Bohren & Huffman ch. 4): `physics::mie_sphere` (coefficients,
+      efficiencies, fields inside and outside for complex ε; eight digits against
+      miepython), `mesh::box_with_ball`, 3D convergence test `mie_sphere` (dielectric and
+      absorbing sphere, converging in p to the 10⁻³ level that the quadratic geometry and
+      SparseLU allow), Python bindings — PR #67
+- [x] D. layered background for the scattered-field formulation (ADR-0009:
+      `physics::LayerStack`, `ScatteringSetup::background`) and the slit–groove benchmark in
+      silver (Besbes et al., J. Eur. Opt. Soc. Rapid Publ. 2, 07022, 2007; Burger et al.,
+      Proc. SPIE 8880, 88801Z, 2013): S/S₀ within 1.4·10⁻⁵ of Burger and 1.8·10⁻⁵ of Besbes,
+      the 0.1 % difference between the sources is the substrate permittivity; the 10⁻⁶
+      target is left by the surface-plasmon truncation of the PML — PRs #65, #68
 - [ ] gold sphere dimer (Hoffmann et al., Proc. SPIE 7390, 73900J, 2009; 80 nm spheres,
       1 nm gap, 632 nm, reference |E|² at the gap centre = 5.47624·10⁵ V²/m² for
       |E_inc| = 1 V/m) — **blocked**: the permittivity of gold used in the source is not
