@@ -26,9 +26,10 @@ extern "C" {
 #endif
 
 /* Bumped whenever the ABI changes. Version 2 adds hpfem_gpu_factor_info2() and the hybrid
- * memory mode; everything of version 1 is unchanged, so a version-1 library still works
- * with a loader that knows version 2 (without the hybrid information). */
-#define HPFEM_GPU_API_VERSION 2
+ * memory mode, version 3 the device-resident matrices (hpfem_gpu_matrix_*); everything of
+ * the earlier versions is unchanged, so an older library still works with a loader that
+ * knows a newer version (without the newer functions). */
+#define HPFEM_GPU_API_VERSION 3
 
 #if defined(_WIN32)
 #if defined(HPFEM_GPU_BUILD)
@@ -116,6 +117,19 @@ HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_factor_info2(const hpfem_gpu_solver* so
  * next call on the same object. */
 HPFEM_GPU_API const char* hpfem_gpu_last_error(const hpfem_gpu_solver* solver);
 
+/* Device-resident sparse matrix (API version 3): uploaded once, multiplied many times.
+ * y = A x for nrhs column-major complex vectors on the host (uploaded and downloaded per
+ * call). Not thread safe per object. */
+typedef struct hpfem_gpu_matrix hpfem_gpu_matrix; /* opaque */
+
+HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_matrix_create(hpfem_gpu_matrix** out, int64_t n,
+                                                       int64_t nnz, const int64_t* row_ptr,
+                                                       const int64_t* col, const double* values);
+HPFEM_GPU_API void hpfem_gpu_matrix_destroy(hpfem_gpu_matrix* matrix);
+HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_matrix_apply(hpfem_gpu_matrix* matrix, int64_t nrhs,
+                                                      const double* x, double* y);
+HPFEM_GPU_API const char* hpfem_gpu_matrix_last_error(const hpfem_gpu_matrix* matrix);
+
 /* Function pointer types for run-time loading (dlsym / GetProcAddress). */
 typedef int (*hpfem_gpu_api_version_fn)(void);
 typedef const char* (*hpfem_gpu_version_fn)(void);
@@ -130,6 +144,13 @@ typedef hpfem_gpu_status (*hpfem_gpu_factor_info_fn)(const hpfem_gpu_solver*, in
 typedef const char* (*hpfem_gpu_last_error_fn)(const hpfem_gpu_solver*);
 typedef hpfem_gpu_status (*hpfem_gpu_factor_info2_fn)(const hpfem_gpu_solver*,
                                                       hpfem_gpu_factor_info_t*);
+typedef hpfem_gpu_status (*hpfem_gpu_matrix_create_fn)(hpfem_gpu_matrix**, int64_t, int64_t,
+                                                       const int64_t*, const int64_t*,
+                                                       const double*);
+typedef void (*hpfem_gpu_matrix_destroy_fn)(hpfem_gpu_matrix*);
+typedef hpfem_gpu_status (*hpfem_gpu_matrix_apply_fn)(hpfem_gpu_matrix*, int64_t, const double*,
+                                                      double*);
+typedef const char* (*hpfem_gpu_matrix_last_error_fn)(const hpfem_gpu_matrix*);
 
 #ifdef __cplusplus
 }

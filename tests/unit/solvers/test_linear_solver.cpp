@@ -10,6 +10,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "hpfem/core/error.hpp"
+#include "hpfem/solvers/device_matrix.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
 
 using hpfem::Complex;
@@ -156,6 +157,31 @@ TEST_CASE("direct solver backends: complex-symmetric systems through the LDL^T p
     // a general factorisation of the same matrix agrees
     CHECK((solve_direct(a, rhs, backend, Symmetry::kGeneral) - x).norm() < 1e-9 * x.norm());
   }
+}
+
+TEST_CASE("DeviceMatrix: products on the GPU agree with the host", "[solvers][gpu]") {
+  using hpfem::solvers::DeviceMatrix;
+  const Index n = 500;
+  const SparseMatrix a = random_system(n, 31);
+  if (!DeviceMatrix::available()) {
+    CHECK_THROWS_AS(DeviceMatrix(a), hpfem::Error);
+    return;
+  }
+  const DeviceMatrix device(a);
+  CHECK(device.rows() == n);
+  const Vector x = random_vector(n, 32);
+  const Vector y = device.apply(x);
+  const Vector reference = a * x;
+  CHECK((y - reference).norm() < 1e-14 * reference.norm());
+  Matrix xs(n, 3);
+  for (Index j = 0; j < 3; ++j) xs.col(j) = random_vector(n, static_cast<unsigned>(40 + j));
+  const Matrix ys = device.apply_many(xs);
+  CHECK((ys - a * xs).norm() < 1e-14 * (a * xs).norm());
+  CHECK(device.apply_many(Matrix(n, 0)).cols() == 0);
+  CHECK_THROWS_AS(device.apply(Vector::Ones(n + 1)), hpfem::InvalidArgument);
+  // a move keeps the device matrix usable
+  DeviceMatrix moved(std::move(const_cast<DeviceMatrix&>(device)));
+  CHECK((moved.apply(x) - reference).norm() < 1e-14 * reference.norm());
 }
 
 TEST_CASE("direct solver backends: availability and automatic choice", "[solvers]") {

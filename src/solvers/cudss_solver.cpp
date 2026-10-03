@@ -13,6 +13,7 @@
 
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/solvers/device_matrix.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
 #include "hpfem_gpu.h"
 
@@ -90,7 +91,13 @@ struct GpuApi {
   hpfem_gpu_factor_info_fn factor_info = nullptr;
   hpfem_gpu_factor_info2_fn factor_info2 = nullptr;  // API version 2 only
   hpfem_gpu_last_error_fn last_error = nullptr;
+  hpfem_gpu_matrix_create_fn matrix_create = nullptr;  // API version 3 only
+  hpfem_gpu_matrix_destroy_fn matrix_destroy = nullptr;
+  hpfem_gpu_matrix_apply_fn matrix_apply = nullptr;
+  hpfem_gpu_matrix_last_error_fn matrix_last_error = nullptr;
   int api_version = 0;
+
+  [[nodiscard]] bool has_matrices() const noexcept { return matrix_apply != nullptr; }
 
   [[nodiscard]] bool usable() const noexcept { return failure.empty(); }
 };
@@ -138,6 +145,11 @@ GpuApi load_gpu_api() {
   api.solve = api.library.symbol<hpfem_gpu_solve_fn>("hpfem_gpu_solve");
   api.factor_info = api.library.symbol<hpfem_gpu_factor_info_fn>("hpfem_gpu_factor_info");
   api.factor_info2 = api.library.symbol<hpfem_gpu_factor_info2_fn>("hpfem_gpu_factor_info2");
+  api.matrix_create = api.library.symbol<hpfem_gpu_matrix_create_fn>("hpfem_gpu_matrix_create");
+  api.matrix_destroy = api.library.symbol<hpfem_gpu_matrix_destroy_fn>("hpfem_gpu_matrix_destroy");
+  api.matrix_apply = api.library.symbol<hpfem_gpu_matrix_apply_fn>("hpfem_gpu_matrix_apply");
+  api.matrix_last_error =
+      api.library.symbol<hpfem_gpu_matrix_last_error_fn>("hpfem_gpu_matrix_last_error");
   api.last_error = api.library.symbol<hpfem_gpu_last_error_fn>("hpfem_gpu_last_error");
   if (api_version == nullptr || version == nullptr || device_info == nullptr ||
       api.create == nullptr || api.destroy == nullptr || api.factorize == nullptr ||
@@ -157,6 +169,17 @@ GpuApi load_gpu_api() {
   if (api.api_version >= 2 && api.factor_info2 == nullptr) {
     api.failure = fmt::format("{} claims API version {} but lacks hpfem_gpu_factor_info2", api.path,
                               api.api_version);
+    return api;
+  }
+  if (api.api_version < 3) {
+    api.matrix_create = nullptr;
+    api.matrix_destroy = nullptr;
+    api.matrix_apply = nullptr;
+    api.matrix_last_error = nullptr;
+  } else if (api.matrix_create == nullptr || api.matrix_destroy == nullptr ||
+             api.matrix_apply == nullptr || api.matrix_last_error == nullptr) {
+    api.failure = fmt::format("{} claims API version {} but lacks the hpfem_gpu_matrix functions",
+                              api.path, api.api_version);
     return api;
   }
   api.version = version();
@@ -333,6 +356,96 @@ std::string cudss_status() {
 
 std::unique_ptr<LinearSolver> make_cudss(Symmetry symmetry) {
   return std::make_unique<CudssSolver>(symmetry);
+}
+
+// ---------------------------------------------------------------------------- DeviceMatrix
+
+struct DeviceMatrix::Impl {
+  const GpuApi* api = nullptr;
+  hpfem_gpu_matrix* matrix = nullptr;
+  ~Impl() {
+    if (matrix != nullptr) api->matrix_destroy(matrix);
+  }
+};
+
+bool DeviceMatrix::available() noexcept {
+  try {
+    const GpuApi& api = gpu_api();
+    return api.usable() && api.has_matrices();
+  } catch (...) {
+    return false;
+  }
+}
+
+DeviceMatrix::DeviceMatrix(const SparseMatrix& matrix) : impl_(std::make_unique<Impl>()) {
+  const GpuApi& api = gpu_api();
+  if (!api.usable())
+    throw Error(fmt::format("DeviceMatrix: GPU backend unavailable: {}", api.failure));
+  if (!api.has_matrices()) {
+    throw Error(
+        fmt::format("DeviceMatrix: {} implements hpfem_gpu API version {}, device "
+                    "matrices need version 3",
+                    api.path, api.api_version));
+  }
+  impl_->api = &api;
+  const SparseMatrix* csr = &matrix;
+  SparseMatrix compressed;
+  if (!matrix.isCompressed()) {
+    compressed = matrix;
+    compressed.makeCompressed();
+    csr = &compressed;
+  }
+  const hpfem_gpu_status status =
+      api.matrix_create(&impl_->matrix, csr->rows(), csr->nonZeros(),
+                        reinterpret_cast<const int64_t*>(csr->outerIndexPtr()),
+                        reinterpret_cast<const int64_t*>(csr->innerIndexPtr()),
+                        reinterpret_cast<const double*>(csr->valuePtr()));
+  if (status != HPFEM_GPU_OK || impl_->matrix == nullptr) {
+    throw Error(fmt::format("DeviceMatrix: uploading the {} x {} matrix failed (status {})",
+                            csr->rows(), csr->cols(), static_cast<int>(status)));
+  }
+  rows_ = csr->rows();
+  cols_ = csr->cols();
+  if (rows_ != cols_) {
+    throw InvalidArgument(fmt::format("DeviceMatrix: matrix is {} x {}, not square", rows_, cols_));
+  }
+}
+
+DeviceMatrix::~DeviceMatrix() = default;
+DeviceMatrix::DeviceMatrix(DeviceMatrix&&) noexcept = default;
+DeviceMatrix& DeviceMatrix::operator=(DeviceMatrix&&) noexcept = default;
+
+Vector DeviceMatrix::apply(const Vector& x) const {
+  if (x.size() != cols_) {
+    throw InvalidArgument(
+        fmt::format("DeviceMatrix: vector has {} entries, matrix has {} columns", x.size(), cols_));
+  }
+  Vector y(rows_);
+  const hpfem_gpu_status status =
+      impl_->api->matrix_apply(impl_->matrix, 1, reinterpret_cast<const double*>(x.data()),
+                               reinterpret_cast<double*>(y.data()));
+  if (status != HPFEM_GPU_OK) {
+    throw Error(fmt::format("DeviceMatrix: product failed: {}",
+                            impl_->api->matrix_last_error(impl_->matrix)));
+  }
+  return y;
+}
+
+Matrix DeviceMatrix::apply_many(const Matrix& x) const {
+  if (x.rows() != cols_) {
+    throw InvalidArgument(
+        fmt::format("DeviceMatrix: vectors have {} rows, matrix has {} columns", x.rows(), cols_));
+  }
+  Matrix y(rows_, x.cols());
+  if (x.cols() == 0) return y;
+  const hpfem_gpu_status status =
+      impl_->api->matrix_apply(impl_->matrix, x.cols(), reinterpret_cast<const double*>(x.data()),
+                               reinterpret_cast<double*>(y.data()));
+  if (status != HPFEM_GPU_OK) {
+    throw Error(fmt::format("DeviceMatrix: product failed: {}",
+                            impl_->api->matrix_last_error(impl_->matrix)));
+  }
+  return y;
 }
 
 }  // namespace hpfem::solvers

@@ -18,6 +18,7 @@
 
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/solvers/device_matrix.hpp"
 
 namespace hpfem::solvers {
 
@@ -191,6 +192,23 @@ std::unique_ptr<LinearSolver> make_cudss(Symmetry /*symmetry*/) {
 }
 std::string cudss_status() {
   return "not compiled in (configure with HPFEM_ENABLE_CUDA)";
+}
+
+struct DeviceMatrix::Impl {};
+bool DeviceMatrix::available() noexcept {
+  return false;
+}
+DeviceMatrix::DeviceMatrix(const SparseMatrix& /*matrix*/) {
+  throw Error("DeviceMatrix needs the GPU backend (configure with HPFEM_ENABLE_CUDA)");
+}
+DeviceMatrix::~DeviceMatrix() = default;
+DeviceMatrix::DeviceMatrix(DeviceMatrix&&) noexcept = default;
+DeviceMatrix& DeviceMatrix::operator=(DeviceMatrix&&) noexcept = default;
+Vector DeviceMatrix::apply(const Vector& /*x*/) const {
+  throw Error("DeviceMatrix needs the GPU backend (configure with HPFEM_ENABLE_CUDA)");
+}
+Matrix DeviceMatrix::apply_many(const Matrix& /*x*/) const {
+  throw Error("DeviceMatrix needs the GPU backend (configure with HPFEM_ENABLE_CUDA)");
 }
 #endif
 

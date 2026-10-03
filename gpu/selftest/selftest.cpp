@@ -309,6 +309,36 @@ int main(int argc, char** argv) {
     }
     run_case("random sparse, rows scaled 1e-8..1e8", badly, HPFEM_GPU_MATRIX_GENERAL, 2, true);
   }
+  {
+    // device-resident matrix: y = A x against the host product, one and three vectors
+    std::printf("-- device matrix, y = A x: n = %lld\n", static_cast<long long>(n));
+    const Csr a = random_system(n, 21);
+    hpfem_gpu_matrix* matrix = nullptr;
+    check(hpfem_gpu_matrix_create(&matrix, a.n, a.nnz(), a.row_ptr.data(), a.col.data(),
+                                  as_doubles(a.val)) == HPFEM_GPU_OK,
+          "matrix create");
+    std::mt19937 gen(22);
+    std::uniform_real_distribution<double> dist(-1.0, 1.0);
+    std::vector<Complex> x(static_cast<size_t>(3 * a.n));
+    for (auto& v : x) v = Complex{dist(gen), dist(gen)};
+    const std::vector<Complex> reference = multiply(a, x, 3);
+    std::vector<Complex> y(x.size());
+    check(hpfem_gpu_matrix_apply(matrix, 3, as_doubles(x), as_doubles(y)) == HPFEM_GPU_OK,
+          std::string("matrix apply: ") + hpfem_gpu_matrix_last_error(matrix));
+    const double err = relative_error(y, reference);
+    std::printf("       relative difference to the host product %.2e\n", err);
+    check(err < 1e-14, "device product agrees with the host product");
+    std::vector<Complex> y1(static_cast<size_t>(a.n));
+    check(hpfem_gpu_matrix_apply(matrix, 1, as_doubles(x), as_doubles(y1)) == HPFEM_GPU_OK &&
+              relative_error(y1, std::vector<Complex>(reference.begin(), reference.begin() + a.n)) <
+                  1e-14,
+          "single vector");
+    check(hpfem_gpu_matrix_apply(matrix, 0, as_doubles(x), as_doubles(y1)) ==
+              HPFEM_GPU_ERR_INVALID_ARG,
+          "nrhs = 0 is refused");
+    hpfem_gpu_matrix_destroy(matrix);
+    hpfem_gpu_matrix_destroy(nullptr);
+  }
   run_error_paths();
 
   std::printf("%d failure(s)\n", failures);
