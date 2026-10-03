@@ -60,3 +60,17 @@ def test_quantum_dot_purcell_mirror_check_and_spectrum():
     spec = example.spectrum(wavelengths, top_pairs=3, bottom_pairs=6, order=2, cell_fraction=0.1)
     assert max(spec.purcell) > 1.2  # enhancement near the cavity resonance
     assert all(0.0 < b <= 1.0 + 1e-6 for b in spec.beta_top)  # a fraction of the emitted power
+
+
+def test_euv_mask_bare_mirror_against_the_transfer_matrix(tmp_path, monkeypatch):
+    example = load_example("euv_mask")
+    monkeypatch.chdir(tmp_path)
+    result = example.run(quick=True)
+    assert (
+        abs(result.reflectivity_bare_fem - result.reflectivity_bare_tmm)
+        < 0.1 * result.reflectivity_bare_tmm
+    )
+    assert (
+        0.0 < result.reflectivity < result.reflectivity_bare_fem
+    )  # the absorber pad darkens the cell
+    assert (tmp_path / "euv_mask.vtu").stat().st_size > 1000
