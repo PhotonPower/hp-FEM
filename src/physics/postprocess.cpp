@@ -11,6 +11,7 @@
 #include "hpfem/assembly/quadrature.hpp"
 #include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
+#include "hpfem/core/parallel.hpp"
 #include "hpfem/fespace/nedelec_basis.hpp"
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/mesh/simplex_topology.hpp"
@@ -215,13 +216,15 @@ Real poynting_flux(const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h, R
 }
 
 template <int Dim>
-Real absorbed_power(const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h, Real omega,
-                    const materials::MaterialMap& materials, int extra_order) {
+std::vector<Real> absorbed_power_per_cell(const fespace::NedelecDofMap<Dim>& dofs,
+                                          const Vector& e_h, Real omega,
+                                          const materials::MaterialMap& materials,
+                                          int extra_order) {
   const auto& mesh = dofs.mesh();
-  Real power = 0;
-  for (Index c = 0; c < mesh.num_cells(); ++c) {
+  std::vector<Real> power(as_size(mesh.num_cells()), 0.0);
+  parallel_for(mesh.num_cells(), [&](Index c, int) {
     const Real loss = materials.of_cell(mesh, c).eps_r.imag();
-    if (loss == 0) continue;
+    if (loss == 0) return;
     const int p = dofs.cell_order(c);
     const auto geometry = mesh::cell_geometry(mesh, c);
     const auto rule =
@@ -232,9 +235,19 @@ Real absorbed_power(const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h, 
       integral += rule.weights[q] * std::abs(g.det) *
                   assembly::evaluate_hcurl(dofs, e_h, c, rule.points[q]).squaredNorm();
     }
-    power += 0.5 * omega * constants::eps0 * loss * integral;
-  }
+    power[as_size(c)] = 0.5 * omega * constants::eps0 * loss * integral;
+  });
   return power;
+}
+
+template <int Dim>
+Real absorbed_power(const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h, Real omega,
+                    const materials::MaterialMap& materials, int extra_order) {
+  Real total = 0;
+  for (const Real p : absorbed_power_per_cell<Dim>(dofs, e_h, omega, materials, extra_order)) {
+    total += p;
+  }
+  return total;
 }
 
 Real plane_wave_intensity(Real amplitude, const materials::Material& medium) {
@@ -295,6 +308,12 @@ template Real absorbed_power<2>(const fespace::NedelecDofMap<2>&, const Vector&,
                                 const materials::MaterialMap&, int);
 template Real absorbed_power<3>(const fespace::NedelecDofMap<3>&, const Vector&, Real,
                                 const materials::MaterialMap&, int);
+template std::vector<Real> absorbed_power_per_cell<2>(const fespace::NedelecDofMap<2>&,
+                                                      const Vector&, Real,
+                                                      const materials::MaterialMap&, int);
+template std::vector<Real> absorbed_power_per_cell<3>(const fespace::NedelecDofMap<3>&,
+                                                      const Vector&, Real,
+                                                      const materials::MaterialMap&, int);
 template CrossSections cross_sections<2>(const Scattering<2>&, const ScatteringSolution<2>&,
                                          const Surface<2>&, Real, int);
 template CrossSections cross_sections<3>(const Scattering<3>&, const ScatteringSolution<3>&,

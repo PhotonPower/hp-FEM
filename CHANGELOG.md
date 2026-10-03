@@ -7,6 +7,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   resonance wavelengths and Q from `Resonance2D` on the ring-plus-bus structure, bus
   transmission from a Gaussian line current normalised by the bare bus, dips at the
   eigenmode resonances. M8 complete.
+- `hpfem.pv` (M9): carrier-generation profiles for device solvers — generation rate
+  G = q / (ħω) per cell (`physics::absorbed_power_per_cell`, exact cell integrals) and as
+  an H1 field, spectral weighting of monochromatic solutions by a spectral irradiance,
+  volume-weighted depth profiles G(z) and export as meshio cell data / CSV;
+  `Mesh.cell_volumes`. `examples/solar_cell_texture`: light trapping of a textured silicon
+  cell with the generation profile and the temperature rise. M9 complete.
 - `physics::ThermoOptical` (M9): the optical-thermal feedback loop — scattering solution →
   absorbed power → temperature → permittivity εr(T) = εr(T0) + dεr/dT (T − T0) per cell →
   scattering again, until the temperature settles (fixed-point iteration with optional

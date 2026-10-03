@@ -99,6 +99,13 @@ template <int Dim>
 [[nodiscard]] Real absorbed_power(const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h,
                                   Real omega, const materials::MaterialMap& materials,
                                   int extra_order = 2);
+/// The same cell by cell: the absorbed power of every cell (0 in lossless cells), e.g. for
+/// carrier-generation profiles (divide by the photon energy and the cell volume).
+template <int Dim>
+[[nodiscard]] std::vector<Real> absorbed_power_per_cell(const fespace::NedelecDofMap<Dim>& dofs,
+                                                        const Vector& e_h, Real omega,
+                                                        const materials::MaterialMap& materials,
+                                                        int extra_order = 2);
 
 /// Intensity @f$ |E_0|^2 / (2 Z) @f$ [W/m^2] of a plane wave of amplitude @f$ |E_0| @f$ [V/m] in a
 /// medium with impedance @f$ Z = Z_0\sqrt{\mu_r/\varepsilon_r} @f$ (real part).
@@ -147,6 +154,12 @@ extern template Real absorbed_power<2>(const fespace::NedelecDofMap<2>&, const V
                                        const materials::MaterialMap&, int);
 extern template Real absorbed_power<3>(const fespace::NedelecDofMap<3>&, const Vector&, Real,
                                        const materials::MaterialMap&, int);
+extern template std::vector<Real> absorbed_power_per_cell<2>(const fespace::NedelecDofMap<2>&,
+                                                             const Vector&, Real,
+                                                             const materials::MaterialMap&, int);
+extern template std::vector<Real> absorbed_power_per_cell<3>(const fespace::NedelecDofMap<3>&,
+                                                             const Vector&, Real,
+                                                             const materials::MaterialMap&, int);
 extern template CrossSections cross_sections<2>(const Scattering<2>&, const ScatteringSolution<2>&,
                                                 const Surface<2>&, Real, int);
 extern template CrossSections cross_sections<3>(const Scattering<3>&, const ScatteringSolution<3>&,

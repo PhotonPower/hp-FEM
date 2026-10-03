@@ -88,3 +88,16 @@ def test_ring_resonator_dip_at_the_eigenmode_resonance():
     )
     assert spec.transmission[1] < 0.8 * min(spec.transmission[0], spec.transmission[2])  # the dip
     assert all(0.0 < t < 1.05 for t in spec.transmission)
+
+
+def test_solar_cell_texture_traps_light_and_exports(tmp_path, monkeypatch):
+    example = load_example("solar_cell_texture")
+    monkeypatch.chdir(tmp_path)
+    result = example.run(quick=True)
+    for textured, flat in zip(result.absorbed_textured, result.absorbed_flat, strict=True):
+        assert 0.0 < flat < 1.0 and 0.0 < textured < 1.0
+    assert result.absorbed_textured[0] > result.absorbed_flat[0]  # light trapping at 600 nm
+    assert result.generation_total > 0 and result.temperature_rise > 0
+    assert (tmp_path / "solar_cell_texture_generation.vtu").stat().st_size > 1000
+    profile = np.loadtxt(tmp_path / "solar_cell_texture_profile.csv", delimiter=",")
+    assert profile.shape[1] == 2 and profile[:, 1].max() > 0

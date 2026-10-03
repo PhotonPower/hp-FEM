@@ -8,6 +8,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include "hpfem/assembly/interpolation.hpp"
 #include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/fespace/dof_map.hpp"
@@ -58,6 +59,36 @@ Mesh<2> square_with_disc(Index n, Real radius) {
 }
 
 }  // namespace
+
+TEST_CASE("absorbed_power_per_cell sums to absorbed_power and vanishes in lossless cells",
+          "[physics][postprocess]") {
+  hpfem::mesh::Mesh<2> mesh = hpfem::mesh::rectangle(4, 4);
+  for (hpfem::Index c = 0; c < mesh.num_cells(); ++c) {
+    if (hpfem::mesh::affine_map(mesh, c).centroid()(0) > 0.5) mesh.set_cell_tag(c, 2);
+  }
+  const hpfem::fespace::NedelecDofMap<2> nd(mesh, 2);
+  hpfem::materials::MaterialMap materials;
+  materials.set(2, hpfem::materials::Material{hpfem::Complex{2.0, 0.4}, hpfem::Complex{1.0, 0.0}});
+  const hpfem::Real omega = 2.0e15;
+  const hpfem::Vector e_h = hpfem::assembly::interpolate<2>(
+      nd, hpfem::assembly::physical_sampler<2>([](const hpfem::Point<2>& x) {
+        return hpfem::assembly::ComplexVector<2>(hpfem::Complex{x(1), 0.3},
+                                                 hpfem::Complex{1.0, x(0)});
+      }));
+  const auto per_cell = hpfem::physics::absorbed_power_per_cell<2>(nd, e_h, omega, materials);
+  REQUIRE(per_cell.size() == static_cast<std::size_t>(mesh.num_cells()));
+  hpfem::Real total = 0;
+  for (hpfem::Index c = 0; c < mesh.num_cells(); ++c) {
+    if (mesh.cell_tag(c) == 2) {
+      REQUIRE(per_cell[hpfem::as_size(c)] > 0);
+    } else {
+      REQUIRE(per_cell[hpfem::as_size(c)] == 0.0);
+    }
+    total += per_cell[hpfem::as_size(c)];
+  }
+  REQUIRE(total ==
+          Approx(hpfem::physics::absorbed_power<2>(nd, e_h, omega, materials)).epsilon(1e-12));
+}
 
 TEST_CASE("Surface factories and surface quadrature: measures and outward normals",
           "[physics][postprocess]") {
