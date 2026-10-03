@@ -7,6 +7,7 @@ pybind11_add_module(_hpfem
   bindings/bind_materials.cpp
   bindings/bind_solvers.cpp
   bindings/bind_physics.cpp
+  bindings/bind_layered.cpp
   bindings/bind_postprocess.cpp
   bindings/bind_adaptivity.cpp
   bindings/bind_io.cpp)

@@ -104,6 +104,48 @@ whose zero count equals $\dim W_h^0$.
 For an incident field $\mathbf{E}^{\mathrm{inc}}$ that solves Maxwell in the background medium $\varepsilon_b, \mu_b$, write $\mathbf{E} = \mathbf{E}^{\mathrm{inc}} + \mathbf{E}^{\mathrm{sc}}$. Then $\mathbf{E}^{\mathrm{sc}}$ solves the curl–curl equation with the source
 $\mathbf{f} = \omega^2 (\varepsilon - \varepsilon_b)\mathbf{E}^{\mathrm{inc}} - \nabla\times\big((\mu^{-1} - \mu_b^{-1})\nabla\times\mathbf{E}^{\mathrm{inc}}\big)$ supported only on the scatterer, and PML absorbs $\mathbf{E}^{\mathrm{sc}}$ cleanly. In the weak form the curl term is integrated by parts, $\ell(\mathbf{v}) = \omega^2\int(\varepsilon - \varepsilon_b)\mathbf{E}^{\mathrm{inc}}\cdot\mathbf{v} - \int(\mu^{-1} - \mu_b^{-1})\nabla\times\mathbf{E}^{\mathrm{inc}}\cdot\nabla\times\mathbf{v}$, which `MaxwellForm::source` and `MaxwellForm::curl_source` carry. For layered backgrounds (gratings, masks) the incident field is the analytic multilayer solution.
 
+## Layered background (`physics/layered.hpp`, ADR-0009)
+
+Structures on substrates, in films or on multilayers are scattered-field problems whose
+background is a planar layer stack rather than a homogeneous medium. `physics::LayerStack<Dim>`
+holds an incidence medium (semi-infinite, lossless) above the coordinate `top`, finite
+non-magnetic layers and a semi-infinite substrate, perpendicular to the last coordinate ($y$
+in 2D, $z$ in 3D). `plane_wave(k_0, \theta, \text{pol})` returns the exact field of a unit
+plane wave incident from above at the angle $\theta$ from the normal as an `IncidentField`
+(value and curl) together with the reflectance $R$, the transmittance $T$ (power flux into the
+substrate, also when it is lossy) and the absorption $A = 1 - R - T$ of the finite layers.
+
+In every region $j$ the scalar wave function $u$ ($E_s$ for s polarisation, $H$ for p; in 2D
+only p exists because `Scattering<2>` solves for the in-plane $E$) is
+$$
+u_j = e^{i k_\parallel x}\Big(a_j\, e^{-i k_{z,j}(z - z_j^{top})} + b_j\, e^{i k_{z,j}(z - z_j^{bot})}\Big),
+\qquad k_{z,j} = \sqrt{k_0^2\varepsilon_j - k_\parallel^2},\ \operatorname{Im} k_{z,j} \ge 0,
+$$
+with the downward amplitude $a_j$ referenced to the top and the upward amplitude $b_j$ to the
+bottom interface of the region, so that every exponential inside a layer has modulus $\le 1$.
+With the admittance-like quantities $q_j = k_{z,j}$ (s) or $k_{z,j}/\varepsilon_j$ (p), the
+interface coefficients $r_{j} = (q_j - q_{j+1})/(q_j + q_{j+1})$, $t_j = 2q_j/(q_j + q_{j+1})$
+and the round trip $\phi_j = e^{2 i k_{z,j} d_j}$, the total reflection at interface $j$ follows
+the Airy recursion from the substrate upwards,
+$$
+R_j = \frac{r_j + R_{j+1}\phi_{j+1}}{1 + r_j R_{j+1}\phi_{j+1}},\qquad R_N = r_N,
+$$
+and the amplitudes downwards, $a_{j+1} = a_j^{bot}\, t_j / (1 + r_j R_{j+1}\phi_{j+1})$,
+$b_{j+1} = R_{j+1}\, a_{j+1}\, e^{i k_{z,j+1} d_{j+1}}$. This is the S-matrix form of the
+transfer problem: a 50 µm silver layer gives the same $R$ as the half-infinite metal and a
+finite field everywhere, where transfer matrices overflow. $E$ and $\nabla\times E = i\omega\mu_0 H$
+follow per plane-wave component from $H = k\times E/(\omega\mu_0)$ (s) and
+$E = -k\times H/(\omega\varepsilon_0\varepsilon_j)$ (p), $R = |R_0|^2$,
+$T = \operatorname{Re} q_{sub}\,|a_{sub}|^2 / \operatorname{Re} q_0$.
+
+Unit tests check Fresnel's coefficients for one interface (s and p, 2D and 3D), $R + T = 1$
+for a Bragg mirror and $R + T + A = 1$ for lossy stacks, the thick-metal limit, the
+continuity of the tangential $E$, of $\varepsilon E_z$ and of the tangential $H$ across every
+interface and the curl against finite differences. Used as background of the scattered-field
+formulation, the stack's field is the incident field and the source lives only where the
+permittivity deviates from the stack (see `Scattering`, next section, and the slit–groove
+benchmark in [validation.md](../validation.md)).
+
 ## Scattering problems (`physics/scattering.hpp`)
 
 `physics::Scattering<Dim>` solves, at a fixed angular frequency $\omega$ with
