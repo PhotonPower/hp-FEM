@@ -23,9 +23,11 @@ decision:
    |---|---|---|---|---|---|
    | Newmark operator, square, p = 2 | 163 k / 1.9 M | 0.30 ms → 0.13 ms (2.3×) | 5.0 s / 1.8 s / 0.78 s | 59 ms / 74 ms / 2.6 ms | 0.43 s / 0.012 s |
    | scattering S − k₀²M with PML, cube, p = 2 | 70 k / 2.9 M | 0.54 ms → 0.18 ms (2.9×) | 591 s / 6.8 s / 3.8 s | 0.78 s / 0.84 s / 5.9 ms | 6.2 s / 0.030 s |
+   | Newmark operator, square, p = 3 | 1.37 M / 27.6 M | 21.7 ms → 1.6 ms (14×) | 334 s / 12.3 s / 3.6 s | 2.3 s / 0.48 s / 13 ms | 13.8 s / 0.072 s |
 
    Residuals are 1e-13 … 1e-15 for all backends. Against MUMPS the GPU factorisation is
-   1.8–2.3× faster, a repeated solve 30–140× faster; SpMV gains 2–3×.
+   1.8–3.4× faster, a repeated solve 30–140× faster; SpMV gains 2–3× while the matrix fits the
+   CPU caches and 14× beyond (1.37 M unknowns).
 
 ## Decision
 - The GPU work goes into a **direct-solver backend on cuDSS** behind `solvers::LinearSolver`
