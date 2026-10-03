@@ -28,10 +28,15 @@
 
 namespace hpfem::assembly {
 
-/// Diagonal coefficient tensors of one cell in cylindrical components (r, φ, z).
+/// Diagonal tensor in cylindrical components (r, φ, z) as a function of the meridian point.
+using AxisymmetricTensorField = std::function<Eigen::Matrix<Complex, 3, 1>(const Point<2>&)>;
+
+/// Coefficients of one cell: diagonal tensors @f$ \mu^{-1} @f$ and @f$ arepsilon @f$ in
+/// (r, φ, z), e.g. the stretched tensors of the cylindrical PML; an empty function means the
+/// identity.
 struct AxisymmetricForm {
-  Eigen::Matrix<Complex, 3, 1> inverse_permeability = Eigen::Matrix<Complex, 3, 1>::Ones();
-  Eigen::Matrix<Complex, 3, 1> permittivity = Eigen::Matrix<Complex, 3, 1>::Ones();
+  AxisymmetricTensorField inverse_permeability;
+  AxisymmetricTensorField permittivity;
   /// Total degree of the quadrature rule for this cell; overrides `2p + extra_order`.
   std::optional<int> quadrature_order;
 };

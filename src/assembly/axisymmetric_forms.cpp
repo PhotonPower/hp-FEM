@@ -80,12 +80,6 @@ AxisymmetricSystem assemble_axisymmetric(const fespace::NedelecDofMap<2>& nedele
     Eigen::Matrix<Real, 1, Eigen::Dynamic> val(1, nh);
     Matrix s = Matrix::Zero(ne + nh, ne + nh);
     Matrix mass = Matrix::Zero(ne + nh, ne + nh);
-    const Complex inv_mu_r = form.inverse_permeability(0);
-    const Complex inv_mu_phi = form.inverse_permeability(1);
-    const Complex inv_mu_z = form.inverse_permeability(2);
-    const Complex eps_r = form.permittivity(0);
-    const Complex eps_phi = form.permittivity(1);
-    const Complex eps_z = form.permittivity(2);
     for (std::size_t q = 0; q < rule.size(); ++q) {
       const auto g = geometry->evaluate(rule.points[q]);
       const Real r = g.x(0);
@@ -95,6 +89,17 @@ AxisymmetricSystem assemble_axisymmetric(const fespace::NedelecDofMap<2>& nedele
             r));
       }
       const Real dx = rule.weights[q] * std::abs(g.det);
+      const Eigen::Matrix<Complex, 3, 1> inv_mu = form.inverse_permeability
+                                                      ? form.inverse_permeability(g.x)
+                                                      : Eigen::Matrix<Complex, 3, 1>::Ones();
+      const Eigen::Matrix<Complex, 3, 1> eps =
+          form.permittivity ? form.permittivity(g.x) : Eigen::Matrix<Complex, 3, 1>::Ones();
+      const Complex inv_mu_r = inv_mu(0);
+      const Complex inv_mu_phi = inv_mu(1);
+      const Complex inv_mu_z = inv_mu(2);
+      const Complex eps_r = eps(0);
+      const Complex eps_phi = eps(1);
+      const Complex eps_z = eps(2);
       nd_basis.evaluate(rule.points[q], ref_values, ref_curls);
       h1_basis.evaluate(rule.points[q], psi, ref_grad);
       for (Index i = 0; i < ne; ++i) {

@@ -43,8 +43,14 @@ AxisymmetricCavity::AxisymmetricCavity(const fespace::NedelecDofMap<2>& meridian
       [&](Index c) {
         const auto& material = setup_.materials.of_cell(mesh, c);
         assembly::AxisymmetricForm form;
-        form.inverse_permeability.setConstant(1.0 / material.mu_r);
-        form.permittivity.setConstant(material.eps_r);
+        const Complex inv_mu = 1.0 / material.mu_r;
+        const Complex eps = material.eps_r;
+        form.inverse_permeability = [inv_mu](const Point<2>&) {
+          return Eigen::Matrix<Complex, 3, 1>::Constant(inv_mu);
+        };
+        form.permittivity = [eps](const Point<2>&) {
+          return Eigen::Matrix<Complex, 3, 1>::Constant(eps);
+        };
         return form;
       },
       setup_.extra_quadrature_order);
