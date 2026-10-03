@@ -12,6 +12,7 @@
 #include <iostream>
 #include <numbers>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <fmt/format.h>
@@ -63,6 +64,19 @@ std::string host_name() {
 
 std::ofstream file;
 
+/// Sets (or, for an empty value, removes) an environment variable, portably.
+void set_env(const char* name, const char* value) {
+#ifdef _WIN32
+  _putenv_s(name, value);
+#else
+  if (*value == '\0') {
+    unsetenv(name);
+  } else {
+    setenv(name, value, 1);
+  }
+#endif
+}
+
 void record(const std::string& benchmark, Index n, int p, Index dofs, DirectSolverBackend backend,
             const std::string& timings) {
   const std::string line = fmt::format(
@@ -97,7 +111,17 @@ void time_domain(Index n, int p, int steps) {
   };
   const Vector u0 =
       hpfem::assembly::interpolate<2>(dofs, hpfem::assembly::physical_sampler<2>(mode));
+  // cuDSS twice: the Newmark loop on the device (default) and the host loop that only
+  // solves on the GPU (HPFEM_GPU_STEPPER=0, read once per TimeDomain object)
+  std::vector<std::pair<hpfem::solvers::DirectSolverBackend, bool>> variants;
   for (const auto backend : hpfem::solvers::available_backends()) {
+    variants.emplace_back(backend, false);
+    if (backend == hpfem::solvers::DirectSolverBackend::kCudss)
+      variants.emplace_back(backend, true);
+  }
+  for (const auto& [backend, device_loop] : variants) {
+    const bool is_cudss = backend == hpfem::solvers::DirectSolverBackend::kCudss;
+    set_env("HPFEM_GPU_STEPPER", is_cudss && !device_loop ? "0" : "");
     hpfem::physics::TimeDomainSetup<2> setup;
     setup.pec_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin, box_tag::kYMax};
     setup.dt = 2 * kPi / omega / 40;
@@ -113,9 +137,11 @@ void time_domain(Index n, int p, int steps) {
     const Real drift = std::abs(problem.energy(state) - e0) / e0;
     record(
         "time_domain", n, p, dofs.num_dofs(), backend,
-        fmt::format(R"("steps": {}, "setup_s": {:.4f}, "step_s": {:.5f}, "energy_drift": {:.2e})",
-                    steps, factorize, step, drift));
+        fmt::format(
+            R"("steps": {}, "setup_s": {:.4f}, "step_s": {:.5f}, "energy_drift": {:.2e}, "device_loop": {})",
+            steps, factorize, step, drift, device_loop ? "true" : "false"));
   }
+  set_env("HPFEM_GPU_STEPPER", "");
 }
 
 /// Angle sweep of a plane wave on the unit square: `nrhs` incident fields solved one by one
