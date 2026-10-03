@@ -15,7 +15,6 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
-#include <Eigen/SparseLU>
 #include <fmt/format.h>
 
 #include "hpfem/core/error.hpp"
@@ -217,20 +216,22 @@ ComplexEigenResult complex_eigenpairs_near_gauged(const SparseMatrix& a_full,
         fmt::format("{}: the gradient must have {} rows", function, a_full.rows()));
   }
   ShiftInvert op = prepare(a_full, b_full, sigma, options, backend, function);
-  // gauge projector P = I - G (G^H B G)^{-1} G^H B on the scaled mass matrix
+  // gauge projector P = I - G (G^H B G)^{-1} G^H B on the scaled mass matrix; the small
+  // Hermitian gauge matrix is factorised with the same direct solver as the shift
   const SparseMatrix bg = op.b * gradient;
   const SparseMatrix gt = gradient.adjoint();
-  using ColMajor = Eigen::SparseMatrix<Complex, Eigen::ColMajor, Index>;
-  ColMajor k = ColMajor(gt * bg);
+  SparseMatrix k = gt * bg;
   k.makeCompressed();
-  Eigen::SparseLU<ColMajor> gauge;
-  gauge.compute(k);
-  if (gauge.info() != Eigen::Success) {
-    throw Error(fmt::format("{}: the gauge matrix G^H B G is singular", function));
+  std::unique_ptr<LinearSolver> gauge = make_direct_solver(backend);
+  try {
+    gauge->factorize(k);
+  } catch (const Error& error) {
+    throw Error(
+        fmt::format("{}: the gauge matrix G^H B G is singular ({})", function, error.what()));
   }
   const Operator project = [&](const Vector& w) -> Vector {
     const Vector r = gt * (op.b * w);
-    return w - gradient * gauge.solve(r);
+    return w - gradient * gauge->solve(r);
   };
   const Operator apply = [&op](const Vector& x) { return op.solver->solve(Vector(op.b * x)); };
   return arnoldi(apply, project, a_full.rows(), op.sigma_scaled, op.lambda_scale, sigma, options,
