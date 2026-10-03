@@ -3,6 +3,19 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `physics::AxisymmetricCavity` (M11, ADR-0010): eigenmodes of bodies of revolution on the
+  meridian mesh, one 2D problem per azimuthal order m. `assembly::assemble_axisymmetric`
+  builds the order-m curl–curl and mass forms with (E_r, E_z) in the 2D Nédélec space and
+  the scaled azimuthal unknown v = −i r E_φ in H1 (diagonal material tensors in (r, φ, z),
+  weight r, higher quadrature on axis cells), `axisymmetric_gradient` the order-m gradient
+  [G; m I] that spans the kernel exactly, so the gauged eigensolver finds no spurious modes;
+  axis conditions per m. Convergence test `axisymmetric_cavity` (PEC cylinder against the
+  Bessel zeros, rate 2p for m = 0, 1, 2), unit tests, `docs/theory/axisymmetric.md`.
+- `physics::AxisymmetricResonance` (M11): quasi-normal modes of open bodies of revolution
+  with the cylindrical PML as material (`axisymmetric_pml_form`, Teixeira–Chew tensors
+  with the stretched radius) and the complex gauged shift-invert solver; modes with ω, λ, Q
+  and residual. Convergence test `axisymmetric_sphere_resonance` (TE_1 and TM_1 Mie poles
+  of a dielectric sphere, exponential in p down to 2e-6), unit tests of the PML tensors.
 - cuDSS GPU direct solver (backlog "GPU backend", ADR-0008): `DirectSolverBackend::kCudss`
   behind `solvers::LinearSolver`, opt-in (`kAuto` unchanged). The solver lives in the
   separately built shared library `hpfem_gpu` (`gpu/`: nvcc + MSVC or GCC, cuDSS 0.8, pure C
