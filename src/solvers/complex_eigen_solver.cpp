@@ -5,6 +5,12 @@
 #include <random>
 #include <vector>
 
+#if defined(__GNUC__) && !defined(__clang__)
+// GCC 13 reports a potential null dereference inside std::complex / Eigen's dense storage
+// (false positive, as in condensation.cpp)
+#pragma GCC diagnostic ignored "-Wnull-dereference"
+#endif
+
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 #include <fmt/format.h>
