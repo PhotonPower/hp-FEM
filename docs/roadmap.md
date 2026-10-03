@@ -125,7 +125,10 @@ holds. Estimated effort is in rough "focused sessions".
       `examples/euv_mask/run.py` (Ta pad on a Mo/Si mirror at 13.5 nm and 6°, Bloch unit cell
       in x and y, structured Kuhn tetrahedra on the layer interfaces, reflectivity against
       the transfer matrix of the bare mirror, VTK near field)
-- [ ] `ring_resonator`: coupling + resonance (2D effective-index model first)
+- [x] `ring_resonator`: coupling + resonance (2D effective-index model first) —
+      `examples/ring_resonator/run.py` (quasi-normal modes of the ring coupled to the bus by
+      `Resonance2D`, transmission spectrum from a Gaussian current in the bus; the dip sits
+      at the eigenmode resonance)
 
 ## M9 — Multiphysics (≈ 8)
 - [ ] absorbed-power density → heat-conduction solve on the same mesh (H1)
