@@ -23,6 +23,7 @@ ElementContribution element_h1(const fespace::H1Basis<Dim>& basis,
   const bool has_diffusion = static_cast<bool>(form.diffusion);
   const bool has_reaction = static_cast<bool>(form.reaction);
   const bool has_source = static_cast<bool>(form.source);
+  const bool has_reference_source = static_cast<bool>(form.source_reference);
 
   for (std::size_t q = 0; q < rule.size(); ++q) {
     const auto g = geometry.evaluate(rule.points[q]);
@@ -41,6 +42,10 @@ ElementContribution element_h1(const fespace::H1Basis<Dim>& basis,
     }
     if (has_source) {
       out.vector += (form.source(g.x) * dx) * phi.template cast<Complex>();
+    }
+    if (has_reference_source) {
+      out.vector +=
+          (form.source_reference(rule.points[q], g.x) * dx) * phi.template cast<Complex>();
     }
   }
   return out;

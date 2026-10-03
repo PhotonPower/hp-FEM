@@ -29,6 +29,9 @@ hpfem_add_test(convergence_lamellar_grating convergence
 hpfem_add_test(convergence_fabry_perot_resonance convergence
   fabry_perot_resonance.cpp)
 
+hpfem_add_test(convergence_heat_conduction convergence
+  heat_conduction.cpp)
+
 hpfem_add_test(convergence_estimator_effectivity convergence
   estimator_effectivity.cpp)
 

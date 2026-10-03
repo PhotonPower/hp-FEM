@@ -7,6 +7,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   resonance wavelengths and Q from `Resonance2D` on the ring-plus-bus structure, bus
   transmission from a Gaussian line current normalised by the bare bus, dips at the
   eigenmode resonances. M8 complete.
+- `physics::Thermal` (M9): steady heat conduction −∇·(κ∇T) = q on the H1 space of the
+  optical mesh with conductivities by cell tag, fixed temperatures on tagged facets,
+  adiabatic walls and hanging-node constraints; `physics::absorbed_power_load` assembles
+  the right-hand side of the absorbed optical power ωε₀/2 Im(εr)|E|² cell by cell (exact,
+  interface jumps kept), `absorbed_power_density` gives the H1 interpolant for export.
+  `assembly::ScalarForm::source_reference` (source in reference coordinates of the cell).
+  Convergence test `heat_conduction`: temperature of a damped wave in a lossy slab against
+  the closed form, exponential in p. Python: `Thermal2D/3D`, `ThermalSetup`,
+  `absorbed_power_load`, `absorbed_power_density`. Theory page `docs/theory/multiphysics.md`.
 - `examples/euv_mask/run.py` (M8): 3D EUV mask unit cell — tantalum pad on a Mo/Si
   multilayer at 13.5 nm under 6° incidence, Bloch-periodic in x and y with PML above and in
   the substrate, Kuhn tetrahedra with nodes on every layer interface, reflectivity from the
