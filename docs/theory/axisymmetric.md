@@ -107,9 +107,50 @@ lies in the kernel of the stiffness matrix to rounding for every $m$, the symmet
 positivity of the matrices, the decoupling of the blocks for $m = 0$, the $m$-dependent
 axis conditions, and $\mathrm{TM}_{010}$ / $\mathrm{TE}_{111}$ on a coarse mesh.
 
+## Resonances with the cylindrical PML (`physics::AxisymmetricResonance`)
+
+Open resonators (micropillars, VCSELs, spheres) have quasi-normal modes with complex
+$\omega$ (`maxwell.md`, Resonances). The PML of ADR-0005 carries over as a *material*: with
+the stretch factors $s_r(r)$, $s_z(z)$ of a `pml::PmlBox<2>` (layers on the $r$-max, $z$-min
+and $z$-max sides, none on the axis) and the stretched radius $\tilde r = r + i\int\hat\sigma_r$
+the cylindrical PML of Teixeira and Chew is the diagonal tensor
+
+$$
+\Lambda = \mathrm{diag}\Big(\frac{s_\varphi s_z}{s_r},\ \frac{s_r s_z}{s_\varphi},\
+\frac{s_r s_\varphi}{s_z}\Big), \qquad s_\varphi = \frac{\tilde r}{r},
+\qquad \tilde\varepsilon = \varepsilon_r\Lambda, \quad \tilde\mu^{-1} = \mu_r^{-1}\Lambda^{-1},
+$$
+
+evaluated per quadrature point (`axisymmetric_pml_form`); the curl operator and the forms
+above are untouched. Inside the box $\Lambda = I$. The order-$m$ pencil becomes complex
+symmetric, and `AxisymmetricResonance` solves it with the complex gauged shift-invert
+solver (`solvers::complex_eigenpairs_near_gauged`, the gradient $K_m$ restricted to the
+free DoFs) around the target $k_0^2 = (\omega_{\text{target}}/c_0)^2$. Each mode carries
+$\omega$, $\lambda_{\mathrm{res}}$, $Q = \mathrm{Re}\,\omega / (-2\,\mathrm{Im}\,\omega)$, the
+Arnoldi residual and both coefficient vectors.
+
+**Verification** (`tests/convergence/axisymmetric_sphere_resonance.cpp`,
+`tests/unit/physics/test_axisymmetric_resonance.cpp`): the quasi-normal modes of a
+dielectric sphere of radius $a$ and index $n$ are the zeros of the Mie denominators in the
+complex size parameter $x = ka$; for $l = 1$ (the lowest modes of order $m = 1$) with the
+Riccati–Bessel functions $\psi_1$, $\xi_1$,
+
+$$
+\mathrm{TE}_1:\ \psi_1(nx)\,\xi_1'(x) - n\,\xi_1(x)\,\psi_1'(nx) = 0, \qquad
+\mathrm{TM}_1:\ n\,\psi_1(nx)\,\xi_1'(x) - \xi_1(x)\,\psi_1'(nx) = 0 ,
+$$
+
+solved by Newton in the test. For $n = 3$ the poles are $x_{\mathrm{TE}} = 0.98712 -
+0.06058i$ and $x_{\mathrm{TM}} = 1.44174 - 0.17947i$. On the half-disc meridian mesh of
+`square_with_disc` (curved interface, four cells per radius, PML of three radii beyond
+$r, |z| = 3a$) the computed poles converge exponentially under p-refinement: relative
+errors $2.9\cdot10^{-2}$, $2.4\cdot10^{-4}$, $3.5\cdot10^{-6}$, $1.8\cdot10^{-6}$ (TE) and
+$3.7\cdot10^{-2}$, $2.0\cdot10^{-3}$, $2.3\cdot10^{-5}$, $2.0\cdot10^{-6}$ (TM) for
+$p = 1 \ldots 4$, with Arnoldi residuals below $10^{-8}$. The unit test also checks the PML
+tensors against the formula and that a layer on the axis side is rejected.
+
 ## Roadmap
 
-Stage 2 adds resonances with the cylindrical PML (complex gauged solver, Mie resonances of a
-sphere as the reference), stage 3 scattering by the axial plane wave ($m = \pm1$, Mie
-cross-section), dipole sources on the axis (Purcell factor), the far field from the
-$m$ contributions, the Python bindings and the micropillar example.
+Stage 3 adds scattering by the axial plane wave ($m = \pm1$, Mie cross-section), dipole
+sources on the axis (Purcell factor), the far field from the $m$ contributions, the Python
+bindings and the micropillar example.
