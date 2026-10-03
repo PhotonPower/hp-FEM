@@ -245,13 +245,18 @@ TEST_CASE("box_with_ball: inclusion cells, curved interface on the sphere, outer
       if (tagged) REQUIRE(m.vertex(v).norm() <= r * (1 + 1e-12));
       if (!tagged) REQUIRE(m.vertex(v).norm() >= r * (1 - 1e-12));
     }
-    // edges with both vertices on the sphere are curved: their node lies on the sphere, too
-    for (const Index e : m.cell_edges(c)) {
-      const auto& ev = m.edge_vertices(e);
-      const bool on_sphere = std::abs(m.vertex(ev[0]).norm() - r) < 1e-12 * r &&
-                             std::abs(m.vertex(ev[1]).norm() - r) < 1e-12 * r;
-      if (!on_sphere) continue;
-      REQUIRE(m.edge_node(e).norm() == Approx(r).epsilon(1e-12));
+  }
+  // the edges of the interface faces are curved: their nodes lie on the sphere (a chord edge
+  // inside the ball whose end points happen to lie on the sphere stays straight)
+  for (Index f = 0; f < m.num_facets(); ++f) {
+    const auto& fc = m.facet_cells(f);
+    if (fc[1] == kInvalidIndex) continue;
+    if ((m.cell_tag(fc[0]) == 2) == (m.cell_tag(fc[1]) == 2)) continue;
+    const auto& fv = m.facet_vertices(f);
+    for (const auto [a, b] :
+         {std::pair{fv[0], fv[1]}, std::pair{fv[1], fv[2]}, std::pair{fv[0], fv[2]}}) {
+      REQUIRE(m.vertex(a).norm() == Approx(r).epsilon(1e-12));
+      REQUIRE(m.edge_node(m.edge_id(a, b)).norm() == Approx(r).epsilon(1e-12));
       ++curved_edges;
     }
   }
