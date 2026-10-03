@@ -101,3 +101,22 @@ def test_solar_cell_texture_traps_light_and_exports(tmp_path, monkeypatch):
     assert (tmp_path / "solar_cell_texture_generation.vtu").stat().st_size > 1000
     profile = np.loadtxt(tmp_path / "solar_cell_texture_profile.csv", delimiter=",")
     assert profile.shape[1] == 2 and profile[:, 1].max() > 0
+
+
+def test_micropillar_qd_purcell_peaks_at_the_resonance(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    example = load_example("micropillar_qd")
+    result = example.run(quick=True)
+    res, spec = result["resonance"], result["spectrum"]
+    assert res["quality"] > 50
+    assert abs(res["wavelength_nm"] - 940.0) < 15.0
+    purcell = np.array(spec["purcell"])
+    wavelengths = np.array(spec["wavelength_nm"])
+    peak = wavelengths[np.argmax(purcell)]
+    linewidth = res["wavelength_nm"] / res["quality"]
+    assert abs(peak - res["wavelength_nm"]) < 1.5 * linewidth + 0.5 * (
+        wavelengths[1] - wavelengths[0]
+    )
+    assert purcell.max() > 2.0
+    assert purcell.max() > 2.0 * purcell.min()
+    assert all(0.0 < b < 1.0 for b in spec["beta_top"])
