@@ -33,3 +33,6 @@ out/
 # built extension modules copied next to the package for local testing
 python/hpfem/*.pyd
 python/hpfem/*.so
+# literature — papers are never committed (copyright); keep them outside the repo
+*.pdf
+/papers/
