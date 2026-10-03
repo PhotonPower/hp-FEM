@@ -98,6 +98,25 @@ system, and a repeated solve of one factorisation is 30–140× faster (millisec
 tenths of a second), which is where time stepping, Arnoldi iterations and sweeps spend their
 time; residuals are $10^{-13}$ to $10^{-15}$ on both.
 
+### Complex-symmetric systems (`solvers::Symmetry`)
+
+The curl–curl operators are complex *symmetric* ($A = A^T$, not Hermitian) as long as the
+material tensors are symmetric: with PML, after the symmetric Dirichlet elimination, after
+static condensation and with hanging-node constraints ($P^T A P$); Bloch phases break the
+symmetry. `make_direct_solver(backend, Symmetry::kComplexSymmetric)` (and `solve_direct`,
+`make_cudss`, `make_mumps`) lets the backend exploit it: cuDSS receives the upper triangle
+(`CUDSS_MTYPE_SYMMETRIC`, LDLᵀ) and MUMPS runs with `SYM = 2` on the upper triangle, both
+with about half the factor work and memory; SparseLU ignores the flag. The caller
+guarantees the structure — the library does not check it in release builds (Debug builds
+of the cuDSS path verify `asymmetry(A) < 1e-10`; `upper_triangle(A)` and `asymmetry(A)` are
+public helpers). The problem classes pass the flag where the structure is known
+(follow-up); `kAuto` forwards it to whichever backend it picks. Measured with
+`bench_backend_threshold` (`benchmarks/results/2026-10-03-VR-backend-symmetry.json`, same
+problems as above): the LDLᵀ factorisation takes 0.85 s instead of 1.16 s on MUMPS and
+0.52 s instead of 0.72 s on cuDSS at 164 k unknowns in 2D, 2.4 s instead of 4.7 s (MUMPS)
+and 1.24 s instead of 1.84 s (cuDSS) at 70 k unknowns in 3D; below about 20 k unknowns the
+gain vanishes on the GPU, solves and residuals are unchanged.
+
 ### Where the backend is applied repeatedly
 
 Every problem class with a `solver` field passes it on, so `kCudss` can be selected where

@@ -72,27 +72,36 @@ void run(const hpfem::mesh::Mesh<Dim>& mesh, int p, Index n, const char* label) 
   auto system = hpfem::assembly::assemble_maxwell_operator<Dim>(
       dofs, [&problem](Index c) { return problem.form_of_cell(c); }, k0 * k0, 4, nullptr);
   hpfem::assembly::apply_dirichlet(system.matrix, system.rhs, problem.dirichlet());
+  using hpfem::solvers::Symmetry;
   for (const auto backend : hpfem::solvers::available_backends()) {
-    auto solver = hpfem::solvers::make_direct_solver(backend);
-    auto start = Clock::now();
-    solver->factorize(system.matrix);
-    const Real factorize = seconds(start);
-    // median of five single solves
-    std::vector<Real> times;
-    Vector x;
-    for (int r = 0; r < 5; ++r) {
-      start = Clock::now();
-      x = solver->solve(system.rhs);
-      times.push_back(seconds(start));
+    for (const auto symmetry : {Symmetry::kGeneral, Symmetry::kComplexSymmetric}) {
+      if (symmetry == Symmetry::kComplexSymmetric &&
+          backend == hpfem::solvers::DirectSolverBackend::kSparseLu) {
+        continue;  // SparseLU has no symmetric path
+      }
+      auto solver = hpfem::solvers::make_direct_solver(backend, symmetry);
+      auto start = Clock::now();
+      solver->factorize(system.matrix);
+      const Real factorize = seconds(start);
+      // median of five single solves
+      std::vector<Real> times;
+      Vector x;
+      for (int r = 0; r < 5; ++r) {
+        start = Clock::now();
+        x = solver->solve(system.rhs);
+        times.push_back(seconds(start));
+      }
+      std::sort(times.begin(), times.end());
+      const Real residual = (system.matrix * x - system.rhs).norm() / system.rhs.norm();
+      const std::string line = fmt::format(
+          R"({{"host": "{}", "version": "{}", "problem": "{}", "n": {}, "p": {}, "dofs": {}, "nnz": {}, "threads": {}, "solver": "{}", "symmetry": "{}", "factorize_s": {:.5f}, "solve_s": {:.6f}, "residual": {:.2e}}})",
+          host_name(), hpfem::version(), label, n, p, dofs.num_dofs(), system.matrix.nonZeros(),
+          hpfem::num_threads(), hpfem::solvers::backend_name(backend),
+          symmetry == Symmetry::kGeneral ? "general" : "complex_symmetric", factorize, times[2],
+          residual);
+      std::cout << line << '\n';
+      if (file) file << line << '\n';
     }
-    std::sort(times.begin(), times.end());
-    const Real residual = (system.matrix * x - system.rhs).norm() / system.rhs.norm();
-    const std::string line = fmt::format(
-        R"({{"host": "{}", "version": "{}", "problem": "{}", "n": {}, "p": {}, "dofs": {}, "nnz": {}, "threads": {}, "solver": "{}", "factorize_s": {:.5f}, "solve_s": {:.6f}, "residual": {:.2e}}})",
-        host_name(), hpfem::version(), label, n, p, dofs.num_dofs(), system.matrix.nonZeros(),
-        hpfem::num_threads(), hpfem::solvers::backend_name(backend), factorize, times[2], residual);
-    std::cout << line << '\n';
-    if (file) file << line << '\n';
   }
 }
 

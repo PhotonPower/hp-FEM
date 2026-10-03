@@ -70,6 +70,9 @@ decision:
   docs/theory/solvers.md): time step 3.8× faster than MUMPS, batched 8-rhs solve 5.7×,
   resonance 1.9×; the real gauged Lanczos gains nothing from the complexified GPU
   factorisation at 92 k unknowns.
+- `solvers::Symmetry::kComplexSymmetric` lets cuDSS (upper triangle, `CUDSS_MTYPE_SYMMETRIC`)
+  and MUMPS (`SYM = 2`) factorise the complex-symmetric curl–curl systems as LDLᵀ; the caller
+  guarantees the structure, SparseLU ignores the flag.
 - Double precision stays the only precision; no mixed-precision shortcuts.
 - `kAuto` prefers cuDSS from `HPFEM_GPU_MIN_UNKNOWNS` unknowns on (default 10 000, decided in
   `factorize`; the GPU library is loaded only then). The value is where the GPU

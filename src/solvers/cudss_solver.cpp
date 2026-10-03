@@ -172,7 +172,8 @@ const GpuApi& gpu_api() {
 
 class CudssSolver final : public LinearSolver {
  public:
-  CudssSolver() : api_(gpu_api()) {
+  explicit CudssSolver(Symmetry symmetry)
+      : api_(gpu_api()), symmetric_(symmetry == Symmetry::kComplexSymmetric) {
     if (!api_.usable()) throw Error(fmt::format("cuDSS backend unavailable: {}", api_.failure));
     const hpfem_gpu_status status = api_.create(&solver_);
     if (status != HPFEM_GPU_OK || solver_ == nullptr) {
@@ -191,10 +192,23 @@ class CudssSolver final : public LinearSolver {
     ready_ = false;
     size_ = matrix.rows();
     // CSR with 64-bit indices is exactly the storage of SparseMatrix; only an uncompressed
-    // matrix (insertions after setFromTriplets) needs a compacted copy
+    // matrix (insertions after setFromTriplets) needs a compacted copy, the LDL^T path the
+    // upper triangle
     const SparseMatrix* csr = &matrix;
     SparseMatrix compressed;
-    if (!matrix.isCompressed()) {
+    if (symmetric_) {
+#ifndef NDEBUG
+      const Real skew = asymmetry(matrix);
+      if (skew > 1e-10) {
+        throw InvalidArgument(
+            fmt::format("cuDSS: kComplexSymmetric requested but the matrix is not symmetric "
+                        "(relative asymmetry {:.2e})",
+                        skew));
+      }
+#endif
+      compressed = upper_triangle(matrix);
+      csr = &compressed;
+    } else if (!matrix.isCompressed()) {
       compressed = matrix;
       compressed.makeCompressed();
       csr = &compressed;
@@ -203,7 +217,8 @@ class CudssSolver final : public LinearSolver {
     const hpfem_gpu_status status = api_.factorize(
         solver_, size_, csr->nonZeros(), reinterpret_cast<const int64_t*>(csr->outerIndexPtr()),
         reinterpret_cast<const int64_t*>(csr->innerIndexPtr()),
-        reinterpret_cast<const double*>(csr->valuePtr()), HPFEM_GPU_MATRIX_GENERAL);
+        reinterpret_cast<const double*>(csr->valuePtr()),
+        symmetric_ ? HPFEM_GPU_MATRIX_SYMMETRIC : HPFEM_GPU_MATRIX_GENERAL);
     if (status != HPFEM_GPU_OK) {
       throw Error(fmt::format("cuDSS: factorisation of the {} x {} system failed: {}", size_, size_,
                               api_.last_error(solver_)));
@@ -255,11 +270,12 @@ class CudssSolver final : public LinearSolver {
 
   [[nodiscard]] Index size() const noexcept override { return size_; }
   [[nodiscard]] std::string name() const override {
-    return fmt::format("cuDSS ({}, {})", api_.version, api_.device);
+    return fmt::format("cuDSS ({}, {}{})", api_.version, api_.device, symmetric_ ? ", LDL^T" : "");
   }
 
  private:
   const GpuApi& api_;
+  bool symmetric_;
   hpfem_gpu_solver* solver_ = nullptr;
   bool ready_ = false;
   Index size_ = 0;
@@ -280,8 +296,8 @@ std::string cudss_status() {
   return api.usable() ? fmt::format("{} ({}, {})", api.path, api.version, api.device) : api.failure;
 }
 
-std::unique_ptr<LinearSolver> make_cudss() {
-  return std::make_unique<CudssSolver>();
+std::unique_ptr<LinearSolver> make_cudss(Symmetry symmetry) {
+  return std::make_unique<CudssSolver>(symmetry);
 }
 
 }  // namespace hpfem::solvers

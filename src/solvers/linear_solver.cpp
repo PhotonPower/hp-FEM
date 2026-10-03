@@ -7,8 +7,11 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
+#include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
 #include <Eigen/SparseLU>
 #include <fmt/format.h>
@@ -86,12 +89,44 @@ class SparseLuSolver final : public LinearSolver {
 
 }  // namespace
 
-std::unique_ptr<LinearSolver> make_sparse_lu() {
-  return std::make_unique<SparseLuSolver>();
+std::unique_ptr<LinearSolver> make_sparse_lu(Symmetry /*symmetry*/) {
+  return std::make_unique<SparseLuSolver>();  // SparseLU has no symmetric variant
+}
+
+SparseMatrix upper_triangle(const SparseMatrix& matrix) {
+  SparseMatrix upper(matrix.rows(), matrix.cols());
+  std::vector<Eigen::Triplet<Complex, Index>> triplets;
+  triplets.reserve(as_size(matrix.nonZeros() / 2 + matrix.rows()));
+  for (Index row = 0; row < matrix.outerSize(); ++row) {
+    for (SparseMatrix::InnerIterator it(matrix, row); it; ++it) {
+      if (it.col() >= row) triplets.emplace_back(row, it.col(), it.value());
+    }
+  }
+  upper.setFromTriplets(triplets.begin(), triplets.end());
+  upper.makeCompressed();
+  return upper;
+}
+
+Real asymmetry(const SparseMatrix& matrix) {
+  const SparseMatrix transposed = SparseMatrix(matrix.transpose());
+  const SparseMatrix difference = matrix - transposed;
+  Real largest = 0;
+  Real largest_difference = 0;
+  for (Index row = 0; row < matrix.outerSize(); ++row) {
+    for (SparseMatrix::InnerIterator it(matrix, row); it; ++it) {
+      largest = std::max(largest, std::abs(it.value()));
+    }
+  }
+  for (Index row = 0; row < difference.outerSize(); ++row) {
+    for (SparseMatrix::InnerIterator it(difference, row); it; ++it) {
+      largest_difference = std::max(largest_difference, std::abs(it.value()));
+    }
+  }
+  return largest > 0 ? largest_difference / largest : 0;
 }
 
 #ifndef HPFEM_HAVE_MUMPS
-std::unique_ptr<LinearSolver> make_mumps() {
+std::unique_ptr<LinearSolver> make_mumps(Symmetry /*symmetry*/) {
   throw Error("MUMPS backend requested but not compiled in (configure with HPFEM_ENABLE_MUMPS)");
 }
 #endif
@@ -99,7 +134,7 @@ std::unique_ptr<LinearSolver> make_mumps() {
 #ifdef HPFEM_HAVE_CUDA
 bool cudss_available() noexcept;  // src/solvers/cudss_solver.cpp
 #else
-std::unique_ptr<LinearSolver> make_cudss() {
+std::unique_ptr<LinearSolver> make_cudss(Symmetry /*symmetry*/) {
   throw Error("cuDSS backend requested but not compiled in (configure with HPFEM_ENABLE_CUDA)");
 }
 std::string cudss_status() {
@@ -148,6 +183,8 @@ namespace {
 /// library is only loaded (and cuDSS only started) when it is actually going to be used.
 class AutoSolver final : public LinearSolver {
  public:
+  explicit AutoSolver(Symmetry symmetry) : symmetry_(symmetry) {}
+
   void factorize(const SparseMatrix& matrix) override {
     solver_.reset();
     const Index threshold = gpu_min_unknowns();
@@ -156,7 +193,7 @@ class AutoSolver final : public LinearSolver {
       // cuDSS pivots statically and refuses matrices whose pivots it would have to perturb
       // (hp systems with hanging nodes and high orders); such a system goes to the CPU, and
       // this object stays on the CPU for its later factorisations (sweeps, time steps)
-      solver_ = make_cudss();
+      solver_ = make_cudss(symmetry_);
       try {
         solver_->factorize(matrix);
         return;
@@ -170,7 +207,8 @@ class AutoSolver final : public LinearSolver {
         solver_.reset();
       }
     }
-    solver_ = available(DirectSolverBackend::kMumps) ? make_mumps() : make_sparse_lu();
+    solver_ =
+        available(DirectSolverBackend::kMumps) ? make_mumps(symmetry_) : make_sparse_lu(symmetry_);
     try {
       solver_->factorize(matrix);
     } catch (...) {
@@ -192,6 +230,7 @@ class AutoSolver final : public LinearSolver {
   }
 
  private:
+  Symmetry symmetry_;
   std::unique_ptr<LinearSolver> solver_;
   bool gpu_refused_ = false;  ///< cuDSS refused a system of this object: stay on the CPU
 };
@@ -212,22 +251,23 @@ std::string backend_name(DirectSolverBackend backend) {
   return "?";
 }
 
-std::unique_ptr<LinearSolver> make_direct_solver(DirectSolverBackend backend) {
+std::unique_ptr<LinearSolver> make_direct_solver(DirectSolverBackend backend, Symmetry symmetry) {
   switch (backend) {
     case DirectSolverBackend::kAuto:
-      return std::make_unique<AutoSolver>();
+      return std::make_unique<AutoSolver>(symmetry);
     case DirectSolverBackend::kSparseLu:
-      return make_sparse_lu();
+      return make_sparse_lu(symmetry);
     case DirectSolverBackend::kMumps:
-      return make_mumps();
+      return make_mumps(symmetry);
     case DirectSolverBackend::kCudss:
-      return make_cudss();
+      return make_cudss(symmetry);
   }
   throw InvalidArgument("make_direct_solver: unknown backend");
 }
 
-Vector solve_direct(const SparseMatrix& matrix, const Vector& rhs, DirectSolverBackend backend) {
-  auto solver = make_direct_solver(backend);
+Vector solve_direct(const SparseMatrix& matrix, const Vector& rhs, DirectSolverBackend backend,
+                    Symmetry symmetry) {
+  auto solver = make_direct_solver(backend, symmetry);
   solver->factorize(matrix);
   return solver->solve(rhs);
 }

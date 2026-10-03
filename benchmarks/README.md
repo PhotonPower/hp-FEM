@@ -28,3 +28,8 @@ machine (release build with MUMPS and cuDSS); summarised in `docs/theory/solvers
 `results/2026-10-03-VR-backend-threshold.json` — `bench_backend_threshold` on the same
 machine; the cuDSS factorisation draws level with sequential MUMPS at about 10 000 unknowns
 (`HPFEM_GPU_MIN_UNKNOWNS`), see `docs/theory/solvers.md`.
+
+`results/2026-10-03-VR-backend-symmetry.json` — the same benchmark with the general and the
+complex-symmetric (LDLᵀ) factorisation of MUMPS and cuDSS (`solvers::Symmetry`); the
+`cube n = 6` general MUMPS line (4.7 s against 0.23 s in the threshold run) was disturbed by
+other sessions on the machine.
