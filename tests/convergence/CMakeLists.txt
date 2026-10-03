@@ -67,3 +67,9 @@ hpfem_add_test(convergence_rib_waveguide "convergence;validation"
 add_test(NAME validation_long_rib_waveguide
   COMMAND convergence_rib_waveguide "[validation-long]")
 set_tests_properties(validation_long_rib_waveguide PROPERTIES LABELS "validation-long")
+
+hpfem_add_test(convergence_metal_grating "convergence;validation"
+  metal_grating.cpp)
+add_test(NAME validation_long_metal_grating
+  COMMAND convergence_metal_grating "[validation-long]")
+set_tests_properties(validation_long_metal_grating PROPERTIES LABELS "validation-long")
