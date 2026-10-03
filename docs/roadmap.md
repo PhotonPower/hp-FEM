@@ -187,5 +187,5 @@ assessment: `docs/validation.md`.
   `DirectSolverBackend::kCudss` opt-in, separately built `hpfem_gpu` library in `gpu/` loaded
   at run time behind `HPFEM_ENABLE_CUDA`, `LinearSolver::solve_many`); GPU assembly deferred
   (FP64 rate of consumer GPUs, MSVC-only toolchain)
-- `physics::PropagatingMode<2>` on adaptive meshes: apply the hanging-node constraints as
-  `Resonance` does (found during M10 validation)
+- [x] `physics::PropagatingMode<2>` on adaptive meshes: apply the hanging-node constraints
+  as `Resonance` does (found during M10 validation; fixed in PR #63)

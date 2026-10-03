@@ -62,6 +62,7 @@ class SparseLuSolver final : public LinearSolver {
       throw InvalidArgument(
           fmt::format("SparseLU: right-hand sides have {} rows, system has {}", rhs.rows(), size_));
     }
+    if (rhs.cols() == 0) return Matrix(size_, 0);  // SparseLU's solve indexes column 0
     Matrix x = lu_.solve(rhs);
     if (lu_.info() != Eigen::Success) throw Error("SparseLU: triangular solve failed");
     return x;
