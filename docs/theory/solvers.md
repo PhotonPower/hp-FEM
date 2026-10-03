@@ -146,5 +146,13 @@ from 5 s to 1.5 s with MUMPS and condensation.
 
 See [maxwell.md](maxwell.md#eigenproblems): Spectra's shift-invert Lanczos / Arnoldi on top
 of the SparseLU factorisation of $S - \sigma M$ (gauged curl–curl eigenproblems and the
-Lee–Sun–Cendes pencil of `PropagatingMode`). Switching the inner factorisation to the
-direct solver backends is planned together with static condensation (M6).
+Lee–Sun–Cendes pencil of `PropagatingMode`), real pencils only. Complex pencils — lossy
+media, PML, the resonance problems of [maxwell.md](maxwell.md#resonances) — go through
+`complex_eigenpairs_near`: an own shift-invert Arnoldi in complex arithmetic on
+$(A - \sigma B)^{-1} B$ with the direct solver backends of this page for the factorisation
+(MUMPS when compiled in), modified Gram–Schmidt with re-orthogonalisation, explicit restarts
+from the wanted Ritz vectors and the relative residual $|h_{m+1,m}\,y_m|/|\theta|$ as
+convergence test; eigenvalues come back ordered by distance to the shift with their
+residuals. All three solvers scale the pencil to $O(1)$ matrices internally: on SI meshes the
+mass entries are $\sim h^2 \sim 10^{-14}$ and the eigenvalues $\sim 10^{13}$, which made the
+absolute thresholds of the Krylov iterations stop early with non-converged values.

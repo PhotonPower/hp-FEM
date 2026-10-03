@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "hpfem/core/types.hpp"
+#include "hpfem/solvers/linear_solver.hpp"
 
 namespace hpfem::solvers {
 
@@ -54,5 +55,27 @@ struct EigenResult {
 /// @throws InvalidArgument for complex or mismatched matrices, Error on non-convergence.
 [[nodiscard]] EigenResult generalized_eigenpairs_near(const SparseMatrix& a, const SparseMatrix& b,
                                                       Real sigma, const EigenOptions& options = {});
+
+/// Result of `complex_eigenpairs_near`: eigenvalues ordered by distance to the shift.
+struct ComplexEigenResult {
+  Vector eigenvalues;       ///< closest to the shift first
+  Matrix eigenvectors;      ///< unit 2-norm columns, full size
+  RealVector residuals;     ///< relative Arnoldi residual of each Ritz pair
+  int iterations = 0;       ///< Arnoldi restarts
+  Index num_converged = 0;  ///< Ritz pairs below the tolerance (the leading ones)
+};
+
+/// Eigenpairs of the complex pencil @f$ A x = \lambda B x @f$ closest to a complex shift σ:
+/// shift-invert Arnoldi on @f$ (A - \sigma B)^{-1} B @f$ with a direct factorisation
+/// (`backend`), modified Gram–Schmidt, explicit restarts from the wanted Ritz vectors and the
+/// relative residual @f$ |h_{m+1,m}\,y_m| / |	heta| @f$ as convergence test. Lossy media, PML
+/// and complex frequencies are allowed: this is the solver of the resonance (quasi-normal
+/// mode) problems. Both matrices are scaled to O(1) internally. `options.shift` is ignored
+/// (σ is the argument). Eigenvectors are B-independent unit 2-norm vectors.
+/// @throws InvalidArgument for mismatched matrices, Error if the factorisation fails or no
+///         eigenvalue converges within `max_iterations` restarts.
+[[nodiscard]] ComplexEigenResult complex_eigenpairs_near(
+    const SparseMatrix& a, const SparseMatrix& b, Complex sigma, const EigenOptions& options = {},
+    DirectSolverBackend backend = DirectSolverBackend::kAuto);
 
 }  // namespace hpfem::solvers

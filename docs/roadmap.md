@@ -112,7 +112,11 @@ holds. Estimated effort is in rough "focused sessions".
       `examples/metasurface_unitcell/run.py` (TiO₂ ridges on SiO₂, Bloch unit cell with
       PML, zeroth-order transmission and phase over the width), regression test in
       `python/tests/test_examples.py`
-- [ ] `vcsel_cavity`: DBR micro-cavity mode, Q-factor, resonance wavelength
+- [x] `vcsel_cavity`: DBR micro-cavity mode, Q-factor, resonance wavelength —
+      `solvers::complex_eigenpairs_near` (complex shift-invert Arnoldi),
+      `physics::Resonance` (quasi-normal modes with PML), convergence test
+      `fabry_perot_resonance` (exact complex Fabry–Pérot resonances),
+      `examples/vcsel_cavity/run.py` (GaAs/AlAs DBR cavity against the transfer-matrix pole)
 - [ ] `quantum_dot_purcell`: dipole in micropillar, Purcell factor, β-factor
 - [ ] `euv_mask`: 3D absorber on multilayer, oblique incidence, near-field export
 - [ ] `ring_resonator`: coupling + resonance (2D effective-index model first)

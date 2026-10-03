@@ -8,7 +8,7 @@ variable in its own unit; everything is converted to SI at this boundary):
 .. code-block:: json
 
     {
-      "problem": "scattering",          // "scattering" | "waveguide" | "cavity"
+      "problem": "scattering",          // "scattering" | "waveguide" | "cavity" | "resonance"
       "dim": 2,
       "length_unit": "um",
       "mesh": {"type": "square_with_disc", "n": 4, "radius": 0.25,
@@ -608,7 +608,52 @@ def run_cavity(project: Mapping) -> dict[str, Any]:
     }
 
 
-RUNNERS = {"scattering": run_scattering, "waveguide": run_waveguide, "cavity": run_cavity}
+def run_resonance(project: Mapping) -> dict[str, Any]:
+    """Quasi-normal modes near the spectral point(s): wavelength, Q and complex omega."""
+    dim = int(_get(project, "dim", 2))
+    mesh = build_mesh(project)
+    order = int(_get(project, "order", 2))
+    dofs = (hpfem.NedelecDofMap2D if dim == 2 else hpfem.NedelecDofMap3D)(mesh, order)
+    results = []
+    for omega in spectral_points(project):
+        setup = (hpfem.ResonanceSetup2D if dim == 2 else hpfem.ResonanceSetup3D)()
+        setup.target_omega = omega
+        setup.materials = material_map(project, omega)
+        boundaries = _get(project, "boundaries", {})
+        setup.pec_tags = [_tag(t, "boundaries.pec") for t in _get(boundaries, "pec", [])]
+        background_index = float(np.real(setup.materials.background.refractive_index))
+        pml = _pml(project, dim, omega, background_index)
+        if pml is not None:
+            setup.pml = pml
+        setup.num_modes = int(_get(project, "num_modes", 4))
+        eigen = _get(project, "eigen", {})
+        setup.krylov_dimension = int(_get(eigen, "krylov_dimension", 0))
+        setup.tolerance = float(_get(eigen, "tolerance", 1e-10))
+        setup.max_iterations = int(_get(eigen, "max_iterations", 100))
+        modes = (hpfem.Resonance2D if dim == 2 else hpfem.Resonance3D)(dofs, setup).solve()
+        results.append({
+            "target_omega": omega,
+            "target_wavelength_nm": float(units.wavelength(omega) / units.nm),
+            "num_dofs": dofs.num_dofs,
+            "modes": [
+                {
+                    "omega": _complex(m.omega),
+                    "wavelength_nm": m.wavelength / units.nm,
+                    "quality": m.quality,
+                    "residual": m.residual,
+                }
+                for m in modes
+            ],
+        })  # fmt: skip
+    return {"problem": "resonance", "num_cells": mesh.num_cells, "results": results}
+
+
+RUNNERS = {
+    "scattering": run_scattering,
+    "waveguide": run_waveguide,
+    "cavity": run_cavity,
+    "resonance": run_resonance,
+}
 
 
 def run(project: Mapping | str | Path) -> dict[str, Any]:

@@ -40,3 +40,13 @@ def test_metasurface_unitcell_energy_balance_and_phase_coverage(tmp_path, monkey
     monkeypatch.chdir(tmp_path)
     assert example.main(["--quick"]) == 0
     assert (tmp_path / "metasurface_unitcell.json").exists()
+
+
+def test_vcsel_cavity_matches_the_transfer_matrix_pole():
+    example = load_example("vcsel_cavity")
+    result = example.compare(2, 6, cells_per_layer=2, order=3)
+    assert abs(result.wavelength_nm - result.wavelength_tmm_nm) < 1e-3 * result.wavelength_tmm_nm
+    assert abs(result.quality - result.quality_tmm) < 2e-2 * result.quality_tmm
+    assert abs(result.wavelength_tmm_nm - 850.0) < 0.5  # designed for 850 nm
+    more = example.compare(4, 6, cells_per_layer=2, order=3)
+    assert more.quality > 1.5 * result.quality  # Q grows with the mirror pairs
