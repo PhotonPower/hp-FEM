@@ -352,9 +352,12 @@ def scattering_setup(project: Mapping, omega: float):
             "auto": hpfem.DirectSolverBackend.AUTO,
             "sparse_lu": hpfem.DirectSolverBackend.SPARSE_LU,
             "mumps": hpfem.DirectSolverBackend.MUMPS,
+            "cudss": hpfem.DirectSolverBackend.CUDSS,
         }[backend]
     except KeyError:
-        raise ProjectError(f"solver.backend: '{backend}' (auto | sparse_lu | mumps)") from None
+        raise ProjectError(
+            f"solver.backend: '{backend}' (auto | sparse_lu | mumps | cudss)"
+        ) from None
     setup.condense = bool(_get(solver, "condense", True))
     return setup
 

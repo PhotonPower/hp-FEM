@@ -182,7 +182,7 @@ for step in range(20):
 
 Other entry points follow the C++ headers one to one: `assemble_h1` / `assemble_maxwell`
 with `ScalarForm2D` / `MaxwellForm2D` callbacks and `solve_direct` or `make_direct_solver`
-(SparseLU / MUMPS), `dirichlet_values` / `apply_dirichlet`, `gauged_curl_curl_eigenpairs`
+(SparseLU / MUMPS / cuDSS), `dirichlet_values` / `apply_dirichlet`, `gauged_curl_curl_eigenpairs`
 for cavity modes, `PropagatingMode` for waveguide cross-sections, `BandStructure2D` for
 Floquet–Bloch bands of a unit cell, `ScatteringOperator2D` /
 `plane_wave_sweep` / `ReducedBasis` for sweeps, `bloch_constraints` / `PeriodicPair2D` /

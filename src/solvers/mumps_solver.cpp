@@ -92,26 +92,43 @@ class MumpsSolver final : public LinearSolver {
   }
 
   [[nodiscard]] Vector solve(const Vector& rhs) const override {
-    if (!ready_) throw Error("MUMPS: solve() called before a successful factorize()");
     if (rhs.size() != size_) {
       throw InvalidArgument(
           fmt::format("MUMPS: right-hand side has {} entries, system has {}", rhs.size(), size_));
     }
-    std::vector<ZMUMPS_COMPLEX> x(as_size(size_));
-    for (Index i = 0; i < size_; ++i) {
-      x[as_size(i)].r = rhs(i).real();
-      x[as_size(i)].i = rhs(i).imag();
+    return solve_many(Matrix(rhs)).col(0);
+  }
+
+  /// Native multi-rhs solve (`nrhs` columns in one call, column-major in place).
+  [[nodiscard]] Matrix solve_many(const Matrix& rhs) const override {
+    if (!ready_) throw Error("MUMPS: solve() called before a successful factorize()");
+    if (rhs.rows() != size_) {
+      throw InvalidArgument(
+          fmt::format("MUMPS: right-hand sides have {} rows, system has {}", rhs.rows(), size_));
+    }
+    if (rhs.cols() == 0) return Matrix(size_, 0);
+    const Index count = size_ * rhs.cols();
+    std::vector<ZMUMPS_COMPLEX> x(as_size(count));
+    for (Index j = 0; j < rhs.cols(); ++j) {
+      for (Index i = 0; i < size_; ++i) {
+        x[as_size(j * size_ + i)].r = rhs(i, j).real();
+        x[as_size(j * size_ + i)].i = rhs(i, j).imag();
+      }
     }
     auto& id = const_cast<ZMUMPS_STRUC_C&>(id_);  // the solve does not modify the factors
     id.rhs = x.data();
-    id.nrhs = 1;
+    id.nrhs = static_cast<MUMPS_INT>(rhs.cols());
     id.lrhs = static_cast<MUMPS_INT>(size_);
     id.job = 3;
     zmumps_c(&id);
     id.rhs = nullptr;
     check("solve");
-    Vector out(size_);
-    for (Index i = 0; i < size_; ++i) out(i) = Complex{x[as_size(i)].r, x[as_size(i)].i};
+    Matrix out(size_, rhs.cols());
+    for (Index j = 0; j < rhs.cols(); ++j) {
+      for (Index i = 0; i < size_; ++i) {
+        out(i, j) = Complex{x[as_size(j * size_ + i)].r, x[as_size(j * size_ + i)].i};
+      }
+    }
     return out;
   }
 

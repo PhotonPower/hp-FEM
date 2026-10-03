@@ -11,6 +11,7 @@ adjoint of the goal-oriented estimator, several incident fields on one mesh).
 |---|---|---|
 | `kSparseLu` | Eigen `SparseLU`, COLAMD ordering | always available; 2D up to a few $10^5$ unknowns |
 | `kMumps` | MUMPS (multifrontal, `zmumps`, sequential build) | `HPFEM_ENABLE_MUMPS`; 3D and large 2D systems, many right-hand sides |
+| `kCudss` | NVIDIA cuDSS (LU on the GPU, factors stay on the device) | `HPFEM_ENABLE_CUDA` + the `hpfem_gpu` library; opt-in, for many solves of one factorisation (time stepping, Arnoldi, sweeps) |
 | `kAuto` | MUMPS if compiled in, otherwise SparseLU | the default of `solve_direct` and `ScatteringSetup::solver` |
 
 `make_direct_solver(backend)` returns the solver, `available(backend)` /
@@ -38,13 +39,44 @@ Build support (`cmake/FindMUMPS.cmake`, option `HPFEM_ENABLE_MUMPS`, preset `mum
   `C:\msys64\ucrt64\bin`; the test targets get that directory prepended to `PATH`
   (`MUMPS_BIN_DIR`), programs started by hand need it on `PATH`.
 
+### cuDSS backend (GPU)
+
+The library is built with MinGW GCC (Windows) or GCC / Clang (Linux), which cannot link
+objects produced by nvcc and MSVC. The GPU solver therefore lives in the separately built
+shared library `hpfem_gpu` (`gpu/`, see `gpu/README.md`) with a pure C interface
+(`gpu/include/hpfem_gpu.h`: opaque solver handle, status codes, last-error message, CSR with
+64-bit indices and interleaved complex values in, solutions out, factorise once / solve many
+right-hand sides, re-factorisation on the same handle). `src/solvers/cudss_solver.cpp` loads
+it at run time (`LoadLibrary` / `dlopen`), checks the API version and the presence of a CUDA
+device, and wraps it as a `LinearSolver`. Nothing of CUDA is needed to build the library;
+without the DLL or a GPU, `available(kCudss)` is false, `make_cudss()` throws an error that
+names the search paths, and `kAuto` is unaffected, so CI (no GPU) builds and tests the option
+as well. cuDSS is opt-in in this version (`DirectSolverBackend::kCudss`); whether `kAuto`
+should prefer it above a size threshold is decided from the ADR-0008 measurements.
+
+Numerics: cuDSS factorises the general complex matrix (`CUDSS_MTYPE_GENERAL`; the interface
+also offers the complex-symmetric LDL^T path for later use). `hpfem::SparseMatrix` is already
+CSR with `int64` indices, so the matrix is uploaded without conversion. cuDSS perturbs zero or
+tiny pivots instead of failing; the DLL reads the perturbation count after the factorisation
+and reports the matrix as singular (`hpfem::Error`) rather than returning a wrong solution.
+
+Finding the DLL at run time, in this order: environment variable `HPFEM_GPU_DLL`, the path
+compiled in from the CMake cache variable `HPFEM_GPU_DLL`, `hpfem_gpu.dll` next to the
+executable, the plain name on the loader path. The cuDSS runtime DLLs must be on `PATH`
+(`HPFEM_GPU_BIN_DIR` prepends them for the tests, like `MUMPS_BIN_DIR`). `cudss_status()`
+tells why the backend is or is not usable. Rationale and measurements: ADR-0008.
+
 ### Verification
 
 `tests/unit/solvers/test_linear_solver.cpp` solves a random sparse complex system with
 every available backend to $10^{-10}$, reuses the factorisation for a second right-hand side,
 checks the one-shot interface, the error reporting (singular, non-square, wrong size,
-solve before factorisation) and that `kAuto` picks MUMPS when compiled in. With the `mumps`
-preset the complete convergence suite runs on MUMPS (all tolerances unchanged).
+solve before factorisation), that `solve_many` equals column-wise `solve` and that
+`kAuto` picks MUMPS when compiled in; cuDSS joins the loop whenever its library loads and a
+GPU is present. With the `mumps` preset the complete convergence suite runs on MUMPS (all
+tolerances unchanged). The DLL itself has a stand-alone self-test (`gpu/selftest`, run by hand
+on a GPU machine): Helmholtz and random systems, general and complex-symmetric input, several
+right-hand sides, in-place solves, re-factorisation, error paths.
 
 ## Static condensation (`assembly/condensation.hpp`)
 
