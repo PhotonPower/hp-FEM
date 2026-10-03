@@ -14,10 +14,16 @@ library through `solvers::Symmetry::kComplexSymmetric`) factorisation of a
 complex double CSR matrix on the device, then solves for one or many right-hand sides
 (factorise once, solve many). Indices are 64-bit end to end (`CUDSS_R_64I`), exactly the
 storage of `hpfem::SparseMatrix`, so no host-side conversion is needed. The matrix is
-factorised as `s·A` with `s = 1 / max|a_ij|` (cuDSS judges tiny pivots by an absolute
-threshold, which SI-scaled systems with entries around 1e-15 would trip wholesale) and every
-solution is rescaled; zero or tiny pivots that cuDSS would still perturb are reported as a
-singular matrix instead of silently producing a wrong solution.
+factorised as `D·(s·A)·D` with the global scale `s = 1 / max|a_ij|` (cuDSS judges tiny
+pivots by an absolute threshold, which SI-scaled systems with entries around 1e-15 would trip
+wholesale) and the diagonal equilibration `d_i = 1 / sqrt|a_ii|`, which removes the perturbed pivots
+of hp systems with hanging nodes. The diagonal is used whenever it is nonzero: after a
+two-sided scaling a tiny diagonal is exactly the right scale of its row, and replacing it by
+the row norm (tried first) destroys the equilibration; only a zero diagonal falls back to the
+row norm, and a zero row to `d_i = 1`;
+right-hand sides and solutions are rescaled inside the library (`HPFEM_GPU_EQUILIBRATE=0`
+switches the equilibration off for comparisons). Zero or tiny pivots that cuDSS would still
+perturb are reported as a singular matrix instead of silently producing a wrong solution.
 
 Factors that do not fit the device: after the analysis the library compares cuDSS's
 peak-memory estimate with the free device memory and, above about 90 %, repeats the analysis

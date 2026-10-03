@@ -221,16 +221,15 @@ Bodies of revolution on the meridian mesh, one 2D problem per azimuthal order m.
   `DirectSolverBackend::kCudss` opt-in, separately built `hpfem_gpu` library in `gpu/` loaded
   at run time behind `HPFEM_ENABLE_CUDA`, `LinearSolver::solve_many`); GPU assembly deferred
   (FP64 rate of consumer GPUs, MSVC-only toolchain)
-- [ ] GPU backend for *hp*-adaptive systems: cuDSS pivots statically and perturbs tiny
+- [x] GPU backend for *hp*-adaptive systems: cuDSS pivots statically and perturbed tiny
   pivots on systems with hanging nodes and high orders even after the scaling to
-  max |a_ij| = 1 (L-shape test: 28 of 12 846, 103 of 16 359 and 2 612 of 21 623 pivots;
-  plasmonic wedge likewise), so `kAuto` sends them to MUMPS / SparseLU. Accepting the
-  perturbed factorisation with two steps of cuDSS iterative refinement stayed accurate at
-  103 pivots but lost accuracy at 2 612 (L-shape error 9e-5 → 2.7e-4). Candidates: a
-  residual-checked acceptance (keep the GPU factorisation, verify ‖Ax − b‖ of every solve,
-  refactorise on the CPU when it degrades) and a diagonal equilibration D A D before the
-  factorisation (the complex-symmetric matrices mix edge and high-order interior functions
-  of very different scale, which a global scale cannot fix); cuDSS matching / reordering
-  options to be tried alongside.
+  max |a_ij| = 1 (L-shape test: 103 of 16 359 and 2 639 of 19 723 pivots; plasmonic wedge
+  28 / 1 591 / 16 356), so `kAuto` sent them to MUMPS / SparseLU. Resolved by the diagonal
+  equilibration D A D (d_i = 1/√|a_ii|, row norm where the diagonal is tiny) inside the GPU
+  library: 0 perturbed pivots in every step of both tests, convergence identical to the CPU;
+  cuDSS matching and reordering options changed nothing, and accepting perturbed
+  factorisations with iterative refinement had lost accuracy at 2 639 pivots. The refusal of
+  perturbed factorisations and the CPU fallback stay as the safety net; a residual-checked
+  acceptance remains the option should future systems still trip the static pivoting.
 - [x] `physics::PropagatingMode<2>` on adaptive meshes: apply the hanging-node constraints
   as `Resonance` does (found during M10 validation; fixed in PR #63)
