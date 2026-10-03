@@ -27,7 +27,16 @@ decision:
 
    Residuals are 1e-13 … 1e-15 for all backends. Against MUMPS the GPU factorisation is
    1.8–3.4× faster, a repeated solve 30–140× faster; SpMV gains 2–3× while the matrix fits the
-   CPU caches and 14× beyond (1.37 M unknowns).
+   CPU caches and 14× beyond (1.37 M unknowns). The cuDSS factorisation times are those of
+   the first factorisation in a process (cold, including the cuDSS initialisation); a second
+   factorisation in the same process is faster for the two smaller matrices (0.42 s / 1.7 s,
+   `factorize_gpu_s` of the re-measured lines in the JSON; 3.0 s unchanged for the largest).
+   cuDSS judges tiny pivots by an *absolute* threshold: the benchmark therefore factorises
+   `s·A` with `s = 1/max|a_ij|` and rescales the solutions, exactly as the `hpfem_gpu`
+   library does, and records `CUDSS_DATA_NPIVOTS` (0 for all three matrices, scaled and
+   unscaled; the free-DoF Newmark and mass operators of `physics::TimeDomain`, whose
+   largest entries are ~1e-15, had 32770 pivots perturbed unscaled and are refused by the
+   library without the scaling).
 
 ## Decision
 - The GPU work goes into a **direct-solver backend on cuDSS** behind `solvers::LinearSolver`
@@ -53,8 +62,14 @@ decision:
   for now.
 - The transient solver, the eigensolvers and the sweeps profit without code changes once
   they pass `kCudss` (and use `solve_many` where they have several right-hand sides).
-- cuDSS pivots statically; the DLL checks `CUDSS_DATA_NPIVOTS` and reports singular
-  matrices instead of returning a wrong solution.
+- cuDSS pivots statically with an absolute tiny-pivot threshold; the DLL factorises the
+  matrix scaled to `max|a_ij| = 1`, rescales every solution, and checks
+  `CUDSS_DATA_NPIVOTS` to report singular matrices instead of returning a wrong solution.
+- `benchmarks/solver_integration.cpp` records the end-to-end effect
+  (`benchmarks/results/2026-10-03-VR-gpu-integration.json`, summarised in
+  docs/theory/solvers.md): time step 3.8× faster than MUMPS, batched 8-rhs solve 5.7×,
+  resonance 1.9×; the real gauged Lanczos gains nothing from the complexified GPU
+  factorisation at 92 k unknowns.
 - Double precision stays the only precision; no mixed-precision shortcuts.
 
 ## Alternatives considered

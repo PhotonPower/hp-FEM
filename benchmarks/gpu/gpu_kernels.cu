@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <cuComplex.h>
 #include <cuda_runtime.h>
 #include <cudss.h>
@@ -139,8 +140,14 @@ double gpu_spmv(const Csr& a, const std::vector<std::complex<double>>& x,
   return median(times);
 }
 
-SolveTimes gpu_solve(const Csr& a, const std::vector<std::complex<double>>& b,
-                     std::vector<std::complex<double>>& x, int reps) {
+SolveTimes gpu_solve(const Csr& a_in, const std::vector<std::complex<double>>& b,
+                     std::vector<std::complex<double>>& x, int reps, double scale) {
+  Csr scaled;
+  if (scale != 1.0) {
+    scaled = a_in;
+    for (auto& v : scaled.val) v *= scale;
+  }
+  const Csr& a = scale != 1.0 ? scaled : a_in;
   const int nnz = static_cast<int>(a.val.size());
   const DeviceCsr d(a);
   cuDoubleComplex* d_b = device_vector(b);
@@ -168,6 +175,31 @@ SolveTimes gpu_solve(const Csr& a, const std::vector<std::complex<double>>& b,
   CUDSS_CHECK(cudssExecute(handle, CUDSS_PHASE_FACTORIZATION, config, data, mat, x1, b1));
   CUDA_CHECK(cudaDeviceSynchronize());
   out.factorize = now() - t0;
+  {
+    // perturbed pivots (cuDSS reports int or int64 depending on the version)
+    // the count comes in the index type of the matrix (int for CUDSS_R_32I, int64 for 64I)
+    long long pivots = 0;
+    size_t written = 0;
+    cudssStatus_t pivot_status =
+        cudssDataGet(handle, data, CUDSS_DATA_NPIVOTS, &pivots, sizeof(pivots), &written);
+    if (pivot_status != CUDSS_STATUS_SUCCESS) {
+      int narrow = 0;
+      pivot_status =
+          cudssDataGet(handle, data, CUDSS_DATA_NPIVOTS, &narrow, sizeof(narrow), &written);
+      pivots = narrow;
+    }
+    if (pivot_status != CUDSS_STATUS_SUCCESS) {
+      std::fprintf(stderr, "cudssDataGet(NPIVOTS) failed with status %d (written %zu)\n",
+                   static_cast<int>(pivot_status), written);
+    } else {
+      if (written == sizeof(int)) {
+        int narrow = 0;
+        std::memcpy(&narrow, &pivots, sizeof(narrow));
+        pivots = narrow;
+      }
+      out.pivots = pivots;
+    }
+  }
   std::vector<double> times;
   for (int r = 0; r < reps; ++r) {
     t0 = now();
@@ -186,6 +218,9 @@ SolveTimes gpu_solve(const Csr& a, const std::vector<std::complex<double>>& b,
   out.solve_8 = median(times);
   x.resize(static_cast<std::size_t>(a.n));
   CUDA_CHECK(cudaMemcpy(x.data(), d_x, sizeof(cuDoubleComplex) * a.n, cudaMemcpyDeviceToHost));
+  if (scale != 1.0) {
+    for (auto& v : x) v *= scale;  // x = scale * (scale A)^{-1} b
+  }
   cudssMatrixDestroy(mat);
   cudssMatrixDestroy(x1);
   cudssMatrixDestroy(b1);

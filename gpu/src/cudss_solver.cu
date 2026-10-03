@@ -1,12 +1,15 @@
 // Implementation of hpfem_gpu.h on cuDSS: one cuDSS handle / config / data object per
 // solver, the CSR matrix and the dense right-hand sides live on the device, indices are
 // passed as 64-bit (CUDSS_R_64I) exactly as the library stores them.
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <cuda_runtime.h>
 #include <cudss.h>
 #include <new>
 #include <string>
+#include <vector>
 
 #include "hpfem_gpu.h"
 
@@ -65,6 +68,7 @@ struct hpfem_gpu_solver {
   int64_t n = 0;
   int64_t nnz = 0;
   bool factorized = false;
+  double scale = 1.0;  // the factors are those of scale * A (max |a_ij| = 1)
 
   DeviceBuffer row_ptr;
   DeviceBuffer col;
@@ -220,6 +224,20 @@ hpfem_gpu_status hpfem_gpu_factorize(hpfem_gpu_solver* solver, int64_t n, int64_
 
   const size_t n_size = static_cast<size_t>(n);
   const size_t nnz_size = static_cast<size_t>(nnz);
+  // cuDSS judges "tiny" pivots by an absolute threshold, so SI-scaled systems (entries
+  // around 1e-15) would be perturbed wholesale; factorise scale * A with max |a_ij| = 1
+  // instead and undo the scale on every solution (x = scale * (scale A)^{-1} b)
+  double max_abs = 0.0;
+  for (size_t k = 0; k < nnz_size; ++k) {
+    max_abs = std::max(max_abs, std::hypot(values[2 * k], values[2 * k + 1]));
+  }
+  if (!(max_abs > 0.0) || !std::isfinite(max_abs)) {
+    return solver->fail(HPFEM_GPU_ERR_SINGULAR,
+                        "factorize: the matrix is zero or contains non-finite entries");
+  }
+  solver->scale = 1.0 / max_abs;
+  std::vector<double> scaled(2 * nnz_size);
+  for (size_t k = 0; k < 2 * nnz_size; ++k) scaled[k] = values[k] * solver->scale;
   HPFEM_GPU_CUDA(solver, "factorize: allocate row pointer",
                  solver->row_ptr.reserve((n_size + 1) * sizeof(int64_t)));
   HPFEM_GPU_CUDA(solver, "factorize: allocate column indices",
@@ -234,7 +252,7 @@ hpfem_gpu_status hpfem_gpu_factorize(hpfem_gpu_solver* solver, int64_t n, int64_
                    cudaMemcpyAsync(solver->col.ptr, col, nnz_size * sizeof(int64_t),
                                    cudaMemcpyHostToDevice, solver->stream));
     HPFEM_GPU_CUDA(solver, "factorize: upload values",
-                   cudaMemcpyAsync(solver->values.ptr, values, nnz_size * 2 * sizeof(double),
+                   cudaMemcpyAsync(solver->values.ptr, scaled.data(), nnz_size * 2 * sizeof(double),
                                    cudaMemcpyHostToDevice, solver->stream));
   }
   // the dense operands of analysis / factorisation are not read; cuDSS only wants objects
@@ -285,17 +303,19 @@ hpfem_gpu_status hpfem_gpu_factorize(hpfem_gpu_solver* solver, int64_t n, int64_
   }
   // cuDSS replaces zero / tiny pivots by a perturbation instead of failing; such a
   // factorisation does not solve the given system, so it is reported like a singular matrix
-  int64_t perturbed = 0;  // cuDSS reports the size it wrote (int or int64, by version)
+  // the count comes in the index type of the matrix (int64 here; int for 32-bit indices)
+  int64_t perturbed = 0;
   written = 0;
   status = cudssDataGet(solver->handle, solver->data, CUDSS_DATA_NPIVOTS, &perturbed,
                         sizeof(perturbed), &written);
   if (status != CUDSS_STATUS_SUCCESS) {
-    return solver->fail_cudss("factorize: query perturbed pivots", status);
-  }
-  if (written == sizeof(int)) {
     int narrow = 0;
-    std::memcpy(&narrow, &perturbed, sizeof(narrow));
+    status = cudssDataGet(solver->handle, solver->data, CUDSS_DATA_NPIVOTS, &narrow, sizeof(narrow),
+                          &written);
     perturbed = narrow;
+  }
+  if (status != CUDSS_STATUS_SUCCESS) {
+    return solver->fail_cudss("factorize: query perturbed pivots", status);
   }
   if (perturbed > 0) {
     return solver->fail(HPFEM_GPU_ERR_SINGULAR,
@@ -349,6 +369,9 @@ hpfem_gpu_status hpfem_gpu_solve(hpfem_gpu_solver* solver, int64_t nrhs, const d
   if (status != CUDSS_STATUS_SUCCESS) return solver->fail_cudss("solve", status);
   if (copy != cudaSuccess) return solver->fail_cuda("solve: download solution", copy);
   if (sync != cudaSuccess) return solver->fail_cuda("solve: synchronise", sync);
+  if (solver->scale != 1.0) {
+    for (size_t k = 0; k < 2 * count; ++k) x[k] *= solver->scale;
+  }
   return HPFEM_GPU_OK;
 }
 

@@ -12,9 +12,11 @@ Rationale and measurements: `docs/adr/0008-gpu-backend.md`.
 What the DLL does: analysis + LU (or LDLᵀ for complex-symmetric input) factorisation of a
 complex double CSR matrix on the device, then solves for one or many right-hand sides
 (factorise once, solve many). Indices are 64-bit end to end (`CUDSS_R_64I`), exactly the
-storage of `hpfem::SparseMatrix`, so no host-side conversion is needed. Zero or tiny pivots
-that cuDSS would perturb are reported as a singular matrix instead of silently producing a
-wrong solution.
+storage of `hpfem::SparseMatrix`, so no host-side conversion is needed. The matrix is
+factorised as `s·A` with `s = 1 / max|a_ij|` (cuDSS judges tiny pivots by an absolute
+threshold, which SI-scaled systems with entries around 1e-15 would trip wholesale) and every
+solution is rescaled; zero or tiny pivots that cuDSS would still perturb are reported as a
+singular matrix instead of silently producing a wrong solution.
 
 ## Requirements
 
