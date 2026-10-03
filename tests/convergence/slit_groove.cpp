@@ -99,7 +99,7 @@ struct Parameters {
   int levels = 3;        ///< geometric levels towards the metal corners
   Real ratio = 0.25;
   Real lateral = 3000.0;  ///< interior half-width in x (from the slit centre), nm
-  Real above = 600.0;     ///< interior air above the film, nm
+  Real above = 1000.0;    ///< interior air above the film, nm
   Real below = 1200.0;    ///< interior substrate below the film surface, nm
   Real pml = 2000.0;      ///< PML thickness on all sides, nm (the surface plasmons need it)
   int pml_order = 4;
@@ -293,8 +293,8 @@ TEST_CASE("Slit-groove in silver: convergence and sensitivity study",
   SECTION("vertical extent") {
     fmt::print("\n=== air above / substrate below the film (interior), p = 4\n");
     print_header();
-    for (const auto& [above, below] :
-         {std::pair{600.0, 1200.0}, std::pair{1000.0, 1200.0}, std::pair{600.0, 1600.0}}) {
+    for (const auto& [above, below] : {std::pair{600.0, 1200.0}, std::pair{1000.0, 1200.0},
+                                       std::pair{1400.0, 1200.0}, std::pair{1000.0, 1600.0}}) {
       par.above = above;
       par.below = below;
       const Ratio r = solve_ratio(par, 4);
