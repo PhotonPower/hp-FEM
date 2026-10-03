@@ -276,6 +276,13 @@ tails do not limit the accuracy). The unit test also checks that
 the mode has no longitudinal field and that the setup rejects lossy materials and mismatched
 spaces.
 
+
+On a locally refined cross-section (`mesh::AdaptiveMesh`, hanging nodes) the Nédélec and the H1
+space are constrained with `assembly::hanging_constraints`, restricted to the DoFs left after
+the PEC elimination (`restrict_constraints`) and combined block-wise
+(`block_constraints`); the pencil is reduced with the prolongation and the eigenvectors are
+expanded, exactly as in the resonance solver, so the modes are conforming across the hanging
+edges (unit test on the slab with the core refined on one side).
 ## Resonances (`physics/resonance.hpp`)
 
 An open structure (a micro-cavity between Bragg mirrors, a plasmonic particle, a ring) has no

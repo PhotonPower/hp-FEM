@@ -73,23 +73,7 @@ std::vector<ResonantMode> Resonance<Dim>::solve() const {
   // hanging-node constraints of a locally refined mesh (on the free DoFs)
   std::optional<fespace::Constraints> constraints;
   if (!mesh.is_conforming()) {
-    const fespace::Constraints full = assembly::hanging_constraints(*dofs_);
-    fespace::Constraints reduced(static_cast<Index>(free.size()));
-    std::vector<Index> position(as_size(dofs_->num_dofs()), kInvalidIndex);
-    for (Index i = 0; i < static_cast<Index>(free.size()); ++i)
-      position[as_size(free[as_size(i)])] = i;
-    for (Index dof = 0; dof < dofs_->num_dofs(); ++dof) {
-      if (!full.is_constrained(dof) || position[as_size(dof)] == kInvalidIndex) continue;
-      std::vector<fespace::Constraints::Term> terms;
-      for (const auto& term : full.terms(dof)) {
-        if (position[as_size(term.master)] != kInvalidIndex) {
-          terms.push_back({position[as_size(term.master)], term.coefficient});
-        }
-      }
-      if (terms.empty()) terms.push_back({position[as_size(dof)] == 0 ? 1 : 0, Complex{0.0, 0.0}});
-      reduced.add(position[as_size(dof)], std::move(terms));
-    }
-    constraints = std::move(reduced);
+    constraints = assembly::restrict_constraints(assembly::hanging_constraints(*dofs_), free);
     s = constraints->reduce(s, Vector::Zero(s.rows())).first;
     m = constraints->reduce(m, Vector::Zero(m.rows())).first;
   }

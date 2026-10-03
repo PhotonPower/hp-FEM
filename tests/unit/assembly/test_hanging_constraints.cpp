@@ -318,3 +318,35 @@ TEST_CASE("scattering on a locally refined mesh reproduces a field of the space 
           "[assembly][hanging][physics]") {
   check_exact_solve<3>(refined_mesh<3>().mesh());
 }
+
+TEST_CASE("restrict_constraints and block_constraints renumber hanging constraints",
+          "[assembly][hanging][helpers]") {
+  // x1 = 0.5 x0 + 0.5 x2, x4 = x3; eliminate DoF 2 (PEC) and keep {0, 1, 3, 4, 5}
+  hpfem::fespace::Constraints full(6);
+  full.add(1, {{0, hpfem::Complex{0.5, 0.0}}, {2, hpfem::Complex{0.5, 0.0}}});
+  full.add(4, {{3, hpfem::Complex{1.0, 0.0}}});
+  const std::vector<hpfem::Index> free{0, 1, 3, 4, 5};
+  const auto reduced = hpfem::assembly::restrict_constraints(full, free);
+  REQUIRE(reduced.num_dofs() == 5);
+  REQUIRE(reduced.num_constrained() == 2);
+  REQUIRE(reduced.is_constrained(1));  // old 1 -> position 1, master 2 dropped
+  REQUIRE(reduced.terms(1).size() == 1);
+  REQUIRE(reduced.terms(1)[0].master == 0);
+  REQUIRE(reduced.is_constrained(3));  // old 4 -> position 3, master old 3 -> 2
+  REQUIRE(reduced.terms(3)[0].master == 2);
+  // a slave whose masters are all eliminated becomes zero
+  hpfem::fespace::Constraints lone(3);
+  lone.add(1, {{2, hpfem::Complex{1.0, 0.0}}});
+  const auto zeroed = hpfem::assembly::restrict_constraints(lone, std::vector<hpfem::Index>{0, 1});
+  REQUIRE(zeroed.is_constrained(1));
+  REQUIRE(zeroed.terms(1)[0].coefficient == hpfem::Complex{0.0, 0.0});
+  const hpfem::Vector expanded = zeroed.expand(hpfem::Vector::Ones(1));
+  REQUIRE(std::abs(expanded(1)) == 0.0);
+  // block: second set shifted by the size of the first
+  const auto block = hpfem::assembly::block_constraints(reduced, lone);
+  REQUIRE(block.num_dofs() == 8);
+  REQUIRE(block.num_constrained() == 3);
+  REQUIRE(block.is_constrained(5 + 1));
+  REQUIRE(block.terms(6)[0].master == 5 + 2);
+  REQUIRE(block.terms(3)[0].master == 2);
+}

@@ -103,3 +103,51 @@ TEST_CASE("PropagatingMode: fundamental TE mode of a slab waveguide", "[physics]
   const DofMap<2> other(other_mesh, p);
   REQUIRE_THROWS_AS(PropagatingMode<2>(nd, other, setup), hpfem::InvalidArgument);
 }
+
+#include "hpfem/assembly/hanging_constraints.hpp"
+#include "hpfem/mesh/adaptive_mesh.hpp"
+using hpfem::Vector;
+
+TEST_CASE("PropagatingMode on a hanging-node mesh reproduces the slab mode",
+          "[physics][waveguide][hanging]") {
+  // refine the cells of the core twice on one side: the mesh is one-irregular, the
+  // constrained spaces stay conforming and the effective index matches the analytic one
+  const Real d = 1.0;
+  const Real k0 = 2.0;
+  const Real n_core = 1.5;
+  const Real exact = slab_te_even(k0, d, n_core, 1.0);
+  hpfem::mesh::AdaptiveMesh<2> adaptive(slab_mesh(4, 6.0, d));
+  std::vector<Index> marked;
+  for (Index c = 0; c < adaptive.mesh().num_cells(); ++c) {
+    const Point<2> x = affine_map(adaptive.mesh(), c).centroid();
+    if (x(0) > 0 && x(0) < d / 2) marked.push_back(c);
+  }
+  REQUIRE_FALSE(marked.empty());
+  adaptive.refine(marked);
+  const Mesh<2>& m = adaptive.mesh();
+  REQUIRE_FALSE(m.is_conforming());
+  const int p = 3;
+  const NedelecDofMap<2> nd(m, p);
+  const DofMap<2> h1(m, p);
+  WaveguideSetup setup;
+  setup.omega = k0 * hpfem::constants::c0;
+  setup.materials.set(2, Material::dielectric(n_core));
+  setup.pec_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin, box_tag::kYMax};
+  setup.num_modes = 3;
+  const auto modes = PropagatingMode<2>(nd, h1, setup).solve();
+  REQUIRE_FALSE(modes.empty());
+  REQUIRE(modes[0].effective_index == Approx(exact).epsilon(1e-6));
+  REQUIRE(modes[0].longitudinal.norm() < 1e-4 * modes[0].transverse.norm());
+  // the field is continuous across the hanging edges: the constrained DoFs obey the
+  // interpolation constraints of the conforming space
+  const auto constraints = hpfem::assembly::hanging_constraints(nd);
+  REQUIRE(constraints.num_constrained() > 0);
+  const Vector& e = modes[0].transverse;
+  for (Index dof = 0; dof < nd.num_dofs(); ++dof) {
+    if (!constraints.is_constrained(dof)) continue;
+    hpfem::Complex combination = 0;
+    for (const auto& term : constraints.terms(dof))
+      combination += term.coefficient * e(term.master);
+    REQUIRE(std::abs(combination - e(dof)) < 1e-8 * e.norm());
+  }
+}

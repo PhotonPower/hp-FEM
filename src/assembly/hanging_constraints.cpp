@@ -154,6 +154,49 @@ fespace::Constraints hanging_constraints(const fespace::EntityDofMap<Dim, Counts
   return constraints;
 }
 
+fespace::Constraints restrict_constraints(const fespace::Constraints& full,
+                                          std::span<const Index> free) {
+  fespace::Constraints reduced(static_cast<Index>(free.size()));
+  std::vector<Index> position(as_size(full.num_dofs()), kInvalidIndex);
+  for (Index i = 0; i < static_cast<Index>(free.size()); ++i) {
+    position[as_size(free[as_size(i)])] = i;
+  }
+  for (Index dof = 0; dof < full.num_dofs(); ++dof) {
+    if (!full.is_constrained(dof) || position[as_size(dof)] == kInvalidIndex) continue;
+    std::vector<fespace::Constraints::Term> terms;
+    for (const auto& term : full.terms(dof)) {
+      if (position[as_size(term.master)] != kInvalidIndex) {
+        terms.push_back({position[as_size(term.master)], term.coefficient});
+      }
+    }
+    // all masters eliminated: the slave is zero (expressed through any other DoF)
+    if (terms.empty()) {
+      terms.push_back({position[as_size(dof)] == 0 ? 1 : 0, Complex{0.0, 0.0}});
+    }
+    reduced.add(position[as_size(dof)], std::move(terms));
+  }
+  return reduced;
+}
+
+fespace::Constraints block_constraints(const fespace::Constraints& first,
+                                       const fespace::Constraints& second) {
+  const Index offset = first.num_dofs();
+  fespace::Constraints out(offset + second.num_dofs());
+  for (Index dof = 0; dof < first.num_dofs(); ++dof) {
+    if (!first.is_constrained(dof)) continue;
+    const auto terms = first.terms(dof);
+    out.add(dof, std::vector<fespace::Constraints::Term>(terms.begin(), terms.end()));
+  }
+  for (Index dof = 0; dof < second.num_dofs(); ++dof) {
+    if (!second.is_constrained(dof)) continue;
+    std::vector<fespace::Constraints::Term> terms;
+    for (const auto& term : second.terms(dof))
+      terms.push_back({term.master + offset, term.coefficient});
+    out.add(dof + offset, std::move(terms));
+  }
+  return out;
+}
+
 template fespace::Constraints hanging_constraints<2, fespace::H1Counts>(const fespace::DofMap<2>&,
                                                                         Real);
 template fespace::Constraints hanging_constraints<3, fespace::H1Counts>(const fespace::DofMap<3>&,

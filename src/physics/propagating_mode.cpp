@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -9,10 +10,12 @@
 
 #include "hpfem/assembly/discrete_gradient.hpp"
 #include "hpfem/assembly/h1_forms.hpp"
+#include "hpfem/assembly/hanging_constraints.hpp"
 #include "hpfem/assembly/maxwell_forms.hpp"
 #include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/fespace/constraints.hpp"
 #include "hpfem/solvers/eigen_solver.hpp"
 
 namespace hpfem::physics {
@@ -151,6 +154,15 @@ std::vector<WaveguideMode> PropagatingMode<Dim>::solve() const {
   SparseMatrix b(n, n);
   a.setFromTriplets(ta.begin(), ta.end());
   b.setFromTriplets(tb.begin(), tb.end());
+  // hanging-node constraints of a locally refined mesh, on the free DoFs of both spaces
+  std::optional<fespace::Constraints> constraints;
+  if (!mesh.is_conforming()) {
+    constraints = assembly::block_constraints(
+        assembly::restrict_constraints(assembly::hanging_constraints(nd), free_nd),
+        assembly::restrict_constraints(assembly::hanging_constraints(h1), free_h1));
+    a = constraints->reduce(a, Vector::Zero(n)).first;
+    b = constraints->reduce(b, Vector::Zero(n)).first;
+  }
 
   // eigenvalues lambda = -beta^2 closest to -(k0 n_max)^2 (slightly beyond the fundamental)
   solvers::EigenOptions options;
@@ -170,12 +182,13 @@ std::vector<WaveguideMode> PropagatingMode<Dim>::solve() const {
     WaveguideMode mode;
     mode.beta = beta;
     mode.effective_index = beta / k0_;
+    Vector vector = result.eigenvectors.col(i);
+    if (constraints) vector = constraints->expand(vector);
     mode.transverse = Vector::Zero(nd.num_dofs());
     mode.longitudinal = Vector::Zero(h1.num_dofs());
-    for (Index j = 0; j < n_t; ++j)
-      mode.transverse(free_nd[as_size(j)]) = result.eigenvectors(j, i);
+    for (Index j = 0; j < n_t; ++j) mode.transverse(free_nd[as_size(j)]) = vector(j);
     for (Index j = 0; j < n_z; ++j) {
-      mode.longitudinal(free_h1[as_size(j)]) = -kI * beta * result.eigenvectors(n_t + j, i);
+      mode.longitudinal(free_h1[as_size(j)]) = -kI * beta * vector(n_t + j);
     }
     modes.push_back(std::move(mode));
   }
