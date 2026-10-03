@@ -234,13 +234,44 @@ AxisymmetricField axial_plane_wave(Complex amplitude, Real k, int m) {
   };
 }
 
+AxisymmetricField axisymmetric_gaussian_dipole(Real position, Complex moment,
+                                               AxisDipole orientation, Real sigma, Real omega,
+                                               int m) {
+  if (sigma <= 0) throw InvalidArgument("axisymmetric_gaussian_dipole: sigma must be positive");
+  if (orientation == AxisDipole::kAxial && m != 0) {
+    throw InvalidArgument("axisymmetric_gaussian_dipole: the axial dipole radiates m = 0 only");
+  }
+  if (orientation == AxisDipole::kTransverse && m != 1 && m != -1) {
+    throw InvalidArgument(
+        "axisymmetric_gaussian_dipole: the transverse dipole radiates m = +1 and -1 only");
+  }
+  const Real norm = 1.0 / (std::pow(2 * constants::pi, 1.5) * sigma * sigma * sigma);
+  const Complex factor = kI * omega * constants::mu0 * moment;
+  const Real sign = m > 0 ? 1.0 : -1.0;
+  const bool axial = orientation == AxisDipole::kAxial;
+  return [position, sigma, norm, factor, sign, axial](const Point<2>& x) {
+    const Real r = x(0);
+    const Real dz = x(1) - position;
+    const Complex g = factor * norm * std::exp(-(r * r + dz * dz) / (2 * sigma * sigma));
+    if (axial) return Eigen::Matrix<Complex, 3, 1>(Complex{0.0, 0.0}, Complex{0.0, 0.0}, g);
+    return Eigen::Matrix<Complex, 3, 1>(0.5 * g, 0.5 * sign * r * g, Complex{0.0, 0.0});
+  };
+}
+
+Real dipole_vacuum_power(Complex moment, Real omega) {
+  const Real k0 = omega / constants::c0;
+  return constants::Z0 * k0 * k0 * std::norm(moment) / (12 * constants::pi);
+}
+
 AxisymmetricScattering::AxisymmetricScattering(const fespace::NedelecDofMap<2>& meridian,
                                                const fespace::DofMap<2>& azimuthal,
                                                AxisymmetricScatteringSetup setup)
     : meridian_(&meridian), azimuthal_(&azimuthal), setup_(std::move(setup)) {
   if (setup_.omega <= 0) throw InvalidArgument("AxisymmetricScattering: omega must be positive");
-  if (!setup_.incident) {
-    throw InvalidArgument("AxisymmetricScattering: the incident field is required");
+  if (static_cast<bool>(setup_.incident) == static_cast<bool>(setup_.current)) {
+    throw InvalidArgument(
+        "AxisymmetricScattering: give either an incident field (scattered-field formulation) "
+        "or a current (total-field formulation)");
   }
   if (setup_.pml && setup_.pml->thickness()[0] != 0) {
     throw InvalidArgument(
@@ -265,6 +296,10 @@ assembly::AxisymmetricForm AxisymmetricScattering::form_of_cell(Index cell) cons
     form = axisymmetric_pml_form(*setup_.pml, material, 2 * p + setup_.pml_extra_quadrature_order);
   } else {
     form = material_form(material);
+  }
+  if (setup_.current) {
+    form.source = setup_.current;
+    return form;
   }
   const Complex contrast = k0_ * k0_ * (material.eps_r - background.eps_r);
   if (contrast != Complex{0.0, 0.0}) {

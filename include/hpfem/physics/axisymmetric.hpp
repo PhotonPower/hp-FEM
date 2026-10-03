@@ -162,6 +162,27 @@ using AxisymmetricField = std::function<Eigen::Matrix<Complex, 3, 1>(const Point
 /// @throws InvalidArgument for m ∉ {−1, 1}.
 [[nodiscard]] AxisymmetricField axial_plane_wave(Complex amplitude, Real k, int m);
 
+/// Orientation of a dipole on the axis.
+enum class AxisDipole { kAxial, kTransverse };
+
+/// Volume source @f$ f = i\omega\mu_0 J @f$ of a point dipole on the axis at z = `position`
+/// with current moment `moment` [A m], smeared over the normalised 3D Gaussian
+/// @f$ g = \exp(-(r^2 + (z - z_0)^2) / 2\sigma^2) / ((2\pi)^{3/2}\sigma^3) @f$, in the scaled
+/// components of order m: the axial dipole (moment along z) has m = 0 only,
+/// @f$ (f_r, f_v, f_z) = i\omega\mu_0 p\,g\,(0, 0, 1) @f$; the transverse dipole (moment
+/// along x) has m = ±1, @f$ (f_r, f_v, f_z) = i\omega\mu_0 \tfrac{p}{2} g\,(1, \pm r, 0) @f$.
+/// The smearing lowers the radiated power of the free dipole by @f$ e^{-k^2\sigma^2} @f$
+/// (Gaussian form factor), exactly for the total power in a lossless medium. Total-field
+/// formulation (`AxisymmetricScatteringSetup::current`).
+/// @throws InvalidArgument for σ ≤ 0 or an order the orientation does not radiate.
+[[nodiscard]] AxisymmetricField axisymmetric_gaussian_dipole(Real position, Complex moment,
+                                                             AxisDipole orientation, Real sigma,
+                                                             Real omega, int m);
+
+/// Radiated power of a point dipole of current moment p in vacuum,
+/// @f$ P_0 = Z_0 k_0^2 |p|^2 / (12\pi) @f$ [W].
+[[nodiscard]] Real dipole_vacuum_power(Complex moment, Real omega);
+
 /// Description of an axisymmetric scattering problem (scattered-field formulation): the
 /// incident field is a solution in the background medium, the source
 /// @f$ k_0^2(\varepsilon_r - \varepsilon_{bg})E^{inc} @f$ lives in the cells whose material
@@ -173,13 +194,18 @@ struct AxisymmetricScatteringSetup {
   mesh::Tag axis_tag = mesh::kNoTag;  ///< facets on the axis r = 0 (required)
   int azimuthal_order = 1;            ///< m of the incident component
   std::optional<pml::PmlBox<2>> pml;  ///< absorbing layers (r-max, z-min, z-max)
-  AxisymmetricField incident;         ///< m-th component of the incident field (required)
+  /// m-th component of the incident field (scattered-field formulation) ...
+  AxisymmetricField incident;
+  /// ... or the volume source f = iωμ0 J of order m (total-field formulation,
+  /// e.g. `axisymmetric_gaussian_dipole`); exactly one of the two.
+  AxisymmetricField current;
   solvers::DirectSolverBackend solver = solvers::DirectSolverBackend::kAuto;
   int extra_quadrature_order = 4;      ///< added to 2p for the non-polynomial incident field
   int pml_extra_quadrature_order = 6;  ///< added to 2p in PML cells
 };
 
-/// Scattered field of one azimuthal order.
+/// Field of one azimuthal order: the scattered field with an incident field, the total
+/// field with a current.
 struct AxisymmetricScatteredField {
   int azimuthal_order = 0;
   Vector meridian;   ///< (E_r, E_z) coefficients (full size)
@@ -192,8 +218,8 @@ struct AxisymmetricScatteredField {
 /// resonator); open problems have no PEC.
 class AxisymmetricScattering {
  public:
-  /// @throws InvalidArgument for ω ≤ 0, a missing incident field or axis tag, mismatched
-  ///         maps, or a PML with a layer on the axis side.
+  /// @throws InvalidArgument for ω ≤ 0, neither or both of incident field and current, a
+  ///         missing axis tag, mismatched maps, or a PML with a layer on the axis side.
   AxisymmetricScattering(const fespace::NedelecDofMap<2>& meridian,
                          const fespace::DofMap<2>& azimuthal, AxisymmetricScatteringSetup setup);
   [[nodiscard]] const AxisymmetricScatteringSetup& setup() const noexcept { return setup_; }

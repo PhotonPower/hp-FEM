@@ -537,6 +537,16 @@ void bind_physics(py::module_& m) {
                                py::return_value_policy::reference_internal)
         .def("solve", &AxisymmetricResonance::solve, Release(),
              "modes ordered by the distance of omega to the target");
+    py::enum_<physics::AxisDipole>(m, "AxisDipole", "Orientation of a dipole on the axis")
+        .value("AXIAL", physics::AxisDipole::kAxial, "moment along z: order m = 0")
+        .value("TRANSVERSE", physics::AxisDipole::kTransverse, "moment along x: orders m = +-1");
+    m.def("axisymmetric_gaussian_dipole", &physics::axisymmetric_gaussian_dipole,
+          py::arg("position"), py::arg("moment"), py::arg("orientation"), py::arg("sigma"),
+          py::arg("omega"), py::arg("m"),
+          "f = i omega mu0 J of a Gaussian-smeared point dipole on the axis at z = position "
+          "(current moment [A m]) in the scaled components of order m");
+    m.def("dipole_vacuum_power", &physics::dipole_vacuum_power, py::arg("moment"), py::arg("omega"),
+          "Larmor power Z0 k0^2 |p|^2 / (12 pi) [W]");
     m.def("axial_plane_wave", &physics::axial_plane_wave, py::arg("amplitude"), py::arg("k"),
           py::arg("m"),
           "Order m = +-1 of the x-polarised plane wave E0 x e^{ikz} along the axis in the scaled "
@@ -554,6 +564,8 @@ void bind_physics(py::module_& m) {
         .def_readwrite("azimuthal_order", &AxisymmetricScatteringSetup::azimuthal_order)
         .def_readwrite("pml", &AxisymmetricScatteringSetup::pml)
         .def_readwrite("incident", &AxisymmetricScatteringSetup::incident)
+        .def_readwrite("current", &AxisymmetricScatteringSetup::current,
+                       "volume source f = i omega mu0 J of order m (total-field formulation)")
         .def_readwrite("solver", &AxisymmetricScatteringSetup::solver)
         .def_readwrite("extra_quadrature_order",
                        &AxisymmetricScatteringSetup::extra_quadrature_order)

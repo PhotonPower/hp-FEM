@@ -191,10 +191,42 @@ tests check the plane-wave orders, the Rayleigh limit of the Mie series, the equ
 $m = \pm1$ powers, and that the discrete Poynting flux through the shell between the sphere
 and the box $r, |z| < 2a$ vanishes up to the discretisation error.
 
+## Dipoles on the axis (`axisymmetric_gaussian_dipole`)
+
+A point emitter on the axis is a current moment $p$ [A m] at $(r, z) = (0, z_0)$. With the
+total-field formulation (`AxisymmetricScatteringSetup::current`, the source
+$f = i\omega\mu_0 J$ in every cell, the PML absorbing the emitted field) and the Gaussian
+smearing of `maxwell.md` the orders are
+
+$$
+\text{axial } (p \parallel \hat z):\ m = 0,\quad (f_r, f_v, f_z) = i\omega\mu_0\,p\,g\,(0, 0, 1);
+\qquad
+\text{transverse } (p \parallel \hat x):\ m = \pm1,\quad
+(f_r, f_v, f_z) = i\omega\mu_0\,\tfrac{p}{2}\,g\,(1, \pm r, 0),
+$$
+
+with $g = e^{-(r^2 + (z - z_0)^2)/2\sigma^2} / ((2\pi)^{3/2}\sigma^3)$. The emitted power is
+the Poynting flux through any surface enclosing the source, and the Purcell factor its
+ratio to the free-space value. For the smeared dipole in vacuum the total power is
+*exactly* $P_0\,e^{-k^2\sigma^2}$ with the Larmor power $P_0 = Z_0 k_0^2 |p|^2 / (12\pi)$
+(`dipole_vacuum_power`): the Gaussian form factor $e^{-k^2\sigma^2/2}$ multiplies the far
+field in every direction, and in a lossless medium the emitted power equals the radiated
+one. This gives an analytic reference without any limit $\sigma \to 0$.
+
+**Verification** (`tests/convergence/axisymmetric_dipole.cpp`,
+`tests/unit/physics/test_axisymmetric_dipole.cpp`): for $ka = 1.5$ and $\sigma = 0.08a$ the
+axial ($m = 0$) and the transverse dipole ($m = \pm1$, doubled) converge to
+$P_0 e^{-k^2\sigma^2}$ with relative errors $1.7\cdot10^{-1}$ / $3.9\cdot10^{-2}$,
+$1.9\cdot10^{-3}$ / $4.8\cdot10^{-3}$, $2.0\cdot10^{-4}$ / $6.4\cdot10^{-5}$ and
+$2.4\cdot10^{-5}$ / $2.2\cdot10^{-5}$ for $p = 1\ldots4$. The unit test places the axial
+dipole at the centre of the sphere $n = 3$: the electric dipole couples to the
+$\mathrm{TM}_1$ modes, and the Purcell factor peaks at $\mathrm{Re}\,x_{\mathrm{TM}}$ of the
+Mie pole found by the resonance solver, which ties the three problem classes together.
+
 ## Roadmap
 
-Still open: dipole sources on the axis (Purcell factor), the far field from the $m$
-contributions, the micropillar / VCSEL example, coupled orders for oblique incidence and
+Still open: the far field from the $m$ contributions, the micropillar / VCSEL example
+(Python), coupled orders for oblique incidence and
 adaptivity on the meridian plane with the $r$-weighted estimator. The Python bindings
 (`AxisymmetricCavity`, `AxisymmetricResonance`, `AxisymmetricScattering`, `axial_plane_wave`,
-`axisymmetric_poynting_flux`) follow the C++ API one to one.
+`axisymmetric_gaussian_dipole`, `axisymmetric_poynting_flux`) follow the C++ API one to one.

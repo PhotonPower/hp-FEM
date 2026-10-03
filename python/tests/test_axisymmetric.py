@@ -97,3 +97,26 @@ def test_sphere_scattering_matches_mie():
     value = setup.incident(np.array([0.5, 0.25]))
     assert np.isclose(value[0], 0.5 * np.exp(1j * x * 0.25))
     assert np.isclose(value[1], 0.25 * np.exp(1j * x * 0.25))
+
+
+def test_dipole_in_vacuum_radiates_the_larmor_power():
+    x, sigma = 1.5, 0.08
+    mesh = half_disc(4)
+    nd = hpfem.NedelecDofMap2D(mesh, 2)
+    h1 = hpfem.DofMap2D(mesh, 2)
+    setup = hpfem.AxisymmetricScatteringSetup()
+    setup.omega = x * c0
+    setup.axis_tag = AXIS
+    setup.azimuthal_order = 0
+    setup.pml = hpfem.PmlBox2D([0.0, -3.0], [3.0, 3.0], [0.0, 3.0, 3.0, 3.0], x)
+    setup.current = hpfem.axisymmetric_gaussian_dipole(
+        0.0, 1.0, hpfem.AxisDipole.AXIAL, sigma, setup.omega, 0
+    )
+    setup.extra_quadrature_order = 6
+    field = hpfem.AxisymmetricScattering(nd, h1, setup).solve()
+    surface = hpfem.Surface2D.around_cells(mesh, 2)
+    power = hpfem.axisymmetric_poynting_flux(
+        nd, h1, field.meridian, field.azimuthal, 0, setup.omega, setup.materials, surface
+    )
+    reference = hpfem.dipole_vacuum_power(1.0, setup.omega) * np.exp(-(x**2) * sigma**2)
+    assert np.isclose(power, reference, rtol=3e-2)

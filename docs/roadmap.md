@@ -184,8 +184,10 @@ Bodies of revolution on the meridian mesh, one 2D problem per azimuthal order m.
   sphere (exponential in p)
 - [x] Python bindings (`AxisymmetricCavity`, `AxisymmetricResonance`,
   `AxisymmetricScattering`, `axial_plane_wave`, `axisymmetric_poynting_flux`)
-- [ ] dipole sources on the axis (Purcell factor), far field from the m contributions,
-  the micropillar / VCSEL example
+- [x] dipole sources on the axis (`axisymmetric_gaussian_dipole`, total-field formulation
+  with `AxisymmetricScatteringSetup::current`); convergence test against the Larmor power
+  of the smeared dipole, Purcell peak at the TM_1 Mie pole
+- [ ] far field from the m contributions, the micropillar / VCSEL example
 - [ ] later: coupled orders for oblique incidence, adaptivity on the meridian plane with
   the r-weighted estimator
 
