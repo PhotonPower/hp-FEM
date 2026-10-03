@@ -7,6 +7,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   resonance wavelengths and Q from `Resonance2D` on the ring-plus-bus structure, bus
   transmission from a Gaussian line current normalised by the bare bus, dips at the
   eigenmode resonances. M8 complete.
+- `physics::ThermoOptical` (M9): the optical-thermal feedback loop — scattering solution →
+  absorbed power → temperature → permittivity εr(T) = εr(T0) + dεr/dT (T − T0) per cell →
+  scattering again, until the temperature settles (fixed-point iteration with optional
+  under-relaxation, history of the temperature changes). `materials::MaterialMap::set_cell`
+  overrides the material of single cells. Python: `ThermoOptical2D/3D`,
+  `ThermoOpticalSetup`, `ThermoOpticalState`, `MaterialMap.set_cell`.
 - `physics::Thermal` (M9): steady heat conduction −∇·(κ∇T) = q on the H1 space of the
   optical mesh with conductivities by cell tag, fixed temperatures on tagged facets,
   adiabatic walls and hanging-node constraints; `physics::absorbed_power_load` assembles

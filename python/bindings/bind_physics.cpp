@@ -12,6 +12,7 @@
 #include "hpfem/physics/sources.hpp"
 #include "hpfem/physics/sweep.hpp"
 #include "hpfem/physics/thermal.hpp"
+#include "hpfem/physics/thermo_optical.hpp"
 
 namespace hpfem::python {
 
@@ -253,6 +254,44 @@ void bind_physics_dim(py::module_& m) {
            "temperature for an assembled load, e.g. absorbed_power_load")
       .def("total_power", &Thermal<Dim>::total_power, py::arg("q"), Release(),
            "integral of source coefficients q [W] (3D) or [W/m] (2D)");
+  using physics::ThermoOptical;
+  using physics::ThermoOpticalSetup;
+  using physics::ThermoOpticalState;
+  py::class_<ThermoOpticalSetup<Dim>>(
+      m, named("ThermoOpticalSetup", Dim).c_str(),
+      "Coupled optical-thermal problem: the scattering setup (materials at the reference "
+      "temperature), the thermal setup, complex thermo-optic coefficients d eps_r / dT by "
+      "cell tag, reference temperature, iteration limit, tolerance [K] and relaxation")
+      .def(py::init<>())
+      .def_readwrite("optical", &ThermoOpticalSetup<Dim>::optical)
+      .def_readwrite("thermal", &ThermoOpticalSetup<Dim>::thermal)
+      .def_readwrite("thermo_optic", &ThermoOpticalSetup<Dim>::thermo_optic)
+      .def_readwrite("reference_temperature", &ThermoOpticalSetup<Dim>::reference_temperature)
+      .def_readwrite("max_iterations", &ThermoOpticalSetup<Dim>::max_iterations)
+      .def_readwrite("tolerance", &ThermoOpticalSetup<Dim>::tolerance)
+      .def_readwrite("relaxation", &ThermoOpticalSetup<Dim>::relaxation);
+  py::class_<ThermoOpticalState<Dim>>(m, named("ThermoOpticalState", Dim).c_str(),
+                                      "Converged (or last) state of the feedback loop")
+      .def_readonly("solution", &ThermoOpticalState<Dim>::solution)
+      .def_readonly("temperature", &ThermoOpticalState<Dim>::temperature)
+      .def_readonly("materials", &ThermoOpticalState<Dim>::materials)
+      .def_readonly("absorbed_power", &ThermoOpticalState<Dim>::absorbed_power)
+      .def_readonly("history", &ThermoOpticalState<Dim>::history, "max |dT| per iteration")
+      .def_readonly("iterations", &ThermoOpticalState<Dim>::iterations)
+      .def_readonly("converged", &ThermoOpticalState<Dim>::converged);
+  py::class_<ThermoOptical<Dim>>(m, named("ThermoOptical", Dim).c_str(),
+                                 "Optical-thermal feedback loop (fixed-point iteration) on a "
+                                 "Nédélec and an H1 space of the same mesh")
+      .def(py::init<const ND&, const H1&, ThermoOpticalSetup<Dim>>(), py::arg("optical_dofs"),
+           py::arg("thermal_dofs"), py::arg("setup"), py::keep_alive<1, 2>(),
+           py::keep_alive<1, 3>())
+      .def_property_readonly("setup", &ThermoOptical<Dim>::setup,
+                             py::return_value_policy::reference_internal)
+      .def("materials_at", &ThermoOptical<Dim>::materials_at, py::arg("temperature"),
+           "materials with the permittivities of a temperature field (per-cell overrides)")
+      .def("total_field", &ThermoOptical<Dim>::total_field, py::arg("solution"), Release(),
+           "coefficients of the total field of a solution on the optical map")
+      .def("solve", &ThermoOptical<Dim>::solve, Release());
   m.def(
       "solve_many",
       [](const Scattering<Dim>& problem, const std::vector<IncidentField<Dim>>& incidents) {

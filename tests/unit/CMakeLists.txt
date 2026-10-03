@@ -64,7 +64,8 @@ hpfem_add_test(test_physics unit
   physics/test_goal_oriented.cpp
   physics/test_sweep.cpp
   physics/test_resonance.cpp
-  physics/test_thermal.cpp)
+  physics/test_thermal.cpp
+  physics/test_thermo_optical.cpp)
 
 hpfem_add_test(test_hanging unit
   assembly/test_interpolation.cpp

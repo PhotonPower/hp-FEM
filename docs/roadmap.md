@@ -136,7 +136,9 @@ holds. Estimated effort is in rough "focused sessions".
       (κ by tag, fixed temperatures, hanging nodes), convergence test `heat_conduction`
       (damped wave in a lossy slab against the closed-form temperature), Python bindings,
       `docs/theory/multiphysics.md`
-- [ ] temperature-dependent ε feedback loop
+- [x] temperature-dependent ε feedback loop — `physics::ThermoOptical` (fixed-point
+      iteration with relaxation, complex dεr/dT by tag, per-cell `MaterialMap` overrides),
+      unit tests (uncoupled limit, self-consistent fixed point, linear response, relaxation)
 - [ ] carrier-generation profile export for PV device solvers
 
 ## Backlog / ideas
