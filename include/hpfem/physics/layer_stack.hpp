@@ -1,5 +1,5 @@
 #pragma once
-/// @file layered.hpp
+/// @file layer_stack.hpp
 /// Planar layer stacks and their plane-wave solutions: the analytic background field of the
 /// scattered-field formulation for structures embedded in layered media (ADR-0009). Layers are
 /// perpendicular to the last coordinate (y in 2D, z in 3D); the incidence medium lies above

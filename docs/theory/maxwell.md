@@ -104,7 +104,7 @@ whose zero count equals $\dim W_h^0$.
 For an incident field $\mathbf{E}^{\mathrm{inc}}$ that solves Maxwell in the background medium $\varepsilon_b, \mu_b$, write $\mathbf{E} = \mathbf{E}^{\mathrm{inc}} + \mathbf{E}^{\mathrm{sc}}$. Then $\mathbf{E}^{\mathrm{sc}}$ solves the curl–curl equation with the source
 $\mathbf{f} = \omega^2 (\varepsilon - \varepsilon_b)\mathbf{E}^{\mathrm{inc}} - \nabla\times\big((\mu^{-1} - \mu_b^{-1})\nabla\times\mathbf{E}^{\mathrm{inc}}\big)$ supported only on the scatterer, and PML absorbs $\mathbf{E}^{\mathrm{sc}}$ cleanly. In the weak form the curl term is integrated by parts, $\ell(\mathbf{v}) = \omega^2\int(\varepsilon - \varepsilon_b)\mathbf{E}^{\mathrm{inc}}\cdot\mathbf{v} - \int(\mu^{-1} - \mu_b^{-1})\nabla\times\mathbf{E}^{\mathrm{inc}}\cdot\nabla\times\mathbf{v}$, which `MaxwellForm::source` and `MaxwellForm::curl_source` carry. For layered backgrounds (gratings, masks) the incident field is the analytic multilayer solution.
 
-## Layered background (`physics/layered.hpp`, ADR-0009)
+## Layered background (`physics/layer_stack.hpp`, ADR-0009)
 
 Structures on substrates, in films or on multilayers are scattered-field problems whose
 background is a planar layer stack rather than a homogeneous medium. `physics::LayerStack<Dim>`

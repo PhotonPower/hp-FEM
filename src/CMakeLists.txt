@@ -18,7 +18,7 @@ add_library(hpfem
   physics/scattering.cpp
   physics/postprocess.cpp
   physics/mie.cpp
-  physics/layered.cpp
+  physics/layer_stack.cpp
   physics/farfield.cpp
   physics/diffraction.cpp
   physics/propagating_mode.cpp

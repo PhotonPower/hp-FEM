@@ -1,8 +1,8 @@
-/// @file bind_layered.cpp
-/// Layer stacks and their plane-wave solutions (`physics/layered.hpp`, ADR-0009):
+/// @file bind_layer_stack.cpp
+/// Layer stacks and their plane-wave solutions (`physics/layer_stack.hpp`, ADR-0009):
 /// `Layer`, `LayerStack2D/3D`, `LayeredPlaneWave2D/3D`, `Polarisation`.
 #include "common.hpp"
-#include "hpfem/physics/layered.hpp"
+#include "hpfem/physics/layer_stack.hpp"
 
 namespace hpfem::python {
 

@@ -272,7 +272,7 @@ CrossSections cross_sections(const Scattering<Dim>& problem,
   const SurfaceField<Dim> total =
       scattered_formulation ? combined_field<Dim>(unknown, incident, Complex{1.0, 0.0}) : unknown;
   const int order = 2 * dofs.max_order() + extra_order;
-  const Real intensity = plane_wave_intensity(incident_amplitude, setup.materials.background());
+  const Real intensity = plane_wave_intensity(incident_amplitude, problem.incidence_material());
   CrossSections cs;
   cs.scattering =
       poynting_flux<Dim>(dofs.mesh(), surface, scattered, setup.omega, setup.materials, order) /

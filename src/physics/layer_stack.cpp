@@ -1,4 +1,4 @@
-#include "hpfem/physics/layered.hpp"
+#include "hpfem/physics/layer_stack.hpp"
 
 #include <algorithm>
 #include <cmath>
