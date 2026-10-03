@@ -56,9 +56,12 @@ should prefer it above a size threshold is decided from the ADR-0008 measurement
 
 Numerics: cuDSS factorises the general complex matrix (`CUDSS_MTYPE_GENERAL`; the interface
 also offers the complex-symmetric LDL^T path for later use). `hpfem::SparseMatrix` is already
-CSR with `int64` indices, so the matrix is uploaded without conversion. cuDSS perturbs zero or
-tiny pivots instead of failing; the DLL reads the perturbation count after the factorisation
-and reports the matrix as singular (`hpfem::Error`) rather than returning a wrong solution.
+CSR with `int64` indices, so the matrix is uploaded without conversion. cuDSS judges tiny
+pivots by an absolute threshold and perturbs them instead of failing, which an SI-scaled
+system (Newmark operator with entries around $10^{-15}$) trips on every pivot; the DLL therefore
+factorises $sA$ with $s = 1/\max|a_{ij}|$, rescales every solution, and reads the perturbation
+count after the factorisation to report a genuinely singular matrix (`hpfem::Error`) rather
+than returning a wrong solution.
 
 Finding the DLL at run time, in this order: environment variable `HPFEM_GPU_DLL`, the path
 compiled in from the CMake cache variable `HPFEM_GPU_DLL`, `hpfem_gpu.dll` next to the
@@ -70,6 +73,33 @@ sequential MUMPS on a 163k-unknown Newmark operator and a 70k-unknown 3D PML sca
 system, and a repeated solve of one factorisation is 30–140× faster (milliseconds instead of
 tenths of a second), which is where time stepping, Arnoldi iterations and sweeps spend their
 time; residuals are $10^{-13}$ to $10^{-15}$ on both.
+
+### Where the backend is applied repeatedly
+
+Every problem class with a `solver` field passes it on, so `kCudss` can be selected where
+one factorisation serves many solves: `physics::TimeDomain` (one solve per time step),
+`physics::Resonance` and `physics::BandStructure` (`complex_eigenpairs_near*`, one solve per
+Arnoldi step), `physics::ScatteringOperator` (`solve_many` for sweeps) and
+`physics::PropagatingMode` (`WaveguideSetup::solver`). The real shift-invert solvers
+`gauged_curl_curl_eigenpairs` and `generalized_eigenpairs_near` accept the backend as well:
+`kAuto` and `kSparseLu` keep Eigen's real SparseLU (real arithmetic, half the memory, the
+behaviour of earlier versions), `kMumps` / `kCudss` factorise the complexified shifted matrix
+and take the real part of every solve. `benchmarks/solver_integration.cpp` measures these
+four paths with every available backend
+(`benchmarks/results/2026-10-03-VR-gpu-integration.json`, RTX 3090, 24 threads, MUMPS
+sequential, cuDSS warm):
+
+| Path | Size | SparseLU | MUMPS | cuDSS |
+|---|---|---|---|---|
+| `TimeDomain` setup (assembly + 2 factorisations) / one Newmark step | 164 k DoFs | 11.4 s / 74 ms | 3.1 s / 58 ms | 1.8 s / 15 ms |
+| `ScatteringOperator` factorisation / 8 pure solves one by one / batched `solve_many` | 194 k DoFs | 13.0 s / 1.21 s / 0.91 s | 2.0 s / 0.46 s / 0.14 s | 1.24 s / 40 ms / 24 ms |
+| 8-angle sweep including load assembly, one by one / batched | 194 k DoFs | 1.39 s / 1.06 s | 0.76 s / 0.76 s | 0.28 s / 0.26 s |
+| `Resonance`, 6 modes (complex Arnoldi) | 92 k DoFs | 2.9 s | 2.1 s | 1.1 s |
+| `gauged_curl_curl_eigenpairs`, 6 eigenvalues (real Lanczos; MUMPS / cuDSS complexified) | 92 k DoFs | 2.6 s | 3.0 s | 2.6 s |
+
+The time step and the sweep are now bounded by the CPU work around the solve (two sparse
+products and the restriction / expansion per step, the load assembly per angle); the real
+Lanczos does not profit from a complexified GPU factorisation at this size.
 
 ### Verification
 
@@ -139,9 +169,13 @@ which keeps the eliminated columns $A_{:,D}$ for later loads) and factorises it 
 chosen backend; `solve(incident, current)` then only assembles the new load
 (`assemble_maxwell_load`), condenses it (`StaticCondensation::condense_load`, with the stored
 $K_{BB}^{-1}$ and $K_{EB}$ per cell), reduces it by the constraints, applies the new Dirichlet
-values and recovers the interior unknowns (`recover(x, load)`). `solve_many` and
-`plane_wave_sweep` wrap this for lists of incident fields / wave vectors — the angle sweep
-of a scatterometry measurement costs one factorisation plus a triangular solve per angle.
+values and recovers the interior unknowns (`recover(x, load)`).
+`ScatteringOperator::solve_many(incidents, current)` assembles and eliminates the loads of
+several incident fields and applies the factorisation to all of them in one
+`LinearSolver::solve_many` call (one device round trip on the cuDSS backend); the free
+functions `solve_many` and `plane_wave_sweep` wrap this for lists of incident fields / wave
+vectors — the angle sweep of a scatterometry measurement costs one factorisation plus one
+batched triangular solve.
 
 **Frequency sweeps, reduced basis.** `solvers::ReducedBasis` collects snapshots
 (full solutions at a few parameter values) into an orthonormal basis $V$ (modified
