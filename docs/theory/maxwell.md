@@ -144,6 +144,17 @@ $$
 $$
 
 and in 2D $\mathbf{E} = (g + g'/(k^2 r))\,\mathbf{p} + (g'' - g'/r)/k^2\;\mathbf{n}(\mathbf{n}\cdot\mathbf{p})$.
+
+The analytic dipole field is an incident field of the *homogeneous* background; an emitter
+inside a structure (a quantum dot in a cavity, `examples/quantum_dot_purcell`) is modelled
+instead as a volume current in the total-field formulation, `physics::gaussian_current`:
+$\mathbf{f} = i\omega\mu_0\,\mathbf{p}\,g_\sigma(\mathbf{x} - \mathbf{x}_0)$ with the
+normalised Gaussian $g_\sigma$ of a width $\sigma$ below the cell size and far below the
+wavelength. The emitted power is the Poynting flux of the total field through a closed
+surface around the current, and ratios such as the Purcell factor $P/P_0$ (the same current
+in the homogeneous host, on the same mesh) are insensitive to $\sigma$: the example checks a
+current in front of a PEC mirror against the image-dipole solution to better than one per
+cent.
 Both are checked by finite differences (curl of the value, and
 $\nabla\times\nabla\times\mathbf{E} = k^2\mathbf{E}$) in the unit tests.
 

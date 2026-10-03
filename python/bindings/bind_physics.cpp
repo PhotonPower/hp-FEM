@@ -48,6 +48,15 @@ void bind_physics_dim(py::module_& m) {
       py::arg("amplitude"), py::arg("wave_vector"),
       "E0 exp(i k . x) with real wave vector k [1/m] and complex amplitude E0 perpendicular to k");
   m.def(
+      "gaussian_current",
+      [](const Point<Dim>& x0, const ComplexVector<Dim>& moment, Real sigma, Real omega) {
+        return physics::gaussian_current<Dim>(x0, moment, sigma, omega);
+      },
+      py::arg("position"), py::arg("moment"), py::arg("sigma"), py::arg("omega"),
+      "Volume source f = i omega mu0 J of a dipole smeared over a normalised Gaussian of "
+      "width sigma, evaluated in C++ (for ScatteringSetup.current in the total-field "
+      "formulation: an emitter inside a structure)");
+  m.def(
       "dipole_field",
       [](const Point<Dim>& x0, const ComplexVector<Dim>& moment, Real k) {
         return physics::dipole_field<Dim>(x0, moment, k);
