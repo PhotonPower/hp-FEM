@@ -115,7 +115,22 @@ double* as_doubles(std::vector<Complex>& v) {
   return reinterpret_cast<double*>(v.data());
 }
 
-void run_case(const char* label, const Csr& a, hpfem_gpu_matrix_type type, int64_t nrhs) {
+/// Relative residual ||A x - b|| / ||b|| (the backward measure for badly conditioned data).
+double relative_residual(const Csr& a, const std::vector<Complex>& x, const std::vector<Complex>& b,
+                         int64_t nrhs) {
+  const std::vector<Complex> ax = multiply(a, x, nrhs);
+  double num = 0.0, den = 0.0;
+  for (size_t i = 0; i < b.size(); ++i) {
+    num += std::norm(ax[i] - b[i]);
+    den += std::norm(b[i]);
+  }
+  return std::sqrt(num / den);
+}
+
+/// `by_residual`: judge by the residual instead of the forward error (for systems whose
+/// condition number exceeds 1 / epsilon, where no solver can recover x itself).
+void run_case(const char* label, const Csr& a, hpfem_gpu_matrix_type type, int64_t nrhs,
+              bool by_residual = false) {
   std::printf("-- %s: n = %lld, nnz = %lld, nrhs = %lld\n", label, static_cast<long long>(a.n),
               static_cast<long long>(a.nnz()), static_cast<long long>(nrhs));
   std::mt19937 gen(7);
@@ -149,14 +164,19 @@ void run_case(const char* label, const Csr& a, hpfem_gpu_matrix_type type, int64
   t1 = std::chrono::steady_clock::now();
   check(sol == HPFEM_GPU_OK, std::string("solve: ") + hpfem_gpu_last_error(solver));
   const double err = relative_error(x, x_exact);
-  std::printf("       solve %.3f s, relative error %.2e\n",
-              std::chrono::duration<double>(t1 - t0).count(), err);
-  check(err < 1e-10, "solution accurate to 1e-10");
+  const double res = relative_residual(a, x, b, nrhs);
+  std::printf("       solve %.3f s, relative error %.2e, residual %.2e\n",
+              std::chrono::duration<double>(t1 - t0).count(), err, res);
+  const auto accurate = [&](const std::vector<Complex>& candidate) {
+    return by_residual ? relative_residual(a, candidate, b, nrhs) < 1e-12
+                       : relative_error(candidate, x_exact) < 1e-10;
+  };
+  check(accurate(x), by_residual ? "residual below 1e-12" : "solution accurate to 1e-10");
 
   // solve again, in place (x aliases b), second right-hand side reuses the factors
   std::vector<Complex> inplace = b;
   check(hpfem_gpu_solve(solver, nrhs, as_doubles(inplace), as_doubles(inplace)) == HPFEM_GPU_OK &&
-            relative_error(inplace, x_exact) < 1e-10,
+            accurate(inplace),
         "in-place solve reuses the factorisation");
 
   check(hpfem_gpu_solve(solver, 0, as_doubles(b), as_doubles(x)) == HPFEM_GPU_ERR_INVALID_ARG,
@@ -171,7 +191,8 @@ void run_case(const char* label, const Csr& a, hpfem_gpu_matrix_type type, int64
   std::vector<Complex> x_scaled(x_exact.size());
   for (size_t i = 0; i < x_exact.size(); ++i) x_scaled[i] = x_exact[i] / Complex{2.0, 0.5};
   check(hpfem_gpu_solve(solver, nrhs, as_doubles(b), as_doubles(x)) == HPFEM_GPU_OK &&
-            relative_error(x, x_scaled) < 1e-10,
+            (by_residual ? relative_residual(scaled, x, b, nrhs) < 1e-12
+                         : relative_error(x, x_scaled) < 1e-10),
         "solve after re-factorisation uses the new factors");
   hpfem_gpu_destroy(solver);
 }
@@ -273,6 +294,20 @@ int main(int argc, char** argv) {
     Csr tiny = helmholtz_1d(n);
     for (auto& v : tiny.val) v *= 1e-16;
     run_case("1D Helmholtz scaled by 1e-16", tiny, HPFEM_GPU_MATRIX_GENERAL, 2);
+  }
+  {
+    // rows and columns of wildly different scale (1e-8 ... 1e8, as hp systems mix edge and
+    // high-order interior functions): the diagonal equilibration keeps the factorisation
+    // free of perturbed pivots
+    Csr badly = random_system(std::min<int64_t>(n, 4000), 5);
+    std::vector<double> d(static_cast<size_t>(badly.n));
+    for (size_t i = 0; i < d.size(); ++i) d[i] = std::pow(10.0, -8.0 + 16.0 * (i % 7) / 6.0);
+    for (int64_t i = 0; i < badly.n; ++i) {
+      for (int64_t k = badly.row_ptr[i]; k < badly.row_ptr[i + 1]; ++k) {
+        badly.val[k] *= d[static_cast<size_t>(i)] * d[static_cast<size_t>(badly.col[k])];
+      }
+    }
+    run_case("random sparse, rows scaled 1e-8..1e8", badly, HPFEM_GPU_MATRIX_GENERAL, 2, true);
   }
   run_error_paths();
 

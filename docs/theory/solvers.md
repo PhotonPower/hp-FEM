@@ -67,13 +67,28 @@ in 2D; 0.52 s against 0.77 s at 21 k, 1.8 s against 4.9 s at 70 k in 3D), and a 
 faster on the GPU from about 5 000 unknowns on (0.5 ms against 2.7 ms at 23 k, 5 ms against
 248 ms at 70 k in 3D). Below the threshold every factorisation takes less than 40 ms, so the
 choice is immaterial there. cuDSS pivots statically and the library refuses a factorisation
-in which pivots were perturbed (see above); on *hp*-adaptive systems with hanging nodes and
-high orders this happens even after the scaling (28 of 12 846 and 103 of 16 359 pivots in the
-L-shape and plasmonic-wedge tests, 2 612 of 21 623 further on), so `kAuto` then logs a
-warning and factorises the same system with MUMPS / SparseLU instead. Accepting such a
-factorisation with two steps of cuDSS's iterative refinement was tried: accurate at 103
-perturbed pivots, but at 2 612 the error of the L-shape run jumped from 9e-5 to 2.7e-4, so the
-refusal stays; a residual-checked acceptance is a possible later refinement. Results of different backends agree only to about $10^{-12}$
+in which pivots were perturbed (see above); `kAuto` then logs a warning once and factorises
+the system, and the later systems of the same solver object, with MUMPS / SparseLU. Before
+the diagonal equilibration (next paragraph) the *hp*-adaptive systems with hanging nodes
+and high orders tripped this (103 of 16 359 and 2 639 of 19 723 pivots in the L-shape test,
+28 / 1 591 / 16 356 in the plasmonic wedge); accepting such factorisations with the iterative
+refinement of cuDSS had lost accuracy at a few thousand perturbed pivots, so the refusal
+stays as the safety net.
+
+**Scaling and equilibration.** The GPU library factorises $D\,(sA)\,D$ with the global
+scale $s = 1/\max|a_{ij}|$ (the tiny-pivot threshold of cuDSS is absolute) and the diagonal
+equilibration $d_i = 1/\sqrt{|a_{ii}|}$, which keeps the complex symmetry and evens out the scales of edge and
+high-order interior functions; right-hand sides and solutions are rescaled inside the
+library. The diagonal is used whenever it is nonzero — after a two-sided scaling a tiny
+diagonal is exactly the right scale of its row, and a row-norm fallback for "small"
+diagonals (tried first) destroyed the equilibration on a synthetic test with scales
+$10^{-8} \ldots 10^{8}$; only a zero diagonal (possible for eliminated DoFs in block
+structures) falls back to the row norm, a zero row to $d_i = 1$. On the two hp tests the
+equilibration removes every perturbed pivot (0 in all steps
+against up to 16 356 without it) with convergence identical to the CPU backends, while the
+matching and reordering options of cuDSS changed nothing. With it, the complete C++ and
+Python test suites run with every system on cuDSS (`HPFEM_GPU_MIN_UNKNOWNS=0`) without a
+single refused factorisation. `HPFEM_GPU_EQUILIBRATE=0` switches it off for comparisons. Results of different backends agree only to about $10^{-12}$
 relative (different orderings, pivoting and summation orders); tests therefore compare
 against references with a tolerance and never rely on bitwise equality between runs or
 backends.

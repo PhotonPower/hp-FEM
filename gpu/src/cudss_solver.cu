@@ -93,8 +93,9 @@ struct hpfem_gpu_solver {
   int64_t n = 0;
   int64_t nnz = 0;
   bool factorized = false;
-  double scale = 1.0;   // the factors are those of scale * A (max |a_ij| = 1)
-  bool hybrid = false;  // factors (partly) in host memory
+  double scale = 1.0;                 // the factors are those of scale * A (max |a_ij| = 1)
+  bool hybrid = false;                // factors (partly) in host memory
+  std::vector<double> equilibration;  // D of the factorised D (scale A) D; empty: none
   size_t device_estimate = 0;
   size_t host_estimate = 0;
   size_t device_free = 0;
@@ -267,6 +268,38 @@ hpfem_gpu_status hpfem_gpu_factorize(hpfem_gpu_solver* solver, int64_t n, int64_
   solver->scale = 1.0 / max_abs;
   std::vector<double> scaled(2 * nnz_size);
   for (size_t k = 0; k < 2 * nnz_size; ++k) scaled[k] = values[k] * solver->scale;
+  // diagonal equilibration D A D with d_i = 1 / sqrt(|a_ii|) (row 2-norm where the diagonal
+  // is tiny): keeps the complex symmetry and evens out the scales of edge and high-order
+  // interior functions, which cuDSS's static pivoting is sensitive to: on hp systems with
+  // hanging nodes it removes every perturbed pivot (ADR-0008). HPFEM_GPU_EQUILIBRATE=0
+  // switches it off for comparisons.
+  solver->equilibration.clear();
+  const char* equilibrate = std::getenv("HPFEM_GPU_EQUILIBRATE");
+  if (equilibrate == nullptr || *equilibrate != '0') {
+    std::vector<double>& d = solver->equilibration;
+    d.assign(n_size, 1.0);
+    for (int64_t i = 0; i < n; ++i) {
+      double diagonal = 0.0;
+      double row_norm = 0.0;
+      for (int64_t k = row_ptr[i]; k < row_ptr[i + 1]; ++k) {
+        const double magnitude = std::hypot(scaled[2 * k], scaled[2 * k + 1]);
+        row_norm += magnitude * magnitude;
+        if (col[k] == i) diagonal = magnitude;
+      }
+      row_norm = std::sqrt(row_norm);
+      // the diagonal whenever it exists (a tiny diagonal is still the right scale of its
+      // row after a two-sided scaling), the row norm only where it is zero
+      const double pivot = diagonal > 1e-300 ? diagonal : row_norm;
+      d[static_cast<size_t>(i)] = pivot > 0.0 ? 1.0 / std::sqrt(pivot) : 1.0;
+    }
+    for (int64_t i = 0; i < n; ++i) {
+      for (int64_t k = row_ptr[i]; k < row_ptr[i + 1]; ++k) {
+        const double factor = d[static_cast<size_t>(i)] * d[static_cast<size_t>(col[k])];
+        scaled[2 * k] *= factor;
+        scaled[2 * k + 1] *= factor;
+      }
+    }
+  }
   HPFEM_GPU_CUDA(solver, "factorize: allocate row pointer",
                  solver->row_ptr.reserve((n_size + 1) * sizeof(int64_t)));
   HPFEM_GPU_CUDA(solver, "factorize: allocate column indices",
@@ -440,8 +473,23 @@ hpfem_gpu_status hpfem_gpu_solve(hpfem_gpu_solver* solver, int64_t nrhs, const d
                  solver->rhs.reserve(count * 2 * sizeof(double)));
   HPFEM_GPU_CUDA(solver, "solve: allocate solution",
                  solver->solution.reserve(count * 2 * sizeof(double)));
+  const double* upload = b;
+  std::vector<double> equilibrated;
+  if (!solver->equilibration.empty()) {
+    // (D A D) y = D b, x = D y
+    equilibrated.resize(2 * count);
+    const size_t rows = static_cast<size_t>(solver->n);
+    for (size_t j = 0; j < static_cast<size_t>(nrhs); ++j) {
+      for (size_t i = 0; i < rows; ++i) {
+        const double factor = solver->equilibration[i];
+        equilibrated[2 * (j * rows + i)] = b[2 * (j * rows + i)] * factor;
+        equilibrated[2 * (j * rows + i) + 1] = b[2 * (j * rows + i) + 1] * factor;
+      }
+    }
+    upload = equilibrated.data();
+  }
   HPFEM_GPU_CUDA(solver, "solve: upload right-hand side",
-                 cudaMemcpyAsync(solver->rhs.ptr, b, count * 2 * sizeof(double),
+                 cudaMemcpyAsync(solver->rhs.ptr, upload, count * 2 * sizeof(double),
                                  cudaMemcpyHostToDevice, solver->stream));
   cudssMatrix_t dx = nullptr;
   cudssMatrix_t db = nullptr;
@@ -468,6 +516,15 @@ hpfem_gpu_status hpfem_gpu_solve(hpfem_gpu_solver* solver, int64_t nrhs, const d
   if (sync != cudaSuccess) return solver->fail_cuda("solve: synchronise", sync);
   if (solver->scale != 1.0) {
     for (size_t k = 0; k < 2 * count; ++k) x[k] *= solver->scale;
+  }
+  if (!solver->equilibration.empty()) {
+    const size_t rows = static_cast<size_t>(solver->n);
+    for (size_t j = 0; j < static_cast<size_t>(nrhs); ++j) {
+      for (size_t i = 0; i < rows; ++i) {
+        x[2 * (j * rows + i)] *= solver->equilibration[i];
+        x[2 * (j * rows + i) + 1] *= solver->equilibration[i];
+      }
+    }
   }
   return HPFEM_GPU_OK;
 }

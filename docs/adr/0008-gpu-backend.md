@@ -92,7 +92,12 @@ decision:
   bitwise equality between runs. Where cuDSS refuses a system (perturbed pivots, which the
   *hp*-adaptive systems with hanging nodes trigger even after the scaling), `kAuto` warns and
   falls back to MUMPS / SparseLU; accepting perturbed factorisations with iterative refinement
-  lost accuracy at 2 612 perturbed pivots and is not done.
+  lost accuracy at a few thousand perturbed pivots and is not done. The diagonal
+  equilibration $D(sA)D$ inside the library (added after the first measurements) removes
+  the perturbed pivots of the hp systems entirely (0 in every step of the L-shape and
+  plasmonic-wedge tests against 103 / 2 639 and 28 / 1 591 / 16 356 before; the matching and
+  reordering options of cuDSS changed nothing), so these systems run on the GPU too; the
+  complete test suites pass with every system on cuDSS.
 
 ## Alternatives considered
 - **GPU assembly (CUDA kernels for the element matrices)**: rejected for this hardware
