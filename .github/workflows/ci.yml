@@ -18,7 +18,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-24.04, cc: gcc-13,  cxx: g++-13,     preset: release }
+          # HPFEM_ENABLE_CUDA only compiles the run-time loader of the GPU solver library;
+          # without the DLL and a GPU the backend reports itself unavailable (no CUDA needed)
+          - { os: ubuntu-24.04, cc: gcc-13,  cxx: g++-13,     preset: release,
+              configure: "-DHPFEM_ENABLE_CUDA=ON" }
           - { os: ubuntu-24.04, cc: clang-18, cxx: clang++-18, preset: release,
               extra: "libomp-18-dev" }
           - { os: ubuntu-24.04, cc: gcc-13,  cxx: g++-13,     preset: asan }
@@ -33,7 +36,7 @@ jobs:
       - name: Dependencies
         run: sudo apt-get update && sudo apt-get install -y ninja-build libeigen3-dev ${{ matrix.cxx }} ${{ matrix.extra }}
       - name: Configure
-        run: cmake --preset ${{ matrix.preset }}
+        run: cmake --preset ${{ matrix.preset }} ${{ matrix.configure }}
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }}
       - name: Test

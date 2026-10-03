@@ -51,6 +51,7 @@ add_library(hpfem
   physics/band_structure.cpp
   physics/time_domain.cpp
   $<$<BOOL:${HPFEM_ENABLE_MUMPS}>:solvers/mumps_solver.cpp>
+  $<$<BOOL:${HPFEM_ENABLE_CUDA}>:solvers/cudss_solver.cpp>
   adaptivity/residual_estimator.cpp
   adaptivity/marking.cpp
   adaptivity/refinement.cpp
@@ -83,6 +84,16 @@ endif()
 if(HPFEM_ENABLE_MUMPS)
   target_link_libraries(hpfem PRIVATE MUMPS::MUMPS)
   target_compile_definitions(hpfem PUBLIC HPFEM_HAVE_MUMPS)
+endif()
+if(HPFEM_ENABLE_CUDA)
+  # only the C interface of the separately built hpfem_gpu library; no CUDA at build time
+  target_include_directories(hpfem PRIVATE "${PROJECT_SOURCE_DIR}/gpu/include")
+  target_compile_definitions(hpfem PUBLIC HPFEM_HAVE_CUDA)
+  if(HPFEM_GPU_DLL)
+    set_source_files_properties(solvers/cudss_solver.cpp PROPERTIES
+      COMPILE_DEFINITIONS "HPFEM_GPU_DLL_PATH=\"${HPFEM_GPU_DLL}\"")
+  endif()
+  target_link_libraries(hpfem PRIVATE ${CMAKE_DL_LIBS})
 endif()
 if(HPFEM_ENABLE_OPENMP AND OpenMP_CXX_FOUND)
   set(_hpfem_suffixes ${CMAKE_FIND_LIBRARY_SUFFIXES})

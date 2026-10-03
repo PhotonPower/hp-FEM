@@ -15,6 +15,12 @@
 
 namespace hpfem::solvers {
 
+Matrix LinearSolver::solve_many(const Matrix& rhs) const {
+  Matrix x(rhs.rows(), rhs.cols());
+  for (Index j = 0; j < rhs.cols(); ++j) x.col(j) = solve(Vector(rhs.col(j)));
+  return x;
+}
+
 namespace {
 
 class SparseLuSolver final : public LinearSolver {
@@ -50,6 +56,18 @@ class SparseLuSolver final : public LinearSolver {
     return x;
   }
 
+  [[nodiscard]] Matrix solve_many(const Matrix& rhs) const override {
+    if (!ready_) throw Error("SparseLU: solve() called before a successful factorize()");
+    if (rhs.rows() != size_) {
+      throw InvalidArgument(
+          fmt::format("SparseLU: right-hand sides have {} rows, system has {}", rhs.rows(), size_));
+    }
+    if (rhs.cols() == 0) return Matrix(size_, 0);  // SparseLU's solve indexes column 0
+    Matrix x = lu_.solve(rhs);
+    if (lu_.info() != Eigen::Success) throw Error("SparseLU: triangular solve failed");
+    return x;
+  }
+
   [[nodiscard]] Index size() const noexcept override { return size_; }
   [[nodiscard]] std::string name() const override { return "Eigen SparseLU (COLAMD)"; }
 
@@ -72,6 +90,17 @@ std::unique_ptr<LinearSolver> make_mumps() {
 }
 #endif
 
+#ifdef HPFEM_HAVE_CUDA
+bool cudss_available() noexcept;  // src/solvers/cudss_solver.cpp
+#else
+std::unique_ptr<LinearSolver> make_cudss() {
+  throw Error("cuDSS backend requested but not compiled in (configure with HPFEM_ENABLE_CUDA)");
+}
+std::string cudss_status() {
+  return "not compiled in (configure with HPFEM_ENABLE_CUDA)";
+}
+#endif
+
 bool available(DirectSolverBackend backend) noexcept {
   switch (backend) {
     case DirectSolverBackend::kAuto:
@@ -83,6 +112,12 @@ bool available(DirectSolverBackend backend) noexcept {
 #else
       return false;
 #endif
+    case DirectSolverBackend::kCudss:
+#ifdef HPFEM_HAVE_CUDA
+      return cudss_available();
+#else
+      return false;
+#endif
   }
   return false;
 }
@@ -90,6 +125,7 @@ bool available(DirectSolverBackend backend) noexcept {
 std::vector<DirectSolverBackend> available_backends() {
   std::vector<DirectSolverBackend> out{DirectSolverBackend::kSparseLu};
   if (available(DirectSolverBackend::kMumps)) out.push_back(DirectSolverBackend::kMumps);
+  if (available(DirectSolverBackend::kCudss)) out.push_back(DirectSolverBackend::kCudss);
   return out;
 }
 
@@ -101,6 +137,8 @@ std::string backend_name(DirectSolverBackend backend) {
       return "SparseLU";
     case DirectSolverBackend::kMumps:
       return "MUMPS";
+    case DirectSolverBackend::kCudss:
+      return "cuDSS";
   }
   return "?";
 }
@@ -113,6 +151,8 @@ std::unique_ptr<LinearSolver> make_direct_solver(DirectSolverBackend backend) {
       return make_sparse_lu();
     case DirectSolverBackend::kMumps:
       return make_mumps();
+    case DirectSolverBackend::kCudss:
+      return make_cudss();
   }
   throw InvalidArgument("make_direct_solver: unknown backend");
 }

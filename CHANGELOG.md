@@ -3,6 +3,19 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- cuDSS GPU direct solver (backlog "GPU backend", ADR-0008): `DirectSolverBackend::kCudss`
+  behind `solvers::LinearSolver`, opt-in (`kAuto` unchanged). The solver lives in the
+  separately built shared library `hpfem_gpu` (`gpu/`: nvcc + MSVC or GCC, cuDSS 0.8, pure C
+  interface `gpu/include/hpfem_gpu.h` with 64-bit CSR indices, factorise once / solve many,
+  re-factorisation, stand-alone self-test) and is loaded at run time behind
+  `HPFEM_ENABLE_CUDA` (`HPFEM_GPU_DLL`, `HPFEM_GPU_BIN_DIR`); no CUDA is needed to build the
+  library, without the DLL or a GPU the backend reports itself unavailable
+  (`cudss_status()`). Zero pivots that cuDSS would perturb are reported as a singular
+  matrix. `LinearSolver::solve_many(const Matrix&)` solves several right-hand sides at once
+  (native in SparseLU, MUMPS and cuDSS; ADR-0007 amended). Python:
+  `DirectSolverBackend.CUDSS`, `cudss_status`, `LinearSolver.solve_many`, project key
+  `solver.backend: cudss`. CI builds the gcc release job with the option to cover the
+  loader fallback. Docs: docs/theory/solvers.md "cuDSS backend (GPU)", `gpu/README.md`.
 - Validation against the literature (M10, `docs/validation.md`): benchmark A, the rib
   waveguide of Vassallo (1997) — the quasi-TE and quasi-TM effective indices of
   `physics::PropagatingMode<2>` reproduce the MTRM reference for all nine guided cases within

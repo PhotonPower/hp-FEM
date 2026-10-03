@@ -12,12 +12,14 @@
 
 using hpfem::Complex;
 using hpfem::Index;
+using hpfem::Matrix;
 using hpfem::Real;
 using hpfem::SparseMatrix;
 using hpfem::Vector;
 using hpfem::solvers::available;
 using hpfem::solvers::available_backends;
 using hpfem::solvers::backend_name;
+using hpfem::solvers::cudss_status;
 using hpfem::solvers::DirectSolverBackend;
 using hpfem::solvers::make_direct_solver;
 using hpfem::solvers::solve_direct;
@@ -69,6 +71,20 @@ TEST_CASE("direct solver backends solve random sparse complex systems", "[solver
     const Vector y_exact = random_vector(n, 3);
     const Vector y = solver->solve(a * y_exact);
     CHECK((y - y_exact).norm() < 1e-10 * y_exact.norm());
+    // several right-hand sides at once equal the column-wise solves
+    Matrix rhs(n, 3);
+    rhs.col(0) = b;
+    rhs.col(1) = a * y_exact;
+    rhs.col(2) = a * random_vector(n, 4);
+    const Matrix xs = solver->solve_many(rhs);
+    REQUIRE(xs.rows() == n);
+    REQUIRE(xs.cols() == 3);
+    for (Index j = 0; j < 3; ++j) {
+      const Vector column = solver->solve(Vector(rhs.col(j)));
+      CHECK((xs.col(j) - column).norm() < 1e-12 * column.norm());
+    }
+    CHECK(solver->solve_many(Matrix(n, 0)).cols() == 0);
+    CHECK_THROWS_AS(solver->solve_many(Matrix::Ones(n + 1, 2)), hpfem::InvalidArgument);
     // the one-shot interface
     CHECK((solve_direct(a, b, backend) - x_exact).norm() < 1e-10 * x_exact.norm());
     // errors: wrong size, solve before factorize
@@ -91,6 +107,20 @@ TEST_CASE("direct solver backends: availability and automatic choice", "[solvers
   CHECK_THROWS_AS(make_direct_solver(DirectSolverBackend::kMumps), hpfem::Error);
   CHECK(make_direct_solver(DirectSolverBackend::kAuto)->name().find("SparseLU") !=
         std::string::npos);
+#endif
+#ifdef HPFEM_HAVE_CUDA
+  // compiled in: usable only if the hpfem_gpu library loads and a device exists
+  INFO(cudss_status());
+  CHECK(!cudss_status().empty());
+  if (available(DirectSolverBackend::kCudss)) {
+    CHECK(make_direct_solver(DirectSolverBackend::kCudss)->name().find("cuDSS") !=
+          std::string::npos);
+  } else {
+    CHECK_THROWS_AS(make_direct_solver(DirectSolverBackend::kCudss), hpfem::Error);
+  }
+#else
+  CHECK(!available(DirectSolverBackend::kCudss));
+  CHECK_THROWS_AS(make_direct_solver(DirectSolverBackend::kCudss), hpfem::Error);
 #endif
   // a singular matrix is reported
   SparseMatrix singular(3, 3);

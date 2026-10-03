@@ -15,8 +15,12 @@ void bind_solvers(py::module_& m) {
   py::enum_<DirectSolverBackend>(m, "DirectSolverBackend")
       .value("AUTO", DirectSolverBackend::kAuto, "MUMPS if compiled in, otherwise SparseLU")
       .value("SPARSE_LU", DirectSolverBackend::kSparseLu)
-      .value("MUMPS", DirectSolverBackend::kMumps);
+      .value("MUMPS", DirectSolverBackend::kMumps)
+      .value("CUDSS", DirectSolverBackend::kCudss,
+             "NVIDIA cuDSS on the GPU (HPFEM_ENABLE_CUDA, hpfem_gpu library loaded at run time)");
   m.def("available", &solvers::available, py::arg("backend"), "backend usable in this build");
+  m.def("cudss_status", &solvers::cudss_status,
+        "Why the cuDSS backend is (un)available: library, versions and device, or the error");
   m.def("available_backends", &solvers::available_backends);
   m.def("backend_name", &solvers::backend_name, py::arg("backend"));
   m.def("solve_direct", &solvers::solve_direct, py::arg("matrix"), py::arg("rhs"),
@@ -27,6 +31,8 @@ void bind_solvers(py::module_& m) {
       m, "LinearSolver", "Factorise once, solve for many right-hand sides")
       .def("factorize", &solvers::LinearSolver::factorize, py::arg("matrix"), Release())
       .def("solve", &solvers::LinearSolver::solve, py::arg("rhs"), Release())
+      .def("solve_many", &solvers::LinearSolver::solve_many, py::arg("rhs"), Release(),
+           "Several right-hand sides at once, one per column (n x nrhs)")
       .def_property_readonly("size", &solvers::LinearSolver::size)
       .def_property_readonly("name", &solvers::LinearSolver::name);
   m.def("make_direct_solver", &solvers::make_direct_solver,
