@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/PhotonPower/hp-FEM/actions/workflows/ci.yml/badge.svg)](https://github.com/PhotonPower/hp-FEM/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Docs](https://github.com/PhotonPower/hp-FEM/actions/workflows/docs.yml/badge.svg)](https://photonpower.github.io/hp-FEM/)
 
 Adaptive **hp-finite-element** suite for nano-optics: time-harmonic Maxwell solvers with
 high-order **Nédélec (edge) elements**, rigorous **a-posteriori error estimation**,
@@ -10,8 +11,15 @@ automatic **hp-refinement** and **perfectly matched layers**.
 Target applications: scatterometry & EUV masks, metasurfaces, photovoltaics, integrated
 photonics, VCSELs/LEDs, plasmonic sensors, quantum-dot emitters.
 
+## Documentation
+Theory, architecture, Python guide and API reference:
+**<https://photonpower.github.io/hp-FEM/>** (built from `docs/` by MkDocs on every push to `main`).
+
 ## Status
-Milestone **M0 (scaffold)** done. See [docs/roadmap.md](docs/roadmap.md).
+Release **0.2.0**: milestones **M0–M9** are complete (mesh infrastructure, scalar FEM,
+Nédélec elements and Maxwell eigenproblems, scattering and waveguides, hp-adaptivity, solvers,
+Python API, application examples, multiphysics); only the optional MPI item of M6 is open.
+See [docs/roadmap.md](docs/roadmap.md) and [CHANGELOG.md](CHANGELOG.md).
 
 ## Quick start
 ```bash

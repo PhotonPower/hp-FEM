@@ -1,5 +1,6 @@
 site_name: hp-FEM
 site_description: Adaptive hp-FEM suite for nano-optics
+site_url: https://photonpower.github.io/hp-FEM/
 repo_url: https://github.com/PhotonPower/hp-FEM
 theme:
   name: material
