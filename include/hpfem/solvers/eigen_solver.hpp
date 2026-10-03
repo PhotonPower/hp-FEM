@@ -32,29 +32,32 @@ struct EigenResult {
 /// kernel removed: every Lanczos vector is projected M-orthogonally onto the complement of
 /// range(G) (@f$ P = I - G (G^T M G)^{-1} G^T M @f$), so the zero eigenvalues of the curl
 /// operator never appear and the returned values are the physical resonances. Shift-invert
-/// Lanczos (Spectra) with Eigen SparseLU on @f$ S - \sigma M @f$.
+/// Lanczos (Spectra) with a direct factorisation of @f$ S - \sigma M @f$: `backend` `kAuto`
+/// and `kSparseLu` keep Eigen's real SparseLU (real arithmetic, half the memory), `kMumps` /
+/// `kCudss` factorise the complexified shifted matrix with that backend (one factorisation,
+/// one solve per Lanczos step; the gauge matrix @f$ G^T M G @f$ stays with SparseLU).
 ///
 /// S, M, G are the full matrices (Nédélec × Nédélec, Nédélec × H1); `free_nedelec` and
 /// `free_h1` list the unconstrained DoFs (PEC removes the tangential DoFs of the Nédélec
 /// space and the corresponding H1 boundary DoFs). Lossless media only: the imaginary parts
 /// of S and M must vanish.
 /// @throws InvalidArgument for complex matrices, Error if the iteration fails to converge.
-[[nodiscard]] EigenResult gauged_curl_curl_eigenpairs(const SparseMatrix& stiffness,
-                                                      const SparseMatrix& mass,
-                                                      const SparseMatrix& gradient,
-                                                      std::span<const Index> free_nedelec,
-                                                      std::span<const Index> free_h1,
-                                                      const EigenOptions& options = {});
+[[nodiscard]] EigenResult gauged_curl_curl_eigenpairs(
+    const SparseMatrix& stiffness, const SparseMatrix& mass, const SparseMatrix& gradient,
+    std::span<const Index> free_nedelec, std::span<const Index> free_h1,
+    const EigenOptions& options = {}, DirectSolverBackend backend = DirectSolverBackend::kAuto);
 
 /// Eigenpairs of @f$ A x = \lambda B x @f$ closest to σ for real sparse A and B, where B may be
 /// indefinite and A singular (waveguide mode pencils): Arnoldi (Spectra) on the real
-/// nonsymmetric operator @f$ (A - \sigma B)^{-1} B @f$ with Eigen SparseLU, eigenvalues
+/// nonsymmetric operator @f$ (A - \sigma B)^{-1} B @f$ with a direct factorisation (`backend`
+/// as in `gauged_curl_curl_eigenpairs`: `kAuto` keeps the real SparseLU), eigenvalues
 /// @f$ \lambda = \sigma + 1/\nu @f$. Results are real (imaginary parts of the Ritz values must
 /// be negligible, otherwise `Error`); eigenvectors have unit 2-norm and the size of A.
 /// `options.shift` is ignored (σ is the argument).
 /// @throws InvalidArgument for complex or mismatched matrices, Error on non-convergence.
-[[nodiscard]] EigenResult generalized_eigenpairs_near(const SparseMatrix& a, const SparseMatrix& b,
-                                                      Real sigma, const EigenOptions& options = {});
+[[nodiscard]] EigenResult generalized_eigenpairs_near(
+    const SparseMatrix& a, const SparseMatrix& b, Real sigma, const EigenOptions& options = {},
+    DirectSolverBackend backend = DirectSolverBackend::kAuto);
 
 /// Result of `complex_eigenpairs_near`: eigenvalues ordered by distance to the shift.
 struct ComplexEigenResult {

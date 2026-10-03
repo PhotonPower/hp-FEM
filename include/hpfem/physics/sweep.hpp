@@ -39,8 +39,21 @@ class ScatteringOperator {
       const assembly::ComplexVectorField<Dim>& current = {}) const;
   /// Solution of the problem's own setup.
   [[nodiscard]] ScatteringSolution<Dim> solve() const;
+  /// Solutions for several incident fields (same current) with one batched triangular
+  /// solve (`LinearSolver::solve_many`): the loads are assembled and eliminated per field,
+  /// the factorisation is applied to all right-hand sides at once (one device round trip
+  /// on the GPU backend).
+  [[nodiscard]] std::vector<ScatteringSolution<Dim>> solve_many(
+      std::span<const IncidentField<Dim>> incidents,
+      const assembly::ComplexVectorField<Dim>& current = {}) const;
 
  private:
+  /// Reduced, eliminated load of a setup; `full_load` receives the unreduced load (needed to
+  /// recover the condensed unknowns).
+  [[nodiscard]] Vector reduced_load(const ScatteringSetup<Dim>& setup, Vector& full_load) const;
+  /// Expands and recovers a reduced solution.
+  [[nodiscard]] ScatteringSolution<Dim> finish(Vector x, const Vector& full_load,
+                                               Formulation formulation) const;
   [[nodiscard]] ScatteringSolution<Dim> solve_setup(const ScatteringSetup<Dim>& setup) const;
 
   const Scattering<Dim>* problem_;

@@ -71,3 +71,22 @@ TEST_CASE("generalized_eigenpairs_near: eigenvalues closest to the shift of an i
   REQUIRE_THROWS_AS(generalized_eigenpairs_near(diagonal(a), diagonal(b), 0.0, bad),
                     hpfem::InvalidArgument);
 }
+
+TEST_CASE("generalized_eigenpairs_near: every direct-solver backend gives the same eigenvalues",
+          "[solvers][eigen]") {
+  const std::vector<Real> a{4.0, -6.0, 0.0, 9.0, -1.0, 12.0, 20.0, -30.0, 2.5, 7.0, 0.5, 3.0};
+  const std::vector<Real> b{2.0, 3.0, 1.0, -3.0, 1.0, 4.0, -5.0, 5.0, 1.0, 7.0, 1.0, 1.0};
+  EigenOptions options;
+  options.num_eigenvalues = 4;
+  options.krylov_dimension = 10;
+  const std::vector<Real> expected{-4.0, -3.0, -2.0, -1.0};
+  for (const auto backend : hpfem::solvers::available_backends()) {
+    INFO(hpfem::solvers::backend_name(backend));
+    const auto result =
+        generalized_eigenpairs_near(diagonal(a), diagonal(b), -2.4, options, backend);
+    REQUIRE(result.eigenvalues.size() == 4);
+    for (Index i = 0; i < 4; ++i) {
+      CHECK(result.eigenvalues(i) == Approx(expected[static_cast<std::size_t>(i)]).margin(1e-9));
+    }
+  }
+}

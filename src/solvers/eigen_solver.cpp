@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <numeric>
+#include <string>
 #include <vector>
 
 // GCC 13 reports a false -Wmaybe-uninitialized inside Eigen::SparseLU when inlined here
@@ -81,14 +83,64 @@ RealSparse real_part(const SparseMatrix& matrix, const char* name,
   return out;
 }
 
+/// Factorisation of a real sparse matrix with the chosen backend: `kAuto` and `kSparseLu`
+/// keep Eigen's real SparseLU (real arithmetic, half the memory); any other backend
+/// factorises the complexified matrix through `LinearSolver` (MUMPS, cuDSS on the GPU) and
+/// takes the real part of the solution.
+class RealFactorization {
+ public:
+  /// @throws Error (prefixed with `function` and `what`) if the factorisation fails.
+  RealFactorization(const RealSparse& matrix, DirectSolverBackend backend, const char* function,
+                    const std::string& what) {
+    if (backend == DirectSolverBackend::kAuto || backend == DirectSolverBackend::kSparseLu) {
+      lu_ = std::make_unique<Eigen::SparseLU<RealSparse>>();
+      lu_->compute(matrix);
+      if (lu_->info() != Eigen::Success) {
+        throw Error(fmt::format("{}: factorisation of {} failed", function, what));
+      }
+      name_ = "Eigen SparseLU (real)";
+      return;
+    }
+    std::vector<Eigen::Triplet<Complex, Index>> triplets;
+    triplets.reserve(as_size(matrix.nonZeros()));
+    for (int col = 0; col < matrix.outerSize(); ++col) {
+      for (RealSparse::InnerIterator it(matrix, col); it; ++it) {
+        triplets.emplace_back(it.row(), it.col(), Complex{it.value(), 0.0});
+      }
+    }
+    SparseMatrix complex_matrix(matrix.rows(), matrix.cols());
+    complex_matrix.setFromTriplets(triplets.begin(), triplets.end());
+    complex_matrix.makeCompressed();
+    solver_ = make_direct_solver(backend);
+    try {
+      solver_->factorize(complex_matrix);
+    } catch (const Error& error) {
+      throw Error(fmt::format("{}: factorisation of {} failed ({})", function, what, error.what()));
+    }
+    name_ = solver_->name();
+  }
+
+  [[nodiscard]] RealVector solve(const RealVector& b) const {
+    if (lu_) return lu_->solve(b);
+    return solver_->solve(Vector(b.cast<Complex>())).real();
+  }
+  [[nodiscard]] const std::string& name() const noexcept { return name_; }
+
+ private:
+  std::unique_ptr<Eigen::SparseLU<RealSparse>> lu_;
+  std::unique_ptr<LinearSolver> solver_;
+  std::string name_;
+};
+
 /// Spectra operator y = P (S − σM)^{-1} x with the M-orthogonal projector P onto the
 /// complement of the gradient space, P = I − G K^{-1} G^T M, K = G^T M G.
 class ProjectedShiftInvert {
  public:
   using Scalar = Real;
 
-  ProjectedShiftInvert(const RealSparse& s, const RealSparse& m, const RealSparse& g)
-      : s_(s), m_(m), g_(g) {
+  ProjectedShiftInvert(const RealSparse& s, const RealSparse& m, const RealSparse& g,
+                       DirectSolverBackend backend)
+      : s_(s), m_(m), g_(g), backend_(backend) {
     const RealSparse mg = m * g;
     const RealSparse gt = g.transpose();
     const RealSparse k = gt * mg;
@@ -101,19 +153,18 @@ class ProjectedShiftInvert {
   [[nodiscard]] Eigen::Index cols() const { return s_.cols(); }
   void set_shift(const Scalar& sigma) {
     const RealSparse shifted = s_ - sigma * m_;
-    shift_invert_.compute(shifted);
-    if (shift_invert_.info() != Eigen::Success) {
-      throw Error(fmt::format(
-          "gauged_curl_curl_eigenpairs: factorisation of S - {} M failed; choose a shift away "
-          "from the spectrum",
-          sigma));
-    }
+    shift_invert_ = std::make_unique<RealFactorization>(
+        shifted, backend_, "gauged_curl_curl_eigenpairs",
+        fmt::format("S - {} M (choose a shift away from the spectrum)", sigma));
   }
   void perform_op(const Scalar* x_in, Scalar* y_out) const {
     const Eigen::Map<const RealVector> x(x_in, s_.rows());
     Eigen::Map<RealVector> y(y_out, s_.rows());
-    const RealVector w = shift_invert_.solve(x);
+    const RealVector w = shift_invert_->solve(x);
     y = project(w);
+  }
+  [[nodiscard]] std::string solver_name() const {
+    return shift_invert_ ? shift_invert_->name() : "none";
   }
   /// P w = w − G K^{-1} G^T M w.
   [[nodiscard]] RealVector project(const RealVector& w) const {
@@ -125,8 +176,9 @@ class ProjectedShiftInvert {
   const RealSparse& s_;
   const RealSparse& m_;
   const RealSparse& g_;
+  DirectSolverBackend backend_;
   Eigen::SparseLU<RealSparse> gauge_;
-  Eigen::SparseLU<RealSparse> shift_invert_;
+  std::unique_ptr<RealFactorization> shift_invert_;
 };
 
 /// Spectra operator y = (A − σB)^{-1} B x.
@@ -134,16 +186,12 @@ class PencilShiftInvert {
  public:
   using Scalar = Real;
 
-  PencilShiftInvert(const RealSparse& a, const RealSparse& b, Real sigma) : b_(b) {
-    const RealSparse shifted = a - sigma * b;
-    lu_.compute(shifted);
-    if (lu_.info() != Eigen::Success) {
-      throw Error(fmt::format(
-          "generalized_eigenpairs_near: factorisation of A - {} B failed; the shift hits the "
-          "spectrum or the pencil is singular",
-          sigma));
-    }
-  }
+  PencilShiftInvert(const RealSparse& a, const RealSparse& b, Real sigma,
+                    DirectSolverBackend backend)
+      : b_(b),
+        lu_(RealSparse(a - sigma * b), backend, "generalized_eigenpairs_near",
+            fmt::format("A - {} B (the shift hits the spectrum or the pencil is singular)",
+                        sigma)) {}
   [[nodiscard]] Eigen::Index rows() const { return b_.rows(); }
   [[nodiscard]] Eigen::Index cols() const { return b_.cols(); }
   void perform_op(const Scalar* x_in, Scalar* y_out) const {
@@ -151,16 +199,18 @@ class PencilShiftInvert {
     Eigen::Map<RealVector> y(y_out, b_.rows());
     y = lu_.solve(RealVector(b_ * x));
   }
+  [[nodiscard]] const std::string& solver_name() const noexcept { return lu_.name(); }
 
  private:
   const RealSparse& b_;
-  Eigen::SparseLU<RealSparse> lu_;
+  RealFactorization lu_;
 };
 
 }  // namespace
 
 EigenResult generalized_eigenpairs_near(const SparseMatrix& a_full, const SparseMatrix& b_full,
-                                        Real sigma, const EigenOptions& options) {
+                                        Real sigma, const EigenOptions& options,
+                                        DirectSolverBackend backend) {
   if (a_full.rows() != a_full.cols() || b_full.rows() != a_full.rows() ||
       b_full.cols() != a_full.cols()) {
     throw InvalidArgument("generalized_eigenpairs_near: A and B must be square and of equal size");
@@ -184,7 +234,7 @@ EigenResult generalized_eigenpairs_near(const SparseMatrix& a_full, const Sparse
         fmt::format("generalized_eigenpairs_near: system too small ({} DoFs) for {} eigenvalues", n,
                     options.num_eigenvalues));
   }
-  PencilShiftInvert op(a, b, sigma);
+  PencilShiftInvert op(a, b, sigma, backend);
   Spectra::GenEigsSolver<PencilShiftInvert> solver(op, static_cast<int>(nev),
                                                    static_cast<int>(ncv));
   solver.init();
@@ -229,17 +279,17 @@ EigenResult generalized_eigenpairs_near(const SparseMatrix& a_full, const Sparse
   result.iterations = static_cast<int>(solver.num_iterations());
   log().info(
       "generalized_eigenpairs_near: {} eigenvalues in [{:.6g}, {:.6g}] near {:.6g} after {} "
-      "iterations",
+      "iterations ({})",
       converged, result.eigenvalues.minCoeff(), result.eigenvalues.maxCoeff(), sigma * lambda_scale,
-      solver.num_iterations());
+      solver.num_iterations(), op.solver_name());
   return result;
 }
 
 EigenResult gauged_curl_curl_eigenpairs(const SparseMatrix& stiffness, const SparseMatrix& mass,
                                         const SparseMatrix& gradient,
                                         std::span<const Index> free_nedelec,
-                                        std::span<const Index> free_h1,
-                                        const EigenOptions& options) {
+                                        std::span<const Index> free_h1, const EigenOptions& options,
+                                        DirectSolverBackend backend) {
   if (options.num_eigenvalues < 1) {
     throw InvalidArgument("gauged_curl_curl_eigenpairs: num_eigenvalues must be at least 1");
   }
@@ -260,7 +310,7 @@ EigenResult gauged_curl_curl_eigenpairs(const SparseMatrix& stiffness, const Spa
         options.num_eigenvalues));
   }
 
-  ProjectedShiftInvert op(s, m, g);
+  ProjectedShiftInvert op(s, m, g, backend);
   Spectra::SparseSymMatProd<Real, Eigen::Lower, Eigen::ColMajor, int> bop(m);
   Spectra::SymGEigsShiftSolver<ProjectedShiftInvert, decltype(bop), Spectra::GEigsMode::ShiftInvert>
       solver(op, bop, static_cast<int>(nev), static_cast<int>(ncv), options.shift / lambda_scale);
@@ -280,8 +330,9 @@ EigenResult gauged_curl_curl_eigenpairs(const SparseMatrix& stiffness, const Spa
   const RealVector values = solver.eigenvalues() * lambda_scale;
   // M'-orthonormal -> M-orthonormal
   const RealMatrix vectors = solver.eigenvectors() / std::sqrt(scale_m);
-  log().info("gauged_curl_curl_eigenpairs: {} eigenvalues in [{:.6g}, {:.6g}] after {} iterations",
-             converged, values.minCoeff(), values.maxCoeff(), solver.num_iterations());
+  log().info(
+      "gauged_curl_curl_eigenpairs: {} eigenvalues in [{:.6g}, {:.6g}] after {} iterations ({})",
+      converged, values.minCoeff(), values.maxCoeff(), solver.num_iterations(), op.solver_name());
 
   // scatter to full size (constrained DoFs stay zero)
   EigenResult result;

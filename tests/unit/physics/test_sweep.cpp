@@ -92,6 +92,10 @@ TEST_CASE("one factorisation solves many incident fields", "[physics][sweep]") {
       for (const Real a : angles) incidents.push_back(wave(a));
       const auto swept = hpfem::physics::solve_many<2>(problem, incidents);
       REQUIRE(swept.size() == angles.size());
+      // the batched solve of the operator (one solve_many) agrees with the single solves
+      const auto batched = op.solve_many(incidents, setup.current);
+      REQUIRE(batched.size() == angles.size());
+      CHECK(op.solve_many(std::vector<IncidentField<2>>{}, setup.current).empty());
       for (std::size_t i = 0; i < angles.size(); ++i) {
         ScatteringSetup<2> single = setup;
         single.incident = incidents[i];
@@ -100,6 +104,7 @@ TEST_CASE("one factorisation solves many incident fields", "[physics][sweep]") {
         INFO("formulation " << static_cast<int>(formulation) << ", condense " << condense
                             << ", angle " << angles[i]);
         CHECK((swept[i].unknown - u).norm() < 1e-9 * u.norm());
+        CHECK((batched[i].unknown - u).norm() < 1e-9 * u.norm());
         const Vector v = op.solve(incidents[i]).unknown;
         CHECK((v - u).norm() < 1e-9 * u.norm());
       }

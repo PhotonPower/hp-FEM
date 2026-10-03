@@ -66,16 +66,21 @@ void bind_solvers(py::module_& m) {
       "gauged_curl_curl_eigenpairs",
       [](const SparseMatrix& s, const SparseMatrix& mass, const SparseMatrix& g,
          const std::vector<Index>& free_nedelec, const std::vector<Index>& free_h1,
-         const solvers::EigenOptions& options) {
-        return solvers::gauged_curl_curl_eigenpairs(s, mass, g, free_nedelec, free_h1, options);
+         const solvers::EigenOptions& options, DirectSolverBackend backend) {
+        return solvers::gauged_curl_curl_eigenpairs(s, mass, g, free_nedelec, free_h1, options,
+                                                    backend);
       },
       py::arg("stiffness"), py::arg("mass"), py::arg("gradient"), py::arg("free_nedelec"),
-      py::arg("free_h1"), py::arg("options") = solvers::EigenOptions{}, Release(),
+      py::arg("free_h1"), py::arg("options") = solvers::EigenOptions{},
+      py::arg("backend") = DirectSolverBackend::kAuto, Release(),
       "Smallest eigenpairs of S x = lambda M x on the free DoFs with the gradient kernel "
-      "removed (no spurious zero modes); lossless media only");
+      "removed (no spurious zero modes); lossless media only. backend AUTO keeps the real "
+      "SparseLU, MUMPS / CUDSS factorise the complexified shifted matrix");
   m.def("generalized_eigenpairs_near", &solvers::generalized_eigenpairs_near, py::arg("a"),
-        py::arg("b"), py::arg("sigma"), py::arg("options") = solvers::EigenOptions{}, Release(),
-        "Eigenpairs of A x = lambda B x closest to sigma (B may be indefinite)");
+        py::arg("b"), py::arg("sigma"), py::arg("options") = solvers::EigenOptions{},
+        py::arg("backend") = DirectSolverBackend::kAuto, Release(),
+        "Eigenpairs of A x = lambda B x closest to sigma (B may be indefinite); backend as in "
+        "gauged_curl_curl_eigenpairs");
   py::class_<solvers::ComplexEigenResult>(m, "ComplexEigenResult")
       .def_readonly("eigenvalues", &solvers::ComplexEigenResult::eigenvalues,
                     "closest to the shift first")

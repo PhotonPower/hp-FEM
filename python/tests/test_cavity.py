@@ -2,12 +2,14 @@
 gauged eigensolver returns pi^2 (m^2 + n^2) without spurious modes."""
 
 import numpy as np
+import pytest
 from conftest import boundary_dofs
 
 import hpfem
 
 
-def test_square_cavity_eigenvalues():
+@pytest.mark.parametrize("backend", hpfem.available_backends())
+def test_square_cavity_eigenvalues(backend):
     mesh = hpfem.rectangle(6, 6)
     nd = hpfem.NedelecDofMap2D(mesh, 2)
     h1 = hpfem.DofMap2D(mesh, 2)
@@ -20,6 +22,7 @@ def test_square_cavity_eigenvalues():
         hpfem.free_dofs(nd.num_dofs, boundary_dofs(nd)),
         hpfem.free_dofs(h1.num_dofs, boundary_dofs(h1)),
         hpfem.EigenOptions(num_eigenvalues=5, krylov_dimension=30),
+        backend,
     )
     exact = np.pi**2 * np.array([1, 1, 2, 4, 4])
     assert result.eigenvalues[0] > 0.5 * exact[0]  # no spurious mode near zero

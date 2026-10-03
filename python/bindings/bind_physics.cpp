@@ -182,7 +182,15 @@ void bind_physics_dim(py::module_& m) {
             return op.solve(incident, current);
           },
           py::arg("incident"), py::arg("current") = py::none(), Release(),
-          "solution for another incident field (and current)");
+          "solution for another incident field (and current)")
+      .def(
+          "solve_many",
+          [](const ScatteringOperator<Dim>& op, const std::vector<IncidentField<Dim>>& incidents,
+             const assembly::ComplexVectorField<Dim>& current) {
+            return op.solve_many(incidents, current);
+          },
+          py::arg("incidents"), py::arg("current") = py::none(), Release(),
+          "solutions for several incident fields in one batched solve");
   using physics::Resonance;
   using physics::ResonanceSetup;
   py::class_<ResonanceSetup<Dim>>(
@@ -465,6 +473,8 @@ void bind_physics(py::module_& m) {
                              "tag, PEC facet tags, number of guided modes wanted")
       .def(py::init<>())
       .def_readwrite("omega", &WaveguideSetup::omega)
+      .def_readwrite("solver", &WaveguideSetup::solver,
+                     "direct solver of the shifted pencil (AUTO: real SparseLU)")
       .def_readwrite("materials", &WaveguideSetup::materials)
       .def_readwrite("pec_tags", &WaveguideSetup::pec_tags)
       .def_readwrite("num_modes", &WaveguideSetup::num_modes)

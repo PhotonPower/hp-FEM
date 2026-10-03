@@ -64,6 +64,13 @@ def test_plane_wave_sweep_reuses_the_factorisation():
     assert np.allclose(solutions[0].unknown, reference.unknown, atol=1e-10)
     rotated = hpfem.Scattering2D(dofs, _rotated_setup(problem.setup, k)).solve()
     assert np.allclose(solutions[1].unknown, rotated.unknown, atol=1e-10)
+    # the batched solve of the operator (one solve_many) gives the same solutions
+    incidents = [problem.setup.incident, _rotated_setup(problem.setup, k).incident]
+    batched = operator.solve_many(incidents)
+    assert len(batched) == 2
+    assert np.allclose(batched[0].unknown, reference.unknown, atol=1e-10)
+    assert np.allclose(batched[1].unknown, rotated.unknown, atol=1e-10)
+    assert operator.solve_many([]) == []
 
 
 def _rotated_setup(setup, k):

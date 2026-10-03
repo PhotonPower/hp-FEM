@@ -29,6 +29,7 @@ using hpfem::fespace::DofMap;
 using hpfem::fespace::NedelecDofMap;
 using hpfem::mesh::Mesh;
 using hpfem::mesh::rectangle;
+using hpfem::solvers::DirectSolverBackend;
 using hpfem::solvers::EigenOptions;
 using hpfem::solvers::gauged_curl_curl_eigenpairs;
 
@@ -149,4 +150,27 @@ TEST_CASE("gauged eigenpairs match a dense reference on a small PEC square", "[s
   REQUIRE_THROWS_AS(
       gauged_curl_curl_eigenpairs(sys.stiffness, sys.mass, g, free_nd, free_h1, EigenOptions{0}),
       hpfem::InvalidArgument);
+}
+
+TEST_CASE("gauged eigenpairs: every direct-solver backend gives the same eigenvalues",
+          "[solvers][eigen]") {
+  const Mesh<2> m = rectangle(4, 4);
+  const DofMap<2> h1(m, 2);
+  const NedelecDofMap<2> nd(m, 2);
+  const auto sys = assemble_maxwell(nd, MaxwellForm<2>{});
+  const SparseMatrix g = discrete_gradient(h1, nd);
+  const auto free_nd = free_dofs(nd.num_dofs(), boundary_dofs(nd));
+  const auto free_h1 = free_dofs(h1.num_dofs(), boundary_dofs(h1));
+  EigenOptions options;
+  options.num_eigenvalues = 4;
+  const auto reference = gauged_curl_curl_eigenpairs(sys.stiffness, sys.mass, g, free_nd, free_h1,
+                                                     options, DirectSolverBackend::kSparseLu);
+  for (const DirectSolverBackend backend : hpfem::solvers::available_backends()) {
+    INFO(hpfem::solvers::backend_name(backend));
+    const auto result =
+        gauged_curl_curl_eigenpairs(sys.stiffness, sys.mass, g, free_nd, free_h1, options, backend);
+    REQUIRE(result.eigenvalues.size() == reference.eigenvalues.size());
+    CHECK((result.eigenvalues - reference.eigenvalues).norm() <
+          1e-8 * reference.eigenvalues.norm());
+  }
 }
