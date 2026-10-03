@@ -85,6 +85,22 @@ self-consistent (the permittivities of the final temperature reproduce the final
 to $10^{-5}$ K), the temperature shift scales linearly with a small coefficient (ratio 2
 for twice the coefficient, within 10 %), and under-relaxation reaches the same fixed point.
 
+## Carrier generation for device solvers
+
+Every absorbed photon of energy $\hbar\omega$ creates one electron–hole pair, so the
+generation rate of a monochromatic field is $G = q / (\hbar\omega)$ [1/(m³ s)].
+`physics::absorbed_power_per_cell` integrates $q$ over every cell (the same quadrature as
+`absorbed_power`, which is now its sum) and `hpfem.pv` builds the device-solver quantities
+on top: the generation rate per cell (power over photon energy and cell measure) and as an
+H1 field, the spectral sum over several monochromatic solutions with the weights
+$w_\lambda = S(\lambda)\,\Delta\lambda / I_0$ (spectral irradiance times band width over the
+intensity of the unit incident wave each solution was computed with), the laterally
+averaged depth profile $G(z)$ for one-dimensional device solvers (volume-weighted bins
+over the cell centroids) and the export as meshio cell data or CSV. A damped plane wave
+$e^{ik n x}$ gives the Beer–Lambert profile $G \propto e^{-2k\,\mathrm{Im}(n)\,x}$, which
+the Python test recovers from the binned cells to 1 %. `examples/solar_cell_texture`
+combines light trapping, generation profile and heating of a textured silicon cell.
+
 A thermal problem on the optical mesh is usually over-resolved in the metal and
 under-resolved far away — the optical PML region has no thermal meaning and is simply part
 of the conducting domain (the heat sink is wherever the fixed temperature is set).

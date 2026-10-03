@@ -139,7 +139,10 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] temperature-dependent ε feedback loop — `physics::ThermoOptical` (fixed-point
       iteration with relaxation, complex dεr/dT by tag, per-cell `MaterialMap` overrides),
       unit tests (uncoupled limit, self-consistent fixed point, linear response, relaxation)
-- [ ] carrier-generation profile export for PV device solvers
+- [x] carrier-generation profile export for PV device solvers — `hpfem.pv`
+      (generation rate per cell and as a field, spectral weighting, depth profiles,
+      meshio / CSV export), `physics::absorbed_power_per_cell`, Beer–Lambert check,
+      `examples/solar_cell_texture`
 
 ## Backlog / ideas
 - dual H-formulation for guaranteed error bounds

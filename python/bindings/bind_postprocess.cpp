@@ -125,6 +125,15 @@ void bind_postprocess_dim(py::module_& m) {
       },
       py::arg("dofs"), py::arg("e"), py::arg("omega"), py::arg("materials"), py::arg("surface"),
       py::arg("extra_order") = 2, Release(), "flux of a discrete field, rule degree 2p + extra");
+  m.def(
+      "absorbed_power_per_cell",
+      [](const ND& dofs, const Vector& e, Real omega, const materials::MaterialMap& materials,
+         int extra_order) {
+        return physics::absorbed_power_per_cell<Dim>(dofs, e, omega, materials, extra_order);
+      },
+      py::arg("dofs"), py::arg("e"), py::arg("omega"), py::arg("materials"),
+      py::arg("extra_order") = 2, Release(),
+      "absorbed power of every cell [W, W/m in 2D] (0 in lossless cells)");
   m.def("absorbed_power", &physics::absorbed_power<Dim>, py::arg("dofs"), py::arg("e"),
         py::arg("omega"), py::arg("materials"), py::arg("extra_order") = 2, Release(),
         "omega eps0 / 2 * integral Im(eps_r) |E|^2 over the lossy cells");

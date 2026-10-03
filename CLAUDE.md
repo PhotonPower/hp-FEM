@@ -342,5 +342,10 @@ metasurface unit cell, the VCSEL cavity (with the new complex eigensolver
 `solvers::complex_eigenpairs_near` and `physics::Resonance` for quasi-normal modes), the
 quantum-dot Purcell factor (`physics::gaussian_current`), the 3D EUV mask and the ring
 resonator, each with a README and a regression test in `python/tests/test_examples.py`.
-Next: **M9 — multiphysics**.
+**M9 (multiphysics)** is complete: `physics::Thermal` (heat conduction from the absorbed
+optical power on the same mesh), `physics::ThermoOptical` (temperature-dependent
+permittivity feedback loop with per-cell `MaterialMap` overrides), `hpfem.pv` (carrier
+generation profiles for device solvers) and the `solar_cell_texture` example;
+`docs/theory/multiphysics.md`. All roadmap milestones M0-M9 are done; what remains is the
+backlog (dual formulation, band structures, time domain, GPU assembly, MPI).
 See `docs/roadmap.md`.

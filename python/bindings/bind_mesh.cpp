@@ -163,6 +163,17 @@ void bind_mesh_dim(py::module_& m) {
           [](const M& mesh, Index c) -> Point<Dim> { return mesh::affine_map(mesh, c).centroid(); },
           py::arg("c"), "centroid of the vertices of cell c")
       .def_property_readonly(
+          "cell_volumes",
+          [](const M& mesh) {
+            std::vector<Real> out(as_size(mesh.num_cells()));
+            for (Index c = 0; c < mesh.num_cells(); ++c) {
+              out[as_size(c)] = mesh::affine_map(mesh, c).volume();
+            }
+            return to_array(out);
+          },
+          "measure of every cell from its vertices (area in 2D, volume in 3D; curved cells "
+          "by their chord)")
+      .def_property_readonly(
           "cell_centroids",
           [](const M& mesh) {
             std::vector<Point<Dim>> out(static_cast<std::size_t>(mesh.num_cells()));
