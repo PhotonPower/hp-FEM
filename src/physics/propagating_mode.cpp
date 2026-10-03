@@ -171,7 +171,7 @@ std::vector<WaveguideMode> PropagatingMode<Dim>::solve() const {
   options.tolerance = setup_.tolerance;
   options.max_iterations = setup_.max_iterations;
   const Real sigma = -1.05 * k2 * max_index_ * max_index_;
-  const auto result = solvers::generalized_eigenpairs_near(a, b, sigma, options);
+  const auto result = solvers::generalized_eigenpairs_near(a, b, sigma, options, setup_.solver);
 
   std::vector<WaveguideMode> modes;
   for (Index i = 0; i < result.eigenvalues.size(); ++i) {

@@ -20,6 +20,7 @@
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/mesh.hpp"
+#include "hpfem/solvers/linear_solver.hpp"
 
 namespace hpfem::physics {
 
@@ -34,6 +35,9 @@ struct WaveguideSetup {
   Index krylov_dimension = 0;  ///< 0: 2 num_modes + 10
   Real tolerance = 1e-10;
   int max_iterations = 2000;
+  /// Factorisation of the shifted pencil (`kAuto`: real Eigen SparseLU; `kMumps` / `kCudss`
+  /// factorise the complexified pencil, see `solvers::generalized_eigenpairs_near`).
+  solvers::DirectSolverBackend solver = solvers::DirectSolverBackend::kAuto;
 };
 
 /// One guided mode: @f$ E = (E_t + \hat z E_z)\,e^{i\beta z} @f$ with real coefficients of

@@ -185,11 +185,23 @@ int main(int argc, char** argv) {
   const SolveTimes cpu = cpu_solve(a, b, 20);
   std::printf("Solve CPU SparseLU: factorise %.3e s, solve %.3e s, 8 rhs %.3e s, residual %.1e\n",
               cpu.factorize, cpu.solve, cpu.solve_8, cpu.residual);
+  // unscaled first: documents how many pivots cuDSS perturbs on the SI-scaled matrix
   std::vector<Complex> x_gpu;
-  SolveTimes gpu_times = gpu_solve(a, b, x_gpu, 20);
+  SolveTimes unscaled = gpu_solve(a, b, x_gpu, 4);
+  unscaled.residual = relative_residual(a, x_gpu, b);
+  std::printf(
+      "Solve GPU cuDSS (unscaled): factorise %.3e s, residual %.1e, %lld perturbed pivots\n",
+      unscaled.factorize, unscaled.residual, unscaled.pivots);
+  double max_abs = 0;
+  for (const Complex& v : a.val) max_abs = std::max(max_abs, std::abs(v));
+  const double scale = 1.0 / max_abs;
+  SolveTimes gpu_times = gpu_solve(a, b, x_gpu, 20, scale);
   gpu_times.residual = relative_residual(a, x_gpu, b);
-  std::printf("Solve GPU cuDSS   : factorise %.3e s, solve %.3e s, 8 rhs %.3e s, residual %.1e\n",
-              gpu_times.factorize, gpu_times.solve, gpu_times.solve_8, gpu_times.residual);
+  std::printf(
+      "Solve GPU cuDSS   : factorise %.3e s, solve %.3e s, 8 rhs %.3e s, residual %.1e, %lld "
+      "perturbed pivots (scale %.1e)\n",
+      gpu_times.factorize, gpu_times.solve, gpu_times.solve_8, gpu_times.residual, gpu_times.pivots,
+      scale);
   std::printf("      speedup factorise %.1fx, solve %.1fx, 8 rhs %.1fx\n",
               cpu.factorize / gpu_times.factorize, cpu.solve / gpu_times.solve,
               cpu.solve_8 / gpu_times.solve_8);
@@ -203,7 +215,10 @@ int main(int argc, char** argv) {
         << ", \"solve8_cpu_s\": " << cpu.solve_8 << ", \"factorize_gpu_s\": " << gpu_times.factorize
         << ", \"solve_gpu_s\": " << gpu_times.solve << ", \"solve8_gpu_s\": " << gpu_times.solve_8
         << ", \"residual_cpu\": " << cpu.residual << ", \"residual_gpu\": " << gpu_times.residual
-        << "}\n";
+        << ", \"pivots_gpu\": " << gpu_times.pivots << ", \"scale\": " << scale
+        << ", \"factorize_gpu_unscaled_s\": " << unscaled.factorize
+        << ", \"residual_gpu_unscaled\": " << unscaled.residual
+        << ", \"pivots_gpu_unscaled\": " << unscaled.pivots << "}\n";
   }
   return 0;
 }

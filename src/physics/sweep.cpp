@@ -57,13 +57,13 @@ ScatteringSolution<Dim> ScatteringOperator<Dim>::solve(
 }
 
 template <int Dim>
-ScatteringSolution<Dim> ScatteringOperator<Dim>::solve_setup(
-    const ScatteringSetup<Dim>& setup) const {
+Vector ScatteringOperator<Dim>::reduced_load(const ScatteringSetup<Dim>& setup,
+                                             Vector& full_load) const {
   const auto& dofs = problem_->dofs();
   const Scattering<Dim> variant(dofs, setup);  // the forms and Dirichlet data of this setup
   Vector load = assembly::assemble_maxwell_load<Dim>(
       dofs, [&variant](Index c) { return variant.form_of_cell(c); }, setup.extra_quadrature_order);
-  const Vector full_load = load;
+  full_load = load;
   if (condensation_) load = condensation_->condense_load(load);
   if (constraints_) load = constraints_->reduce_rhs(load);
   // Dirichlet values of this setup on the problem's Dirichlet set
@@ -80,20 +80,53 @@ ScatteringSolution<Dim> ScatteringOperator<Dim>::solve_setup(
     values(j++) = data.values(i);
   }
   elimination_->apply(load, values);
-  Vector x = solver_->solve(load);
+  return load;
+}
+
+template <int Dim>
+ScatteringSolution<Dim> ScatteringOperator<Dim>::finish(Vector x, const Vector& full_load,
+                                                        Formulation formulation) const {
   if (constraints_) x = constraints_->expand(x);
   if (condensation_) x = condensation_->recover(x, full_load);
-  return {setup.formulation, std::move(x)};
+  return {formulation, std::move(x)};
+}
+
+template <int Dim>
+ScatteringSolution<Dim> ScatteringOperator<Dim>::solve_setup(
+    const ScatteringSetup<Dim>& setup) const {
+  Vector full_load;
+  const Vector load = reduced_load(setup, full_load);
+  return finish(solver_->solve(load), full_load, setup.formulation);
+}
+
+template <int Dim>
+std::vector<ScatteringSolution<Dim>> ScatteringOperator<Dim>::solve_many(
+    std::span<const IncidentField<Dim>> incidents,
+    const assembly::ComplexVectorField<Dim>& current) const {
+  std::vector<ScatteringSolution<Dim>> out;
+  if (incidents.empty()) return out;
+  ScatteringSetup<Dim> setup = problem_->setup();
+  setup.current = current;
+  const Index count = static_cast<Index>(incidents.size());
+  std::vector<Vector> full_loads(incidents.size());
+  Matrix loads(solver_->size(), count);
+  for (Index j = 0; j < count; ++j) {
+    setup.incident = incidents[as_size(j)];
+    loads.col(j) = reduced_load(setup, full_loads[as_size(j)]);
+  }
+  const Matrix x = solver_->solve_many(loads);
+  out.reserve(incidents.size());
+  for (Index j = 0; j < count; ++j) {
+    out.push_back(finish(x.col(j), full_loads[as_size(j)], setup.formulation));
+  }
+  return out;
 }
 
 template <int Dim>
 std::vector<ScatteringSolution<Dim>> solve_many(const Scattering<Dim>& problem,
                                                 std::span<const IncidentField<Dim>> incidents) {
   const ScatteringOperator<Dim> op(problem);
-  std::vector<ScatteringSolution<Dim>> out;
-  out.reserve(incidents.size());
-  for (const auto& incident : incidents) out.push_back(op.solve(incident, problem.setup().current));
-  return out;
+  return op.solve_many(incidents, problem.setup().current);
 }
 
 template <int Dim>

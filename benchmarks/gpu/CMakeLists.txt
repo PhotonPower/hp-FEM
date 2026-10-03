@@ -9,11 +9,14 @@
 #
 # The matrices come from benchmarks/gpu/export_matrices.py.
 cmake_minimum_required(VERSION 3.25)
+# must precede project(): the CUDA compiler check fixes the architecture list
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES OR CMAKE_CUDA_ARCHITECTURES STREQUAL "")
+  set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA architectures (86 = Ampere / RTX 30xx)")
+endif()
 project(hpfem_gpu_bench LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CUDA_STANDARD 20)
-set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA architectures")
 
 find_package(CUDAToolkit REQUIRED)
 find_package(cudss REQUIRED)

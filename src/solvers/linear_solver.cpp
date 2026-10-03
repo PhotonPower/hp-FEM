@@ -62,7 +62,10 @@ class SparseLuSolver final : public LinearSolver {
       throw InvalidArgument(
           fmt::format("SparseLU: right-hand sides have {} rows, system has {}", rhs.rows(), size_));
     }
-    if (rhs.cols() == 0) return Matrix(size_, 0);  // SparseLU's solve indexes column 0
+    if (rhs.cols() == 0) {
+      Matrix empty(size_, 0);  // SparseLU's solve indexes column 0 of the right-hand side
+      return empty;
+    }
     Matrix x = lu_.solve(rhs);
     if (lu_.info() != Eigen::Success) throw Error("SparseLU: triangular solve failed");
     return x;
@@ -102,23 +105,15 @@ std::string cudss_status() {
 #endif
 
 bool available(DirectSolverBackend backend) noexcept {
-  switch (backend) {
-    case DirectSolverBackend::kAuto:
-    case DirectSolverBackend::kSparseLu:
-      return true;
-    case DirectSolverBackend::kMumps:
-#ifdef HPFEM_HAVE_MUMPS
-      return true;
-#else
-      return false;
-#endif
-    case DirectSolverBackend::kCudss:
-#ifdef HPFEM_HAVE_CUDA
-      return cudss_available();
-#else
-      return false;
-#endif
+  if (backend == DirectSolverBackend::kAuto || backend == DirectSolverBackend::kSparseLu) {
+    return true;
   }
+#ifdef HPFEM_HAVE_MUMPS
+  if (backend == DirectSolverBackend::kMumps) return true;
+#endif
+#ifdef HPFEM_HAVE_CUDA
+  if (backend == DirectSolverBackend::kCudss) return cudss_available();
+#endif
   return false;
 }
 

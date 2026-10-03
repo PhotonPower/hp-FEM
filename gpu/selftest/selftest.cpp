@@ -267,6 +267,13 @@ int main(int argc, char** argv) {
   run_case("random sparse, general", random_system(n_random, 1), HPFEM_GPU_MATRIX_GENERAL, 1);
   run_case("random sparse, general, 4 rhs", random_system(n_random, 1), HPFEM_GPU_MATRIX_GENERAL,
            4);
+  {
+    // SI-scaled system (entries ~ 1e-16): cuDSS's absolute pivot threshold would perturb
+    // every pivot without the internal scaling
+    Csr tiny = helmholtz_1d(n);
+    for (auto& v : tiny.val) v *= 1e-16;
+    run_case("1D Helmholtz scaled by 1e-16", tiny, HPFEM_GPU_MATRIX_GENERAL, 2);
+  }
   run_error_paths();
 
   std::printf("%d failure(s)\n", failures);

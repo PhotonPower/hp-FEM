@@ -3,6 +3,22 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- cuDSS and `solve_many` where one factorisation serves many solves (ADR-0008 follow-up):
+  `ScatteringOperator::solve_many(incidents, current)` assembles the loads of several
+  incident fields and applies the factorisation in one batched solve (`physics::solve_many`
+  and `plane_wave_sweep` use it); the real shift-invert eigensolvers
+  `gauged_curl_curl_eigenpairs` and `generalized_eigenpairs_near` take a
+  `DirectSolverBackend` (`kAuto` keeps the real SparseLU, `kMumps` / `kCudss` factorise
+  the complexified shifted matrix), `WaveguideSetup::solver` passes it on; Python
+  `ScatteringOperator2D/3D.solve_many`, `backend` arguments of both eigensolvers. The GPU
+  library factorises `s·A` with `s = 1/max|a_ij|` (cuDSS judges tiny pivots by an absolute
+  threshold, which the SI-scaled Newmark operator trips) and rescales the solutions; the
+  micro-benchmark does the same and records the perturbed-pivot count.
+  `benchmarks/solver_integration.cpp` (transient cavity, 8-angle sweep one by one against
+  batched, resonance Arnoldi, real gauged Lanczos with every backend) with results in
+  `benchmarks/results/2026-10-03-VR-gpu-integration.json`: on the RTX 3090 the cuDSS
+  time step is 3.8× faster than MUMPS, the batched 8-rhs solve 5.7×, the resonance solve
+  1.9×.
 - `physics::AxisymmetricCavity` (M11, ADR-0010): eigenmodes of bodies of revolution on the
   meridian mesh, one 2D problem per azimuthal order m. `assembly::assemble_axisymmetric`
   builds the order-m curl–curl and mass forms with (E_r, E_z) in the 2D Nédélec space and
