@@ -79,3 +79,9 @@ hpfem_add_test(convergence_metal_grating "convergence;validation"
 add_test(NAME validation_long_metal_grating
   COMMAND convergence_metal_grating "[validation-long]")
 set_tests_properties(validation_long_metal_grating PROPERTIES LABELS "validation-long")
+
+hpfem_add_test(convergence_slit_groove "convergence;validation"
+  slit_groove.cpp)
+add_test(NAME validation_long_slit_groove
+  COMMAND convergence_slit_groove "[validation-long]")
+set_tests_properties(validation_long_slit_groove PROPERTIES LABELS "validation-long")
