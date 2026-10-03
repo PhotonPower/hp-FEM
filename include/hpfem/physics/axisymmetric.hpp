@@ -249,4 +249,32 @@ class AxisymmetricScattering {
     const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
     Real omega, const materials::MaterialMap& materials, const Surface<2>& surface, int order = 8);
 
+/// Far-field pattern of an order-m field, @f$ E \approx F(\theta)\,e^{im\varphi}\,e^{ikR}/R @f$
+/// in the background medium, sampled at the polar angles `theta` (from the +z axis).
+struct AxisymmetricFarField {
+  int azimuthal_order = 0;
+  Real wavenumber = 0;           ///< k of the background [1/m]
+  Real impedance = 0;            ///< Z of the background [Ohm]
+  std::vector<Real> theta;       ///< polar angles [rad]
+  std::vector<Complex> f_theta;  ///< @f$ F_\theta(\theta) @f$ at φ = 0 [V/m · m]
+  std::vector<Complex> f_phi;    ///< @f$ F_\varphi(\theta) @f$ at φ = 0 [V/m · m]
+  /// Radiated power @f$ \int |F|^2 d\Omega / (2Z) @f$ [W] of this order by the trapezoidal
+  /// rule over the sampled angles (which should cover 0 … π).
+  [[nodiscard]] Real radiated_power() const;
+};
+
+/// Near-to-far-field transform of the order-m field on a closed surface of revolution in the
+/// homogeneous background (same formula as `FarField<3>`: @f$ F = \frac{ik}{4\pi}[Z N_t -
+/// \hat r\times L] @f$ with @f$ N = \int J e^{-ik\hat r\cdot x'} @f$, @f$ L = \int M e^{-ik\hat
+/// r\cdot x'} @f$, @f$ J = n\times H @f$, @f$ M = -n\times E @f$); the azimuthal integration is
+/// done analytically with the Bessel functions @f$ J_m, J_{m\pm1}(k\rho\sin\theta) @f$, so
+/// only the meridian curve is integrated numerically. `background` gives k and Z; the surface
+/// must enclose every source and scatterer and lie in that medium.
+/// @throws InvalidArgument if the coefficient vectors do not match the maps.
+[[nodiscard]] AxisymmetricFarField axisymmetric_far_field(
+    const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
+    const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
+    Real omega, const materials::MaterialMap& materials, const Surface<2>& surface,
+    const std::vector<Real>& theta, int order = 8);
+
 }  // namespace hpfem::physics

@@ -74,7 +74,8 @@ hpfem_add_test(test_physics unit
   physics/test_axisymmetric.cpp
   physics/test_axisymmetric_resonance.cpp
   physics/test_axisymmetric_scattering.cpp
-  physics/test_axisymmetric_dipole.cpp)
+  physics/test_axisymmetric_dipole.cpp
+  physics/test_axisymmetric_farfield.cpp)
 
 hpfem_add_test(test_hanging unit
   assembly/test_interpolation.cpp

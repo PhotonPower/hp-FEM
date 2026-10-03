@@ -332,6 +332,55 @@ AxisymmetricScatteredField AxisymmetricScattering::solve() const {
   return out;
 }
 
+namespace {
+
+/// Cylindrical components of E and H of the order-m field at reference point ξ of a cell.
+struct ModeFields {
+  Complex e_r, e_phi, e_z;
+  Complex h_r, h_phi, h_z;
+};
+
+ModeFields mode_fields_at(const fespace::NedelecDofMap<2>& meridian,
+                          const fespace::DofMap<2>& azimuthal, const Vector& meridian_coefficients,
+                          const Vector& azimuthal_coefficients, int azimuthal_order, Real omega,
+                          const materials::MaterialMap& materials, Index c, const Point<2>& xi,
+                          Real r) {
+  const auto& mesh = meridian.mesh();
+  const Real mm = static_cast<Real>(azimuthal_order);
+  const assembly::ComplexVector<2> e =
+      assembly::evaluate_hcurl<2>(meridian, meridian_coefficients, c, xi);
+  // the 2D scalar curl d_r E_z - d_z E_r is minus the azimuthal cylindrical component
+  const Complex curl_phi =
+      -assembly::evaluate_hcurl_curl<2>(meridian, meridian_coefficients, c, xi)(0);
+  const fespace::H1Basis<2> basis(azimuthal.cell_layout(c));
+  const auto geometry = mesh::cell_geometry(mesh, c);
+  const auto g = geometry->evaluate(xi);
+  std::vector<Real> psi(as_size(basis.size()));
+  std::vector<Point<2>> ref_grad(as_size(basis.size()));
+  basis.evaluate(xi, psi, ref_grad);
+  const auto dofs = azimuthal.cell_dofs(c);
+  Complex v = 0;
+  Eigen::Matrix<Complex, 2, 1> grad_v = Eigen::Matrix<Complex, 2, 1>::Zero();
+  for (Index i = 0; i < basis.size(); ++i) {
+    const Complex coefficient = azimuthal_coefficients(dofs[as_size(i)]);
+    v += coefficient * psi[as_size(i)];
+    grad_v += coefficient * (g.inverse_transpose * ref_grad[as_size(i)]).template cast<Complex>();
+  }
+  ModeFields f;
+  f.e_r = e(0);
+  f.e_z = e(1);
+  f.e_phi = kI * v / r;
+  const Complex curl_r = kI * (mm * e(1) - grad_v(1)) / r;
+  const Complex curl_z = kI * (grad_v(0) - mm * e(0)) / r;
+  const Complex factor = 1.0 / (kI * omega * constants::mu0 * materials.of_cell(mesh, c).mu_r);
+  f.h_r = factor * curl_r;
+  f.h_phi = factor * curl_phi;
+  f.h_z = factor * curl_z;
+  return f;
+}
+
+}  // namespace
+
 Real axisymmetric_poynting_flux(const fespace::NedelecDofMap<2>& meridian,
                                 const fespace::DofMap<2>& azimuthal,
                                 const Vector& meridian_coefficients,
@@ -342,47 +391,123 @@ Real axisymmetric_poynting_flux(const fespace::NedelecDofMap<2>& meridian,
       azimuthal_coefficients.size() != azimuthal.num_dofs()) {
     throw InvalidArgument("axisymmetric_poynting_flux: coefficients do not match the maps");
   }
-  const auto& mesh = meridian.mesh();
-  const Real mm = static_cast<Real>(azimuthal_order);
   Real power = 0;
-  for (const auto& point : surface_quadrature<2>(mesh, surface, order)) {
+  for (const auto& point : surface_quadrature<2>(meridian.mesh(), surface, order)) {
     const Real r = point.x(0);
     if (!(r > 0)) continue;  // the axis contributes nothing (weight r)
-    const Index c = point.cell;
-    // meridian field and its scalar curl, azimuthal v and its gradient
-    const assembly::ComplexVector<2> e =
-        assembly::evaluate_hcurl<2>(meridian, meridian_coefficients, c, point.xi);
-    // the 2D scalar curl d_r E_z - d_z E_r is minus the azimuthal cylindrical component
-    const Complex curl_phi =
-        -assembly::evaluate_hcurl_curl<2>(meridian, meridian_coefficients, c, point.xi)(0);
-    const fespace::H1Basis<2> basis(azimuthal.cell_layout(c));
-    const auto geometry = mesh::cell_geometry(mesh, c);
-    const auto g = geometry->evaluate(point.xi);
-    std::vector<Real> psi(as_size(basis.size()));
-    std::vector<Point<2>> ref_grad(as_size(basis.size()));
-    basis.evaluate(point.xi, psi, ref_grad);
-    const auto dofs = azimuthal.cell_dofs(c);
-    Complex v = 0;
-    Eigen::Matrix<Complex, 2, 1> grad_v = Eigen::Matrix<Complex, 2, 1>::Zero();
-    for (Index i = 0; i < basis.size(); ++i) {
-      const Complex coefficient = azimuthal_coefficients(dofs[as_size(i)]);
-      v += coefficient * psi[as_size(i)];
-      grad_v += coefficient * (g.inverse_transpose * ref_grad[as_size(i)]).template cast<Complex>();
-    }
-    const Complex e_phi = kI * v / r;
-    const Complex curl_r = kI * (mm * e(1) - grad_v(1)) / r;
-    const Complex curl_z = kI * (grad_v(0) - mm * e(0)) / r;
-    const Complex mu = constants::mu0 * materials.of_cell(mesh, c).mu_r;
-    const Complex factor = 1.0 / (kI * omega * mu);
-    const Complex h_r = factor * curl_r;
-    const Complex h_phi = factor * curl_phi;
-    const Complex h_z = factor * curl_z;
-    const Complex s_r = e_phi * std::conj(h_z) - e(1) * std::conj(h_phi);
-    const Complex s_z = e(0) * std::conj(h_phi) - e_phi * std::conj(h_r);
+    const ModeFields f =
+        mode_fields_at(meridian, azimuthal, meridian_coefficients, azimuthal_coefficients,
+                       azimuthal_order, omega, materials, point.cell, point.xi, r);
+    const Complex s_r = f.e_phi * std::conj(f.h_z) - f.e_z * std::conj(f.h_phi);
+    const Complex s_z = f.e_r * std::conj(f.h_phi) - f.e_phi * std::conj(f.h_r);
     power += point.weight * 2 * constants::pi * r * 0.5 *
              (s_r * point.normal(0) + s_z * point.normal(1)).real();
   }
   return power;
+}
+
+Real AxisymmetricFarField::radiated_power() const {
+  Real integral = 0;
+  for (std::size_t i = 1; i < theta.size(); ++i) {
+    const auto density = [&](std::size_t j) {
+      return (std::norm(f_theta[j]) + std::norm(f_phi[j])) * std::sin(theta[j]);
+    };
+    integral += 0.5 * (density(i - 1) + density(i)) * (theta[i] - theta[i - 1]);
+  }
+  return 2 * constants::pi * integral / (2 * impedance);
+}
+
+AxisymmetricFarField axisymmetric_far_field(
+    const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
+    const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
+    Real omega, const materials::MaterialMap& materials, const Surface<2>& surface,
+    const std::vector<Real>& theta, int order) {
+  if (meridian_coefficients.size() != meridian.num_dofs() ||
+      azimuthal_coefficients.size() != azimuthal.num_dofs()) {
+    throw InvalidArgument("axisymmetric_far_field: coefficients do not match the maps");
+  }
+  const auto& background = materials.background();
+  const Real index = std::sqrt(background.eps_r * background.mu_r).real();
+  const Real k = omega / constants::c0 * index;
+  const Real impedance = constants::Z0 * std::sqrt(background.mu_r / background.eps_r).real();
+  AxisymmetricFarField out;
+  out.azimuthal_order = azimuthal_order;
+  out.wavenumber = k;
+  out.impedance = impedance;
+  out.theta = theta;
+  out.f_theta.assign(theta.size(), Complex{0.0, 0.0});
+  out.f_phi.assign(theta.size(), Complex{0.0, 0.0});
+  // equivalent currents J = n x H, M = -n x E on the meridian curve (n_phi = 0), in
+  // cylindrical components; the phi integration with e^{im phi'} against the plane-wave
+  // phase e^{-ik rho sin(theta) cos(phi' - phi)} gives, at phi = 0,
+  //   I_n = 2 pi (-i)^n J_n(k rho sin theta)
+  // for the weights 1 (I_m), cos phi' ((I_{m+1} + I_{m-1}) / 2) and sin phi' ((I_{m+1} -
+  // I_{m-1}) / (2i)) of the Cartesian components of a cylindrical vector.
+  struct Current {
+    Point<2> x;
+    Real weight;
+    Complex j_r, j_phi, j_z, m_r, m_phi, m_z;
+  };
+  std::vector<Current> currents;
+  for (const auto& point : surface_quadrature<2>(meridian.mesh(), surface, order)) {
+    const Real r = point.x(0);
+    if (!(r > 0)) continue;
+    const ModeFields f =
+        mode_fields_at(meridian, azimuthal, meridian_coefficients, azimuthal_coefficients,
+                       azimuthal_order, omega, materials, point.cell, point.xi, r);
+    const Real n_r = point.normal(0);
+    const Real n_z = point.normal(1);
+    Current c;
+    c.x = point.x;
+    c.weight = point.weight * r;  // dS' = rho dphi' ds', the phi' integral is analytic
+    c.j_r = -n_z * f.h_phi;
+    c.j_phi = n_z * f.h_r - n_r * f.h_z;
+    c.j_z = n_r * f.h_phi;
+    c.m_r = n_z * f.e_phi;
+    c.m_phi = -(n_z * f.e_r - n_r * f.e_z);
+    c.m_z = -n_r * f.e_phi;
+    currents.push_back(c);
+  }
+  const auto bessel = [](int n, Real x) {
+    const Real value = std::cyl_bessel_j(static_cast<Real>(std::abs(n)), x);
+    return (n < 0 && (std::abs(n) % 2 == 1)) ? -value : value;
+  };
+  const auto power_of_minus_i = [](int n) {
+    static const Complex table[4] = {{1.0, 0.0}, {0.0, -1.0}, {-1.0, 0.0}, {0.0, 1.0}};
+    return table[((n % 4) + 4) % 4];
+  };
+  const int m = azimuthal_order;
+  for (std::size_t t = 0; t < theta.size(); ++t) {
+    const Real sin_t = std::sin(theta[t]);
+    const Real cos_t = std::cos(theta[t]);
+    Eigen::Matrix<Complex, 3, 1> n_vec = Eigen::Matrix<Complex, 3, 1>::Zero();
+    Eigen::Matrix<Complex, 3, 1> l_vec = Eigen::Matrix<Complex, 3, 1>::Zero();
+    for (const Current& c : currents) {
+      const Real alpha = k * c.x(0) * sin_t;
+      const Complex phase = std::exp(-kI * k * c.x(1) * cos_t);
+      const Complex i_m = 2 * constants::pi * power_of_minus_i(m) * bessel(m, alpha);
+      const Complex i_plus = 2 * constants::pi * power_of_minus_i(m + 1) * bessel(m + 1, alpha);
+      const Complex i_minus = 2 * constants::pi * power_of_minus_i(m - 1) * bessel(m - 1, alpha);
+      const Complex cosine = 0.5 * (i_plus + i_minus);
+      const Complex sine = (i_plus - i_minus) / (2.0 * kI);
+      const Complex w = c.weight * phase;
+      n_vec(0) += w * (c.j_r * cosine - c.j_phi * sine);
+      n_vec(1) += w * (c.j_r * sine + c.j_phi * cosine);
+      n_vec(2) += w * c.j_z * i_m;
+      l_vec(0) += w * (c.m_r * cosine - c.m_phi * sine);
+      l_vec(1) += w * (c.m_r * sine + c.m_phi * cosine);
+      l_vec(2) += w * c.m_z * i_m;
+    }
+    // spherical components at phi = 0: theta_hat = (cos t, 0, -sin t), phi_hat = (0, 1, 0)
+    const Complex n_theta = n_vec(0) * cos_t - n_vec(2) * sin_t;
+    const Complex n_phi = n_vec(1);
+    const Complex l_theta = l_vec(0) * cos_t - l_vec(2) * sin_t;
+    const Complex l_phi = l_vec(1);
+    const Complex prefactor = kI * k / (4 * constants::pi);
+    out.f_theta[t] = prefactor * (impedance * n_theta + l_phi);
+    out.f_phi[t] = prefactor * (impedance * n_phi - l_theta);
+  }
+  return out;
 }
 
 }  // namespace hpfem::physics
