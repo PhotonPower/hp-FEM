@@ -61,7 +61,7 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] **convergence test #6**: lamellar grating efficiencies vs. RCWA
 - [x] examples: `cavity_modes`, `mie_cylinder`, `slab_waveguide`, `lamellar_grating`
 
-## M5 — Adaptivity: a-posteriori estimation and hp-refinement (≈ 10)
+## M5 — Adaptivity: a-posteriori estimation and hp-refinement (≈ 10) ✅
 - [x] residual-based estimator for curl–curl (theory/error-estimation.md):
       element residual + tangential-curl jump + normal-displacement jump
 - [x] Dörfler marking
@@ -77,7 +77,7 @@ holds. Estimated effort is in rough "focused sessions".
       then plasmonic wedge) — `adaptive_hp_refinement` and `plasmonic_wedge`
 - [x] example `plasmonic_dimer`
 
-## M6 — Solvers & performance (≈ 8)
+## M6 — Solvers & performance (≈ 8) ✅ (apart from the optional MPI item)
 - [x] MUMPS / PARDISO backend behind `solvers::DirectSolver` — MUMPS (sequential complex
       build) behind `solvers::LinearSolver` / `DirectSolverBackend` (ADR-0007); PARDISO
       can follow as another backend
@@ -91,7 +91,7 @@ holds. Estimated effort is in rough "focused sessions".
 - [ ] optional: MPI domain decomposition (own ADR before starting)
 - [x] benchmarks recorded in `benchmarks/results/` (`bench_assembly_solve`)
 
-## M7 — Python API & usability (≈ 6)
+## M7 — Python API & usability (≈ 6) ✅
 - [x] bindings for mesh, spaces, materials, problems, solvers, post-processing —
       `python/bindings/bind_*.cpp` (pybind11, `<Name>2D` / `<Name>3D`, NumPy / SciPy at
       the boundary, callbacks with the GIL, exceptions mapped), `python/tests/`,
@@ -103,11 +103,14 @@ holds. Estimated effort is in rough "focused sessions".
 - [x] JSON/YAML project files (`hpfem run project.json`) + CLI — `hpfem.project`
       (scattering / waveguide / cavity, sweeps, outputs), `hpfem.cli` (`run`, `validate`,
       `info`, `materials`), `examples/*/project.json`
-- [ ] meshio / pyvista interop, matplotlib helpers
+- [x] meshio / pyvista interop, matplotlib helpers — `python/hpfem/interop.py`
+      (`to_meshio` / `from_meshio` / `field_to_meshio`, `to_pyvista` / `field_to_pyvista`
+      on the subdivided mesh, `plot_mesh` / `plot_field` / `plot_convergence` /
+      `plot_far_field`), `python/tests/test_interop.py` (commit 2265608)
 - [x] Jupyter example notebooks — `examples/notebooks/` (Mie cylinder, hp-adaptivity on
       the L-shape, gold nanowire spectrum), executed by `python/tests/test_notebooks.py`
 
-## M8 — Application examples (≈ 6)
+## M8 — Application examples (≈ 6) ✅
 - [x] `metasurface_unitcell`: phase/transmission map over pillar diameter —
       `examples/metasurface_unitcell/run.py` (TiO₂ ridges on SiO₂, Bloch unit cell with
       PML, zeroth-order transmission and phase over the width), regression test in
@@ -130,7 +133,7 @@ holds. Estimated effort is in rough "focused sessions".
       `Resonance2D`, transmission spectrum from a Gaussian current in the bus; the dip sits
       at the eigenmode resonance)
 
-## M9 — Multiphysics (≈ 8)
+## M9 — Multiphysics (≈ 8) ✅
 - [x] absorbed-power density → heat-conduction solve on the same mesh (H1) —
       `physics::absorbed_power_load` / `absorbed_power_density`, `physics::Thermal`
       (κ by tag, fixed temperatures, hanging nodes), convergence test `heat_conduction`
