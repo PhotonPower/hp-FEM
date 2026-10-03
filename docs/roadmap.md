@@ -189,7 +189,9 @@ Bodies of revolution on the meridian mesh, one 2D problem per azimuthal order m.
   of the smeared dipole, Purcell peak at the TM_1 Mie pole
 - [x] the micropillar quantum-dot example (`examples/micropillar_qd`: resonance of the
   fundamental m = 1 mode, Purcell and beta factor of the in-plane dipole, regression test)
-- [ ] far field from the m contributions
+- [x] far field from the m contributions (`axisymmetric_far_field`: Stratton–Chu with the
+  analytic azimuthal integration; Larmor pattern of the dipole, Mie cross-section from the
+  far field)
 - [ ] later: coupled orders for oblique incidence, adaptivity on the meridian plane with
   the r-weighted estimator
 
