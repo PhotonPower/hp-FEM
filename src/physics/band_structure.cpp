@@ -69,7 +69,8 @@ BandStructure<Dim>::BandStructure(const fespace::NedelecDofMap<Dim>& dofs,
     const auto f = mesh.facets_with_tag(tag);
     facets.insert(facets.end(), f.begin(), f.end());
   }
-  free_nd_ = assembly::free_dofs(dofs.num_dofs(), assembly::homogeneous_dirichlet(dofs, facets).dofs);
+  free_nd_ =
+      assembly::free_dofs(dofs.num_dofs(), assembly::homogeneous_dirichlet(dofs, facets).dofs);
   free_h1_ = assembly::free_dofs(h1.num_dofs(), assembly::homogeneous_dirichlet(h1, facets).dofs);
   log().info("BandStructure<{}>: {} Nédélec and {} H1 DoFs, {} lattice vectors", Dim,
              dofs.num_dofs(), h1.num_dofs(), setup_.lattice.size());

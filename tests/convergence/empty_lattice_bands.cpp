@@ -74,7 +74,8 @@ TEST_CASE("Empty lattice bands converge exponentially in p and with rate 2p in h
           "[convergence][bands]") {
   const auto reference = exact();
   fmt::print("\nEmpty square lattice, k = ({}, {}): bands {:.6f}, {:.6f}, {:.6f}, {:.6f}\n",
-             kWaveVector(0), kWaveVector(1), reference[0], reference[1], reference[2], reference[3]);
+             kWaveVector(0), kWaveVector(1), reference[0], reference[1], reference[2],
+             reference[3]);
   fmt::print("p-refinement, 4 x 4 cells\n{:>4} {:>8} {:>12}\n", "p", "DoF", "max rel. err");
   Real previous = 1.0;
   for (int p = 1; p <= 4; ++p) {

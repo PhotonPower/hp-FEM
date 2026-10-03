@@ -131,8 +131,8 @@ TEST_CASE("complex_eigenpairs_near_gauged skips the kernel spanned by the gradie
                                                0.3 * random.topLeftCorner(kernel, kernel));
   Vector weights(n - kernel);
   for (Index i = 0; i < n - kernel; ++i) weights(i) = 1.0 + 0.5 * static_cast<Real>(i);
-  const Matrix a_dense = q.rightCols(n - kernel) * weights.asDiagonal() *
-                         q.rightCols(n - kernel).adjoint();
+  const Matrix a_dense =
+      q.rightCols(n - kernel) * weights.asDiagonal() * q.rightCols(n - kernel).adjoint();
   Matrix b_dense = Matrix::Identity(n, n);
   for (Index i = 0; i < n; ++i) b_dense(i, i) = 1.0 + 0.1 * static_cast<Real>(i % 3);
   const SparseMatrix a = a_dense.sparseView();
@@ -158,7 +158,7 @@ TEST_CASE("complex_eigenpairs_near_gauged skips the kernel spanned by the gradie
   // the ungauged solver finds the kernel first
   const auto plain = complex_eigenpairs_near(a, b, sigma, options);
   REQUIRE(std::abs(plain.eigenvalues(0)) < 1e-8);
-  REQUIRE_THROWS_AS(hpfem::solvers::complex_eigenpairs_near_gauged(a, b, SparseMatrix(n - 1, 2),
-                                                                   sigma, options),
-                    hpfem::InvalidArgument);
+  REQUIRE_THROWS_AS(
+      hpfem::solvers::complex_eigenpairs_near_gauged(a, b, SparseMatrix(n - 1, 2), sigma, options),
+      hpfem::InvalidArgument);
 }

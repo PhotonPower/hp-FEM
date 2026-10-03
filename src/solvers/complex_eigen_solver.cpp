@@ -50,8 +50,8 @@ ComplexEigenResult arnoldi(const Operator& apply, const Operator& project, Index
   Index ncv = options.krylov_dimension > 0 ? options.krylov_dimension : 2 * nev + 10;
   ncv = std::min(std::max(ncv, nev + 2), n);
   if (nev < 1 || ncv <= nev) {
-    throw InvalidArgument(fmt::format("{}: system too small ({} DoFs) for {} eigenvalues",
-                                      function, n, options.num_eigenvalues));
+    throw InvalidArgument(fmt::format("{}: system too small ({} DoFs) for {} eigenvalues", function,
+                                      n, options.num_eigenvalues));
   }
   std::mt19937 generator(42);
   std::normal_distribution<Real> normal;
@@ -202,8 +202,8 @@ ComplexEigenResult complex_eigenpairs_near(const SparseMatrix& a_full, const Spa
   ShiftInvert op = prepare(a_full, b_full, sigma, options, backend, function);
   const Operator apply = [&op](const Vector& x) { return op.solver->solve(Vector(op.b * x)); };
   const Operator identity = [](const Vector& x) { return x; };
-  return arnoldi(apply, identity, a_full.rows(), op.sigma_scaled, op.lambda_scale, sigma,
-                 options, function, op.solver->name());
+  return arnoldi(apply, identity, a_full.rows(), op.sigma_scaled, op.lambda_scale, sigma, options,
+                 function, op.solver->name());
 }
 
 ComplexEigenResult complex_eigenpairs_near_gauged(const SparseMatrix& a_full,

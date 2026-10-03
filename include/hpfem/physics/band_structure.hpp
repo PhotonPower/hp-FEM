@@ -25,9 +25,9 @@ namespace hpfem::physics {
 /// vector with phase 1, the phases are set per k), the materials and the number of bands.
 template <int Dim>
 struct BandStructureSetup {
-  materials::MaterialMap materials;                   ///< lossless, by cell tag
-  std::vector<assembly::PeriodicPair<Dim>> lattice;   ///< master/slave tags and lattice vectors
-  std::vector<mesh::Tag> pec_tags;                    ///< optional metallic walls
+  materials::MaterialMap materials;                  ///< lossless, by cell tag
+  std::vector<assembly::PeriodicPair<Dim>> lattice;  ///< master/slave tags and lattice vectors
+  std::vector<mesh::Tag> pec_tags;                   ///< optional metallic walls
   Index num_bands = 6;
   Real shift = -1.0;  ///< σ of the shift-invert in units of (2π / a)² (negative: below band 0)
   Index krylov_dimension = 0;

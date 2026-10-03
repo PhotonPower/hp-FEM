@@ -345,8 +345,8 @@ void bind_physics_dim(py::module_& m) {
       .def_property_readonly("lattice_constant", &BandStructure<Dim>::lattice_constant)
       .def("bands", &BandStructure<Dim>::bands, py::arg("wave_vector"), Release(),
            "bands at the Bloch wave vector k [1/m]")
-      .def("path", &BandStructure<Dim>::path, py::arg("corners"), py::arg("segments"),
-           Release(), "bands along the polyline of wave vectors, corners included");
+      .def("path", &BandStructure<Dim>::path, py::arg("corners"), py::arg("segments"), Release(),
+           "bands along the polyline of wave vectors, corners included");
 }
 
 }  // namespace

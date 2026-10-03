@@ -198,14 +198,15 @@ TEST_CASE("bloch_constraints on the H1 space: the interpolant of a Bloch functio
   // satisfies the constraints exactly (same hierarchical projections on both sides)
   const hpfem::Vector u = hpfem::assembly::interpolate<2>(
       h1, hpfem::assembly::physical_sampler<2>([k](const Point<2>& x) {
-        const hpfem::Real periodic =
-            1.0 + 0.5 * std::cos(2 * std::numbers::pi * x(0)) * std::sin(2 * std::numbers::pi * x(1));
+        const hpfem::Real periodic = 1.0 + 0.5 * std::cos(2 * std::numbers::pi * x(0)) *
+                                               std::sin(2 * std::numbers::pi * x(1));
         return periodic * std::exp(hpfem::kI * k.dot(x));
       }));
   for (hpfem::Index dof = 0; dof < h1.num_dofs(); ++dof) {
     if (!constraints.is_constrained(dof)) continue;
     hpfem::Complex combination = 0;
-    for (const auto& term : constraints.terms(dof)) combination += term.coefficient * u(term.master);
+    for (const auto& term : constraints.terms(dof))
+      combination += term.coefficient * u(term.master);
     REQUIRE(std::abs(combination - u(dof)) < 1e-10 * u.norm());
   }
 }
