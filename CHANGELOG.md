@@ -3,6 +3,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- cuDSS hybrid memory mode for factors beyond the device memory: the GPU library decides
+  per factorisation from the peak-memory estimates after the analysis (factors partly in
+  host memory above ~90 % of the free device memory; `HPFEM_GPU_HYBRID` forces it), fails
+  with the numbers if even the host memory would not suffice (then `kAuto` takes MUMPS),
+  reports mode and memory through `hpfem_gpu_factor_info2` (C API version 2, version-1
+  libraries still load) and `LinearSolver::details()` (also MUMPS). Measured with the new
+  `bench_hybrid_memory`: 1.28 M unknowns with 23 GB of factors in 105 s against 186 s for
+  sequential MUMPS (`benchmarks/results/2026-10-03-VR-hybrid-memory.json`). Python:
+  `LinearSolver.details`.
 - `solvers::Symmetry::kDetect`: cuDSS and MUMPS measure the asymmetry of a matrix once per
   factorisation and take the LDLᵀ path when it is below 1e-12 (upper triangle as given,
   debug log line); the problem classes (`Scattering`, `ScatteringOperator`, `TimeDomain`,
