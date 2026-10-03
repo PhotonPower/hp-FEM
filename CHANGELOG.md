@@ -3,6 +3,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Validation against the literature (M10, `docs/validation.md`): benchmark A, the rib
+  waveguide of Vassallo (1997) — the quasi-TE and quasi-TM effective indices of
+  `physics::PropagatingMode<2>` reproduce the MTRM reference for all nine guided cases within
+  the four digits of the source (`tests/convergence/rib_waveguide.cpp`; the quasi-TE mode at
+  t = 0.9 µm needs the lateral wall at 10 µm, the leaky quasi-TM mode there is documented
+  only). Test infrastructure: `hpfem_add_test` takes a list of labels, long local runs are
+  hidden Catch2 cases with the ctest label `validation-long` (excluded by the test presets),
+  results as JSON lines in `benchmarks/results/`; `tests/convergence/tensor_mesh.hpp` builds
+  conforming tensor-product meshes with interface-aligned, geometrically graded lines.
 - `physics::BandStructure` (backlog): Floquet–Bloch band structures of photonic crystals.
   `assembly::bloch_constraints` now also exists for the H1 space, so the discrete gradient
   can be reduced consistently with the Nédélec space; the new
