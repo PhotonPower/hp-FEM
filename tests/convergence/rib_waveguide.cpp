@@ -365,7 +365,7 @@ TEST_CASE("Rib waveguide (Vassallo 1997): convergence and sensitivity study",
     fmt::print("\n=== vertical wall positions (substrate below / air above), p = 4\n");
     for (const Reference& ref : {kReference[0], kReference[2]}) {
       mp.t = ref.t;
-      for (const auto [below, above] :
+      for (const auto& [below, above] :
            {std::pair{2.0, 0.5}, std::pair{3.0, 0.5}, std::pair{4.0, 1.0}, std::pair{5.0, 1.5}}) {
         mp.below = below;
         mp.above = above;
