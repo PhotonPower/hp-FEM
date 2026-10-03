@@ -114,6 +114,67 @@ TEST_CASE("one factorisation solves many incident fields", "[physics][sweep]") {
   }
 }
 
+TEST_CASE("detect_symmetry: hanging-node operators are complex symmetric, Bloch operators are not",
+          "[solvers][sweep]") {
+  using hpfem::solvers::Symmetry;
+  // hanging nodes: P^T A P keeps the symmetry of the curl-curl operator
+  const Mesh<2> hanging = hanging_mesh();
+  const NedelecDofMap<2> dofs(hanging, 3);
+  ScatteringSetup<2> setup;
+  setup.omega = kWavenumber * hpfem::constants::c0;
+  setup.incident = wave(0.3);
+  setup.formulation = Formulation::kScatteredField;
+  setup.pec_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin, box_tag::kYMax};
+  const Scattering<2> problem(dofs, setup);
+  auto system = hpfem::assembly::assemble_maxwell_operator<2>(
+      dofs, [&problem](Index c) { return problem.form_of_cell(c); }, kWavenumber * kWavenumber,
+      setup.extra_quadrature_order, nullptr);
+  const SparseMatrix reduced =
+      problem.constraints().reduce(system.matrix, Vector::Zero(dofs.num_dofs())).first;
+  CHECK(hpfem::solvers::asymmetry(reduced) < 1e-12);
+  CHECK(hpfem::solvers::detect_symmetry(reduced) == Symmetry::kComplexSymmetric);
+  // Bloch phases: the reduced operator is no longer symmetric
+  const Mesh<2> cell = rectangle(4, 4);
+  const NedelecDofMap<2> cell_dofs(cell, 2);
+  ScatteringSetup<2> bloch = setup;
+  bloch.pec_tags = {box_tag::kYMin, box_tag::kYMax};
+  hpfem::assembly::PeriodicPair<2> pair;
+  pair.master = box_tag::kXMin;
+  pair.slave = box_tag::kXMax;
+  pair.shift = Point<2>(1.0, 0.0);
+  pair.phase = std::polar(1.0, 0.7);
+  bloch.periodic = {pair};
+  const Scattering<2> bloch_problem(cell_dofs, bloch);
+  auto bloch_system = hpfem::assembly::assemble_maxwell_operator<2>(
+      cell_dofs, [&bloch_problem](Index c) { return bloch_problem.form_of_cell(c); },
+      kWavenumber * kWavenumber, bloch.extra_quadrature_order, nullptr);
+  const SparseMatrix bloch_reduced =
+      bloch_problem.constraints()
+          .reduce(bloch_system.matrix, Vector::Zero(cell_dofs.num_dofs()))
+          .first;
+  CHECK(hpfem::solvers::asymmetry(bloch_reduced) > 1e-6);
+  CHECK(hpfem::solvers::detect_symmetry(bloch_reduced) == Symmetry::kGeneral);
+  // the backends act on the detection: LDL^T for the first, LU for the second
+  for (const auto backend : hpfem::solvers::available_backends()) {
+    if (backend == hpfem::solvers::DirectSolverBackend::kSparseLu) continue;
+    INFO(hpfem::solvers::backend_name(backend));
+    auto symmetric = hpfem::solvers::make_direct_solver(backend, Symmetry::kDetect);
+    symmetric->factorize(reduced);
+    CHECK(symmetric->name().find("LDL^T") != std::string::npos);
+    auto general = hpfem::solvers::make_direct_solver(backend, Symmetry::kDetect);
+    general->factorize(bloch_reduced);
+    CHECK(general->name().find("LDL^T") == std::string::npos);
+    // the same object switches between the paths (sweeps re-factorise)
+    symmetric->factorize(bloch_reduced);
+    CHECK(symmetric->name().find("LDL^T") == std::string::npos);
+    symmetric->factorize(reduced);
+    CHECK(symmetric->name().find("LDL^T") != std::string::npos);
+    const Vector b = Vector::Ones(reduced.rows());
+    const Vector x = symmetric->solve(b);
+    CHECK((reduced * x - b).norm() < 1e-9 * b.norm());
+  }
+}
+
 TEST_CASE("plane_wave_sweep builds the incident fields from the wave vectors", "[physics][sweep]") {
   const Mesh<2> mesh = rectangle(3, 3);
   const NedelecDofMap<2> dofs(mesh, 2);

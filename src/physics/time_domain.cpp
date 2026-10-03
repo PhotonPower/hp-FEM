@@ -217,11 +217,12 @@ TimeDomain<Dim>::TimeDomain(const fespace::NedelecDofMap<Dim>& dofs, TimeDomainS
   SparseMatrix newmark =
       m_ + (setup_.gamma * setup_.dt) * c_ + (setup_.beta * setup_.dt * setup_.dt) * s_;
   newmark.makeCompressed();
-  newmark_ = solvers::make_direct_solver(setup_.solver);
+  // both operators are symmetric (real materials, PEC by restriction): LDL^T paths
+  newmark_ = solvers::make_direct_solver(setup_.solver, solvers::Symmetry::kDetect);
   newmark_->factorize(newmark);
   SparseMatrix mass = m_;
   mass.makeCompressed();
-  mass_solver_ = solvers::make_direct_solver(setup_.solver);
+  mass_solver_ = solvers::make_direct_solver(setup_.solver, solvers::Symmetry::kDetect);
   mass_solver_->factorize(mass);
   log().info(
       "TimeDomain<{}>: {} free of {} DoFs, dt = {:.3e} s, {} absorbing facets ({})", Dim,

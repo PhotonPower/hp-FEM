@@ -109,8 +109,23 @@ symmetry. `make_direct_solver(backend, Symmetry::kComplexSymmetric)` (and `solve
 with about half the factor work and memory; SparseLU ignores the flag. The caller
 guarantees the structure — the library does not check it in release builds (Debug builds
 of the cuDSS path verify `asymmetry(A) < 1e-10`; `upper_triangle(A)` and `asymmetry(A)` are
-public helpers). The problem classes pass the flag where the structure is known
-(follow-up); `kAuto` forwards it to whichever backend it picks. Measured with
+public helpers). The problem classes do not guess: they pass `Symmetry::kDetect`, and a
+backend that can exploit the structure (cuDSS, MUMPS) measures `asymmetry(A)` once per
+factorisation (one pass over the nonzeros with a binary search of the mirrored entry per
+row, no copy, far below the cost of the factorisation), logs the result at debug level and
+takes the LDLᵀ path when the relative asymmetry is at most $10^{-12}$ — using the upper
+triangle as given, never symmetrising, so results stay backend-independent. SparseLU skips
+the check. `Scattering`, `ScatteringOperator`, `TimeDomain`, the complex shift-invert
+eigensolvers (`Resonance`, `BandStructure`, the axisymmetric problems),
+`AxisymmetricScattering`, `Thermal`, the hypercircle dual solve and the goal-oriented
+adjoint pass `kDetect`, so Bloch phases or non-symmetric material tensors automatically get
+the general factorisation (unit test with a hanging-node and a Bloch-reduced operator);
+`kAuto` forwards it to whichever backend it picks. `kDetect` is therefore the default of the
+problem classes; `kGeneral` and `kComplexSymmetric` are explicit overrides for callers of
+`make_direct_solver` / `solve_direct` who know the structure (or want to skip the check).
+A solver object may be re-factorised with a matrix of the other kind (sweeps that change
+the operator); MUMPS, whose `SYM` is fixed at initialisation, is then re-initialised, the
+other backends switch silently. Measured with
 `bench_backend_threshold` (`benchmarks/results/2026-10-03-VR-backend-symmetry.json`, same
 problems as above): the LDLᵀ factorisation takes 0.85 s instead of 1.16 s on MUMPS and
 0.52 s instead of 0.72 s on cuDSS at 164 k unknowns in 2D, 2.4 s instead of 4.7 s (MUMPS)

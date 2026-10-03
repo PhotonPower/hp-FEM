@@ -172,8 +172,7 @@ const GpuApi& gpu_api() {
 
 class CudssSolver final : public LinearSolver {
  public:
-  explicit CudssSolver(Symmetry symmetry)
-      : api_(gpu_api()), symmetric_(symmetry == Symmetry::kComplexSymmetric) {
+  explicit CudssSolver(Symmetry symmetry) : api_(gpu_api()), symmetry_(symmetry) {
     if (!api_.usable()) throw Error(fmt::format("cuDSS backend unavailable: {}", api_.failure));
     const hpfem_gpu_status status = api_.create(&solver_);
     if (status != HPFEM_GPU_OK || solver_ == nullptr) {
@@ -196,16 +195,8 @@ class CudssSolver final : public LinearSolver {
     // upper triangle
     const SparseMatrix* csr = &matrix;
     SparseMatrix compressed;
+    symmetric_ = exploit_symmetry(symmetry_, matrix, "cuDSS");
     if (symmetric_) {
-#ifndef NDEBUG
-      const Real skew = asymmetry(matrix);
-      if (skew > 1e-10) {
-        throw InvalidArgument(
-            fmt::format("cuDSS: kComplexSymmetric requested but the matrix is not symmetric "
-                        "(relative asymmetry {:.2e})",
-                        skew));
-      }
-#endif
       compressed = upper_triangle(matrix);
       csr = &compressed;
     } else if (!matrix.isCompressed()) {
@@ -275,7 +266,8 @@ class CudssSolver final : public LinearSolver {
 
  private:
   const GpuApi& api_;
-  bool symmetric_;
+  Symmetry symmetry_;
+  bool symmetric_ = false;
   hpfem_gpu_solver* solver_ = nullptr;
   bool ready_ = false;
   Index size_ = 0;

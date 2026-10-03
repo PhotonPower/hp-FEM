@@ -320,7 +320,7 @@ AxisymmetricScatteredField AxisymmetricScattering::solve() const {
   a.makeCompressed();
   Vector rhs(static_cast<Index>(sets_.free.size()));
   for (Index j = 0; j < rhs.size(); ++j) rhs(j) = system.rhs(sets_.free[as_size(j)]);
-  const Vector reduced = solvers::solve_direct(a, rhs, setup_.solver);
+  const Vector reduced = solvers::solve_direct(a, rhs, setup_.solver, solvers::Symmetry::kDetect);
   AxisymmetricScatteredField out;
   out.azimuthal_order = m;
   const Index n_e = meridian_->num_dofs();

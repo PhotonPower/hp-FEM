@@ -34,30 +34,9 @@ void ensure_mpi_initialised() {
 
 class MumpsSolver final : public LinearSolver {
  public:
-  explicit MumpsSolver(Symmetry symmetry) : symmetric_(symmetry == Symmetry::kComplexSymmetric) {
-    ensure_mpi_initialised();
-    id_.comm_fortran = kUseCommWorld;
-    id_.par = 1;  // the host takes part in the factorisation
-    // 0: general unsymmetric LU; 2: general symmetric (A = A^T, indefinite) LDL^T on one
-    // triangle — complex symmetric systems are not Hermitian, so SYM = 1 never applies
-    id_.sym = symmetric_ ? 2 : 0;
-    id_.job = -1;
-    zmumps_c(&id_);
-    check("initialisation");
-    icntl(1) = -1;   // no error messages on stdout
-    icntl(2) = -1;   // no diagnostics
-    icntl(3) = -1;   // no global information
-    icntl(4) = 0;    // print level
-    icntl(5) = 0;    // assembled matrix
-    icntl(18) = 0;   // centralised input
-    icntl(7) = 7;    // automatic ordering choice
-    icntl(14) = 30;  // memory relaxation [%]
-  }
+  explicit MumpsSolver(Symmetry symmetry) : symmetry_(symmetry) { ensure_mpi_initialised(); }
 
-  ~MumpsSolver() override {
-    id_.job = -2;
-    zmumps_c(&id_);
-  }
+  ~MumpsSolver() override { finalize(); }
 
   void factorize(const SparseMatrix& matrix) override {
     if (matrix.rows() != matrix.cols()) {
@@ -66,7 +45,13 @@ class MumpsSolver final : public LinearSolver {
     }
     ready_ = false;
     size_ = matrix.rows();
-    // SYM = 2 takes one triangle only (entries given twice would be summed)
+    // SYM is fixed at initialisation, so the instance is (re)initialised when the symmetric
+    // path changes; SYM = 2 takes one triangle only (entries given twice would be summed)
+    const bool symmetric = exploit_symmetry(symmetry_, matrix, "MUMPS");
+    if (!initialised_ || symmetric != symmetric_) {
+      finalize();
+      initialise(symmetric);
+    }
     const SparseMatrix* input = &matrix;
     SparseMatrix upper;
     if (symmetric_) {
@@ -147,6 +132,35 @@ class MumpsSolver final : public LinearSolver {
   }
 
  private:
+  void initialise(bool symmetric) {
+    id_ = ZMUMPS_STRUC_C{};
+    id_.comm_fortran = kUseCommWorld;
+    id_.par = 1;  // the host takes part in the factorisation
+    // 0: general unsymmetric LU; 2: general symmetric (A = A^T, indefinite) LDL^T on one
+    // triangle — complex symmetric systems are not Hermitian, so SYM = 1 never applies
+    id_.sym = symmetric ? 2 : 0;
+    id_.job = -1;
+    zmumps_c(&id_);
+    check("initialisation");
+    icntl(1) = -1;   // no error messages on stdout
+    icntl(2) = -1;   // no diagnostics
+    icntl(3) = -1;   // no global information
+    icntl(4) = 0;    // print level
+    icntl(5) = 0;    // assembled matrix
+    icntl(18) = 0;   // centralised input
+    icntl(7) = 7;    // automatic ordering choice
+    icntl(14) = 30;  // memory relaxation [%]
+    initialised_ = true;
+    symmetric_ = symmetric;
+  }
+
+  void finalize() {
+    if (!initialised_) return;
+    id_.job = -2;
+    zmumps_c(&id_);
+    initialised_ = false;
+  }
+
   [[nodiscard]] MUMPS_INT& icntl(int i) { return id_.icntl[i - 1]; }
   [[nodiscard]] MUMPS_INT infog(int i) const { return id_.infog[i - 1]; }
 
@@ -157,7 +171,9 @@ class MumpsSolver final : public LinearSolver {
     }
   }
 
-  bool symmetric_;
+  Symmetry symmetry_;
+  bool symmetric_ = false;
+  bool initialised_ = false;
   ZMUMPS_STRUC_C id_{};
   std::vector<MUMPS_INT> rows_;
   std::vector<MUMPS_INT> cols_;

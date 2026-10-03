@@ -108,21 +108,73 @@ SparseMatrix upper_triangle(const SparseMatrix& matrix) {
 }
 
 Real asymmetry(const SparseMatrix& matrix) {
-  const SparseMatrix transposed = SparseMatrix(matrix.transpose());
-  const SparseMatrix difference = matrix - transposed;
+  if (matrix.rows() != matrix.cols()) {
+    throw InvalidArgument(
+        fmt::format("asymmetry: matrix is {} x {}, not square", matrix.rows(), matrix.cols()));
+  }
+  const SparseMatrix* csr = &matrix;
+  SparseMatrix compressed;
+  if (!matrix.isCompressed()) {
+    compressed = matrix;
+    compressed.makeCompressed();
+    csr = &compressed;
+  }
+  const auto* outer = csr->outerIndexPtr();
+  const auto* inner = csr->innerIndexPtr();
+  const auto* values = csr->valuePtr();
+  // a_ji for a row-major compressed matrix: binary search of column i in row j (sorted)
+  const auto mirrored = [&](Index i, Index j) -> Complex {
+    const auto* begin = inner + outer[j];
+    const auto* end = inner + outer[j + 1];
+    const auto* hit = std::lower_bound(begin, end, i);
+    return (hit != end && *hit == i) ? values[hit - inner] : Complex{0.0, 0.0};
+  };
   Real largest = 0;
   Real largest_difference = 0;
-  for (Index row = 0; row < matrix.outerSize(); ++row) {
-    for (SparseMatrix::InnerIterator it(matrix, row); it; ++it) {
-      largest = std::max(largest, std::abs(it.value()));
-    }
-  }
-  for (Index row = 0; row < difference.outerSize(); ++row) {
-    for (SparseMatrix::InnerIterator it(difference, row); it; ++it) {
-      largest_difference = std::max(largest_difference, std::abs(it.value()));
+  for (Index row = 0; row < csr->rows(); ++row) {
+    for (Index k = outer[row]; k < outer[row + 1]; ++k) {
+      const Index col = inner[k];
+      const Complex value = values[k];
+      largest = std::max(largest, std::abs(value));
+      if (col > row)
+        largest_difference = std::max(largest_difference, std::abs(value - mirrored(row, col)));
+      if (col < row && mirrored(row, col) == Complex{0.0, 0.0}) {
+        largest_difference = std::max(largest_difference, std::abs(value));  // no upper twin
+      }
     }
   }
   return largest > 0 ? largest_difference / largest : 0;
+}
+
+Symmetry detect_symmetry(const SparseMatrix& matrix, Real tolerance) {
+  return asymmetry(matrix) <= tolerance ? Symmetry::kComplexSymmetric : Symmetry::kGeneral;
+}
+
+bool exploit_symmetry(Symmetry symmetry, const SparseMatrix& matrix, const char* backend) {
+  switch (symmetry) {
+    case Symmetry::kGeneral:
+      return false;
+    case Symmetry::kComplexSymmetric: {
+#ifndef NDEBUG
+      const Real skew = asymmetry(matrix);
+      if (skew > 1e-10) {
+        throw InvalidArgument(
+            fmt::format("{}: kComplexSymmetric requested but the matrix is not symmetric "
+                        "(relative asymmetry {:.2e})",
+                        backend, skew));
+      }
+#endif
+      return true;
+    }
+    case Symmetry::kDetect: {
+      const Real skew = asymmetry(matrix);
+      const bool symmetric = skew <= 1e-12;
+      log().debug("{}: symmetry: {}, asymmetry = {:.2e}", backend,
+                  symmetric ? "complex-symmetric (LDL^T)" : "general", skew);
+      return symmetric;
+    }
+  }
+  return false;
 }
 
 #ifndef HPFEM_HAVE_MUMPS

@@ -118,6 +118,16 @@ TEST_CASE("direct solver backends: complex-symmetric systems through the LDL^T p
   a.makeCompressed();
   REQUIRE(hpfem::solvers::asymmetry(a) == 0.0);
   REQUIRE(hpfem::solvers::asymmetry(b) > 0.1);
+  CHECK(hpfem::solvers::detect_symmetry(a) == Symmetry::kComplexSymmetric);
+  CHECK(hpfem::solvers::detect_symmetry(b) == Symmetry::kGeneral);
+  // a single asymmetric entry, including one without an upper twin, is detected
+  SparseMatrix nearly = a;
+  nearly.coeffRef(5, 2) += Complex{1e-9, 0.0};
+  CHECK(hpfem::solvers::asymmetry(nearly) > 1e-11);
+  CHECK(hpfem::solvers::detect_symmetry(nearly, 1e-6) == Symmetry::kComplexSymmetric);
+  SparseMatrix lower_only = a;
+  lower_only.coeffRef(n - 1, 0) = Complex{0.5, 0.0};
+  CHECK(hpfem::solvers::asymmetry(lower_only) > 0.01);
   const SparseMatrix upper = hpfem::solvers::upper_triangle(a);
   CHECK(upper.nonZeros() < a.nonZeros());
   CHECK((SparseMatrix(upper + SparseMatrix(upper.transpose())) -

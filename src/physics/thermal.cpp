@@ -166,7 +166,7 @@ Vector Thermal<Dim>::solve_load(const Vector& load) const {
   } else {
     assembly::apply_dirichlet(k, rhs, dirichlet);
   }
-  Vector t = solvers::solve_direct(k, rhs, setup_.solver);
+  Vector t = solvers::solve_direct(k, rhs, setup_.solver, solvers::Symmetry::kDetect);
   if (constraints) t = constraints->expand(t);
   log().info("Thermal<{}>: {} DoFs, {} fixed, T in [{:.4g}, {:.4g}] K", Dim, dofs_->num_dofs(),
              dirichlet.size(), t.real().minCoeff(), t.real().maxCoeff());
