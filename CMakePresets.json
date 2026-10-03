@@ -38,7 +38,8 @@
   ],
   "testPresets": [
     { "name": "common", "hidden": true,
-      "output": { "outputOnFailure": true }, "execution": { "jobs": 4 } },
+      "output": { "outputOnFailure": true }, "execution": { "jobs": 4 },
+      "filter": { "exclude": { "label": "validation-long" } } },
     { "name": "debug",    "inherits": "common", "configurePreset": "debug" },
     { "name": "release",  "inherits": "common", "configurePreset": "release" },
     { "name": "asan",     "inherits": "common", "configurePreset": "asan",

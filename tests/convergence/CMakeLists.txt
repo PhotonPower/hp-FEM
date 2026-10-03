@@ -58,3 +58,12 @@ hpfem_add_test(convergence_goal_oriented convergence
 
 hpfem_add_test(convergence_plasmonic_wedge convergence
   plasmonic_wedge.cpp)
+
+# Validation against published benchmarks (M10, docs/validation.md). The hidden Catch2 test
+# cases tagged [validation-long] are the long local runs; they are registered with the ctest
+# label validation-long, which the test presets exclude.
+hpfem_add_test(convergence_rib_waveguide "convergence;validation"
+  rib_waveguide.cpp)
+add_test(NAME validation_long_rib_waveguide
+  COMMAND convergence_rib_waveguide "[validation-long]")
+set_tests_properties(validation_long_rib_waveguide PROPERTIES LABELS "validation-long")
