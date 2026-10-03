@@ -26,6 +26,8 @@ template <int Dim>
 using ScalarField = std::function<Complex(const Point<Dim>&)>;
 template <int Dim>
 using VectorField = std::function<Eigen::Matrix<Complex, Dim, 1>(const Point<Dim>&)>;
+template <int Dim>
+using TensorField = std::function<Eigen::Matrix<Complex, Dim, Dim>(const Point<Dim>&)>;
 
 /// Source sampled at reference point ξ of the cell being assembled (physical point x):
 /// for sources given per cell, e.g. a discrete field of another space.
@@ -36,8 +38,13 @@ using ReferenceScalarField = std::function<Complex(const Point<Dim>& xi, const P
 template <int Dim>
 struct ScalarForm {
   ScalarField<Dim> diffusion;  ///< α(x) [problem units]
-  ScalarField<Dim> reaction;   ///< β(x)
-  ScalarField<Dim> source;     ///< f(x)
+  /// Tensor diffusion A(x) (added to α I): @f$ (A\nabla u, \nabla v) @f$, e.g. the rotated
+  /// permittivity of the dual Maxwell problem in 2D.
+  TensorField<Dim> diffusion_tensor;
+  ScalarField<Dim> reaction;  ///< β(x)
+  ScalarField<Dim> source;    ///< f(x)
+  /// Vector source g(x) paired with the gradient of the test function, @f$ (g, \nabla v) @f$.
+  VectorField<Dim> gradient_source;
   /// Additional source f(ξ, x) in reference coordinates of the cell (per-cell forms).
   ReferenceScalarField<Dim> source_reference;
 };

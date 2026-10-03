@@ -15,6 +15,18 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   against a dense reference) and the convergence test `empty_lattice_bands`
   (exponential in p, rate 2p in h). Python: `BandStructure2D/3D`, `BandStructureSetup2D/3D`,
   `Bands2D/3D`. Theory: docs/theory/maxwell.md, section "Band structures".
+- `adaptivity::hypercircle_estimate` (backlog): dual (magnetic) formulation and the
+  hypercircle / Prager–Synge error bound. `dual_form` turns the per-cell Maxwell form into
+  the dual curl–curl problem (materials swapped, PEC and PMC exchanged), `dual_solution`
+  solves it on an H1 space (2D, scalar curl) or a Nédélec space (3D); the
+  constitutive-relation estimate of the primal/dual pair is a guaranteed upper bound of the
+  energy error for the coercive problem (k² < 0, real materials) without any constant and
+  the Ladevèze estimator for the time-harmonic one. `assembly::ScalarForm` gained
+  `diffusion_tensor` and `gradient_source`. Convergence test `hypercircle_bound` (bound holds
+  on every mesh, rate p, effectivity 1.0–1.1 with the dual order p + 1), unit tests
+  (exact pair gives η = 0, 3D cube, lossy problem), Python `dual_solution`,
+  `hypercircle_estimate`, `HypercircleEstimate`. Theory: docs/theory/error-estimation.md,
+  section "Dual formulation and guaranteed bounds".
 
 ## [0.2.0] — 2026-10-03
 Second release: everything from the Nédélec elements to the multiphysics step —

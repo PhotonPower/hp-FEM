@@ -54,6 +54,7 @@ add_library(hpfem
   adaptivity/marking.cpp
   adaptivity/refinement.cpp
   adaptivity/smoothness.cpp
+  adaptivity/hypercircle.cpp
   adaptivity/prediction.cpp
 )
 add_library(hpfem::hpfem ALIAS hpfem)

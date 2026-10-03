@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "common.hpp"
+#include "hpfem/adaptivity/hypercircle.hpp"
 #include "hpfem/adaptivity/marking.hpp"
 #include "hpfem/adaptivity/prediction.hpp"
 #include "hpfem/adaptivity/refinement.hpp"
@@ -53,6 +54,30 @@ void bind_adaptivity_dim(py::module_& m) {
       py::arg("options") = adaptivity::EstimatorOptions{}, Release(),
       "Residual-based element indicators of the coefficients e for the per-cell forms "
       "(Scattering.form_of_cell) and the mass coefficient k^2");
+  using Dual = adaptivity::DualDofMap<Dim>;
+  m.def(
+      "dual_solution",
+      [](const Dual& dual_dofs, const Factory& form_of_cell, Real k_squared,
+         const std::vector<Index>& essential_facets, int extra_order) {
+        return adaptivity::dual_solution<Dim>(dual_dofs, form_of_cell, k_squared, essential_facets,
+                                              extra_order);
+      },
+      py::arg("dual_dofs"), py::arg("form_of_cell"), py::arg("k_squared"),
+      py::arg("essential_facets") = std::vector<Index>{}, py::arg("extra_order") = 2, Release(),
+      "Galerkin solution of the dual (magnetic) problem on the H1 map (2D) or Nedelec map (3D) "
+      "for the per-cell primal forms and k^2; essential_facets: facets where the primal "
+      "problem is PMC");
+  m.def(
+      "hypercircle_estimate",
+      [](const ND& dofs, const Vector& e, const Dual& dual_dofs, const Vector& sigma,
+         const Factory& form_of_cell, Real k_squared, int extra_order) {
+        return adaptivity::hypercircle_estimate<Dim>(dofs, e, dual_dofs, sigma, form_of_cell,
+                                                     k_squared, extra_order);
+      },
+      py::arg("dofs"), py::arg("e"), py::arg("dual_dofs"), py::arg("sigma"),
+      py::arg("form_of_cell"), py::arg("k_squared"), py::arg("extra_order") = 2, Release(),
+      "Constitutive-relation (hypercircle) indicators of the primal/dual pair: a guaranteed "
+      "upper bound of the energy error for k^2 < 0 and real materials");
   m.def(
       "weighted_residual",
       [](const ND& dofs, const Vector& e, Real k_squared, const Factory& form_of_cell,
@@ -132,6 +157,20 @@ void bind_adaptivity(py::module_& m) {
       .def_readonly("parts", &Estimate::parts)
       .def("total", &Estimate::total, "(sum eta_K^2)^(1/2)")
       .def("argmax", &Estimate::argmax);
+  using adaptivity::HypercircleEstimate;
+  using adaptivity::HypercircleParts;
+  py::class_<HypercircleParts>(m, "HypercircleParts",
+                               "Squared constitutive and equilibrium contributions")
+      .def_readonly("constitutive", &HypercircleParts::constitutive)
+      .def_readonly("equilibrium", &HypercircleParts::equilibrium)
+      .def("sum", &HypercircleParts::sum);
+  py::class_<HypercircleEstimate>(m, "HypercircleEstimate",
+                                  "Element indicators of a primal/dual pair")
+      .def_property_readonly("indicators",
+                             [](const HypercircleEstimate& e) { return to_array(e.indicators); })
+      .def_readonly("parts", &HypercircleEstimate::parts)
+      .def("total", &HypercircleEstimate::total, "(sum eta_K^2)^(1/2), the bound")
+      .def("argmax", &HypercircleEstimate::argmax);
 
   m.def(
       "dorfler_marking",

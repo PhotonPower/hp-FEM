@@ -114,6 +114,78 @@ $$
 - `GoalEstimate` returns the signed estimate $\sum_K r_K$ of $Q(E) - Q(E_h)$, the
   contributions, the indicators $|r_K|$ for marking and $Q(E_h)$.
 
+## Dual formulation and guaranteed bounds (`adaptivity/hypercircle.hpp`)
+
+The residual estimator above is reliable only up to an unknown constant. A bound *without*
+constants comes from the hypercircle (Prager–Synge) argument, which needs a second,
+*dual* approximation of the magnetic field. Write the primal problem as
+
+$$
+\nabla\times(\mu^{-1}\nabla\times E) - k^2\varepsilon E = f + \nabla\times g
+$$
+
+and introduce the dual unknown $\sigma = \mu^{-1}\nabla\times E - g$ (the scaled magnetic
+field: $\sigma = i\omega H$ for $g = 0$). It satisfies $\nabla\times\sigma = f + k^2\varepsilon E$,
+so eliminating $E = (k^2\varepsilon)^{-1}(\nabla\times\sigma - f)$ gives the **dual
+curl–curl problem**
+
+$$
+\nabla\times\big((k^2\varepsilon)^{-1}\nabla\times\sigma\big) - \mu\,\sigma
+= \nabla\times\big((k^2\varepsilon)^{-1} f\big) + \mu\,g ,
+$$
+
+with the roles of the materials swapped and the boundary conditions exchanged: where $E$ is
+PEC (essential) the dual condition is natural, where $E$ is PMC the dual field has the
+essential condition $n\times\sigma = 0$. In 3D $\sigma$ lives in the same Nédélec space as
+$E$; in 2D the curl of a vector is a scalar, so $\sigma \in H^1$ with
+$\nabla\times\sigma = (\partial_y\sigma, -\partial_x\sigma)$ and the dual problem is a
+scalar reaction–diffusion problem with the rotated tensor $R^T(k^2\varepsilon)^{-1}R$
+(`assembly::ScalarForm::diffusion_tensor`) and the source $(R^T(k^2\varepsilon)^{-1} f,
+\nabla\tau)$ (`gradient_source`). `adaptivity::dual_form` performs this transformation per
+cell and `dual_solution` solves the dual Galerkin problem on a `DofMap` (2D) or a
+`NedelecDofMap` (3D).
+
+For *any* pair of fields $E_h \in H(\mathrm{curl})$ with the primal and $\sigma_h$ with the
+dual essential conditions, the **constitutive-relation error**
+
+$$
+\eta_K^2 = \big\|\sigma_h - (\mu^{-1}\nabla\times E_h - g)\big\|^2_{\mu,K}
++ \big\|(k^2\varepsilon)^{-1}(\nabla\times\sigma_h - f) - E_h\big\|^2_{-k^2\varepsilon,K}
+$$
+
+is computable without any constant (`adaptivity::hypercircle_estimate`, weighted norms
+$|w^H T w|$ with $T = \mu$ and $T = -k^2\varepsilon$). For the **coercive** problem — real
+symmetric positive $\mu$, $\varepsilon$ and $k^2 < 0$, i.e. $\nabla\times\mu^{-1}\nabla\times E
++ \kappa^2\varepsilon E = f$ — integration by parts of the error $e = E - E_h$ against the
+exact relations gives
+
+$$
+\|e\|_a^2 = (\sigma_h - \mu^{-1}\nabla\times E_h + g,\ \nabla\times e)
++ (f - \nabla\times\sigma_h + k^2\varepsilon E_h,\ e)
+\le \Big(\sum_K \eta_K^2\Big)^{1/2} \|e\|_a ,
+\qquad
+\|e\|_a^2 = \|\mu^{-1/2}\nabla\times e\|^2 - k^2\|\varepsilon^{1/2} e\|^2 ,
+$$
+
+so $\|E - E_h\|_a \le \eta$ is a **guaranteed upper bound** of the energy error, for every
+mesh and every $\sigma_h$; the Galerkin dual solution gives the sharpest one, with
+effectivity at most $1 + \|\sigma - \sigma_h\|_b / \|E - E_h\|_a$ in the dual energy norm.
+For the indefinite time-harmonic problem ($k^2 = k_0^2 > 0$, lossy or PML materials) the
+same quantity is the constitutive-relation estimator of Ladevèze type: it still vanishes for
+the exact pair and converges at the rate of the error, but the inequality holds only up to the
+inf-sup constant of the problem.
+
+**Verification** (`tests/convergence/hypercircle_bound.cpp`,
+`tests/unit/adaptivity/test_hypercircle.cpp`): for $\nabla\times\nabla\times E + E = f$ on
+the unit square with PEC walls and $E = (\sin\pi y, \sin\pi x)$ the bound holds on every mesh
+for $p = 1, 2, 3$ and $h = 1/4 \ldots 1/16$, $\eta$ converges with the rate $p$ of the energy
+error, and the effectivity index is $4.5$ / $3.9$ / $4.4$ with the dual space of the same
+order (here $\sigma = \nabla\times E$ is one derivative rougher than $E$, so the dual error is
+about $\pi$ times the primal one) and $1.00 \ldots 1.10$ with the dual order $p + 1$. On the
+cube with $E = (\sin\pi y\sin\pi z, \sin\pi z\sin\pi x, \sin\pi x\sin\pi y)$ the bound holds
+for $p = 1, 2$ on $3^3$ cells; a quadratic solution in $\mathrm{ND}_3$ with its dual in
+$P_3$ gives $\eta < 10^{-9}$.
+
 ## Verification
 
 - Effectivity index $\theta = \eta / \|E - E_{hp}\|$ on problems with analytic
@@ -122,6 +194,8 @@ $$
   the corner for every step.
 - The DWR estimate must track the true goal error (effectivity bounded) and goal-driven
   refinement must beat energy-driven refinement for the goal.
+- The hypercircle estimate must bound the energy error from above on every mesh of the
+  coercive test problem and converge at the rate of the error.
 
 ### Results (`tests/convergence/estimator_effectivity.cpp`, `tests/unit/adaptivity/`)
 
