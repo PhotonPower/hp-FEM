@@ -9,3 +9,4 @@ endfunction()
 
 hpfem_add_benchmark(assembly_solve)
 hpfem_add_benchmark(solver_integration)
+hpfem_add_benchmark(backend_threshold)

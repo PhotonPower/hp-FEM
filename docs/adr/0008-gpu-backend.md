@@ -71,6 +71,15 @@ decision:
   resonance 1.9×; the real gauged Lanczos gains nothing from the complexified GPU
   factorisation at 92 k unknowns.
 - Double precision stays the only precision; no mixed-precision shortcuts.
+- `kAuto` prefers cuDSS from `HPFEM_GPU_MIN_UNKNOWNS` unknowns on (default 10 000, decided in
+  `factorize`; the GPU library is loaded only then). The value is where the GPU
+  factorisation draws level with sequential MUMPS on the RTX 3090 in 2D and 3D
+  (`benchmarks/results/2026-10-03-VR-backend-threshold.json`); below it every factorisation
+  takes less than 40 ms. Backends agree only to about 1e-12 relative, so no test may rely on
+  bitwise equality between runs. Where cuDSS refuses a system (perturbed pivots, which the
+  *hp*-adaptive systems with hanging nodes trigger even after the scaling), `kAuto` warns and
+  falls back to MUMPS / SparseLU; accepting perturbed factorisations with iterative refinement
+  lost accuracy at 2 612 perturbed pivots and is not done.
 
 ## Alternatives considered
 - **GPU assembly (CUDA kernels for the element matrices)**: rejected for this hardware

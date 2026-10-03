@@ -2,7 +2,9 @@
 // sparse complex system, reuses its factorisation for several right-hand sides and
 // reports errors; the automatic choice prefers MUMPS when compiled in.
 #include <algorithm>
+#include <cstdlib>
 #include <random>
+#include <string>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
@@ -21,6 +23,7 @@ using hpfem::solvers::available_backends;
 using hpfem::solvers::backend_name;
 using hpfem::solvers::cudss_status;
 using hpfem::solvers::DirectSolverBackend;
+using hpfem::solvers::gpu_min_unknowns;
 using hpfem::solvers::make_direct_solver;
 using hpfem::solvers::solve_direct;
 
@@ -42,6 +45,19 @@ SparseMatrix random_system(Index n, unsigned seed) {
   a.setFromTriplets(triplets.begin(), triplets.end());
   a.makeCompressed();
   return a;
+}
+
+/// Sets (or, for an empty value, removes) an environment variable, portably.
+void set_env(const char* name, const char* value) {
+#ifdef _WIN32
+  _putenv_s(name, value);
+#else
+  if (*value == '\0') {
+    unsetenv(name);
+  } else {
+    setenv(name, value, 1);
+  }
+#endif
 }
 
 Vector random_vector(Index n, unsigned seed) {
@@ -99,15 +115,44 @@ TEST_CASE("direct solver backends: availability and automatic choice", "[solvers
   const auto backends = available_backends();
   CHECK(std::find(backends.begin(), backends.end(), DirectSolverBackend::kSparseLu) !=
         backends.end());
+  // kAuto chooses in factorize: below the GPU threshold MUMPS if compiled in, else SparseLU
+  const SparseMatrix small = random_system(400, 5);
+  set_env("HPFEM_GPU_MIN_UNKNOWNS", "-1");
+  CHECK(gpu_min_unknowns() == -1);
+  auto automatic = make_direct_solver(DirectSolverBackend::kAuto);
+  CHECK(automatic->name() == "auto");
+  automatic->factorize(small);
 #ifdef HPFEM_HAVE_MUMPS
   CHECK(available(DirectSolverBackend::kMumps));
-  CHECK(make_direct_solver(DirectSolverBackend::kAuto)->name().find("MUMPS") != std::string::npos);
+  CHECK(automatic->name().find("auto: MUMPS") != std::string::npos);
 #else
   CHECK(!available(DirectSolverBackend::kMumps));
   CHECK_THROWS_AS(make_direct_solver(DirectSolverBackend::kMumps), hpfem::Error);
-  CHECK(make_direct_solver(DirectSolverBackend::kAuto)->name().find("SparseLU") !=
-        std::string::npos);
+  CHECK(automatic->name().find("auto: Eigen SparseLU") != std::string::npos);
 #endif
+  if (available(DirectSolverBackend::kCudss)) {
+    // at or above the threshold the GPU takes over
+    set_env("HPFEM_GPU_MIN_UNKNOWNS", "400");
+    automatic->factorize(small);
+    CHECK(automatic->name().find("auto: cuDSS") != std::string::npos);
+    set_env("HPFEM_GPU_MIN_UNKNOWNS", "401");
+    automatic->factorize(small);
+    CHECK(automatic->name().find("auto: cuDSS") == std::string::npos);
+    set_env("HPFEM_GPU_MIN_UNKNOWNS", "0");
+    automatic->factorize(small);
+    CHECK(automatic->name().find("auto: cuDSS") != std::string::npos);
+    // a system cuDSS refuses goes to the CPU backend, and the object stays there afterwards
+    SparseMatrix refused(3, 3);
+    std::vector<Eigen::Triplet<Complex, Index>> t{{0, 0, Complex{1.0, 0.0}},
+                                                  {1, 1, Complex{1.0, 0.0}}};
+    refused.setFromTriplets(t.begin(), t.end());
+    CHECK_THROWS_AS(automatic->factorize(refused), hpfem::Error);  // singular on the CPU too
+    automatic->factorize(small);
+    CHECK(automatic->name().find("auto: cuDSS") == std::string::npos);
+    CHECK(make_direct_solver(DirectSolverBackend::kAuto)->name() == "auto");
+  }
+  set_env("HPFEM_GPU_MIN_UNKNOWNS", "");
+  CHECK(gpu_min_unknowns() == 10000);
 #ifdef HPFEM_HAVE_CUDA
   // compiled in: usable only if the hpfem_gpu library loads and a device exists
   INFO(cudss_status());

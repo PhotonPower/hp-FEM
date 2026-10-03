@@ -13,12 +13,16 @@ namespace hpfem::python {
 void bind_solvers(py::module_& m) {
   using solvers::DirectSolverBackend;
   py::enum_<DirectSolverBackend>(m, "DirectSolverBackend")
-      .value("AUTO", DirectSolverBackend::kAuto, "MUMPS if compiled in, otherwise SparseLU")
+      .value("AUTO", DirectSolverBackend::kAuto,
+             "cuDSS for systems of at least gpu_min_unknowns() unknowns when available, "
+             "otherwise MUMPS if compiled in, otherwise SparseLU (chosen in factorize)")
       .value("SPARSE_LU", DirectSolverBackend::kSparseLu)
       .value("MUMPS", DirectSolverBackend::kMumps)
       .value("CUDSS", DirectSolverBackend::kCudss,
              "NVIDIA cuDSS on the GPU (HPFEM_ENABLE_CUDA, hpfem_gpu library loaded at run time)");
   m.def("available", &solvers::available, py::arg("backend"), "backend usable in this build");
+  m.def("gpu_min_unknowns", &solvers::gpu_min_unknowns,
+        "Unknowns from which AUTO prefers cuDSS (HPFEM_GPU_MIN_UNKNOWNS; 0 always, < 0 never)");
   m.def("cudss_status", &solvers::cudss_status,
         "Why the cuDSS backend is (un)available: library, versions and device, or the error");
   m.def("available_backends", &solvers::available_backends);

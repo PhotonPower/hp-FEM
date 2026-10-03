@@ -37,12 +37,19 @@ class LinearSolver {
 
 /// Direct solver backends.
 enum class DirectSolverBackend {
-  kAuto,      ///< MUMPS if compiled in, otherwise SparseLU
+  kAuto,      ///< cuDSS for systems of at least `gpu_min_unknowns()` unknowns when its
+              ///< library and a GPU are present, otherwise MUMPS if compiled in, otherwise
+              ///< SparseLU; chosen in `factorize` from the size of the matrix
   kSparseLu,  ///< Eigen SparseLU, always available
   kMumps,     ///< MUMPS (multifrontal, zmumps), needs `HPFEM_ENABLE_MUMPS`
   kCudss,     ///< NVIDIA cuDSS on the GPU, needs `HPFEM_ENABLE_CUDA` and the hpfem_gpu library
 };
 
+/// Size from which `kAuto` prefers cuDSS: the CMake cache variable `HPFEM_GPU_MIN_UNKNOWNS`
+/// (default 10000, where the GPU factorisation draws level with sequential MUMPS on the
+/// RTX 3090, ADR-0008), overridden at run time by the environment variable of the same name;
+/// 0 means always cuDSS, a negative value never. Read on every call.
+[[nodiscard]] Index gpu_min_unknowns();
 /// True if the backend can be used in this build (`kAuto` always).
 [[nodiscard]] bool available(DirectSolverBackend backend) noexcept;
 /// All backends usable in this build.
@@ -65,7 +72,9 @@ enum class DirectSolverBackend {
 /// Why the cuDSS backend is (un)available in this process: library path, versions and
 /// device if usable, otherwise the loading error. Never throws.
 [[nodiscard]] std::string cudss_status();
-/// The requested backend, `kAuto` resolved as documented above.
+/// The requested backend; `kAuto` returns a solver that picks the backend in `factorize`
+/// (`name()` reports "auto" before and "auto: <backend>" after the choice). The GPU
+/// library is only loaded when cuDSS is actually chosen.
 /// @throws Error if the backend is not available.
 [[nodiscard]] std::unique_ptr<LinearSolver> make_direct_solver(
     DirectSolverBackend backend = DirectSolverBackend::kAuto);

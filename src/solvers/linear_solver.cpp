@@ -7,6 +7,9 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
+#include <cstdlib>
+#include <string>
+
 #include <Eigen/SparseLU>
 #include <fmt/format.h>
 
@@ -124,6 +127,77 @@ std::vector<DirectSolverBackend> available_backends() {
   return out;
 }
 
+#ifndef HPFEM_GPU_MIN_UNKNOWNS_DEFAULT
+#define HPFEM_GPU_MIN_UNKNOWNS_DEFAULT 10000
+#endif
+
+Index gpu_min_unknowns() {
+  if (const char* env = std::getenv("HPFEM_GPU_MIN_UNKNOWNS"); env != nullptr && *env != '\0') {
+    char* end = nullptr;
+    const long long value = std::strtoll(env, &end, 10);
+    if (end != env) return static_cast<Index>(value);
+    log().warn("HPFEM_GPU_MIN_UNKNOWNS='{}' is not a number; using the default {}", env,
+               HPFEM_GPU_MIN_UNKNOWNS_DEFAULT);
+  }
+  return HPFEM_GPU_MIN_UNKNOWNS_DEFAULT;
+}
+
+namespace {
+
+/// `kAuto`: the backend is chosen in `factorize` from the size of the system, so the GPU
+/// library is only loaded (and cuDSS only started) when it is actually going to be used.
+class AutoSolver final : public LinearSolver {
+ public:
+  void factorize(const SparseMatrix& matrix) override {
+    solver_.reset();
+    const Index threshold = gpu_min_unknowns();
+    const bool want_gpu = threshold >= 0 && matrix.rows() >= threshold;
+    if (want_gpu && !gpu_refused_ && available(DirectSolverBackend::kCudss)) {
+      // cuDSS pivots statically and refuses matrices whose pivots it would have to perturb
+      // (hp systems with hanging nodes and high orders); such a system goes to the CPU, and
+      // this object stays on the CPU for its later factorisations (sweeps, time steps)
+      solver_ = make_cudss();
+      try {
+        solver_->factorize(matrix);
+        return;
+      } catch (const Error& error) {
+        log().warn(
+            "auto: cuDSS could not factorise the {} x {} system ({}); this solver uses {} from "
+            "now on",
+            matrix.rows(), matrix.cols(), error.what(),
+            available(DirectSolverBackend::kMumps) ? "MUMPS" : "SparseLU");
+        gpu_refused_ = true;
+        solver_.reset();
+      }
+    }
+    solver_ = available(DirectSolverBackend::kMumps) ? make_mumps() : make_sparse_lu();
+    try {
+      solver_->factorize(matrix);
+    } catch (...) {
+      solver_.reset();
+      throw;
+    }
+  }
+  [[nodiscard]] Vector solve(const Vector& rhs) const override {
+    if (!solver_) throw Error("auto: solve() called before a successful factorize()");
+    return solver_->solve(rhs);
+  }
+  [[nodiscard]] Matrix solve_many(const Matrix& rhs) const override {
+    if (!solver_) throw Error("auto: solve_many() called before a successful factorize()");
+    return solver_->solve_many(rhs);
+  }
+  [[nodiscard]] Index size() const noexcept override { return solver_ ? solver_->size() : 0; }
+  [[nodiscard]] std::string name() const override {
+    return solver_ ? fmt::format("auto: {}", solver_->name()) : "auto";
+  }
+
+ private:
+  std::unique_ptr<LinearSolver> solver_;
+  bool gpu_refused_ = false;  ///< cuDSS refused a system of this object: stay on the CPU
+};
+
+}  // namespace
+
 std::string backend_name(DirectSolverBackend backend) {
   switch (backend) {
     case DirectSolverBackend::kAuto:
@@ -141,7 +215,7 @@ std::string backend_name(DirectSolverBackend backend) {
 std::unique_ptr<LinearSolver> make_direct_solver(DirectSolverBackend backend) {
   switch (backend) {
     case DirectSolverBackend::kAuto:
-      return available(DirectSolverBackend::kMumps) ? make_mumps() : make_sparse_lu();
+      return std::make_unique<AutoSolver>();
     case DirectSolverBackend::kSparseLu:
       return make_sparse_lu();
     case DirectSolverBackend::kMumps:

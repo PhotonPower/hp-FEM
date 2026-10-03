@@ -12,7 +12,7 @@ adjoint of the goal-oriented estimator, several incident fields on one mesh).
 | `kSparseLu` | Eigen `SparseLU`, COLAMD ordering | always available; 2D up to a few $10^5$ unknowns |
 | `kMumps` | MUMPS (multifrontal, `zmumps`, sequential build) | `HPFEM_ENABLE_MUMPS`; 3D and large 2D systems, many right-hand sides |
 | `kCudss` | NVIDIA cuDSS (LU on the GPU, factors stay on the device) | `HPFEM_ENABLE_CUDA` + the `hpfem_gpu` library; opt-in, for many solves of one factorisation (time stepping, Arnoldi, sweeps) |
-| `kAuto` | MUMPS if compiled in, otherwise SparseLU | the default of `solve_direct` and `ScatteringSetup::solver` |
+| `kAuto` | cuDSS for systems of at least `HPFEM_GPU_MIN_UNKNOWNS` unknowns (default 10 000) when its library and a GPU are present, otherwise MUMPS if compiled in, otherwise SparseLU; chosen in `factorize` | the default of `solve_direct` and every `solver` field |
 
 `make_direct_solver(backend)` returns the solver, `available(backend)` /
 `available_backends()` tell what this build offers, `solve_direct(A, b, backend)` does
@@ -50,9 +50,33 @@ right-hand sides, re-factorisation on the same handle). `src/solvers/cudss_solve
 it at run time (`LoadLibrary` / `dlopen`), checks the API version and the presence of a CUDA
 device, and wraps it as a `LinearSolver`. Nothing of CUDA is needed to build the library;
 without the DLL or a GPU, `available(kCudss)` is false, `make_cudss()` throws an error that
-names the search paths, and `kAuto` is unaffected, so CI (no GPU) builds and tests the option
-as well. cuDSS is opt-in in this version (`DirectSolverBackend::kCudss`); whether `kAuto`
-should prefer it above a size threshold is decided from the ADR-0008 measurements.
+names the search paths, and `kAuto` falls back to MUMPS / SparseLU, so CI (no GPU) builds and
+tests the option as well.
+
+**Automatic choice.** `kAuto` decides in `factorize` from the number of unknowns: cuDSS from
+`HPFEM_GPU_MIN_UNKNOWNS` unknowns on (CMake cache variable, default 10 000; the environment
+variable of the same name overrides it at run time, 0 means always, a negative value never),
+otherwise MUMPS if compiled in, otherwise SparseLU. The GPU library is loaded, and cuDSS
+started (0.3–0.6 s once per process), only when cuDSS is actually chosen, so small problems
+pay nothing. The default comes from `bench_backend_threshold`
+(`benchmarks/results/2026-10-03-VR-backend-threshold.json`, Maxwell operator of a plane
+wave, p = 2, RTX 3090 against sequential MUMPS): the factorisations draw level at about
+10 000 unknowns in 2D (36 ms against 34 ms at 10.4 k) and in 3D (0.26 s against 0.23 s at
+9.3 k), above that cuDSS leads (0.11 s against 0.17 s at 41 k, 0.76 s against 1.18 s at 164 k
+in 2D; 0.52 s against 0.77 s at 21 k, 1.8 s against 4.9 s at 70 k in 3D), and a single solve is
+faster on the GPU from about 5 000 unknowns on (0.5 ms against 2.7 ms at 23 k, 5 ms against
+248 ms at 70 k in 3D). Below the threshold every factorisation takes less than 40 ms, so the
+choice is immaterial there. cuDSS pivots statically and the library refuses a factorisation
+in which pivots were perturbed (see above); on *hp*-adaptive systems with hanging nodes and
+high orders this happens even after the scaling (28 of 12 846 and 103 of 16 359 pivots in the
+L-shape and plasmonic-wedge tests, 2 612 of 21 623 further on), so `kAuto` then logs a
+warning and factorises the same system with MUMPS / SparseLU instead. Accepting such a
+factorisation with two steps of cuDSS's iterative refinement was tried: accurate at 103
+perturbed pivots, but at 2 612 the error of the L-shape run jumped from 9e-5 to 2.7e-4, so the
+refusal stays; a residual-checked acceptance is a possible later refinement. Results of different backends agree only to about $10^{-12}$
+relative (different orderings, pivoting and summation orders); tests therefore compare
+against references with a tolerance and never rely on bitwise equality between runs or
+backends.
 
 Numerics: cuDSS factorises the general complex matrix (`CUDSS_MTYPE_GENERAL`; the interface
 also offers the complex-symmetric LDL^T path for later use). `hpfem::SparseMatrix` is already
@@ -107,8 +131,9 @@ Lanczos does not profit from a complexified GPU factorisation at this size.
 every available backend to $10^{-10}$, reuses the factorisation for a second right-hand side,
 checks the one-shot interface, the error reporting (singular, non-square, wrong size,
 solve before factorisation), that `solve_many` equals column-wise `solve` and that
-`kAuto` picks MUMPS when compiled in; cuDSS joins the loop whenever its library loads and a
-GPU is present. With the `mumps` preset the complete convergence suite runs on MUMPS (all
+`kAuto` picks MUMPS (or SparseLU) below the GPU threshold and cuDSS from the threshold on
+(`HPFEM_GPU_MIN_UNKNOWNS` set in the test); cuDSS joins the backend loop whenever its library
+loads and a GPU is present. With the `mumps` preset the complete convergence suite runs on MUMPS (all
 tolerances unchanged). The DLL itself has a stand-alone self-test (`gpu/selftest`, run by hand
 on a GPU machine): Helmholtz and random systems, general and complex-symmetric input, several
 right-hand sides, in-place solves, re-factorisation, error paths.
