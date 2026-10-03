@@ -40,6 +40,7 @@ add_library(hpfem
   assembly/maxwell_forms.cpp
   assembly/discrete_gradient.cpp
   assembly/periodic.cpp
+  assembly/axisymmetric_forms.cpp
   solvers/eigen_solver.cpp
   solvers/complex_eigen_solver.cpp
   solvers/linear_solver.cpp
@@ -50,6 +51,7 @@ add_library(hpfem
   physics/thermo_optical.cpp
   physics/band_structure.cpp
   physics/time_domain.cpp
+  physics/axisymmetric.cpp
   $<$<BOOL:${HPFEM_ENABLE_MUMPS}>:solvers/mumps_solver.cpp>
   $<$<BOOL:${HPFEM_ENABLE_CUDA}>:solvers/cudss_solver.cpp>
   adaptivity/residual_estimator.cpp

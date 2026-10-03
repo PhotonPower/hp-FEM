@@ -1,0 +1,156 @@
+# Axisymmetric (2.5D) problems
+
+Bodies of revolution (VCSELs, micropillars, nanowires, round apertures) are computed on the
+meridian plane with the azimuthal Fourier decomposition
+
+$$
+E(r, \varphi, z) = \sum_{m=-\infty}^{\infty} E_m(r, z)\,e^{im\varphi},
+\qquad E_m = (E_r, E_\varphi, E_z)(r, z),
+$$
+
+so that every order $m$ is an independent two-dimensional problem (ADR-0010). The mesh is the
+meridian domain with coordinates $x = r \ge 0$ and $y = z$; the axis $r = 0$ is a boundary of
+the mesh with its own facet tag. The convention $e^{-i\omega t}$ of `maxwell.md` applies.
+
+## Unknowns and spaces (`assembly/axisymmetric_forms.hpp`)
+
+The meridian components $(E_r, E_z)$ are a 2D vector field in $H(\mathrm{curl})$ of the
+$(r, z)$ plane and live in the Nédélec space; the azimuthal component is a scalar in $H^1$.
+The code uses the **scaled azimuthal unknown**
+
+$$
+v = -i\,r\,E_\varphi, \qquad E_\varphi = \frac{i\,v}{r},
+$$
+
+in the H1 space of the same order. Two things follow. The gradient of a potential mode,
+$\nabla(\psi e^{im\varphi}) = (\partial_r\psi,\ im\psi/r,\ \partial_z\psi)e^{im\varphi}$, becomes
+$(\nabla_{rz}\psi,\ v = m\psi)$: exactly representable in the discrete spaces, so the
+**order-$m$ discrete gradient** $K_m = [G;\ mI]$ ($G$ the 2D discrete gradient) spans the
+kernel of the curl–curl matrix and the gauged eigensolvers remove it without spurious modes.
+And the factor $-i$ turns the $\pm im$ couplings of the curl into real numbers: for lossless
+media the matrices are real symmetric, otherwise complex symmetric.
+
+With the cylindrical curl
+
+$$
+(\nabla\times E)_r = \frac{im E_z - \partial_z(rE_\varphi)}{r}, \qquad
+(\nabla\times E)_\varphi = \partial_z E_r - \partial_r E_z, \qquad
+(\nabla\times E)_z = \frac{\partial_r(rE_\varphi) - imE_r}{r},
+$$
+
+the volume element $r\,dr\,d\varphi\,dz$ and the $\varphi$ integration done (the factor
+$2\pi$ is dropped), the bilinear forms of order $m$ with diagonal material tensors
+$\mu^{-1} = \mathrm{diag}(\mu_r^{-1}, \mu_\varphi^{-1}, \mu_z^{-1})$ and $\varepsilon$ read
+
+$$
+a(E, V) = \int \Big[ \mu_r^{-1}\frac{(mE_z - \partial_z v)(mV_z - \partial_z w)}{r}
++ \mu_\varphi^{-1}(\partial_z E_r - \partial_r E_z)(\partial_z V_r - \partial_r V_z)\,r
++ \mu_z^{-1}\frac{(\partial_r v - mE_r)(\partial_r w - mV_r)}{r}\Big]\,dr\,dz ,
+$$
+
+$$
+b(E, V) = \int \big[\varepsilon_r E_r V_r\,r + \varepsilon_\varphi\,v\,w / r
++ \varepsilon_z E_z V_z\,r\big]\,dr\,dz .
+$$
+
+The test functions are the complex conjugates of the trial basis (sesquilinear pairing
+with $e^{-im\varphi}$), which is what makes the forms symmetric in $(E, v) \leftrightarrow
+(V, w)$; $m \to -m$ gives the same spectrum. `assemble_axisymmetric` returns the stiffness
+(the $a$ form) and the mass (the $b$ form) of the block vector $(e, v)$: the first
+`nedelec.num_dofs()` entries are the Nédélec coefficients, the rest the H1 coefficients of
+$v$. Per-cell diagonal tensors in $(r, \varphi, z)$ cover anisotropic media and the
+cylindrical PML (stretched tensors of Teixeira–Chew, stage 2).
+
+## The axis
+
+The $1/r$ terms are singular on the axis unless their numerators vanish there. The
+regularity of a field $E_m e^{im\varphi}$ at $r = 0$ requires
+
+| order | conditions at $r = 0$ |
+|---|---|
+| $m = 0$ | $E_\varphi = 0$, $E_r = 0$; $E_z$ free |
+| $m = \pm1$ | $E_z = 0$; $E_r \pm iE_\varphi = 0$ (the Cartesian components are regular) |
+| $|m| \ge 2$ | all components zero |
+
+Of these only $v = 0$ (all $m$; automatic for $r E_\varphi$ and imposed on the H1 DoFs of
+the axis facets) and $E_z = 0$ for $m \ne 0$ (tangential Nédélec DoFs of the axis facets)
+are Dirichlet data. The remaining conditions ($E_r$ on the axis, the $m = \pm1$ coupling)
+involve the normal component of the edge elements and are not imposed; the quadrature of the
+cells touching the axis (rule two degrees higher, Gauss points strictly inside) weights
+them, which is the established body-of-revolution practice. The gauge potential $\psi$
+vanishes on the axis for $m \ne 0$ ($v = m\psi$) and is free there for $m = 0$. PEC walls fix
+the Nédélec trace and $v$ (`physics::AxisymmetricCavity` builds all index sets from the axis
+tag and the PEC tags).
+
+## Eigenmodes (`physics/axisymmetric.hpp`)
+
+`AxisymmetricCavity` assembles the order-$m$ pencil, applies the constraints and calls
+`solvers::gauged_curl_curl_eigenpairs` with $K_m$; it returns the lowest $k_0$ with the
+meridian and azimuthal coefficients. The modes of the PEC cylinder (radius $a$, height $h$)
+are the analytic reference,
+
+$$
+\mathrm{TM}_{mnp}:\ k^2 = \Big(\frac{j_{mn}}{a}\Big)^2 + \Big(\frac{p\pi}{h}\Big)^2,\ p \ge 0;
+\qquad
+\mathrm{TE}_{mnp}:\ k^2 = \Big(\frac{j'_{mn}}{a}\Big)^2 + \Big(\frac{p\pi}{h}\Big)^2,\ p \ge 1,
+$$
+
+with the zeros $j_{mn}$ of $J_m$ and $j'_{mn}$ of $J'_m$.
+
+**Verification** (`tests/convergence/axisymmetric_cavity.cpp`,
+`tests/unit/physics/test_axisymmetric.cpp`): on the cylinder $a = 1$, $h = 1.5$ the four
+lowest eigenvalues of $m = 0, 1, 2$ converge with rate $2p$ under h-refinement
+($p = 1$: $1.9 / 1.8 / 1.9$; $p = 2$: $3.8 / 3.8 / 3.9$ between $h = 1/8$ and $1/16$, maximum
+relative errors $3\cdot10^{-5}$, $1.3\cdot10^{-5}$, $1.0\cdot10^{-5}$ at $p = 2$, $h = 1/16$)
+and no eigenvalue appears below the first physical one. The unit tests check that $K_m\psi$
+lies in the kernel of the stiffness matrix to rounding for every $m$, the symmetry and
+positivity of the matrices, the decoupling of the blocks for $m = 0$, the $m$-dependent
+axis conditions, and $\mathrm{TM}_{010}$ / $\mathrm{TE}_{111}$ on a coarse mesh.
+
+## Resonances with the cylindrical PML (`physics::AxisymmetricResonance`)
+
+Open resonators (micropillars, VCSELs, spheres) have quasi-normal modes with complex
+$\omega$ (`maxwell.md`, Resonances). The PML of ADR-0005 carries over as a *material*: with
+the stretch factors $s_r(r)$, $s_z(z)$ of a `pml::PmlBox<2>` (layers on the $r$-max, $z$-min
+and $z$-max sides, none on the axis) and the stretched radius $\tilde r = r + i\int\hat\sigma_r$
+the cylindrical PML of Teixeira and Chew is the diagonal tensor
+
+$$
+\Lambda = \mathrm{diag}\Big(\frac{s_\varphi s_z}{s_r},\ \frac{s_r s_z}{s_\varphi},\
+\frac{s_r s_\varphi}{s_z}\Big), \qquad s_\varphi = \frac{\tilde r}{r},
+\qquad \tilde\varepsilon = \varepsilon_r\Lambda, \quad \tilde\mu^{-1} = \mu_r^{-1}\Lambda^{-1},
+$$
+
+evaluated per quadrature point (`axisymmetric_pml_form`); the curl operator and the forms
+above are untouched. Inside the box $\Lambda = I$. The order-$m$ pencil becomes complex
+symmetric, and `AxisymmetricResonance` solves it with the complex gauged shift-invert
+solver (`solvers::complex_eigenpairs_near_gauged`, the gradient $K_m$ restricted to the
+free DoFs) around the target $k_0^2 = (\omega_{\text{target}}/c_0)^2$. Each mode carries
+$\omega$, $\lambda_{\mathrm{res}}$, $Q = \mathrm{Re}\,\omega / (-2\,\mathrm{Im}\,\omega)$, the
+Arnoldi residual and both coefficient vectors.
+
+**Verification** (`tests/convergence/axisymmetric_sphere_resonance.cpp`,
+`tests/unit/physics/test_axisymmetric_resonance.cpp`): the quasi-normal modes of a
+dielectric sphere of radius $a$ and index $n$ are the zeros of the Mie denominators in the
+complex size parameter $x = ka$; for $l = 1$ (the lowest modes of order $m = 1$) with the
+Riccati–Bessel functions $\psi_1$, $\xi_1$,
+
+$$
+\mathrm{TE}_1:\ \psi_1(nx)\,\xi_1'(x) - n\,\xi_1(x)\,\psi_1'(nx) = 0, \qquad
+\mathrm{TM}_1:\ n\,\psi_1(nx)\,\xi_1'(x) - \xi_1(x)\,\psi_1'(nx) = 0 ,
+$$
+
+solved by Newton in the test. For $n = 3$ the poles are $x_{\mathrm{TE}} = 0.98712 -
+0.06058i$ and $x_{\mathrm{TM}} = 1.44174 - 0.17947i$. On the half-disc meridian mesh of
+`square_with_disc` (curved interface, four cells per radius, PML of three radii beyond
+$r, |z| = 3a$) the computed poles converge exponentially under p-refinement: relative
+errors $2.9\cdot10^{-2}$, $2.4\cdot10^{-4}$, $3.5\cdot10^{-6}$, $1.8\cdot10^{-6}$ (TE) and
+$3.7\cdot10^{-2}$, $2.0\cdot10^{-3}$, $2.3\cdot10^{-5}$, $2.0\cdot10^{-6}$ (TM) for
+$p = 1 \ldots 4$, with Arnoldi residuals below $10^{-8}$. The unit test also checks the PML
+tensors against the formula and that a layer on the axis side is rejected.
+
+## Roadmap
+
+Stage 3 adds scattering by the axial plane wave ($m = \pm1$, Mie cross-section), dipole
+sources on the axis (Purcell factor), the far field from the $m$ contributions, the Python
+bindings and the micropillar example.

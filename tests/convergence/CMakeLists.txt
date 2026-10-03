@@ -41,6 +41,12 @@ hpfem_add_test(convergence_hypercircle_bound convergence
 hpfem_add_test(convergence_time_domain_cavity convergence
   time_domain_cavity.cpp)
 
+hpfem_add_test(convergence_axisymmetric_cavity convergence
+  axisymmetric_cavity.cpp)
+
+hpfem_add_test(convergence_axisymmetric_sphere_resonance convergence
+  axisymmetric_sphere_resonance.cpp)
+
 hpfem_add_test(convergence_estimator_effectivity convergence
   estimator_effectivity.cpp)
 

@@ -169,6 +169,21 @@ assessment: `docs/validation.md`.
       |E_inc| = 1 V/m) — **blocked**: the permittivity of gold used in the source is not
       stated; not to be attempted with a self-chosen ε
 
+## M11 — Axisymmetric (2.5D) solver (ADR-0010)
+Bodies of revolution on the meridian mesh, one 2D problem per azimuthal order m.
+- [x] forms of order m (`assembly::assemble_axisymmetric`: (E_r, E_z) in Nédélec,
+  v = −i r E_φ in H1, diagonal tensors in (r, φ, z), order-m gradient for the gauge),
+  axis conditions per m, `physics::AxisymmetricCavity`; convergence test on the PEC
+  cylinder against the Bessel zeros (rate 2p for m = 0, 1, 2); `docs/theory/axisymmetric.md`
+- [x] resonances with the cylindrical PML (`physics::AxisymmetricResonance`, Teixeira–Chew
+  tensors as material, complex gauged eigensolver); convergence test on the quasi-normal
+  modes of a dielectric sphere (Mie poles, exponential in p)
+- [ ] scattering with the axial plane wave (m = ±1) against the Mie cross-section, dipole
+  sources on the axis (Purcell factor), far field from the m contributions
+- [ ] Python bindings (`Axisymmetric*2D`) and the micropillar / VCSEL example
+- [ ] later: coupled orders for oblique incidence, adaptivity on the meridian plane with
+  the r-weighted estimator
+
 ## Backlog / ideas
 - [x] dual H-formulation for guaranteed error bounds (`adaptivity::dual_solution` on the
   H1 / Nédélec dual space, `hypercircle_estimate` with the Prager–Synge bound for the
