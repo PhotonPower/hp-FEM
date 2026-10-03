@@ -147,6 +147,28 @@ holds. Estimated effort is in rough "focused sessions".
       meshio / CSV export), `physics::absorbed_power_per_cell`, Beer–Lambert check,
       `examples/solar_cell_texture`
 
+## M10 — Validation against the literature
+Independent, published reference values instead of our own implementations; every
+benchmark is a convergence test with the labels `convergence` and `validation`, the long
+local runs carry `validation-long` and are stored under `benchmarks/results/`. Results and
+assessment: `docs/validation.md`.
+- [x] A. rib waveguide (Vassallo, Opt. Quantum Electron. 29, 95, 1997, Table I / MTRM):
+      quasi-TE and quasi-TM effective indices for five lateral thicknesses within the
+      four-digit reference — `tests/convergence/rib_waveguide.cpp`, test helper
+      `tests/convergence/tensor_mesh.hpp` (graded tensor meshes), PR #58
+- [ ] B. metallic lamellar grating, H parallel to the ridges (Granet & Guizal, J. Opt. Soc.
+      Am. A 13, 1019, 1996, Table 1): Littrow and specular efficiencies for three depths
+- [ ] C. Mie sphere (Bohren & Huffman ch. 4): `physics::mie_sphere` (coefficients,
+      efficiencies, fields inside and outside for complex ε), `mesh::box_with_ball`,
+      3D convergence test `mie_sphere` (dielectric and absorbing sphere), Python bindings
+- [ ] D. layered background for the scattered-field formulation (ADR-0008) and the
+      slit–groove benchmark in silver (Besbes et al., J. Eur. Opt. Soc. Rapid Publ. 2,
+      07022, 2007; Burger et al., Proc. SPIE 8880, 88801Z, 2013)
+- [ ] gold sphere dimer (Hoffmann et al., Proc. SPIE 7390, 73900J, 2009; 80 nm spheres,
+      1 nm gap, 632 nm, reference |E|² at the gap centre = 5.47624·10⁵ V²/m² for
+      |E_inc| = 1 V/m) — **blocked**: the permittivity of gold used in the source is not
+      stated; not to be attempted with a self-chosen ε
+
 ## Backlog / ideas
 - [x] dual H-formulation for guaranteed error bounds (`adaptivity::dual_solution` on the
   H1 / Nédélec dual space, `hypercircle_estimate` with the Prager–Synge bound for the
