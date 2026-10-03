@@ -70,6 +70,16 @@ decision:
   docs/theory/solvers.md): time step 3.8× faster than MUMPS, batched 8-rhs solve 5.7×,
   resonance 1.9×; the real gauged Lanczos gains nothing from the complexified GPU
   factorisation at 92 k unknowns.
+- Factors beyond the device memory: the GPU library switches to cuDSS's hybrid memory mode
+  automatically (peak estimate after the analysis against the free device memory, factors
+  partly in host memory, device limit = free memory minus a reserve; `HPFEM_GPU_HYBRID`
+  forces it), fails with the numbers if even the host memory would not suffice (then `kAuto`
+  takes MUMPS), and reports mode and memory through `hpfem_gpu_factor_info2` (API version 2,
+  version-1 libraries still load). Measured (`bench_hybrid_memory`, 3D Maxwell p = 2): at
+  1.28 M unknowns with 1.43 G factor entries (23 GB) the automatic hybrid mode factorises in
+  105 s against 186 s for sequential MUMPS and solves in 1.9 s against 34 s; in device mode
+  below that (16 GB of factors at 858 k unknowns) 45 s against 106 s. The "hybrid before
+  MUMPS" expectation of the decision holds on this machine.
 - `solvers::Symmetry::kComplexSymmetric` lets cuDSS (upper triangle, `CUDSS_MTYPE_SYMMETRIC`)
   and MUMPS (`SYM = 2`) factorise the complex-symmetric curl–curl systems as LDLᵀ; the caller
   guarantees the structure, SparseLU ignores the flag.

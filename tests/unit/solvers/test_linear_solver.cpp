@@ -102,6 +102,9 @@ TEST_CASE("direct solver backends solve random sparse complex systems", "[solver
     }
     CHECK(solver->solve_many(Matrix(n, 0)).cols() == 0);
     CHECK_THROWS_AS(solver->solve_many(Matrix::Ones(n + 1, 2)), hpfem::InvalidArgument);
+    // backend facts about the factorisation (SparseLU has nothing to say)
+    if (backend != DirectSolverBackend::kSparseLu) CHECK(!solver->details().empty());
+    CHECK(make_direct_solver(backend)->details().empty());
     // the one-shot interface
     CHECK((solve_direct(a, b, backend) - x_exact).norm() < 1e-10 * x_exact.norm());
     // errors: wrong size, solve before factorize

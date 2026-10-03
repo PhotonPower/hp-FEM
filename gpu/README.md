@@ -19,6 +19,14 @@ threshold, which SI-scaled systems with entries around 1e-15 would trip wholesal
 solution is rescaled; zero or tiny pivots that cuDSS would still perturb are reported as a
 singular matrix instead of silently producing a wrong solution.
 
+Factors that do not fit the device: after the analysis the library compares cuDSS's
+peak-memory estimate with the free device memory and, above about 90 %, repeats the analysis
+in cuDSS's hybrid memory mode (factors partly in host memory, device limit = free memory
+minus a reserve); if even the hybrid estimate exceeds the free host memory, `factorize`
+fails with `HPFEM_GPU_ERR_OUT_OF_MEMORY` and the numbers in the message. `HPFEM_GPU_HYBRID=1`
+or `0` forces the mode. `hpfem_gpu_factor_info2` (API version 2) reports mode, estimates
+and memory held.
+
 ## Requirements
 
 | Component | Version used | Notes |
@@ -69,7 +77,7 @@ complex-symmetric input), a random sparse system, one and several right-hand sid
 solves, and the error paths (inconsistent CSR, singular matrix, solve before factorisation,
 reuse after a failure). All solutions must agree with the reference to 1e-10.
 
-## Interface summary (`include/hpfem_gpu.h`, API version 1)
+## Interface summary (`include/hpfem_gpu.h`, API version 2)
 
 | Function | Purpose |
 |----------|---------|
@@ -80,6 +88,7 @@ reuse after a failure). All solutions must agree with the reference to 1e-10.
 | `hpfem_gpu_factorize(solver, n, nnz, row_ptr, col, values, type)` | CSR (int64, interleaved complex) → device, analysis + factorisation |
 | `hpfem_gpu_solve(solver, nrhs, b, x)` | n × nrhs column-major solve; `x` may alias `b` |
 | `hpfem_gpu_factor_info(solver, &nnz_factors, &device_bytes)` | size of the factors, device memory held |
+| `hpfem_gpu_factor_info2(solver, &info)` | API 2: mode (hybrid), estimates, device / host memory held |
 | `hpfem_gpu_last_error(solver)` | message of the last failure on this object |
 
 Statuses: `OK`, `ERR_NO_DEVICE`, `ERR_INVALID_ARG`, `ERR_CUDA`, `ERR_CUDSS`,

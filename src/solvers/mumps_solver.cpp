@@ -130,6 +130,13 @@ class MumpsSolver final : public LinearSolver {
   [[nodiscard]] std::string name() const override {
     return fmt::format("MUMPS {} (sequential{})", MUMPS_VERSION, symmetric_ ? ", LDL^T" : "");
   }
+  [[nodiscard]] std::string details() const override {
+    if (!ready_) return {};
+    // INFOG(29): entries in the factors (INFOG(9) if the 64-bit count is not set),
+    // INFOG(21): memory effectively used by this process [MB]
+    const auto entries = infog(29) > 0 ? infog(29) : infog(9);
+    return fmt::format("factors {} entries ({} MB host)", entries, infog(21));
+  }
 
  private:
   void initialise(bool symmetric) {

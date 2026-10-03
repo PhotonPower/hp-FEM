@@ -10,6 +10,7 @@ seconds) and appends them to the file given as its first argument. Results are k
 | `bench_assembly_solve` | Maxwell plane wave on the unit square, (n, p) ∈ {(64, 2), (64, 4), (128, 3)}: assembly with 1 and all threads, with and without static condensation, factorisation and solve with every available direct solver |
 | `bench_solver_integration` | Where one factorisation serves many solves, with every available direct solver (SparseLU, MUMPS, cuDSS): the transient PEC cavity (`physics::TimeDomain`, n = 128, p = 2: setup with two factorisations, seconds per Newmark step), an 8-angle sweep of `physics::ScatteringOperator` (n = 96, p = 3: one-by-one `solve` against batched `solve_many`, with and without load assembly), `physics::Resonance` (complex shift-invert Arnoldi, n = 96, p = 2) and the real gauged Lanczos `gauged_curl_curl_eigenpairs` with the real SparseLU against the complexified MUMPS / cuDSS factorisation |
 | `bench_backend_threshold` | Factorisation and median solve time of every available backend over the problem size (Maxwell operator of a plane wave, square p = 2 with n = 8 … 128 and cube p = 2 with n = 3 … 12), the basis of the `kAuto` threshold `HPFEM_GPU_MIN_UNKNOWNS` |
+| `bench_hybrid_memory` | 3D Maxwell operator of a plane wave on the unit cube at growing size (n = 12, 16, 20, p = 2 by default; arguments `[results.json] [max_n] [p]`) with every backend: factor size, memory, mode (cuDSS device or hybrid) and time, the basis of the hybrid-memory statement in ADR-0008; runs for a long time |
 | `gpu/spmv_solve_bench` | GPU micro-benchmark behind ADR-0008: complex double SpMV (OpenMP CSR vs cuSPARSE) and direct solves (Eigen SparseLU vs cuDSS LU, one and eight right-hand sides) on matrices exported by `gpu/export_matrices.py` (Newmark operator of the transient solver, 3D scattering operator with PML). Built on its own with nvcc + MSVC, see `gpu/CMakeLists.txt`; MUMPS timings of the same matrices via `python/` (`hpfem.make_direct_solver`) |
 
 Results so far: `results/2026-10-02-VR.json` — Windows 11, MSYS2 GCC 16.1 (UCRT64),
@@ -28,6 +29,10 @@ machine (release build with MUMPS and cuDSS); summarised in `docs/theory/solvers
 `results/2026-10-03-VR-backend-threshold.json` — `bench_backend_threshold` on the same
 machine; the cuDSS factorisation draws level with sequential MUMPS at about 10 000 unknowns
 (`HPFEM_GPU_MIN_UNKNOWNS`), see `docs/theory/solvers.md`.
+
+`results/2026-10-03-VR-hybrid-memory.json` — `bench_hybrid_memory` on the same machine
+(3D Maxwell p = 2, n = 12 … 32, MUMPS against cuDSS with the automatic hybrid memory mode; the
+last line is the forced hybrid mode at n = 20); summarised in `docs/theory/solvers.md`.
 
 `results/2026-10-03-VR-backend-symmetry.json` — the same benchmark with the general and the
 complex-symmetric (LDLᵀ) factorisation of MUMPS and cuDSS (`solvers::Symmetry`); the
