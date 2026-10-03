@@ -46,9 +46,20 @@ template <int Dim>
                                                      std::span<const PeriodicPair<Dim>> pairs,
                                                      Real tolerance = 1e-8);
 
+/// The same for the H1 space (scalar trace: vertex values, edge and face projections), e.g.
+/// the longitudinal field of a waveguide or the gauge space of a band-structure problem.
+template <int Dim>
+[[nodiscard]] fespace::Constraints bloch_constraints(const fespace::DofMap<Dim>& dofs,
+                                                     std::span<const PeriodicPair<Dim>> pairs,
+                                                     Real tolerance = 1e-8);
+
 extern template fespace::Constraints bloch_constraints<2>(const fespace::NedelecDofMap<2>&,
                                                           std::span<const PeriodicPair<2>>, Real);
 extern template fespace::Constraints bloch_constraints<3>(const fespace::NedelecDofMap<3>&,
+                                                          std::span<const PeriodicPair<3>>, Real);
+extern template fespace::Constraints bloch_constraints<2>(const fespace::DofMap<2>&,
+                                                          std::span<const PeriodicPair<2>>, Real);
+extern template fespace::Constraints bloch_constraints<3>(const fespace::DofMap<3>&,
                                                           std::span<const PeriodicPair<3>>, Real);
 
 }  // namespace hpfem::assembly

@@ -2,6 +2,19 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+### Added
+- `physics::BandStructure` (backlog): Floquet–Bloch band structures of photonic crystals.
+  `assembly::bloch_constraints` now also exists for the H1 space, so the discrete gradient
+  can be reduced consistently with the Nédélec space; the new
+  `solvers::complex_eigenpairs_near_gauged` projects every Arnoldi vector onto the
+  B-orthogonal complement of the (Bloch-reduced) gradients, which removes the kernel of the
+  complex Hermitian curl–curl pencil without spurious modes. `bands(k)` returns the
+  wavenumbers k0 of the lowest bands at a Bloch wave vector (ascending, with residuals) and
+  `path(corners, segments)` walks Γ–X–M–Γ. Unit tests (empty lattice |k + G|, zero at Γ,
+  symmetry in k, dielectric rods lower the bands, H1 Bloch constraints, gauged solver
+  against a dense reference) and the convergence test `empty_lattice_bands`
+  (exponential in p, rate 2p in h). Python: `BandStructure2D/3D`, `BandStructureSetup2D/3D`,
+  `Bands2D/3D`. Theory: docs/theory/maxwell.md, section "Band structures".
 
 ## [0.2.0] — 2026-10-03
 Second release: everything from the Nédélec elements to the multiphysics step —

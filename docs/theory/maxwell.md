@@ -328,6 +328,60 @@ discrete pencil to $10^{-15}$. The unit tests check the complex solver against a
 reference (scale invariant from $O(1)$ to $O(10^{13})$ matrices) and the closed PEC square
 (real eigenfrequencies $c_0\pi\sqrt{m^2 + n^2}$, also on a hanging-node mesh).
 
+## Band structures (`physics/band_structure.hpp`)
+
+A photonic crystal is a lossless periodic structure with lattice vectors $a_j$. By Bloch's
+theorem its eigenmodes are Bloch waves, $E(x + a_j) = e^{ik\cdot a_j} E(x)$ for a wave vector
+$k$ of the first Brillouin zone, so one unit cell with the Bloch-periodic constraints of the
+previous section (phases $e^{ik\cdot a_j}$, one `PeriodicPair` per lattice vector) carries the
+source-free eigenproblem
+
+$$
+\nabla\times(\mu_r^{-1}\nabla\times E) = k_0^2\,\varepsilon_r\,E ,
+\qquad \omega_n(k) = c_0\,k_{0,n}(k),
+$$
+
+whose eigenvalues as functions of $k$ are the bands; the usual units are the normalised
+frequencies $\omega a/(2\pi c_0) = k_0 a/(2\pi)$. `physics::BandStructure` assembles the
+stiffness and mass matrices (relative tensors, real and symmetric for lossless materials)
+and the discrete gradient $G$ once; per wave vector it builds the Bloch constraints of the
+Nédélec space *and* of the H1 space (`bloch_constraints` for `DofMap`: the scalar trace of
+the shifted master functions, same hierarchical projections on both sides), reduces the
+pencil with the prolongation $P$ of the Nédélec constraints,
+
+$$
+S_k = P^H S P, \qquad M_k = P^H M P, \qquad
+G_k = (P^H P)^{-1} P^H\,G\,P_{\mathrm{H1}} ,
+$$
+
+and removes PEC DoFs if walls are present. $S_k$ and $M_k$ are complex Hermitian; $G_k$ is the
+discrete gradient of the Bloch-periodic H1 space, i.e. the exact kernel of $S_k$ (for
+$k \neq 0$ the constant field is no longer a gradient of a periodic function and the lowest
+band leaves zero). The eigenpairs come from `solvers::complex_eigenpairs_near_gauged`, the
+complex shift-invert Arnoldi iteration of the resonance solver with every Krylov vector
+projected onto the $M_k$-orthogonal complement of the gradients,
+
+$$
+\Pi = I - G_k\,(G_k^H M_k G_k)^{-1} G_k^H M_k ,
+$$
+
+so the eigenvalues at zero never appear and no spurious modes are produced — the same gauge
+as for the real cavity solver, in complex arithmetic. The shift sits below the lowest band
+($\sigma = -(2\pi/a)^2$ by default), the result lists $k_0$ of the lowest bands in ascending
+order with the Arnoldi residuals; `path(corners, segments)` walks a polyline through the
+Brillouin zone (Γ–X–M–Γ for the square lattice).
+
+**Verification** (`tests/convergence/empty_lattice_bands.cpp`): on the empty lattice (vacuum
+unit cell) the bands are the folded free-space dispersion $k_0 = |k + G|$ over the reciprocal
+lattice vectors $G = 2\pi(m, n)/a$. At a generic wave vector the four lowest bands converge
+exponentially under p-refinement (maximum relative errors $2.9\cdot10^{-2}$,
+$4.8\cdot10^{-3}$, $2.0\cdot10^{-4}$, $4.4\cdot10^{-6}$ for $p = 1..4$ on $4\times4$ cells) and
+with rate $2p$ under h-refinement ($2.0$ for $p = 1$, $3.9$ for $p = 2$). The unit tests
+check the zero of the lowest band at Γ (twofold: both polarisations, nothing else at zero),
+the symmetry $\omega(-k) = \omega(k)$, that dielectric rods ($\varepsilon_r = 8.9$) lower the
+bands, the H1 Bloch constraints on the interpolant of a Bloch function, and the gauged solver
+against a dense reference (kernel skipped, eigenvectors $B$-orthogonal to the kernel).
+
 ## Post-processing quantities
 
 Implemented in `physics/postprocess.hpp`:

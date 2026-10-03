@@ -78,4 +78,14 @@ struct ComplexEigenResult {
     const SparseMatrix& a, const SparseMatrix& b, Complex sigma, const EigenOptions& options = {},
     DirectSolverBackend backend = DirectSolverBackend::kAuto);
 
+/// As `complex_eigenpairs_near` with the gradient kernel removed: every Arnoldi vector is
+/// projected B-orthogonally onto the complement of range(G),
+/// @f$ P = I - G (G^H B G)^{-1} G^H B @f$, so the eigenvalues at zero of a curl–curl pencil
+/// (gradients of the H1 space, possibly Bloch-reduced) never appear. For Bloch-periodic band
+/// structures with complex Hermitian matrices (`physics::BandStructure`).
+/// @throws Error if @f$ G^H B G @f$ is singular.
+[[nodiscard]] ComplexEigenResult complex_eigenpairs_near_gauged(
+    const SparseMatrix& a, const SparseMatrix& b, const SparseMatrix& gradient, Complex sigma,
+    const EigenOptions& options = {}, DirectSolverBackend backend = DirectSolverBackend::kAuto);
+
 }  // namespace hpfem::solvers

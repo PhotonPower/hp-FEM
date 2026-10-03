@@ -48,6 +48,7 @@ add_library(hpfem
   physics/resonance.cpp
   physics/thermal.cpp
   physics/thermo_optical.cpp
+  physics/band_structure.cpp
   $<$<BOOL:${HPFEM_ENABLE_MUMPS}>:solvers/mumps_solver.cpp>
   adaptivity/residual_estimator.cpp
   adaptivity/marking.cpp

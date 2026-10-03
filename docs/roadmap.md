@@ -149,6 +149,9 @@ holds. Estimated effort is in rough "focused sessions".
 
 ## Backlog / ideas
 - dual H-formulation for guaranteed error bounds
-- Floquet-Bloch band structure solver
+- [x] Floquet-Bloch band structure solver (`physics::BandStructure`: Bloch constraints with
+  complex phases on the Nédélec and H1 spaces, gauged complex shift-invert Arnoldi,
+  bands per wave vector and along Γ–X–M paths; convergence test on the empty lattice,
+  `BandStructure2D/3D` in Python)
 - transient (time-domain) solver via implicit time stepping
 - GPU assembly
