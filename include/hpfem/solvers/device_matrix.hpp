@@ -10,6 +10,8 @@
 
 #include "hpfem/core/types.hpp"
 
+struct hpfem_gpu_matrix;  // the GPU library's object (gpu/include/hpfem_gpu.h)
+
 namespace hpfem::solvers {
 
 class DeviceMatrix {
@@ -33,6 +35,9 @@ class DeviceMatrix {
 
   /// True if the GPU library is loaded with API version 3 or later and a device is present.
   [[nodiscard]] static bool available() noexcept;
+
+  /// Raw handle of the GPU library (for `DeviceStepper`; no meaning elsewhere).
+  [[nodiscard]] ::hpfem_gpu_matrix* handle() const noexcept;
 
  private:
   struct Impl;

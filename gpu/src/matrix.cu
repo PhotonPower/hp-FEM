@@ -11,27 +11,7 @@
 #include <vector>
 
 #include "hpfem_gpu.h"
-
-namespace {
-
-struct Buffer {
-  void* ptr = nullptr;
-  size_t bytes = 0;
-  ~Buffer() {
-    if (ptr != nullptr) cudaFree(ptr);
-  }
-  cudaError_t reserve(size_t needed) {
-    if (needed <= bytes && ptr != nullptr) return cudaSuccess;
-    if (ptr != nullptr) cudaFree(ptr);
-    ptr = nullptr;
-    bytes = 0;
-    const cudaError_t status = cudaMalloc(&ptr, needed > 0 ? needed : 1);
-    if (status == cudaSuccess) bytes = needed;
-    return status;
-  }
-};
-
-}  // namespace
+#include "internal.hpp"
 
 /// y = A x, one warp per row; the lanes stride over the row and reduce with shuffles.
 __global__ void hpfem_gpu_spmv_warp_per_row(int64_t n, const int64_t* __restrict__ row_ptr,
@@ -59,34 +39,21 @@ __global__ void hpfem_gpu_spmv_warp_per_row(int64_t n, const int64_t* __restrict
   if (lane == 0) y[warp] = make_cuDoubleComplex(re, im);
 }
 
-struct hpfem_gpu_matrix {
-  int64_t n = 0;
-  int64_t nnz = 0;
-  Buffer row_ptr;
-  Buffer col;
-  Buffer values;
-  Buffer x;
-  Buffer y;
-  cudaStream_t stream = nullptr;
-  std::string last_error;
-
-  hpfem_gpu_status fail(hpfem_gpu_status status, const std::string& message) {
-    last_error = message;
-    return status;
-  }
-  hpfem_gpu_status fail_cuda(const char* what, cudaError_t status) {
-    cudaGetLastError();
-    return fail(
-        status == cudaErrorMemoryAllocation ? HPFEM_GPU_ERR_OUT_OF_MEMORY : HPFEM_GPU_ERR_CUDA,
-        std::string(what) + ": " + cudaGetErrorString(status));
-  }
-};
-
 #define HPFEM_GPU_MATRIX_CUDA(matrix, what, call)                                              \
   do {                                                                                         \
     const cudaError_t hpfem_gpu_status_ = (call);                                              \
     if (hpfem_gpu_status_ != cudaSuccess) return (matrix)->fail_cuda(what, hpfem_gpu_status_); \
   } while (0)
+
+void hpfem_gpu_matrix_apply_device(const hpfem_gpu_matrix* matrix, const cuDoubleComplex* d_x,
+                                   cuDoubleComplex* d_y, cudaStream_t stream) {
+  const int threads = 256;
+  const int64_t warps_per_block = threads / 32;
+  const int64_t blocks = (matrix->n + warps_per_block - 1) / warps_per_block;
+  hpfem_gpu_spmv_warp_per_row<<<static_cast<unsigned>(blocks), threads, 0, stream>>>(
+      matrix->n, matrix->row_ptr.as<const int64_t>(), matrix->col.as<const int64_t>(),
+      matrix->values.as<const cuDoubleComplex>(), d_x, d_y);
+}
 
 extern "C" {
 
@@ -165,16 +132,9 @@ hpfem_gpu_status hpfem_gpu_matrix_apply(hpfem_gpu_matrix* matrix, int64_t nrhs, 
   HPFEM_GPU_MATRIX_CUDA(matrix, "apply: upload input",
                         cudaMemcpyAsync(matrix->x.ptr, x, count * 2 * sizeof(double),
                                         cudaMemcpyHostToDevice, matrix->stream));
-  const int threads = 256;
-  const int64_t warps_per_block = threads / 32;
-  const int64_t blocks = (matrix->n + warps_per_block - 1) / warps_per_block;
   for (int64_t j = 0; j < nrhs; ++j) {
-    hpfem_gpu_spmv_warp_per_row<<<static_cast<unsigned>(blocks), threads, 0, matrix->stream>>>(
-        matrix->n, static_cast<const int64_t*>(matrix->row_ptr.ptr),
-        static_cast<const int64_t*>(matrix->col.ptr),
-        static_cast<const cuDoubleComplex*>(matrix->values.ptr),
-        static_cast<const cuDoubleComplex*>(matrix->x.ptr) + j * matrix->n,
-        static_cast<cuDoubleComplex*>(matrix->y.ptr) + j * matrix->n);
+    hpfem_gpu_matrix_apply_device(matrix, matrix->x.as<cuDoubleComplex>() + j * matrix->n,
+                                  matrix->y.as<cuDoubleComplex>() + j * matrix->n, matrix->stream);
   }
   HPFEM_GPU_MATRIX_CUDA(matrix, "apply: launch", cudaGetLastError());
   HPFEM_GPU_MATRIX_CUDA(matrix, "apply: download output",

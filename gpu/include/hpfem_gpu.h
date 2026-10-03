@@ -130,6 +130,33 @@ HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_matrix_apply(hpfem_gpu_matrix* matrix, 
                                                       const double* x, double* y);
 HPFEM_GPU_API const char* hpfem_gpu_matrix_last_error(const hpfem_gpu_matrix* matrix);
 
+/* Newmark time stepper on the device (API version 3): the state u, v, a stays on the GPU,
+ * step() is two products, the solve with the factorised Newmark operator `newmark`
+ * (K = M + gamma dt C + beta dt^2 S, factorised by the caller) and the vector updates of
+ *   u_pred = u + dt v + dt^2 (1/2 - beta) a,  v_pred = v + dt (1 - gamma) a,
+ *   a_new = K^{-1} (load_scale * load - C v_pred - S u_pred),
+ *   u = u_pred + beta dt^2 a_new,  v = v_pred + gamma dt a_new,  a = a_new.
+ * `damping` may be NULL (no C), `load` may be NULL (no source; load_scale ignored). The
+ * solver and the matrices must outlive the stepper and must not be used by other threads
+ * meanwhile. get_state() synchronises and downloads whichever of u, v, a is non-NULL. */
+typedef struct hpfem_gpu_stepper hpfem_gpu_stepper; /* opaque */
+
+HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_stepper_create(hpfem_gpu_stepper** out,
+                                                        hpfem_gpu_solver* newmark,
+                                                        hpfem_gpu_matrix* damping,
+                                                        hpfem_gpu_matrix* stiffness, int64_t n,
+                                                        const double* load, double dt, double beta,
+                                                        double gamma);
+HPFEM_GPU_API void hpfem_gpu_stepper_destroy(hpfem_gpu_stepper* stepper);
+HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_stepper_set_state(hpfem_gpu_stepper* stepper,
+                                                           const double* u, const double* v,
+                                                           const double* a);
+HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_stepper_get_state(const hpfem_gpu_stepper* stepper,
+                                                           double* u, double* v, double* a);
+HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_stepper_step(hpfem_gpu_stepper* stepper,
+                                                      double load_scale);
+HPFEM_GPU_API const char* hpfem_gpu_stepper_last_error(const hpfem_gpu_stepper* stepper);
+
 /* Function pointer types for run-time loading (dlsym / GetProcAddress). */
 typedef int (*hpfem_gpu_api_version_fn)(void);
 typedef const char* (*hpfem_gpu_version_fn)(void);
@@ -151,6 +178,17 @@ typedef void (*hpfem_gpu_matrix_destroy_fn)(hpfem_gpu_matrix*);
 typedef hpfem_gpu_status (*hpfem_gpu_matrix_apply_fn)(hpfem_gpu_matrix*, int64_t, const double*,
                                                       double*);
 typedef const char* (*hpfem_gpu_matrix_last_error_fn)(const hpfem_gpu_matrix*);
+typedef hpfem_gpu_status (*hpfem_gpu_stepper_create_fn)(hpfem_gpu_stepper**, hpfem_gpu_solver*,
+                                                        hpfem_gpu_matrix*, hpfem_gpu_matrix*,
+                                                        int64_t, const double*, double, double,
+                                                        double);
+typedef void (*hpfem_gpu_stepper_destroy_fn)(hpfem_gpu_stepper*);
+typedef hpfem_gpu_status (*hpfem_gpu_stepper_set_state_fn)(hpfem_gpu_stepper*, const double*,
+                                                           const double*, const double*);
+typedef hpfem_gpu_status (*hpfem_gpu_stepper_get_state_fn)(const hpfem_gpu_stepper*, double*,
+                                                           double*, double*);
+typedef hpfem_gpu_status (*hpfem_gpu_stepper_step_fn)(hpfem_gpu_stepper*, double);
+typedef const char* (*hpfem_gpu_stepper_last_error_fn)(const hpfem_gpu_stepper*);
 
 #ifdef __cplusplus
 }
