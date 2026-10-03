@@ -3,6 +3,10 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `examples/euv_mask/run.py` (M8): 3D EUV mask unit cell — tantalum pad on a Mo/Si
+  multilayer at 13.5 nm under 6° incidence, Bloch-periodic in x and y with PML above and in
+  the substrate, Kuhn tetrahedra with nodes on every layer interface, reflectivity from the
+  scattered-field flux (bare mirror against the transfer matrix) and the near field as VTK.
 - `physics::gaussian_current` (Python `gaussian_current`): the volume source iωμ₀J of a
   dipole smeared over a normalised Gaussian, evaluated in C++ — a point or line emitter
   inside a structure for the total-field formulation (a Python callback would serialise the

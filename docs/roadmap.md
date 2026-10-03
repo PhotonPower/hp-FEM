@@ -121,7 +121,10 @@ holds. Estimated effort is in rough "focused sessions".
       `examples/quantum_dot_purcell/run.py` (line dipole in a DBR ridge cavity, scattered
       field of the analytic dipole, emitted power from the flux around the dipole, Purcell
       and beta spectra; validated against the image dipole in front of a PEC mirror)
-- [ ] `euv_mask`: 3D absorber on multilayer, oblique incidence, near-field export
+- [x] `euv_mask`: 3D absorber on multilayer, oblique incidence, near-field export —
+      `examples/euv_mask/run.py` (Ta pad on a Mo/Si mirror at 13.5 nm and 6°, Bloch unit cell
+      in x and y, structured Kuhn tetrahedra on the layer interfaces, reflectivity against
+      the transfer matrix of the bare mirror, VTK near field)
 - [ ] `ring_resonator`: coupling + resonance (2D effective-index model first)
 
 ## M9 — Multiphysics (≈ 8)

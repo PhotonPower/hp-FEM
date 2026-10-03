@@ -198,13 +198,14 @@ def pillar_mesh(top_pairs, bottom_pairs, width, margin, pml, cell_fraction=0.08)
             tag = y_tags[j] if (inside or y_mid < 0) else TAG_AIR
             tags += [tag, tag]
     mesh = hpfem.Mesh2D(vertices, np.array(cells), tags)
+    tolerance = 1e-9 * half  # np.allclose's default atol (1e-8) is far too loose for metres
     for f in mesh.boundary_facets:
         v = mesh.vertices[mesh.facet_vertices(f)]
-        if np.allclose(v[:, 0], -half):
+        if np.all(np.abs(v[:, 0] + half) < tolerance):
             mesh.set_facet_tag(f, hpfem.box_tag.X_MIN)
-        elif np.allclose(v[:, 0], half):
+        elif np.all(np.abs(v[:, 0] - half) < tolerance):
             mesh.set_facet_tag(f, hpfem.box_tag.X_MAX)
-        elif np.allclose(v[:, 1], y_nodes[0]):
+        elif np.all(np.abs(v[:, 1] - y_nodes[0]) < tolerance):
             mesh.set_facet_tag(f, hpfem.box_tag.Y_MIN)
         else:
             mesh.set_facet_tag(f, hpfem.box_tag.Y_MAX)
