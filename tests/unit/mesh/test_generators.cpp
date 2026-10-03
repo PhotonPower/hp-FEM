@@ -253,7 +253,7 @@ TEST_CASE("box_with_ball: inclusion cells, curved interface on the sphere, outer
     if (fc[1] == kInvalidIndex) continue;
     if ((m.cell_tag(fc[0]) == 2) == (m.cell_tag(fc[1]) == 2)) continue;
     const auto& fv = m.facet_vertices(f);
-    for (const auto [a, b] :
+    for (const auto& [a, b] :
          {std::pair{fv[0], fv[1]}, std::pair{fv[1], fv[2]}, std::pair{fv[0], fv[2]}}) {
       REQUIRE(m.vertex(a).norm() == Approx(r).epsilon(1e-12));
       REQUIRE(m.edge_node(m.edge_id(a, b)).norm() == Approx(r).epsilon(1e-12));
