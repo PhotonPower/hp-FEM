@@ -1,0 +1,28 @@
+var searchData=
+[
+  ['gamma_0',['gamma',['../structhpfem_1_1physics_1_1TimeDomainSetup.html#ab8b1f4c6151f0550fa2da7eb5e9cc40f',1,'hpfem::physics::TimeDomainSetup']]],
+  ['gamma_5fh_1',['gamma_h',['../structhpfem_1_1adaptivity_1_1PredictionOptions.html#acf2e5a08fc6674817c46a7bf15886139',1,'hpfem::adaptivity::PredictionOptions']]],
+  ['gamma_5fn_2',['gamma_n',['../structhpfem_1_1adaptivity_1_1PredictionOptions.html#a95e574bd17dc5dbacdcceb931f3eaa80',1,'hpfem::adaptivity::PredictionOptions']]],
+  ['gamma_5fp_3',['gamma_p',['../structhpfem_1_1adaptivity_1_1PredictionOptions.html#aa2900648232aaeca1519c1bf820c277a',1,'hpfem::adaptivity::PredictionOptions']]],
+  ['gather_4',['gather',['../namespacehpfem_1_1assembly.html#a4a4004ae63c4041dd4282471d29d23e0',1,'hpfem::assembly']]],
+  ['gauged_5fcurl_5fcurl_5feigenpairs_5',['gauged_curl_curl_eigenpairs',['../namespacehpfem_1_1solvers.html#aee9a7fbcf0da69d6f0d08c494c4ff1cb',1,'hpfem::solvers']]],
+  ['gauss_5fjacobi_6',['gauss_jacobi',['../namespacehpfem_1_1assembly.html#afe89b2dee4b2e3c24f4b547e2b95f519',1,'hpfem::assembly']]],
+  ['gauss_5flegendre_7',['gauss_legendre',['../namespacehpfem_1_1assembly.html#a41463bc634e0292594f84ae5625fab33',1,'hpfem::assembly']]],
+  ['gaussian_5fcurrent_8',['gaussian_current',['../namespacehpfem_1_1physics.html#afcb8f8a142945da1ae87addc0d005c48',1,'hpfem::physics']]],
+  ['gaussian_5fcurrent_3c_202_20_3e_9',['gaussian_current&lt; 2 &gt;',['../namespacehpfem_1_1physics.html#ada643262f9ca4d72493b261318521d5c',1,'hpfem::physics']]],
+  ['gaussian_5fcurrent_3c_203_20_3e_10',['gaussian_current&lt; 3 &gt;',['../namespacehpfem_1_1physics.html#af364b236b02761b27d9af8788df597ce',1,'hpfem::physics']]],
+  ['gaussian_5fpulse_11',['gaussian_pulse',['../namespacehpfem_1_1physics.html#a33f4ef46891552fe30f98154784f6b40',1,'hpfem::physics']]],
+  ['gcc_20ucrt64_20cmake_20ninja_12',['4a. Local development on Windows (MSYS2-GCC UCRT64 + CMake + Ninja)',['../index.html#autotoc_md5',1,'']]],
+  ['generalized_5feigenpairs_5fnear_13',['generalized_eigenpairs_near',['../namespacehpfem_1_1solvers.html#ac1b182a0b806f531d3aa09ba88616e53',1,'hpfem::solvers']]],
+  ['generators_2ehpp_14',['generators.hpp',['../generators_8hpp.html',1,'']]],
+  ['geometry_2ehpp_15',['geometry.hpp',['../geometry_8hpp.html',1,'']]],
+  ['geometry_5forder_16',['geometry_order',['../classhpfem_1_1mesh_1_1Mesh.html#a6f526f44cdef41af69c7ffd4cb8323e2',1,'hpfem::mesh::Mesh']]],
+  ['geometrypoint_17',['GeometryPoint',['../structhpfem_1_1mesh_1_1GeometryPoint.html',1,'hpfem::mesh']]],
+  ['gmsh_2ehpp_18',['gmsh.hpp',['../gmsh_8hpp.html',1,'']]],
+  ['goal_5foriented_2ehpp_19',['goal_oriented.hpp',['../goal__oriented_8hpp.html',1,'']]],
+  ['goalestimate_20',['GoalEstimate',['../structhpfem_1_1physics_1_1GoalEstimate.html',1,'hpfem::physics']]],
+  ['gpu_5fmin_5funknowns_21',['gpu_min_unknowns',['../namespacehpfem_1_1solvers.html#a2115aee67bb6d15d8bc173028765cd07',1,'hpfem::solvers']]],
+  ['gradient_22',['gradient',['../structhpfem_1_1fespace_1_1detail_1_1LegendreKernel.html#aeb454cb0ec8b85c22024dc1c38b0d937',1,'hpfem::fespace::detail::LegendreKernel::gradient'],['../structhpfem_1_1fespace_1_1detail_1_1BubbleKernel.html#a6cdba479ca3040186b6421aff41b220a',1,'hpfem::fespace::detail::BubbleKernel::gradient'],['../structhpfem_1_1fespace_1_1detail_1_1EdgeKernel.html#aaa211cc780701d494fd585b553d2384f',1,'hpfem::fespace::detail::EdgeKernel::gradient']]],
+  ['gradient_5fsource_23',['gradient_source',['../structhpfem_1_1assembly_1_1ScalarForm.html#a32c19b4a6773c56deb6392cb84bd68f4',1,'hpfem::assembly::ScalarForm']]],
+  ['grid_5fdivisions_24',['grid_divisions',['../classhpfem_1_1mesh_1_1PointLocator.html#a544d048646aab89ee3bbc34b29ac2127',1,'hpfem::mesh::PointLocator']]]
+];

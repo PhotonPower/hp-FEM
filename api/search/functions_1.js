@@ -1,0 +1,26 @@
+var searchData=
+[
+  ['backend_5fname_0',['backend_name',['../namespacehpfem_1_1solvers.html#a28d0e2802d728ba1e6e48862a0dc9579',1,'hpfem::solvers']]],
+  ['background_1',['background',['../classhpfem_1_1materials_1_1MaterialMap.html#a29eec2893b2e5f61c0d3fdff40ddd162',1,'hpfem::materials::MaterialMap']]],
+  ['background_5fmaterial_2',['background_material',['../classhpfem_1_1physics_1_1Scattering.html#ab057c27ff7fcc120ffa1baf0a81c30e0',1,'hpfem::physics::Scattering']]],
+  ['ball_3',['ball',['../namespacehpfem_1_1mesh.html#ad8278cc4ca05b4647976bb456f5e2d8b',1,'hpfem::mesh']]],
+  ['bands_4',['bands',['../classhpfem_1_1physics_1_1BandStructure.html#aedc10933f1bffeb78c3cb641cebc3b96',1,'hpfem::physics::BandStructure']]],
+  ['bandstructure_5',['BandStructure',['../classhpfem_1_1physics_1_1BandStructure.html#a4628bdb8e86e3501bfea5ad003c13407',1,'hpfem::physics::BandStructure']]],
+  ['barycentric_6',['barycentric',['../structhpfem_1_1fespace_1_1ReferenceElement.html#ab95f822d8a22aabb3ef9e8eadc184e26',1,'hpfem::fespace::ReferenceElement']]],
+  ['barycentric_5fgradients_7',['barycentric_gradients',['../structhpfem_1_1fespace_1_1ReferenceElement.html#a04f84b4995285438587e507c10040f4b',1,'hpfem::fespace::ReferenceElement']]],
+  ['basis_8',['basis',['../classhpfem_1_1solvers_1_1ReducedBasis.html#a70c26c6a863ce5e072361980eb359a07',1,'hpfem::solvers::ReducedBasis']]],
+  ['bessel_5fj_9',['bessel_j',['../namespacehpfem.html#acf5a606a5d53ce93b978ca7536e7b50d',1,'hpfem']]],
+  ['bessel_5fj_5fderivative_10',['bessel_j_derivative',['../namespacehpfem.html#a9a259e530f1441624c393f2fbf633b8e',1,'hpfem']]],
+  ['bessel_5fy_11',['bessel_y',['../namespacehpfem.html#aa8f3ade13b32dd62edc2677ef9c81043',1,'hpfem']]],
+  ['bloch_5fconstraints_12',['bloch_constraints',['../namespacehpfem_1_1assembly.html#ad6627659961a2745622f9baf53bbbc87',1,'hpfem::assembly::bloch_constraints(const fespace::NedelecDofMap&lt; Dim &gt; &amp;dofs, std::span&lt; const PeriodicPair&lt; Dim &gt; &gt; pairs, Real tolerance=1e-8)'],['../namespacehpfem_1_1assembly.html#a562240f93aa7279e752ad5ad8d3472ae',1,'hpfem::assembly::bloch_constraints(const fespace::DofMap&lt; Dim &gt; &amp;dofs, std::span&lt; const PeriodicPair&lt; Dim &gt; &gt; pairs, Real tolerance=1e-8)']]],
+  ['bloch_5fconstraints_3c_202_20_3e_13',['bloch_constraints&lt; 2 &gt;',['../namespacehpfem_1_1assembly.html#a7c3fe3c30c4422c38556dbd3b4a053b4',1,'hpfem::assembly::bloch_constraints&lt; 2 &gt;(const fespace::NedelecDofMap&lt; 2 &gt; &amp;, std::span&lt; const PeriodicPair&lt; 2 &gt; &gt;, Real)'],['../namespacehpfem_1_1assembly.html#a598b79fa14cbf70378b391f96c46f1b5',1,'hpfem::assembly::bloch_constraints&lt; 2 &gt;(const fespace::DofMap&lt; 2 &gt; &amp;, std::span&lt; const PeriodicPair&lt; 2 &gt; &gt;, Real)']]],
+  ['bloch_5fconstraints_3c_203_20_3e_14',['bloch_constraints&lt; 3 &gt;',['../namespacehpfem_1_1assembly.html#a8a22015225b04b6cedc49d300a1cdc10',1,'hpfem::assembly::bloch_constraints&lt; 3 &gt;(const fespace::NedelecDofMap&lt; 3 &gt; &amp;, std::span&lt; const PeriodicPair&lt; 3 &gt; &gt;, Real)'],['../namespacehpfem_1_1assembly.html#a390620d071bd80707d22f3d9c3a37c16',1,'hpfem::assembly::bloch_constraints&lt; 3 &gt;(const fespace::DofMap&lt; 3 &gt; &amp;, std::span&lt; const PeriodicPair&lt; 3 &gt; &gt;, Real)']]],
+  ['bloch_5fphase_15',['bloch_phase',['../namespacehpfem_1_1assembly.html#aa3978b3bac18c51d687b285366024faf',1,'hpfem::assembly']]],
+  ['block_5fconstraints_16',['block_constraints',['../namespacehpfem_1_1assembly.html#a15ad01b25668d3339cc35e3ae3857428',1,'hpfem::assembly']]],
+  ['bottom_17',['bottom',['../classhpfem_1_1physics_1_1LayerStack.html#aec2d741dbf761fb462c1db04fd6e34d4',1,'hpfem::physics::LayerStack']]],
+  ['boundary_18',['boundary',['../structhpfem_1_1physics_1_1Surface.html#ad8999785c703cf54d8a1c8c7d89de417',1,'hpfem::physics::Surface']]],
+  ['boundary_5ffacets_19',['boundary_facets',['../classhpfem_1_1mesh_1_1Mesh.html#acff42f51356d4a4993c6e3cb4bf857e9',1,'hpfem::mesh::Mesh']]],
+  ['box_20',['box',['../namespacehpfem_1_1mesh.html#ace774f24831670d9ac8ba2b06ebd342d',1,'hpfem::mesh']]],
+  ['box_5fwith_5fball_21',['box_with_ball',['../namespacehpfem_1_1mesh.html#a868c343fd4d2e797a55c75f576ac0b88',1,'hpfem::mesh']]],
+  ['bubblekernel_22',['BubbleKernel',['../structhpfem_1_1fespace_1_1detail_1_1BubbleKernel.html#afeab952c26a06643e4edc79b0b0c1071',1,'hpfem::fespace::detail::BubbleKernel']]]
+];

@@ -1,0 +1,1422 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/python/">
+      
+      
+        <link rel="prev" href="../theory/axisymmetric/">
+      
+      
+        <link rel="next" href="../applications/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Python API - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#python-api" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Python API
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conventions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#units-and-materials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Units and materials
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-files-and-the-command-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project files and the command line
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notebooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notebooks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conventions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#units-and-materials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Units and materials
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-files-and-the-command-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project files and the command line
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notebooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notebooks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="python-api">Python API</h1>
+<p>The Python package <code>hpfem</code> wraps the C++ core with pybind11 (<code>python/bindings/</code>). It
+exposes the same pipeline as the C++ examples — mesh, DoF maps, materials and PML,
+problems, solvers, post-processing, adaptivity, export — with NumPy / SciPy types at the
+boundary. The C++ library stays the single implementation; the bindings add no numerics.</p>
+<h2 id="installation">Installation</h2>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev]"</span><span class="w">        </span><span class="c1"># builds the extension with scikit-build-core (CMake + Ninja)</span>
+pytest<span class="w"> </span>python/tests
+</code></pre></div>
+<p>For development against an existing CMake build: <code>cmake --preset python</code>,
+<code>cmake --build --preset python</code>, then copy <code>build/python/python/_hpfem*.{so,pyd}</code> next to
+<code>python/hpfem/__init__.py</code> (git ignores it) and run <code>pytest</code> from <code>python/</code>. On Windows
+the extension must be built for the interpreter CMake found; with the MSYS2 toolchain that is
+<code>C:\msys64\ucrt64\bin\python3</code> (install <code>mingw-w64-ucrt-x86_64-python-numpy</code>, <code>-scipy</code>,
+<code>-pytest</code> with pacman).</p>
+<h2 id="conventions">Conventions</h2>
+<ul>
+<li><strong>Units are SI</strong> and the time dependence is <span class="arithmatex">\(e^{-i\omega t}\)</span> (CLAUDE.md §6): lengths in
+  metres, <code>omega</code> in rad/s, fields in V/m, lossy media have <code>Im eps_r &gt; 0</code>. <code>hpfem.units</code>
+  (next roadmap item) converts nm, µm, eV and THz at the boundary.</li>
+<li><strong>Dimension by name.</strong> Dimension-templated classes exist as <code>&lt;Name&gt;2D</code> / <code>&lt;Name&gt;3D</code>:
+  <code>Mesh2D</code>, <code>NedelecDofMap3D</code>, <code>Scattering2D</code>, <code>PmlBox3D</code>, <code>FieldExporter2D</code>, … Free
+  functions are overloaded on the argument type, so <code>refine_uniform(mesh)</code>,
+  <code>extract(mesh, cells)</code>, <code>hp_refine(adaptive, …)</code>, <code>interpolate(dofs, g)</code> work for either
+  dimension; <code>read_gmsh(file, scale, dim)</code> takes the dimension explicitly.</li>
+<li><strong>Arrays.</strong> Bulk data (vertices, cells, tags, DoF lists, indicators, coefficient vectors)
+  are NumPy arrays; sparse matrices are <code>scipy.sparse.csr_matrix</code> with complex entries;
+  per-entity queries return lists. Inputs accept lists or arrays.</li>
+<li><strong>Callbacks.</strong> Coefficients, sources and samplers are Python callables of the physical
+  point (<code>lambda x: ...</code> returning a scalar, a length-<code>dim</code> vector or a tensor). They are
+  called with the GIL held, also from the OpenMP loops of the assembly, so they are correct
+  but slow; prefer the analytic sources (<code>plane_wave</code>, <code>dipole_field</code>) and materials by tag
+  for anything in the hot path. A Python exception inside a callback propagates out of the
+  parallel loop as the original exception.</li>
+<li><strong>Lifetimes.</strong> Objects that reference others (DoF map → mesh, problem → DoF map,
+  locator → mesh, exporter → mesh) keep them alive. <code>AdaptiveMesh.mesh</code> returns a <em>copy</em> of
+  the current leaf mesh: take it once per step and build the DoF maps, locators and exporters
+  of that step on that object (the C++ pointer identity checks require it).</li>
+<li><strong>Errors.</strong> <code>hpfem::InvalidArgument</code> → <code>ValueError</code>, <code>hpfem::NotImplemented</code> →
+  <code>NotImplementedError</code>, other <code>hpfem::Error</code> → <code>RuntimeError</code>.</li>
+<li>Long-running calls release the GIL; <code>set_num_threads</code> / <code>num_threads</code> control the OpenMP
+  loops, <code>set_log_level("warn")</code> silences the per-solve logging.</li>
+</ul>
+<h2 id="units-and-materials">Units and materials</h2>
+<p><code>hpfem.units</code> holds the multipliers (<code>nm</code>, <code>um</code>, <code>eV</code>, <code>THz</code>, <code>deg</code>, …): multiply to go
+into SI, divide to come out, and converts between the spectral variables:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">hpfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">units</span><span class="p">,</span> <span class="n">materials</span>
+<span class="n">omega</span> <span class="o">=</span> <span class="n">units</span><span class="o">.</span><span class="n">angular_frequency</span><span class="p">(</span><span class="n">wavelength</span><span class="o">=</span><span class="mi">633</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">nm</span><span class="p">)</span>   <span class="c1"># or frequency=, energy=, wavenumber=</span>
+<span class="n">units</span><span class="o">.</span><span class="n">photon_energy</span><span class="p">(</span><span class="n">omega</span><span class="p">)</span> <span class="o">/</span> <span class="n">units</span><span class="o">.</span><span class="n">eV</span>                         <span class="c1"># 1.96</span>
+</code></pre></div>
+<p><code>hpfem.materials</code> provides dispersive materials — <code>Tabulated</code> n, k (linear interpolation in
+wavelength, no extrapolation), <code>Sellmeier</code>, <code>DrudeLorentz</code> / <code>Drude</code>, <code>Constant</code> — whose
+<code>at(omega)</code> returns the frequency-independent core <code>Material</code> for one solve, so a
+frequency sweep re-sets the material per frequency. The library (<code>materials.library</code>,
+<code>materials.get(name)</code>) carries its sources in <code>python/hpfem/data/*.csv</code> (refractiveindex.info
+database, CC0):</p>
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>source</th>
+<th>range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Si</code></td>
+<td>Green 2008, intrinsic c-Si at 300 K</td>
+<td>0.25 – 1.45 µm</td>
+</tr>
+<tr>
+<td><code>SiO2</code></td>
+<td>Malitson 1965 Sellmeier, fused silica</td>
+<td>0.21 – 6.7 µm</td>
+</tr>
+<tr>
+<td><code>Au</code>, <code>Ag</code></td>
+<td>Johnson &amp; Christy 1972</td>
+<td>0.188 – 1.94 µm</td>
+</tr>
+<tr>
+<td><code>Al</code></td>
+<td>Rakić 1995 (Kramers–Kronig consistent)</td>
+<td>0.000124 – 200 µm</td>
+</tr>
+<tr>
+<td><code>TiO2</code></td>
+<td>Devore 1951 Sellmeier, rutile, ordinary ray</td>
+<td>0.43 – 1.53 µm</td>
+</tr>
+<tr>
+<td><code>GaAs</code></td>
+<td>Aspnes et al. 1986</td>
+<td>0.207 – 0.827 µm</td>
+</tr>
+<tr>
+<td><code>MAPbI3</code></td>
+<td>Phillips et al. 2015, CH3NH3PbI3 perovskite film</td>
+<td>0.30 – 1.50 µm</td>
+</tr>
+<tr>
+<td><code>water</code></td>
+<td>Daimon &amp; Masumura 2007 Sellmeier</td>
+<td>0.2 – 2.0 µm</td>
+</tr>
+<tr>
+<td><code>vacuum</code>, <code>air</code></td>
+<td>constants</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><span class="n">setup</span><span class="o">.</span><span class="n">materials</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">materials</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Au"</span><span class="p">)</span><span class="o">.</span><span class="n">at</span><span class="p">(</span><span class="n">omega</span><span class="p">))</span>      <span class="c1"># eps_r = (n + ik)^2, Im &gt; 0</span>
+</code></pre></div>
+<h2 id="project-files-and-the-command-line">Project files and the command line</h2>
+<p>A simulation can be described without Python in a JSON (or YAML) project file and run with
+<code>hpfem run project.json -o results.json</code> (also <code>python -m hpfem run …</code>); <code>hpfem validate</code>
+builds the mesh and the setups without solving, <code>hpfem info</code> and <code>hpfem materials</code> print
+the build and the material library. <code>examples/*/project.json</code> hold the four examples;
+the Mie cylinder reads:</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">"problem"</span><span class="p">:</span><span class="w"> </span><span class="s2">"scattering"</span><span class="p">,</span><span class="w"> </span><span class="nt">"dim"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"length_unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"m"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"mesh"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"square_with_disc"</span><span class="p">,</span><span class="w"> </span><span class="nt">"n"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">"radius"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.25</span><span class="p">,</span><span class="w"> </span><span class="nt">"half_width"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"outer"</span><span class="p">:</span><span class="w"> </span><span class="mf">2.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"inclusion_tag"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"order"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"wavelength"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"value"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0471975511965976</span><span class="p">,</span><span class="w"> </span><span class="nt">"unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"m"</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"materials"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"background"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vacuum"</span><span class="p">,</span><span class="w"> </span><span class="nt">"2"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"n"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.5</span><span class="p">}},</span>
+<span class="w">  </span><span class="nt">"formulation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"scattered_field"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"source"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"plane_wave"</span><span class="p">,</span><span class="w"> </span><span class="nt">"angle"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"angle_unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"deg"</span><span class="p">,</span><span class="w"> </span><span class="nt">"polarisation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TE"</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"pml"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"lower"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">-1</span><span class="p">,</span><span class="w"> </span><span class="mi">-1</span><span class="p">],</span><span class="w"> </span><span class="nt">"upper"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="nt">"thickness"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"profile"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"order"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"reflection"</span><span class="p">:</span><span class="w"> </span><span class="mf">1e-10</span><span class="p">}},</span>
+<span class="w">  </span><span class="nt">"boundaries"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"pec"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"x_min"</span><span class="p">,</span><span class="w"> </span><span class="s2">"x_max"</span><span class="p">,</span><span class="w"> </span><span class="s2">"y_min"</span><span class="p">,</span><span class="w"> </span><span class="s2">"y_max"</span><span class="p">]},</span>
+<span class="w">  </span><span class="nt">"outputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"cross_sections"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"around_tag"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">},</span><span class="w"> </span><span class="nt">"far_field"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"around_tag"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"directions"</span><span class="p">:</span><span class="w"> </span><span class="mi">36</span><span class="p">},</span>
+<span class="w">              </span><span class="nt">"points"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mf">0.5</span><span class="p">,</span><span class="w"> </span><span class="mf">0.1</span><span class="p">]],</span><span class="w"> </span><span class="nt">"vtk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"file"</span><span class="p">:</span><span class="w"> </span><span class="s2">"mie_cylinder.vtu"</span><span class="p">,</span><span class="w"> </span><span class="nt">"subdivisions"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">}}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Keys (see the docstring of <code>hpfem.project</code> for the full list): <code>problem</code> (<code>scattering</code>,
+<code>waveguide</code>, <code>cavity</code>), <code>mesh.type</code> (<code>rectangle</code>, <code>box</code>, <code>disc</code>, <code>ball</code>, <code>square_with_disc</code>,
+<code>gmsh</code> with <code>file</code>; <code>regions</code> re-tag cells whose centroid lies in a box), <code>wavelength</code> /
+<code>frequency</code> / <code>energy</code> with a <code>unit</code> (a list runs a sweep), <code>materials</code> by tag (library
+name, <code>{"n": 1.5}</code>, <code>{"eps_r": [re, im]}</code>), <code>source</code> (<code>plane_wave</code> with <code>angle</code> in 2D or
+<code>direction</code> + <code>polarisation</code> in 3D, <code>dipole</code>), <code>pml</code>, <code>boundaries.pec</code> / <code>incident</code> (side
+names <code>x_min</code> … <code>z_max</code> or tags), <code>periodic</code> (Bloch phase from the source), <code>solver</code>,
+<code>outputs</code> (<code>cross_sections</code>, <code>far_field</code>, <code>points</code>, <code>flux</code>, <code>diffraction</code>, <code>estimate</code>,
+<code>vtk</code>). The results are JSON with one entry per spectral point; from Python,
+<code>hpfem.project.run(spec)</code> takes the same mapping.</p>
+<h2 id="notebooks">Notebooks</h2>
+<p><code>examples/notebooks/</code> holds Jupyter notebooks over this API (Mie cylinder, hp-adaptivity on
+the L-shape, gold nanowire spectrum with the material library and a project-file sweep).
+They are committed without outputs and executed by the test suite, so they double as
+living documentation.</p>
+<h2 id="pipeline">Pipeline</h2>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hpfem</span>
+
+<span class="c1"># mesh with a curved circular inclusion (tag 2), space of order 3</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">square_with_disc</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">half_width</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">outer</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">inclusion_tag</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">dofs</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">NedelecDofMap2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+<span class="c1"># scattering of a plane wave, scattered-field formulation, PML on all sides</span>
+<span class="n">k</span> <span class="o">=</span> <span class="mf">6.0</span>
+<span class="n">setup</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">ScatteringSetup2D</span><span class="p">()</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">omega</span> <span class="o">=</span> <span class="n">k</span> <span class="o">*</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">constants</span><span class="o">.</span><span class="n">c0</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">materials</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Material</span><span class="o">.</span><span class="n">dielectric</span><span class="p">(</span><span class="mf">1.5</span><span class="p">))</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">incident</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">plane_wave</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">formulation</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Formulation</span><span class="o">.</span><span class="n">SCATTERED_FIELD</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">pml</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">PmlBox2D</span><span class="o">.</span><span class="n">uniform</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">pec_tags</span> <span class="o">=</span> <span class="p">[</span><span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">X_MIN</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">X_MAX</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">Y_MIN</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">Y_MAX</span><span class="p">]</span>
+<span class="n">problem</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Scattering2D</span><span class="p">(</span><span class="n">dofs</span><span class="p">,</span> <span class="n">setup</span><span class="p">)</span>
+<span class="n">solution</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+
+<span class="c1"># post-processing: cross-sections, far field, field values, VTK export</span>
+<span class="n">surface</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Surface2D</span><span class="o">.</span><span class="n">around_cells</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">cs</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">cross_sections</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">solution</span><span class="p">,</span> <span class="n">surface</span><span class="p">,</span> <span class="n">incident_amplitude</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">scattering</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">mie_cylinder_scattering_width</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">))</span>
+<span class="n">far</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">FarField2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">surface</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">discrete_field</span><span class="p">(</span><span class="n">dofs</span><span class="p">,</span> <span class="n">solution</span><span class="o">.</span><span class="n">unknown</span><span class="p">),</span>
+                       <span class="n">setup</span><span class="o">.</span><span class="n">omega</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Material</span><span class="o">.</span><span class="n">vacuum</span><span class="p">(),</span> <span class="n">order</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">pattern</span> <span class="o">=</span> <span class="n">far</span><span class="o">.</span><span class="n">pattern</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+<span class="n">locator</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">PointLocator2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span>
+<span class="n">E</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">total_field</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">locator</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">])</span>      <span class="c1"># None outside the mesh</span>
+<span class="n">hpfem</span><span class="o">.</span><span class="n">FieldExporter2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">hcurl</span><span class="p">(</span><span class="s2">"E"</span><span class="p">,</span> <span class="n">dofs</span><span class="p">,</span> <span class="n">solution</span><span class="o">.</span><span class="n">unknown</span><span class="p">)</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"mie.vtu"</span><span class="p">)</span>
+
+<span class="c1"># adaptivity: estimate, mark, refine (h or p), transfer</span>
+<span class="n">estimate</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">estimate</span><span class="p">(</span><span class="n">solution</span><span class="p">)</span>
+<span class="n">marked</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">dorfler_marking</span><span class="p">(</span><span class="n">estimate</span><span class="o">.</span><span class="n">indicators</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
+</code></pre></div>
+<p>The hp loop (<code>tests/convergence/adaptive_hp_refinement.cpp</code>) reads the same in Python:</p>
+<div class="highlight"><pre><span></span><code><span class="n">adaptive</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">AdaptiveMesh2D</span><span class="p">(</span><span class="n">root_mesh</span><span class="p">)</span>
+<span class="n">orders</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">adaptive</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">predicted</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">):</span>
+    <span class="n">mesh</span> <span class="o">=</span> <span class="n">adaptive</span><span class="o">.</span><span class="n">mesh</span>                        <span class="c1"># copy of the current leaf mesh</span>
+    <span class="n">dofs</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">NedelecDofMap2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">orders</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+    <span class="n">problem</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Scattering2D</span><span class="p">(</span><span class="n">dofs</span><span class="p">,</span> <span class="n">setup</span><span class="p">)</span>
+    <span class="n">solution</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+    <span class="n">estimate</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">estimate</span><span class="p">(</span><span class="n">solution</span><span class="p">)</span>
+    <span class="n">marked</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">dorfler_marking</span><span class="p">(</span><span class="n">estimate</span><span class="o">.</span><span class="n">indicators</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">decision</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">hp_decide_by_prediction</span><span class="p">(</span><span class="n">estimate</span><span class="o">.</span><span class="n">indicators</span><span class="p">,</span> <span class="n">predicted</span><span class="p">,</span> <span class="n">marked</span><span class="p">)</span>
+    <span class="n">hp</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">hp_refine</span><span class="p">(</span><span class="n">adaptive</span><span class="p">,</span> <span class="n">orders</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">decision</span><span class="o">.</span><span class="n">h_marked</span><span class="p">,</span> <span class="n">decision</span><span class="o">.</span><span class="n">p_marked</span><span class="p">)</span>
+    <span class="n">predicted</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">predict_indicators</span><span class="p">(</span><span class="n">estimate</span><span class="o">.</span><span class="n">indicators</span><span class="p">,</span> <span class="n">orders</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">hp</span><span class="p">)</span>
+    <span class="n">orders</span> <span class="o">=</span> <span class="n">hp</span><span class="o">.</span><span class="n">orders</span>
+</code></pre></div>
+<p>Other entry points follow the C++ headers one to one: <code>assemble_h1</code> / <code>assemble_maxwell</code>
+with <code>ScalarForm2D</code> / <code>MaxwellForm2D</code> callbacks and <code>solve_direct</code> or <code>make_direct_solver</code>
+(SparseLU / MUMPS / cuDSS), <code>dirichlet_values</code> / <code>apply_dirichlet</code>, <code>gauged_curl_curl_eigenpairs</code>
+for cavity modes, <code>PropagatingMode</code> for waveguide cross-sections, <code>BandStructure2D</code> for
+Floquet–Bloch bands of a unit cell, <code>ScatteringOperator2D</code> /
+<code>plane_wave_sweep</code> / <code>ReducedBasis</code> for sweeps, <code>bloch_constraints</code> / <code>PeriodicPair2D</code> /
+<code>fourier_coefficients</code> / <code>diffraction_efficiencies</code> for gratings, <code>dwr_estimate</code> with
+<code>point_value_functional</code> or a Python functional for goal-oriented estimation, <code>VtkWriter2D</code>
+for meshes with data arrays. <code>help(hpfem.&lt;name&gt;)</code> shows the bound signature and docstring.</p>
+<h2 id="tests">Tests</h2>
+<p><code>python/tests/</code> runs in CI (<code>pip install ".[dev]" &amp;&amp; pytest python/tests</code>, under a minute):
+mesh and DoF-map invariants, Poisson with manufactured solution (rate <span class="arithmatex">\(p+1\)</span>), PEC cavity
+eigenvalues (no spurious modes), the Mie cylinder cross-section against the series, the
+slab waveguide effective index, the lamellar grating's energy balance, the hp loop on the
+L-shape, the goal-oriented estimate, callbacks raising inside parallel loops, VTK export.
+Convergence is established by the C++ suite; the Python tests check that the bound pipeline
+reproduces those numbers.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

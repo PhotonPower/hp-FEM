@@ -1,0 +1,1580 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/roadmap/">
+      
+      
+        <link rel="prev" href="../architecture/">
+      
+      
+        <link rel="next" href="../theory/maxwell/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Roadmap - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#roadmap" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Roadmap
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#m0-scaffold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M0 — Scaffold ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m1-mesh-infrastructure-6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M1 — Mesh infrastructure (≈ 6) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m2-scalar-fem-on-the-infrastructure-4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M2 — Scalar FEM on the infrastructure (≈ 4) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m3-nedelec-elements-and-maxwell-eigenproblems-8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M3 — Nédélec elements and Maxwell eigenproblems (≈ 8) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m4-time-harmonic-scattering-waveguides-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M4 — Time-harmonic scattering &amp; waveguides (≈ 10) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m5-adaptivity-a-posteriori-estimation-and-hp-refinement-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M5 — Adaptivity: a-posteriori estimation and hp-refinement (≈ 10) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m6-solvers-performance-8-apart-from-the-optional-mpi-item" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M6 — Solvers &amp; performance (≈ 8) ✅ (apart from the optional MPI item)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m7-python-api-usability-6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M7 — Python API &amp; usability (≈ 6) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m8-application-examples-6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M8 — Application examples (≈ 6) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m9-multiphysics-8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M9 — Multiphysics (≈ 8) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m10-validation-against-the-literature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M10 — Validation against the literature
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m11-axisymmetric-25d-solver-adr-0010" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M11 — Axisymmetric (2.5D) solver (ADR-0010)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backlog-ideas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backlog / ideas
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#m0-scaffold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M0 — Scaffold ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m1-mesh-infrastructure-6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M1 — Mesh infrastructure (≈ 6) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m2-scalar-fem-on-the-infrastructure-4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M2 — Scalar FEM on the infrastructure (≈ 4) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m3-nedelec-elements-and-maxwell-eigenproblems-8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M3 — Nédélec elements and Maxwell eigenproblems (≈ 8) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m4-time-harmonic-scattering-waveguides-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M4 — Time-harmonic scattering &amp; waveguides (≈ 10) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m5-adaptivity-a-posteriori-estimation-and-hp-refinement-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M5 — Adaptivity: a-posteriori estimation and hp-refinement (≈ 10) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m6-solvers-performance-8-apart-from-the-optional-mpi-item" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M6 — Solvers &amp; performance (≈ 8) ✅ (apart from the optional MPI item)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m7-python-api-usability-6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M7 — Python API &amp; usability (≈ 6) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m8-application-examples-6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M8 — Application examples (≈ 6) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m9-multiphysics-8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M9 — Multiphysics (≈ 8) ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m10-validation-against-the-literature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M10 — Validation against the literature
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m11-axisymmetric-25d-solver-adr-0010" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M11 — Axisymmetric (2.5D) solver (ADR-0010)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backlog-ideas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backlog / ideas
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="roadmap">Roadmap</h1>
+<p>The project task list. Claude Code picks the lowest unchecked item of the current
+milestone (CLAUDE.md §11). Each item is done when the Definition of Done (CLAUDE.md §7)
+holds. Estimated effort is in rough "focused sessions".</p>
+<h2 id="m0-scaffold">M0 — Scaffold ✅</h2>
+<ul>
+<li>[x] CMake + presets, strict warnings, FetchContent deps</li>
+<li>[x] CI matrix (gcc/clang/asan), clang-format, clang-tidy, docs deploy</li>
+<li>[x] Python package skeleton (scikit-build-core + pybind11)</li>
+<li>[x] Docs site, theory pages, ADRs, this roadmap</li>
+</ul>
+<h2 id="m1-mesh-infrastructure-6">M1 — Mesh infrastructure (≈ 6) ✅</h2>
+<ul>
+<li>[x] <code>mesh::Mesh&lt;Dim&gt;</code>: vertices, cells (tri/tet), <strong>derived edges and faces</strong> with
+      consistent global orientation (lowest-vertex-first rule, ADR-0003)</li>
+<li>[x] entity connectivity tables (cell→edge, cell→face, face→cell, edge→cells)</li>
+<li>[x] boundary and material tags (physical groups)</li>
+<li>[x] Gmsh <code>.msh</code> v4 reader (ASCII), simple structured generators for tests</li>
+<li>[x] affine geometry mapping: Jacobian, det, inverse-transpose, per cell</li>
+<li>[x] curved (order-2) geometry hook (interface only; implementation in M4)</li>
+<li>[x] uniform refinement (red refinement in 2D and 3D, Bey's rule) → prepares M5</li>
+<li>[x] unit tests: Euler characteristic, orientation consistency, boundary extraction</li>
+<li>[x] VTK (<code>.vtu</code>) export of mesh + cell data</li>
+</ul>
+<h2 id="m2-scalar-fem-on-the-infrastructure-4">M2 — Scalar FEM on the infrastructure (≈ 4) ✅</h2>
+<ul>
+<li>[x] <code>fespace::ReferenceElement&lt;Dim&gt;</code> with <strong>fixed local numbering</strong> (theory/nedelec.md)</li>
+<li>[x] Gauss–Jacobi quadrature on triangle/tetrahedron, exactness tests up to order 20</li>
+<li>[x] hierarchical H1 Lagrange basis, arbitrary order p (Legendre/Jacobi based)</li>
+<li>[x] <code>fespace::DofMap</code>: vertex/edge/face/cell DoFs, variable p per entity</li>
+<li>[x] global sparse assembly (COO → CSR), element loop with <code>std::span</code></li>
+<li>[x] Dirichlet via DoF elimination</li>
+<li>[x] solver interface + Eigen SparseLU backend</li>
+<li>[x] <strong>convergence test #1</strong>: Poisson, manufactured solution, rate p+1 in L2, p in H1</li>
+</ul>
+<h2 id="m3-nedelec-elements-and-maxwell-eigenproblems-8">M3 — Nédélec elements and Maxwell eigenproblems (≈ 8) ✅</h2>
+<ul>
+<li>[x] hierarchical H(curl) Nédélec-I basis, 2D (p ≤ 6) and 3D (p ≤ 4), per
+      Schöberl–Zaglmayr (theory/nedelec.md)</li>
+<li>[x] orientation-aware local→global mapping of edge/face functions</li>
+<li>[x] curl–curl stiffness and mass matrices with complex tensor ε, μ</li>
+<li>[x] PEC boundary condition, PMC (natural)</li>
+<li>[x] Maxwell eigenproblem: shift-invert Arnoldi (Spectra) on <code>(S − σM)</code></li>
+<li>[x] gauge handling / kernel filtering (discrete gradients); spurious-mode test</li>
+<li>[x] <strong>convergence test #2</strong>: PEC box eigenvalues, rate 2p; zero spurious modes</li>
+<li>[x] field evaluation at arbitrary points (point location + reference-coordinate inversion)</li>
+<li>[x] VTK export of vector fields (cell-averaged + high-order via subdivision)</li>
+</ul>
+<h2 id="m4-time-harmonic-scattering-waveguides-10">M4 — Time-harmonic scattering &amp; waveguides (≈ 10) ✅</h2>
+<ul>
+<li>[x] <code>physics::Scattering</code>: total/scattered-field formulation, plane-wave and
+      dipole sources (theory/maxwell.md)</li>
+<li>[x] PML as complex coordinate stretching in boundary layer cells (theory/pml.md),
+      polynomial profile, adaptive σ from wavelength and cell size</li>
+<li>[x] Bloch-periodic constraints (<code>E(x+a) = e^{ik·a} E(x)</code>) via constrained DoFs</li>
+<li>[x] curved elements (isoparametric order 2) + PML-compatible quadrature</li>
+<li>[x] post-processing: Poynting flux through surfaces, absorption, scattering
+      cross-section, far field (Stratton–Chu), Fourier/diffraction coefficients</li>
+<li>[x] <code>physics::PropagatingMode</code>: 2D waveguide cross-section eigenproblem for
+      effective index (quadratic → linearized)</li>
+<li>[x] <strong>convergence test #3</strong>: PML reflection &lt; 1e-6 for plane wave</li>
+<li>[x] <strong>convergence test #4</strong>: Mie cylinder (2D) cross section vs. series</li>
+<li>[x] <strong>convergence test #5</strong>: slab waveguide n_eff</li>
+<li>[x] <strong>convergence test #6</strong>: lamellar grating efficiencies vs. RCWA</li>
+<li>[x] examples: <code>cavity_modes</code>, <code>mie_cylinder</code>, <code>slab_waveguide</code>, <code>lamellar_grating</code></li>
+</ul>
+<h2 id="m5-adaptivity-a-posteriori-estimation-and-hp-refinement-10">M5 — Adaptivity: a-posteriori estimation and hp-refinement (≈ 10) ✅</h2>
+<ul>
+<li>[x] residual-based estimator for curl–curl (theory/error-estimation.md):
+      element residual + tangential-curl jump + normal-displacement jump</li>
+<li>[x] Dörfler marking</li>
+<li>[x] conforming h-refinement with <strong>hanging edges/faces → constrained DoFs</strong>
+      (one-irregular rule), re-numbering, transfer of solution (prolongation)</li>
+<li>[x] p-refinement: per-entity order increase, minimum rule on shared entities</li>
+<li>[x] hp-decision: Legendre-coefficient decay / analyticity estimate per element
+      (plus the error-prediction strategy, which is the default: the decay of the
+      Galerkin solution misjudges unresolved corner cells)</li>
+<li>[x] goal-oriented (dual-weighted) estimator for a scalar quantity of interest
+      (e.g. a Fourier coefficient) — needed for scatterometry accuracy claims</li>
+<li>[x] <strong>convergence test #7</strong>: exponential convergence at re-entrant corner (L-shape,
+      then plasmonic wedge) — <code>adaptive_hp_refinement</code> and <code>plasmonic_wedge</code></li>
+<li>[x] example <code>plasmonic_dimer</code></li>
+</ul>
+<h2 id="m6-solvers-performance-8-apart-from-the-optional-mpi-item">M6 — Solvers &amp; performance (≈ 8) ✅ (apart from the optional MPI item)</h2>
+<ul>
+<li>[x] MUMPS / PARDISO backend behind <code>solvers::DirectSolver</code> — MUMPS (sequential complex
+      build) behind <code>solvers::LinearSolver</code> / <code>DirectSolverBackend</code> (ADR-0007); PARDISO
+      can follow as another backend</li>
+<li>[x] static condensation of interior (cell-bubble) DoFs</li>
+<li>[x] OpenMP parallel assembly (colouring or per-thread COO buffers) — per-thread buffers,
+      also the estimator loops</li>
+<li>[x] parameter sweeps / reduced basis hooks (frequency, angle, geometry parameters) —
+      <code>physics::ScatteringOperator</code> / <code>solve_many</code> / <code>plane_wave_sweep</code> (one factorisation
+      per frequency), <code>solvers::ReducedBasis</code> (affine frequency sweeps); geometry
+      parameters come with the Python layer (M7)</li>
+<li>[ ] optional: MPI domain decomposition (own ADR before starting)</li>
+<li>[x] benchmarks recorded in <code>benchmarks/results/</code> (<code>bench_assembly_solve</code>)</li>
+</ul>
+<h2 id="m7-python-api-usability-6">M7 — Python API &amp; usability (≈ 6) ✅</h2>
+<ul>
+<li>[x] bindings for mesh, spaces, materials, problems, solvers, post-processing —
+      <code>python/bindings/bind_*.cpp</code> (pybind11, <code>&lt;Name&gt;2D</code> / <code>&lt;Name&gt;3D</code>, NumPy / SciPy at
+      the boundary, callbacks with the GIL, exceptions mapped), <code>python/tests/</code>,
+      <code>docs/python.md</code></li>
+<li>[x] <code>hpfem.units</code> (nm, µm, eV, THz → SI) and <code>hpfem.materials</code> library
+      (Si, SiO₂, Au, Ag, Al, TiO₂, GaAs, perovskite — tabulated n,k with sources) —
+      <code>python/hpfem/units.py</code>, <code>python/hpfem/materials.py</code> + <code>python/hpfem/data/*.csv</code>
+      (refractiveindex.info, CC0), Sellmeier / Drude–Lorentz / tabulated models</li>
+<li>[x] JSON/YAML project files (<code>hpfem run project.json</code>) + CLI — <code>hpfem.project</code>
+      (scattering / waveguide / cavity, sweeps, outputs), <code>hpfem.cli</code> (<code>run</code>, <code>validate</code>,
+      <code>info</code>, <code>materials</code>), <code>examples/*/project.json</code></li>
+<li>[x] meshio / pyvista interop, matplotlib helpers — <code>python/hpfem/interop.py</code>
+      (<code>to_meshio</code> / <code>from_meshio</code> / <code>field_to_meshio</code>, <code>to_pyvista</code> / <code>field_to_pyvista</code>
+      on the subdivided mesh, <code>plot_mesh</code> / <code>plot_field</code> / <code>plot_convergence</code> /
+      <code>plot_far_field</code>), <code>python/tests/test_interop.py</code> (commit 2265608)</li>
+<li>[x] Jupyter example notebooks — <code>examples/notebooks/</code> (Mie cylinder, hp-adaptivity on
+      the L-shape, gold nanowire spectrum), executed by <code>python/tests/test_notebooks.py</code></li>
+</ul>
+<h2 id="m8-application-examples-6">M8 — Application examples (≈ 6) ✅</h2>
+<ul>
+<li>[x] <code>metasurface_unitcell</code>: phase/transmission map over pillar diameter —
+      <code>examples/metasurface_unitcell/run.py</code> (TiO₂ ridges on SiO₂, Bloch unit cell with
+      PML, zeroth-order transmission and phase over the width), regression test in
+      <code>python/tests/test_examples.py</code></li>
+<li>[x] <code>vcsel_cavity</code>: DBR micro-cavity mode, Q-factor, resonance wavelength —
+      <code>solvers::complex_eigenpairs_near</code> (complex shift-invert Arnoldi),
+      <code>physics::Resonance</code> (quasi-normal modes with PML), convergence test
+      <code>fabry_perot_resonance</code> (exact complex Fabry–Pérot resonances),
+      <code>examples/vcsel_cavity/run.py</code> (GaAs/AlAs DBR cavity against the transfer-matrix pole)</li>
+<li>[x] <code>quantum_dot_purcell</code>: dipole in micropillar, Purcell factor, β-factor —
+      <code>examples/quantum_dot_purcell/run.py</code> (line dipole in a DBR ridge cavity, scattered
+      field of the analytic dipole, emitted power from the flux around the dipole, Purcell
+      and beta spectra; validated against the image dipole in front of a PEC mirror)</li>
+<li>[x] <code>euv_mask</code>: 3D absorber on multilayer, oblique incidence, near-field export —
+      <code>examples/euv_mask/run.py</code> (Ta pad on a Mo/Si mirror at 13.5 nm and 6°, Bloch unit cell
+      in x and y, structured Kuhn tetrahedra on the layer interfaces, reflectivity against
+      the transfer matrix of the bare mirror, VTK near field)</li>
+<li>[x] <code>ring_resonator</code>: coupling + resonance (2D effective-index model first) —
+      <code>examples/ring_resonator/run.py</code> (quasi-normal modes of the ring coupled to the bus by
+      <code>Resonance2D</code>, transmission spectrum from a Gaussian current in the bus; the dip sits
+      at the eigenmode resonance)</li>
+</ul>
+<h2 id="m9-multiphysics-8">M9 — Multiphysics (≈ 8) ✅</h2>
+<ul>
+<li>[x] absorbed-power density → heat-conduction solve on the same mesh (H1) —
+      <code>physics::absorbed_power_load</code> / <code>absorbed_power_density</code>, <code>physics::Thermal</code>
+      (κ by tag, fixed temperatures, hanging nodes), convergence test <code>heat_conduction</code>
+      (damped wave in a lossy slab against the closed-form temperature), Python bindings,
+      <code>docs/theory/multiphysics.md</code></li>
+<li>[x] temperature-dependent ε feedback loop — <code>physics::ThermoOptical</code> (fixed-point
+      iteration with relaxation, complex dεr/dT by tag, per-cell <code>MaterialMap</code> overrides),
+      unit tests (uncoupled limit, self-consistent fixed point, linear response, relaxation)</li>
+<li>[x] carrier-generation profile export for PV device solvers — <code>hpfem.pv</code>
+      (generation rate per cell and as a field, spectral weighting, depth profiles,
+      meshio / CSV export), <code>physics::absorbed_power_per_cell</code>, Beer–Lambert check,
+      <code>examples/solar_cell_texture</code></li>
+</ul>
+<h2 id="m10-validation-against-the-literature">M10 — Validation against the literature</h2>
+<p>Independent, published reference values instead of our own implementations; every
+benchmark is a convergence test with the labels <code>convergence</code> and <code>validation</code>, the long
+local runs carry <code>validation-long</code> and are stored under <code>benchmarks/results/</code>. Results and
+assessment: <code>docs/validation.md</code>.
+- [x] A. rib waveguide (Vassallo, Opt. Quantum Electron. 29, 95, 1997, Table I / MTRM):
+      quasi-TE and quasi-TM effective indices for five lateral thicknesses within the
+      four-digit reference — <code>tests/convergence/rib_waveguide.cpp</code>, test helper
+      <code>tests/convergence/tensor_mesh.hpp</code> (graded tensor meshes), PR #58
+- [x] B. metallic lamellar grating, H parallel to the ridges (Granet &amp; Guizal, J. Opt. Soc.
+      Am. A 13, 1019, 1996, Table 1): Littrow and specular efficiencies — h = 0.1 and 4.8 µm
+      within 3·10⁻⁴ with the validated fill factor 0.5, h = 1 µm (resonant slot) reported
+      only; PML needs 3 µm / order 4 for a 10⁻⁶ energy balance —
+      <code>tests/convergence/metal_grating.cpp</code>, PR #64
+- [x] C. Mie sphere (Bohren &amp; Huffman ch. 4): <code>physics::mie_sphere</code> (coefficients,
+      efficiencies, fields inside and outside for complex ε; eight digits against
+      miepython), <code>mesh::box_with_ball</code>, 3D convergence test <code>mie_sphere</code> (dielectric and
+      absorbing sphere, converging in p to the 10⁻³ level that the quadratic geometry and
+      SparseLU allow), Python bindings — PR #67
+- [x] D. layered background for the scattered-field formulation (ADR-0009:
+      <code>physics::LayerStack</code>, <code>ScatteringSetup::background</code>) and the slit–groove benchmark in
+      silver (Besbes et al., J. Eur. Opt. Soc. Rapid Publ. 2, 07022, 2007; Burger et al.,
+      Proc. SPIE 8880, 88801Z, 2013): S/S₀ within 1.4·10⁻⁵ of Burger and 1.8·10⁻⁵ of Besbes,
+      the 0.1 % difference between the sources is the substrate permittivity; the 10⁻⁶
+      target is left by the surface-plasmon truncation of the PML — PRs #65, #68
+- [ ] gold sphere dimer (Hoffmann et al., Proc. SPIE 7390, 73900J, 2009; 80 nm spheres,
+      1 nm gap, 632 nm, reference |E|² at the gap centre = 5.47624·10⁵ V²/m² for
+      |E_inc| = 1 V/m) — <strong>blocked</strong>: the permittivity of gold used in the source is not
+      stated; not to be attempted with a self-chosen ε</p>
+<h2 id="m11-axisymmetric-25d-solver-adr-0010">M11 — Axisymmetric (2.5D) solver (ADR-0010)</h2>
+<p>Bodies of revolution on the meridian mesh, one 2D problem per azimuthal order m.
+- [x] forms of order m (<code>assembly::assemble_axisymmetric</code>: (E_r, E_z) in Nédélec,
+  v = −i r E_φ in H1, diagonal tensors in (r, φ, z), order-m gradient for the gauge),
+  axis conditions per m, <code>physics::AxisymmetricCavity</code>; convergence test on the PEC
+  cylinder against the Bessel zeros (rate 2p for m = 0, 1, 2); <code>docs/theory/axisymmetric.md</code>
+- [x] resonances with the cylindrical PML (<code>physics::AxisymmetricResonance</code>, Teixeira–Chew
+  tensors as material, complex gauged eigensolver); convergence test on the quasi-normal
+  modes of a dielectric sphere (Mie poles, exponential in p)
+- [x] scattering with the axial plane wave (<code>physics::AxisymmetricScattering</code>,
+  <code>axial_plane_wave</code>, m = ±1) and the power flux through surfaces of revolution
+  (<code>axisymmetric_poynting_flux</code>); convergence test against the Mie cross-section of a
+  sphere (exponential in p)
+- [x] Python bindings (<code>AxisymmetricCavity</code>, <code>AxisymmetricResonance</code>,
+  <code>AxisymmetricScattering</code>, <code>axial_plane_wave</code>, <code>axisymmetric_poynting_flux</code>)
+- [x] dipole sources on the axis (<code>axisymmetric_gaussian_dipole</code>, total-field formulation
+  with <code>AxisymmetricScatteringSetup::current</code>); convergence test against the Larmor power
+  of the smeared dipole, Purcell peak at the TM_1 Mie pole
+- [x] the micropillar quantum-dot example (<code>examples/micropillar_qd</code>: resonance of the
+  fundamental m = 1 mode, Purcell and beta factor of the in-plane dipole, regression test)
+- [x] far field from the m contributions (<code>axisymmetric_far_field</code>: Stratton–Chu with the
+  analytic azimuthal integration; Larmor pattern of the dipole, Mie cross-section from the
+  far field)
+- [ ] later: coupled orders for oblique incidence, adaptivity on the meridian plane with
+  the r-weighted estimator</p>
+<h2 id="backlog-ideas">Backlog / ideas</h2>
+<ul>
+<li>[x] dual H-formulation for guaranteed error bounds (<code>adaptivity::dual_solution</code> on the
+  H1 / Nédélec dual space, <code>hypercircle_estimate</code> with the Prager–Synge bound for the
+  coercive problem; convergence test <code>hypercircle_bound</code>, Python <code>dual_solution</code> /
+  <code>hypercircle_estimate</code>)</li>
+<li>[x] Floquet-Bloch band structure solver (<code>physics::BandStructure</code>: Bloch constraints with
+  complex phases on the Nédélec and H1 spaces, gauged complex shift-invert Arnoldi,
+  bands per wave vector and along Γ–X–M paths; convergence test on the empty lattice,
+  <code>BandStructure2D/3D</code> in Python)</li>
+<li>[x] transient (time-domain) solver via implicit time stepping (<code>physics::TimeDomain</code>:
+  Newmark-β on the second-order E wave equation, conductivity, PEC, first-order absorbing
+  boundary, current sources with time signals; convergence test <code>time_domain_cavity</code>,
+  Python <code>TimeDomain2D/3D</code>)</li>
+<li>[x] GPU backend: cuDSS direct solver behind <code>solvers::LinearSolver</code> (ADR-0008, measured on
+  the RTX 3090: factorisation 2×, repeated solves 30–140× against MUMPS;
+  <code>DirectSolverBackend::kCudss</code> opt-in, separately built <code>hpfem_gpu</code> library in <code>gpu/</code> loaded
+  at run time behind <code>HPFEM_ENABLE_CUDA</code>, <code>LinearSolver::solve_many</code>); GPU assembly deferred
+  (FP64 rate of consumer GPUs, MSVC-only toolchain)</li>
+<li>[x] GPU backend for <em>hp</em>-adaptive systems: cuDSS pivots statically and perturbed tiny
+  pivots on systems with hanging nodes and high orders even after the scaling to
+  max |a_ij| = 1 (L-shape test: 103 of 16 359 and 2 639 of 19 723 pivots; plasmonic wedge
+  28 / 1 591 / 16 356), so <code>kAuto</code> sent them to MUMPS / SparseLU. Resolved by the diagonal
+  equilibration D A D (d_i = 1/√|a_ii|, row norm where the diagonal is tiny) inside the GPU
+  library: 0 perturbed pivots in every step of both tests, convergence identical to the CPU;
+  cuDSS matching and reordering options changed nothing, and accepting perturbed
+  factorisations with iterative refinement had lost accuracy at 2 639 pivots. The refusal of
+  perturbed factorisations and the CPU fallback stay as the safety net; a residual-checked
+  acceptance remains the option should future systems still trip the static pivoting.</li>
+<li>[x] <code>physics::PropagatingMode&lt;2&gt;</code> on adaptive meshes: apply the hanging-node constraints
+  as <code>Resonance</code> does (found during M10 validation; fixed in PR #63)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

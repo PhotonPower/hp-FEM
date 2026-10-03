@@ -1,0 +1,1770 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/theory/solvers/">
+      
+      
+        <link rel="prev" href="../pml/">
+      
+      
+        <link rel="next" href="../multiphysics/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Linear solvers - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#linear-solvers" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Linear solvers
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#direct-solvers-solverslinear_solverhpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Direct solvers (solvers/linear_solver.hpp)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Direct solvers (solvers/linear_solver.hpp)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mumps-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MUMPS backend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cudss-backend-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cuDSS backend (GPU)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#complex-symmetric-systems-solverssymmetry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Complex-symmetric systems (solvers::Symmetry)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#factors-larger-than-the-device-memory-hybrid-memory-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Factors larger than the device memory (hybrid memory mode)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#where-the-backend-is-applied-repeatedly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where the backend is applied repeatedly
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#static-condensation-assemblycondensationhpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static condensation (assembly/condensation.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parallel-assembly-coreparallelhpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parallel assembly (core/parallel.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameter-sweeps-physicssweephpp-solversreduced_basishpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameter sweeps (physics/sweep.hpp, solvers/reduced_basis.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#measured-benchmarksresults2026-10-02-vrjson" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Measured (benchmarks/results/2026-10-02-VR.json)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eigenvalue-solvers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Eigenvalue solvers
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#direct-solvers-solverslinear_solverhpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Direct solvers (solvers/linear_solver.hpp)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Direct solvers (solvers/linear_solver.hpp)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mumps-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MUMPS backend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cudss-backend-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cuDSS backend (GPU)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#complex-symmetric-systems-solverssymmetry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Complex-symmetric systems (solvers::Symmetry)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#factors-larger-than-the-device-memory-hybrid-memory-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Factors larger than the device memory (hybrid memory mode)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#where-the-backend-is-applied-repeatedly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where the backend is applied repeatedly
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#static-condensation-assemblycondensationhpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static condensation (assembly/condensation.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parallel-assembly-coreparallelhpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parallel assembly (core/parallel.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameter-sweeps-physicssweephpp-solversreduced_basishpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameter sweeps (physics/sweep.hpp, solvers/reduced_basis.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#measured-benchmarksresults2026-10-02-vrjson" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Measured (benchmarks/results/2026-10-02-VR.json)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eigenvalue-solvers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Eigenvalue solvers
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="linear-solvers">Linear solvers</h1>
+<h2 id="direct-solvers-solverslinear_solverhpp">Direct solvers (<code>solvers/linear_solver.hpp</code>)</h2>
+<p>All assembled systems are complex, sparse and (for the curl–curl problem) complex
+<em>symmetric</em> but not Hermitian, so a general LU factorisation is used. <code>LinearSolver</code>
+factorises once and solves for any number of right-hand sides (parameter sweeps, the
+adjoint of the goal-oriented estimator, several incident fields on one mesh).</p>
+<table>
+<thead>
+<tr>
+<th>Backend (<code>DirectSolverBackend</code>)</th>
+<th>Library</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kSparseLu</code></td>
+<td>Eigen <code>SparseLU</code>, COLAMD ordering</td>
+<td>always available; 2D up to a few <span class="arithmatex">\(10^5\)</span> unknowns</td>
+</tr>
+<tr>
+<td><code>kMumps</code></td>
+<td>MUMPS (multifrontal, <code>zmumps</code>, sequential build)</td>
+<td><code>HPFEM_ENABLE_MUMPS</code>; 3D and large 2D systems, many right-hand sides</td>
+</tr>
+<tr>
+<td><code>kCudss</code></td>
+<td>NVIDIA cuDSS (LU on the GPU, factors stay on the device)</td>
+<td><code>HPFEM_ENABLE_CUDA</code> + the <code>hpfem_gpu</code> library; opt-in, for many solves of one factorisation (time stepping, Arnoldi, sweeps)</td>
+</tr>
+<tr>
+<td><code>kAuto</code></td>
+<td>cuDSS for systems of at least <code>HPFEM_GPU_MIN_UNKNOWNS</code> unknowns (default 10 000) when its library and a GPU are present, otherwise MUMPS if compiled in, otherwise SparseLU; chosen in <code>factorize</code></td>
+<td>the default of <code>solve_direct</code> and every <code>solver</code> field</td>
+</tr>
+</tbody>
+</table>
+<p><code>make_direct_solver(backend)</code> returns the solver, <code>available(backend)</code> /
+<code>available_backends()</code> tell what this build offers, <code>solve_direct(A, b, backend)</code> does
+both steps. <code>physics::ScatteringSetup::solver</code> selects the backend of a scattering problem
+(and of its DWR adjoint).</p>
+<h3 id="mumps-backend">MUMPS backend</h3>
+<p><code>src/solvers/mumps_solver.cpp</code> wraps <code>zmumps_c</code>: the matrix is passed as centralised
+assembled COO input (<code>ICNTL(5) = 0</code>, <code>ICNTL(18) = 0</code>, 1-based indices), analysis and
+numerical factorisation run in one call (<code>job = 4</code>) with the automatic ordering choice
+(<code>ICNTL(7) = 7</code>, METIS/SCOTCH/PORD as available in the library) and 30 % memory
+relaxation, solves run in place (<code>job = 3</code>), all library output is switched off and errors
+are reported from <code>INFOG(1)</code> / <code>INFOG(2)</code> as <code>hpfem::Error</code>. The sequential library ships
+its own MPI stub, whose <code>MPI_Init</code> is called once.</p>
+<p>Build support (<code>cmake/FindMUMPS.cmake</code>, option <code>HPFEM_ENABLE_MUMPS</code>, preset <code>mumps</code>):</p>
+<ul>
+<li>Ubuntu / Debian: <code>apt-get install libmumps-seq-dev libmumps-headers-dev</code>
+  (<code>libzmumps_seq</code>, <code>libmumps_common_seq</code>, <code>libpord_seq</code>, <code>libmpiseq_seq</code>, headers in
+  <code>/usr/include</code>). The CI runs the whole test suite with this build.</li>
+<li>MSYS2 (Windows): <code>pacman -S mingw-w64-ucrt-x86_64-mumps</code> (module <code>mumps-zso</code>,
+  sequential complex double, with OpenBLAS, METIS and SCOTCH). The DLLs live in
+  <code>C:\msys64\ucrt64\bin</code>; the test targets get that directory prepended to <code>PATH</code>
+  (<code>MUMPS_BIN_DIR</code>), programs started by hand need it on <code>PATH</code>.</li>
+</ul>
+<h3 id="cudss-backend-gpu">cuDSS backend (GPU)</h3>
+<p>The library is built with MinGW GCC (Windows) or GCC / Clang (Linux), which cannot link
+objects produced by nvcc and MSVC. The GPU solver therefore lives in the separately built
+shared library <code>hpfem_gpu</code> (<code>gpu/</code>, see <code>gpu/README.md</code>) with a pure C interface
+(<code>gpu/include/hpfem_gpu.h</code>: opaque solver handle, status codes, last-error message, CSR with
+64-bit indices and interleaved complex values in, solutions out, factorise once / solve many
+right-hand sides, re-factorisation on the same handle). <code>src/solvers/cudss_solver.cpp</code> loads
+it at run time (<code>LoadLibrary</code> / <code>dlopen</code>), checks the API version and the presence of a CUDA
+device, and wraps it as a <code>LinearSolver</code>. Nothing of CUDA is needed to build the library;
+without the DLL or a GPU, <code>available(kCudss)</code> is false, <code>make_cudss()</code> throws an error that
+names the search paths, and <code>kAuto</code> falls back to MUMPS / SparseLU, so CI (no GPU) builds and
+tests the option as well.</p>
+<p><strong>Automatic choice.</strong> <code>kAuto</code> decides in <code>factorize</code> from the number of unknowns: cuDSS from
+<code>HPFEM_GPU_MIN_UNKNOWNS</code> unknowns on (CMake cache variable, default 10 000; the environment
+variable of the same name overrides it at run time, 0 means always, a negative value never),
+otherwise MUMPS if compiled in, otherwise SparseLU. The GPU library is loaded, and cuDSS
+started (0.3–0.6 s once per process), only when cuDSS is actually chosen, so small problems
+pay nothing. The default comes from <code>bench_backend_threshold</code>
+(<code>benchmarks/results/2026-10-03-VR-backend-threshold.json</code>, Maxwell operator of a plane
+wave, p = 2, RTX 3090 against sequential MUMPS): the factorisations draw level at about
+10 000 unknowns in 2D (36 ms against 34 ms at 10.4 k) and in 3D (0.26 s against 0.23 s at
+9.3 k), above that cuDSS leads (0.11 s against 0.17 s at 41 k, 0.76 s against 1.18 s at 164 k
+in 2D; 0.52 s against 0.77 s at 21 k, 1.8 s against 4.9 s at 70 k in 3D), and a single solve is
+faster on the GPU from about 5 000 unknowns on (0.5 ms against 2.7 ms at 23 k, 5 ms against
+248 ms at 70 k in 3D). Below the threshold every factorisation takes less than 40 ms, so the
+choice is immaterial there. cuDSS pivots statically and the library refuses a factorisation
+in which pivots were perturbed (see above); <code>kAuto</code> then logs a warning once and factorises
+the system, and the later systems of the same solver object, with MUMPS / SparseLU. Before
+the diagonal equilibration (next paragraph) the <em>hp</em>-adaptive systems with hanging nodes
+and high orders tripped this (103 of 16 359 and 2 639 of 19 723 pivots in the L-shape test,
+28 / 1 591 / 16 356 in the plasmonic wedge); accepting such factorisations with the iterative
+refinement of cuDSS had lost accuracy at a few thousand perturbed pivots, so the refusal
+stays as the safety net.</p>
+<p><strong>Scaling and equilibration.</strong> The GPU library factorises <span class="arithmatex">\(D\,(sA)\,D\)</span> with the global
+scale <span class="arithmatex">\(s = 1/\max|a_{ij}|\)</span> (the tiny-pivot threshold of cuDSS is absolute) and the diagonal
+equilibration <span class="arithmatex">\(d_i = 1/\sqrt{|a_{ii}|}\)</span>, which keeps the complex symmetry and evens out the scales of edge and
+high-order interior functions; right-hand sides and solutions are rescaled inside the
+library. The diagonal is used whenever it is nonzero — after a two-sided scaling a tiny
+diagonal is exactly the right scale of its row, and a row-norm fallback for "small"
+diagonals (tried first) destroyed the equilibration on a synthetic test with scales
+<span class="arithmatex">\(10^{-8} \ldots 10^{8}\)</span>; only a zero diagonal (possible for eliminated DoFs in block
+structures) falls back to the row norm, a zero row to <span class="arithmatex">\(d_i = 1\)</span>. On the two hp tests the
+equilibration removes every perturbed pivot (0 in all steps
+against up to 16 356 without it) with convergence identical to the CPU backends, while the
+matching and reordering options of cuDSS changed nothing. With it, the complete C++ and
+Python test suites run with every system on cuDSS (<code>HPFEM_GPU_MIN_UNKNOWNS=0</code>) without a
+single refused factorisation. <code>HPFEM_GPU_EQUILIBRATE=0</code> switches it off for comparisons.
+The gain at the size of the tests is coverage, not speed: the L-shape loop (21 steps up to
+21 623 DoFs) takes 1.42 s on SparseLU, 1.67 s with the default threshold and 1.89 s with
+every system on cuDSS, because the one-off cuDSS start (0.3–0.6 s) and the transfer per
+step are not amortised by factorisations of 10–20 k unknowns; the GPU pays off once the
+adaptive systems grow past a few 10⁴ unknowns, as in the threshold measurement above. Results of different backends agree only to about <span class="arithmatex">\(10^{-12}\)</span>
+relative (different orderings, pivoting and summation orders); tests therefore compare
+against references with a tolerance and never rely on bitwise equality between runs or
+backends.</p>
+<p>Numerics: cuDSS factorises the general complex matrix (<code>CUDSS_MTYPE_GENERAL</code>; the interface
+also offers the complex-symmetric LDL^T path for later use). <code>hpfem::SparseMatrix</code> is already
+CSR with <code>int64</code> indices, so the matrix is uploaded without conversion. cuDSS judges tiny
+pivots by an absolute threshold and perturbs them instead of failing, which an SI-scaled
+system (Newmark operator with entries around <span class="arithmatex">\(10^{-15}\)</span>) trips on every pivot; the DLL therefore
+factorises <span class="arithmatex">\(sA\)</span> with <span class="arithmatex">\(s = 1/\max|a_{ij}|\)</span>, rescales every solution, and reads the perturbation
+count after the factorisation to report a genuinely singular matrix (<code>hpfem::Error</code>) rather
+than returning a wrong solution.</p>
+<p>Finding the DLL at run time, in this order: environment variable <code>HPFEM_GPU_DLL</code>, the path
+compiled in from the CMake cache variable <code>HPFEM_GPU_DLL</code>, <code>hpfem_gpu.dll</code> next to the
+executable, the plain name on the loader path. The cuDSS runtime DLLs must be on <code>PATH</code>
+(<code>HPFEM_GPU_BIN_DIR</code> prepends them for the tests, like <code>MUMPS_BIN_DIR</code>). <code>cudss_status()</code>
+tells why the backend is or is not usable. Rationale and measurements: ADR-0008. In short
+(RTX 3090, complex double, 24 CPU threads): the GPU factorisation is 1.8–2.3× faster than
+sequential MUMPS on a 163k-unknown Newmark operator and a 70k-unknown 3D PML scattering
+system, and a repeated solve of one factorisation is 30–140× faster (milliseconds instead of
+tenths of a second), which is where time stepping, Arnoldi iterations and sweeps spend their
+time; residuals are <span class="arithmatex">\(10^{-13}\)</span> to <span class="arithmatex">\(10^{-15}\)</span> on both.</p>
+<h3 id="complex-symmetric-systems-solverssymmetry">Complex-symmetric systems (<code>solvers::Symmetry</code>)</h3>
+<p>The curl–curl operators are complex <em>symmetric</em> (<span class="arithmatex">\(A = A^T\)</span>, not Hermitian) as long as the
+material tensors are symmetric: with PML, after the symmetric Dirichlet elimination, after
+static condensation and with hanging-node constraints (<span class="arithmatex">\(P^T A P\)</span>); Bloch phases break the
+symmetry. <code>make_direct_solver(backend, Symmetry::kComplexSymmetric)</code> (and <code>solve_direct</code>,
+<code>make_cudss</code>, <code>make_mumps</code>) lets the backend exploit it: cuDSS receives the upper triangle
+(<code>CUDSS_MTYPE_SYMMETRIC</code>, LDLᵀ) and MUMPS runs with <code>SYM = 2</code> on the upper triangle, both
+with about half the factor work and memory; SparseLU ignores the flag. The caller
+guarantees the structure — the library does not check it in release builds (Debug builds
+of the cuDSS path verify <code>asymmetry(A) &lt; 1e-10</code>; <code>upper_triangle(A)</code> and <code>asymmetry(A)</code> are
+public helpers). The problem classes do not guess: they pass <code>Symmetry::kDetect</code>, and a
+backend that can exploit the structure (cuDSS, MUMPS) measures <code>asymmetry(A)</code> once per
+factorisation (one pass over the nonzeros with a binary search of the mirrored entry per
+row, no copy, far below the cost of the factorisation), logs the result at debug level and
+takes the LDLᵀ path when the relative asymmetry is at most <span class="arithmatex">\(10^{-12}\)</span> — using the upper
+triangle as given, never symmetrising, so results stay backend-independent. SparseLU skips
+the check. <code>Scattering</code>, <code>ScatteringOperator</code>, <code>TimeDomain</code>, the complex shift-invert
+eigensolvers (<code>Resonance</code>, <code>BandStructure</code>, the axisymmetric problems),
+<code>AxisymmetricScattering</code>, <code>Thermal</code>, the hypercircle dual solve and the goal-oriented
+adjoint pass <code>kDetect</code>, so Bloch phases or non-symmetric material tensors automatically get
+the general factorisation (unit test with a hanging-node and a Bloch-reduced operator);
+<code>kAuto</code> forwards it to whichever backend it picks. <code>kDetect</code> is therefore the default of the
+problem classes; <code>kGeneral</code> and <code>kComplexSymmetric</code> are explicit overrides for callers of
+<code>make_direct_solver</code> / <code>solve_direct</code> who know the structure (or want to skip the check).
+A solver object may be re-factorised with a matrix of the other kind (sweeps that change
+the operator); MUMPS, whose <code>SYM</code> is fixed at initialisation, is then re-initialised, the
+other backends switch silently. Measured with
+<code>bench_backend_threshold</code> (<code>benchmarks/results/2026-10-03-VR-backend-symmetry.json</code>, same
+problems as above): the LDLᵀ factorisation takes 0.85 s instead of 1.16 s on MUMPS and
+0.52 s instead of 0.72 s on cuDSS at 164 k unknowns in 2D, 2.4 s instead of 4.7 s (MUMPS)
+and 1.24 s instead of 1.84 s (cuDSS) at 70 k unknowns in 3D; below about 20 k unknowns the
+gain vanishes on the GPU, solves and residuals are unchanged.</p>
+<h3 id="factors-larger-than-the-device-memory-hybrid-memory-mode">Factors larger than the device memory (hybrid memory mode)</h3>
+<p>cuDSS can keep the factors (partly) in host memory. The GPU library decides this per
+factorisation: after the analysis it reads cuDSS's peak-memory estimates and, if the device
+peak exceeds about 90 % of the free device memory, repeats the (cheap) analysis in the hybrid
+memory mode with the device limit set to the free memory minus a reserve; if even the hybrid
+estimate exceeds the free host memory the factorisation fails with an <code>Error</code> that names
+the numbers, and <code>kAuto</code> falls back to MUMPS. <code>HPFEM_GPU_HYBRID=1</code> / <code>0</code> forces the mode
+(the self-test runs both). The mode, the estimates and the memory held are reported by
+<code>LinearSolver::details()</code> (also for MUMPS: entries in the factors and host memory), the
+first hybrid factorisation of a process is logged at info level, and the backend name
+carries "hybrid memory". The C interface grew to API version 2 for this
+(<code>hpfem_gpu_factor_info2</code>); the loader accepts version 1 libraries without the hybrid
+information. <code>bench_hybrid_memory</code> records factor size, mode and time against MUMPS on the
+3D Maxwell operator at growing size (<code>benchmarks/results/2026-10-03-VR-hybrid-memory.json</code>,
+RTX 3090 with 24 GB, 128 GB host, sequential MUMPS, both LDLᵀ):</p>
+<table>
+<thead>
+<tr>
+<th>n (p = 2)</th>
+<th>unknowns</th>
+<th>factors (entries)</th>
+<th>MUMPS factorise / solve</th>
+<th>cuDSS mode</th>
+<th>cuDSS factorise / solve</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>20</td>
+<td>316 k</td>
+<td>0.20 G</td>
+<td>24 s / 3.7 s</td>
+<td>device (4.2 GB)</td>
+<td>8.8 s / 15 ms</td>
+</tr>
+<tr>
+<td>20</td>
+<td>316 k</td>
+<td>0.20 G</td>
+<td></td>
+<td>hybrid forced (1.3 GB device, 3.4 GB host)</td>
+<td>9.3 s / 39 ms</td>
+</tr>
+<tr>
+<td>24</td>
+<td>543 k</td>
+<td>0.45 G</td>
+<td>52 s / 11 s</td>
+<td>device (8.7 GB)</td>
+<td>21 s / 48 ms</td>
+</tr>
+<tr>
+<td>28</td>
+<td>858 k</td>
+<td>0.86 G</td>
+<td>106 s / 20 s</td>
+<td>device (16 GB)</td>
+<td>45 s / 44 ms</td>
+</tr>
+<tr>
+<td>32</td>
+<td>1.28 M</td>
+<td>1.43 G</td>
+<td>186 s / 34 s</td>
+<td>hybrid, automatic (5.2 GB device, 28 GB host)</td>
+<td>105 s / 1.9 s</td>
+</tr>
+</tbody>
+</table>
+<p>The hybrid factorisation keeps about half of MUMPS's time where the factors (23 GB) no
+longer fit the device, and the solve stays an order of magnitude faster; forcing the hybrid
+mode where the factors would fit costs about 6 % in the factorisation and a slower solve.</p>
+<h3 id="where-the-backend-is-applied-repeatedly">Where the backend is applied repeatedly</h3>
+<p>Every problem class with a <code>solver</code> field passes it on, so <code>kCudss</code> can be selected where
+one factorisation serves many solves: <code>physics::TimeDomain</code> (one solve per time step),
+<code>physics::Resonance</code> and <code>physics::BandStructure</code> (<code>complex_eigenpairs_near*</code>, one solve per
+Arnoldi step), <code>physics::ScatteringOperator</code> (<code>solve_many</code> for sweeps) and
+<code>physics::PropagatingMode</code> (<code>WaveguideSetup::solver</code>). The real shift-invert solvers
+<code>gauged_curl_curl_eigenpairs</code> and <code>generalized_eigenpairs_near</code> accept the backend as well:
+<code>kAuto</code> and <code>kSparseLu</code> keep Eigen's real SparseLU (real arithmetic, half the memory, the
+behaviour of earlier versions), <code>kMumps</code> / <code>kCudss</code> factorise the complexified shifted matrix
+and take the real part of every solve. <code>benchmarks/solver_integration.cpp</code> measures these
+four paths with every available backend
+(<code>benchmarks/results/2026-10-03-VR-gpu-integration.json</code>, RTX 3090, 24 threads, MUMPS
+sequential, cuDSS warm):</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Size</th>
+<th>SparseLU</th>
+<th>MUMPS</th>
+<th>cuDSS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TimeDomain</code> setup (assembly + 2 factorisations) / one Newmark step</td>
+<td>164 k DoFs</td>
+<td>11.4 s / 74 ms</td>
+<td>3.1 s / 58 ms</td>
+<td>1.8 s / 15 ms</td>
+</tr>
+<tr>
+<td><code>ScatteringOperator</code> factorisation / 8 pure solves one by one / batched <code>solve_many</code></td>
+<td>194 k DoFs</td>
+<td>13.0 s / 1.21 s / 0.91 s</td>
+<td>2.0 s / 0.46 s / 0.14 s</td>
+<td>1.24 s / 40 ms / 24 ms</td>
+</tr>
+<tr>
+<td>8-angle sweep including load assembly, one by one / batched</td>
+<td>194 k DoFs</td>
+<td>1.39 s / 1.06 s</td>
+<td>0.76 s / 0.76 s</td>
+<td>0.28 s / 0.26 s</td>
+</tr>
+<tr>
+<td><code>Resonance</code>, 6 modes (complex Arnoldi)</td>
+<td>92 k DoFs</td>
+<td>2.9 s</td>
+<td>2.1 s</td>
+<td>1.1 s</td>
+</tr>
+<tr>
+<td><code>gauged_curl_curl_eigenpairs</code>, 6 eigenvalues (real Lanczos; MUMPS / cuDSS complexified)</td>
+<td>92 k DoFs</td>
+<td>2.6 s</td>
+<td>3.0 s</td>
+<td>2.6 s</td>
+</tr>
+</tbody>
+</table>
+<p>The time step and the sweep are now bounded by the CPU work around the solve (two sparse
+products and the restriction / expansion per step, the load assembly per angle); the real
+Lanczos does not profit from a complexified GPU factorisation at this size.</p>
+<h3 id="verification">Verification</h3>
+<p><code>tests/unit/solvers/test_linear_solver.cpp</code> solves a random sparse complex system with
+every available backend to <span class="arithmatex">\(10^{-10}\)</span>, reuses the factorisation for a second right-hand side,
+checks the one-shot interface, the error reporting (singular, non-square, wrong size,
+solve before factorisation), that <code>solve_many</code> equals column-wise <code>solve</code> and that
+<code>kAuto</code> picks MUMPS (or SparseLU) below the GPU threshold and cuDSS from the threshold on
+(<code>HPFEM_GPU_MIN_UNKNOWNS</code> set in the test); cuDSS joins the backend loop whenever its library
+loads and a GPU is present. With the <code>mumps</code> preset the complete convergence suite runs on MUMPS (all
+tolerances unchanged). The DLL itself has a stand-alone self-test (<code>gpu/selftest</code>, run by hand
+on a GPU machine): Helmholtz and random systems, general and complex-symmetric input, several
+right-hand sides, in-place solves, re-factorisation, error paths.</p>
+<h2 id="static-condensation-assemblycondensationhpp">Static condensation (<code>assembly/condensation.hpp</code>)</h2>
+<p>The interior (cell-bubble) functions of the hierarchical bases have support in one cell
+only, so their DoFs couple to nothing but the cell's own exterior DoFs. With the local
+system split into exterior (E) and interior (B) blocks, <code>StaticCondensation</code> assembles the
+Schur complement</p>
+<div class="arithmatex">\[
+\tilde K_{EE} = K_{EE} - K_{EB}K_{BB}^{-1}K_{BE}, \qquad \tilde f_E = f_E - K_{EB}K_{BB}^{-1} f_B
+\]</div>
+<p>cell by cell (a dense LU of <span class="arithmatex">\(K_{BB}\)</span> per cell, <span class="arithmatex">\(K_{BB}^{-1}K_{BE}\)</span> and <span class="arithmatex">\(K_{BB}^{-1}f_B\)</span> are
+kept) and recovers <span class="arithmatex">\(u_B = K_{BB}^{-1}(f_B - K_{BE}u_E)\)</span> after the solve. The global
+numbering is unchanged: the interior rows of the condensed matrix are identity rows with
+zero load, so Dirichlet elimination and the hanging-node / Bloch constraints — which never
+involve interior DoFs — apply exactly as before, and <code>recover</code> completes the solution.
+<code>assemble_maxwell_operator</code> (<span class="arithmatex">\(A = S - k^2 M\)</span> with the load in one pass) and the
+per-cell-form <code>assemble_h1</code> take an optional <code>StaticCondensation</code>; <code>physics::Scattering</code>
+condenses by default (<code>ScatteringSetup::condense</code>). Not condensed: the eigenproblems (the
+pencil <span class="arithmatex">\(S - \lambda M\)</span> is not linear in the unknown block) and the DWR adjoint.</p>
+<p>Interior DoFs per cell: H1 <span class="arithmatex">\((p-1)(p-2)/2\)</span> (2D), Nédélec <span class="arithmatex">\(p(p-1)\)</span> (2D), i.e. for <span class="arithmatex">\(p = 4\)</span>
+a third of the Nédélec DoFs of a triangle and for <span class="arithmatex">\(p = 6\)</span> half of them. The direct solver
+then factorises a matrix whose coupled part lives on the entity DoFs only.</p>
+<p>Verification (<code>tests/unit/assembly/test_condensation.cpp</code>): H1 (2D <span class="arithmatex">\(p = 3\)</span>–<span class="arithmatex">\(5\)</span>, 3D <span class="arithmatex">\(p = 4\)</span>)
+and Maxwell (2D <span class="arithmatex">\(p = 2\)</span>–<span class="arithmatex">\(4\)</span>, 3D <span class="arithmatex">\(p = 3\)</span>) solutions with Dirichlet / PEC data agree with the
+full systems to <span class="arithmatex">\(10^{-10}\)</span>, the condensed matrices have fewer nonzeros and identity interior
+rows, a <code>Scattering</code> solve on a hanging mesh with PEC and prescribed traces agrees with the
+uncondensed solve, and singular interior blocks are reported.</p>
+<h2 id="parallel-assembly-coreparallelhpp">Parallel assembly (<code>core/parallel.hpp</code>)</h2>
+<p>With OpenMP (<code>HPFEM_ENABLE_OPENMP</code>, on by default when the compiler supports it) the cell
+loops of <code>assemble_maxwell</code>, <code>assemble_maxwell_operator</code> and <code>assemble_h1</code> and the cell and
+facet loops of the residual estimator and the weighted residual run in parallel
+(<code>parallel_for</code>, dynamic scheduling). Every thread owns its triplet buffer, right-hand
+side and quadrature-rule cache; the buffers are concatenated afterwards and summed by the
+sparse assembler, the facet contributions are stored per facet and accumulated into the
+cells serially, and <code>StaticCondensation</code> guards its recovery table with a mutex. The results
+are bit-for-bit reproducible up to the summation order of duplicate entries
+(<code>tests/unit/assembly/test_parallel.cpp</code> compares 1 and all threads to <span class="arithmatex">\(10^{-12}\)</span>). The
+per-cell form factories must be reentrant (the ones of <code>physics::Scattering</code> are).
+<code>hpfem::num_threads()</code> / <code>set_num_threads()</code> control the thread count; on MinGW the OpenMP
+runtime is linked statically like the rest of the GCC runtime.</p>
+<h2 id="parameter-sweeps-physicssweephpp-solversreduced_basishpp">Parameter sweeps (<code>physics/sweep.hpp</code>, <code>solvers/reduced_basis.hpp</code>)</h2>
+<p><strong>Angle sweeps, one factorisation.</strong> At a fixed frequency the operator of a scattering
+problem does not depend on the incident field or the current. <code>physics::ScatteringOperator</code>
+assembles the operator once (static condensation, hanging / Bloch constraints, Dirichlet
+elimination of the problem's PEC and incident facets with <code>assembly::DirichletElimination</code>,
+which keeps the eliminated columns <span class="arithmatex">\(A_{:,D}\)</span> for later loads) and factorises it with the
+chosen backend; <code>solve(incident, current)</code> then only assembles the new load
+(<code>assemble_maxwell_load</code>), condenses it (<code>StaticCondensation::condense_load</code>, with the stored
+<span class="arithmatex">\(K_{BB}^{-1}\)</span> and <span class="arithmatex">\(K_{EB}\)</span> per cell), reduces it by the constraints, applies the new Dirichlet
+values and recovers the interior unknowns (<code>recover(x, load)</code>).
+<code>ScatteringOperator::solve_many(incidents, current)</code> assembles and eliminates the loads of
+several incident fields and applies the factorisation to all of them in one
+<code>LinearSolver::solve_many</code> call (one device round trip on the cuDSS backend); the free
+functions <code>solve_many</code> and <code>plane_wave_sweep</code> wrap this for lists of incident fields / wave
+vectors — the angle sweep of a scatterometry measurement costs one factorisation plus one
+batched triangular solve.</p>
+<p><strong>Frequency sweeps, reduced basis.</strong> <code>solvers::ReducedBasis</code> collects snapshots
+(full solutions at a few parameter values) into an orthonormal basis <span class="arithmatex">\(V\)</span> (modified
+Gram–Schmidt with re-orthogonalisation, dependent snapshots dropped) and provides the
+Galerkin projections <span class="arithmatex">\(V^H A V\)</span>, <span class="arithmatex">\(V^H b\)</span> and the lift <span class="arithmatex">\(u \approx V y\)</span>. For an affine operator
+such as <span class="arithmatex">\(A(k) = S - k^2 M\)</span> (no dispersive materials, PML frozen at a reference
+wavenumber) the projections of <span class="arithmatex">\(S\)</span> and <span class="arithmatex">\(M\)</span> are formed once and every further frequency is
+a dense solve of the size of the basis; <code>DirichletElimination</code> with <code>unit_diagonal = false</code>
+on <span class="arithmatex">\(M\)</span> keeps the eliminated system affine. This is the hook for the reduced-basis and
+dispersion work of later milestones; frequency-dependent PML and materials still need a
+full re-assembly per frequency.</p>
+<p>Verification (<code>tests/unit/physics/test_sweep.cpp</code>): solutions of three incidence angles by
+one factorisation agree with individual solves to <span class="arithmatex">\(10^{-9}\)</span> for the total- and
+scattered-field formulations with and without condensation on a hanging mesh with PEC
+and prescribed traces; the reusable elimination and the condensed loads reproduce the
+one-shot pipeline; a basis of five frequency snapshots (<span class="arithmatex">\(k = 2 \dots 4\)</span> on a <span class="arithmatex">\(6 \times 6\)</span>,
+<span class="arithmatex">\(p = 3\)</span> box with the exact trace) reproduces full solutions at four other frequencies
+within <span class="arithmatex">\(10^{-2}\)</span> and the snapshot frequencies to <span class="arithmatex">\(10^{-8}\)</span>.</p>
+<h2 id="measured-benchmarksresults2026-10-02-vrjson">Measured (<code>benchmarks/results/2026-10-02-VR.json</code>)</h2>
+<p>Maxwell plane wave on the unit square, MSYS2 GCC 16 release build, 24 cores, MUMPS 5.9
+sequential (<code>bench_assembly_solve</code>):</p>
+<table>
+<thead>
+<tr>
+<th>n, p</th>
+<th>DoFs</th>
+<th>nnz (full / condensed)</th>
+<th>assembly 1 / 24 threads</th>
+<th>factorise SparseLU full / cond.</th>
+<th>factorise MUMPS full / cond.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>64, 2</td>
+<td>41 216</td>
+<td>469 k / 258 k</td>
+<td>0.27 s / 0.05 s</td>
+<td>0.38 s / 0.17 s</td>
+<td>0.14 s / 0.10 s</td>
+</tr>
+<tr>
+<td>64, 4</td>
+<td>147 968</td>
+<td>4.48 M / 1.06 M</td>
+<td>1.57 s / 0.34 s</td>
+<td>10.1 s / 1.10 s</td>
+<td>0.50 s / 0.29 s</td>
+</tr>
+<tr>
+<td>128, 3</td>
+<td>344 832</td>
+<td>6.89 M / 2.39 M</td>
+<td>2.97 s / 0.56 s</td>
+<td>21.6 s / 4.11 s</td>
+<td>1.33 s / 0.84 s</td>
+</tr>
+</tbody>
+</table>
+<p>Assembly scales 5–7× on 24 threads (the per-thread triplet merge and the sparse
+compression stay serial); static condensation removes half to three quarters of the
+nonzeros and cuts the SparseLU factorisation up to 9×; MUMPS factorises the 345k system
+16× faster than SparseLU. Solves take 10–100 ms. The Mie example (86k DoFs, p = 3) went
+from 5 s to 1.5 s with MUMPS and condensation.</p>
+<h2 id="eigenvalue-solvers">Eigenvalue solvers</h2>
+<p>See <a href="../maxwell/#eigenproblems">maxwell.md</a>: Spectra's shift-invert Lanczos / Arnoldi on top
+of the SparseLU factorisation of <span class="arithmatex">\(S - \sigma M\)</span> (gauged curl–curl eigenproblems and the
+Lee–Sun–Cendes pencil of <code>PropagatingMode</code>), real pencils only. Complex pencils — lossy
+media, PML, the resonance problems of <a href="../maxwell/#resonances">maxwell.md</a> — go through
+<code>complex_eigenpairs_near</code>: an own shift-invert Arnoldi in complex arithmetic on
+<span class="arithmatex">\((A - \sigma B)^{-1} B\)</span> with the direct solver backends of this page for the factorisation
+(MUMPS when compiled in), modified Gram–Schmidt with re-orthogonalisation, explicit restarts
+from the wanted Ritz vectors and the relative residual <span class="arithmatex">\(|h_{m+1,m}\,y_m|/|\theta|\)</span> as
+convergence test; eigenvalues come back ordered by distance to the shift with their
+residuals. All three solvers scale the pencil to <span class="arithmatex">\(O(1)\)</span> matrices internally: on SI meshes the
+mass entries are <span class="arithmatex">\(\sim h^2 \sim 10^{-14}\)</span> and the eigenvalues <span class="arithmatex">\(\sim 10^{13}\)</span>, which made the
+absolute thresholds of the Krylov iterations stop early with non-converged values.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,28 @@
+var searchData=
+[
+  ['l2_0',['l2',['../structhpfem_1_1assembly_1_1ErrorNorms.html#af76ae346e583d8149948b7dbd7b45eb0',1,'hpfem::assembly::ErrorNorms::l2'],['../structhpfem_1_1assembly_1_1HcurlErrorNorms.html#a0e6a0f4cc43545272db489dca3217694',1,'hpfem::assembly::HcurlErrorNorms::l2']]],
+  ['l2_5fnorm_1',['l2_norm',['../structhpfem_1_1assembly_1_1ErrorNorms.html#a166bb4023c0e0f4a56d02f7527d71b6c',1,'hpfem::assembly::ErrorNorms::l2_norm'],['../structhpfem_1_1assembly_1_1HcurlErrorNorms.html#ae31d0e8d4785429f59ee8e29b4ec8561',1,'hpfem::assembly::HcurlErrorNorms::l2_norm']]],
+  ['lattice_2',['lattice',['../structhpfem_1_1physics_1_1BandStructureSetup.html#a81b406bbf6497cd218d405f636d1efd8',1,'hpfem::physics::BandStructureSetup']]],
+  ['lattice_5fconstant_3',['lattice_constant',['../classhpfem_1_1physics_1_1BandStructure.html#adc76c628b36c1d8421f0549fc1a1f3d8',1,'hpfem::physics::BandStructure']]],
+  ['layer_4',['Layer',['../structhpfem_1_1physics_1_1Layer.html',1,'hpfem::physics']]],
+  ['layer_5fstack_2ehpp_5',['layer_stack.hpp',['../layer__stack_8hpp.html',1,'']]],
+  ['layeredplanewave_6',['LayeredPlaneWave',['../structhpfem_1_1physics_1_1LayeredPlaneWave.html',1,'hpfem::physics']]],
+  ['layerstack_7',['layerstack',['../classhpfem_1_1physics_1_1LayerStack.html',1,'hpfem::physics::LayerStack&lt; Dim &gt;'],['../classhpfem_1_1physics_1_1LayerStack.html#a2f6d09e2283093a9342c348a7af6c3d8',1,'hpfem::physics::LayerStack::LayerStack()']]],
+  ['layout_8',['layout',['../index.html#autotoc_md3',1,'3. Repository layout'],['../classhpfem_1_1fespace_1_1NedelecBasis.html#ad5330ab7b50f8b74fc81e8c5ab21d209',1,'hpfem::fespace::NedelecBasis::layout()'],['../classhpfem_1_1fespace_1_1H1Basis.html#a5bad1e9d1f6227de45d164307e182ff2',1,'hpfem::fespace::H1Basis::layout()']]],
+  ['legendre_9',['legendre',['../namespacehpfem_1_1fespace.html#a256e0d98613a9050396c595e3f33d484',1,'hpfem::fespace']]],
+  ['legendrekernel_10',['legendrekernel',['../structhpfem_1_1fespace_1_1detail_1_1LegendreKernel.html#a6d025bebccdd1732110ab2eb82a0a44b',1,'hpfem::fespace::detail::LegendreKernel::LegendreKernel()'],['../structhpfem_1_1fespace_1_1detail_1_1LegendreKernel.html',1,'hpfem::fespace::detail::LegendreKernel&lt; Dim &gt;']]],
+  ['level_11',['level',['../classhpfem_1_1mesh_1_1AdaptiveMesh.html#a6c9b0a197fe69d00f2dec78359974dcd',1,'hpfem::mesh::AdaptiveMesh']]],
+  ['levels_12',['levels',['../structhpfem_1_1mesh_1_1RefinementStep.html#a72536be3f4c6f7e7240eabe48ea2e4b7',1,'hpfem::mesh::RefinementStep']]],
+  ['lift_13',['lift',['../classhpfem_1_1solvers_1_1ReducedBasis.html#a322d671c52ced8dd77d04cda623847dd',1,'hpfem::solvers::ReducedBasis']]],
+  ['linear_5fsolver_2ehpp_14',['linear_solver.hpp',['../linear__solver_8hpp.html',1,'']]],
+  ['linearsolver_15',['linearsolver',['../classhpfem_1_1solvers_1_1LinearSolver.html#a1d9d09785af7300bd8f04fbdd8820b91',1,'hpfem::solvers::LinearSolver::LinearSolver()=default'],['../classhpfem_1_1solvers_1_1LinearSolver.html#ab35ac448c0f7275304f9c92a94ef244a',1,'hpfem::solvers::LinearSolver::LinearSolver(const LinearSolver &amp;)=delete'],['../classhpfem_1_1solvers_1_1LinearSolver.html#a1355ea669a61ac293113ac618bc39161',1,'hpfem::solvers::LinearSolver::LinearSolver(LinearSolver &amp;&amp;)=delete'],['../classhpfem_1_1solvers_1_1LinearSolver.html',1,'hpfem::solvers::LinearSolver']]],
+  ['load_16',['load',['../structhpfem_1_1assembly_1_1MaxwellElement.html#a23652a9a4147bf52c519c96c8e35b3f5',1,'hpfem::assembly::MaxwellElement::load'],['../classhpfem_1_1physics_1_1TimeDomain.html#a5011355d1560cfadb7c035241ab8898b',1,'hpfem::physics::TimeDomain::load()']]],
+  ['local_20development_20on_20windows_20msys2_20gcc_20ucrt64_20cmake_20ninja_17',['4a. Local development on Windows (MSYS2-GCC UCRT64 + CMake + Ninja)',['../index.html#autotoc_md5',1,'']]],
+  ['localindex_18',['LocalIndex',['../namespacehpfem.html#abf599ab9b4e211da05512ed8f3ddb331',1,'hpfem']]],
+  ['locate_19',['locate',['../classhpfem_1_1mesh_1_1PointLocator.html#a314b9a9e21e5ce0b45689c803bd1f5c2',1,'hpfem::mesh::PointLocator::locate(const Point&lt; Dim &gt; &amp;x, Index hint) const'],['../classhpfem_1_1mesh_1_1PointLocator.html#aab4eec49e83548d367c0f386c863528e',1,'hpfem::mesh::PointLocator::locate(const Point&lt; Dim &gt; &amp;x) const']]],
+  ['locatedpoint_20',['LocatedPoint',['../structhpfem_1_1mesh_1_1LocatedPoint.html',1,'hpfem::mesh']]],
+  ['log_21',['log',['../namespacehpfem.html#ab14e23a4f57e9872566f9ff3b39524c7',1,'hpfem']]],
+  ['log_2ehpp_22',['log.hpp',['../log_8hpp.html',1,'']]],
+  ['longitudinal_23',['longitudinal',['../structhpfem_1_1physics_1_1WaveguideMode.html#a1ffde8451b88a8bc633534f443370ef8',1,'hpfem::physics::WaveguideMode']]],
+  ['lower_24',['lower',['../classhpfem_1_1pml_1_1PmlBox.html#a40caf7954c171921e6029755ba7f3bda',1,'hpfem::pml::PmlBox']]]
+];

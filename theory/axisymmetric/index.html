@@ -1,0 +1,1463 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/theory/axisymmetric/">
+      
+      
+        <link rel="prev" href="../multiphysics/">
+      
+      
+        <link rel="next" href="../../python/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Axisymmetric (2.5D) - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#axisymmetric-25d-problems" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Axisymmetric (2.5D)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#unknowns-and-spaces-assemblyaxisymmetric_formshpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unknowns and spaces (assembly/axisymmetric_forms.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-axis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The axis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eigenmodes-physicsaxisymmetrichpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Eigenmodes (physics/axisymmetric.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resonances-with-the-cylindrical-pml-physicsaxisymmetricresonance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resonances with the cylindrical PML (physics::AxisymmetricResonance)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scattering-physicsaxisymmetricscattering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scattering (physics::AxisymmetricScattering)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dipoles-on-the-axis-axisymmetric_gaussian_dipole" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dipoles on the axis (axisymmetric_gaussian_dipole)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#far-field-axisymmetric_far_field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Far field (axisymmetric_far_field)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Roadmap
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#unknowns-and-spaces-assemblyaxisymmetric_formshpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unknowns and spaces (assembly/axisymmetric_forms.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-axis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The axis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eigenmodes-physicsaxisymmetrichpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Eigenmodes (physics/axisymmetric.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resonances-with-the-cylindrical-pml-physicsaxisymmetricresonance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resonances with the cylindrical PML (physics::AxisymmetricResonance)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scattering-physicsaxisymmetricscattering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scattering (physics::AxisymmetricScattering)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dipoles-on-the-axis-axisymmetric_gaussian_dipole" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dipoles on the axis (axisymmetric_gaussian_dipole)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#far-field-axisymmetric_far_field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Far field (axisymmetric_far_field)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Roadmap
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="axisymmetric-25d-problems">Axisymmetric (2.5D) problems</h1>
+<p>Bodies of revolution (VCSELs, micropillars, nanowires, round apertures) are computed on the
+meridian plane with the azimuthal Fourier decomposition</p>
+<div class="arithmatex">\[
+E(r, \varphi, z) = \sum_{m=-\infty}^{\infty} E_m(r, z)\,e^{im\varphi},
+\qquad E_m = (E_r, E_\varphi, E_z)(r, z),
+\]</div>
+<p>so that every order <span class="arithmatex">\(m\)</span> is an independent two-dimensional problem (ADR-0010). The mesh is the
+meridian domain with coordinates <span class="arithmatex">\(x = r \ge 0\)</span> and <span class="arithmatex">\(y = z\)</span>; the axis <span class="arithmatex">\(r = 0\)</span> is a boundary of
+the mesh with its own facet tag. The convention <span class="arithmatex">\(e^{-i\omega t}\)</span> of <code>maxwell.md</code> applies.</p>
+<h2 id="unknowns-and-spaces-assemblyaxisymmetric_formshpp">Unknowns and spaces (<code>assembly/axisymmetric_forms.hpp</code>)</h2>
+<p>The meridian components <span class="arithmatex">\((E_r, E_z)\)</span> are a 2D vector field in <span class="arithmatex">\(H(\mathrm{curl})\)</span> of the
+<span class="arithmatex">\((r, z)\)</span> plane and live in the Nédélec space; the azimuthal component is a scalar in <span class="arithmatex">\(H^1\)</span>.
+The code uses the <strong>scaled azimuthal unknown</strong></p>
+<div class="arithmatex">\[
+v = -i\,r\,E_\varphi, \qquad E_\varphi = \frac{i\,v}{r},
+\]</div>
+<p>in the H1 space of the same order. Two things follow. The gradient of a potential mode,
+<span class="arithmatex">\(\nabla(\psi e^{im\varphi}) = (\partial_r\psi,\ im\psi/r,\ \partial_z\psi)e^{im\varphi}\)</span>, becomes
+<span class="arithmatex">\((\nabla_{rz}\psi,\ v = m\psi)\)</span>: exactly representable in the discrete spaces, so the
+<strong>order-<span class="arithmatex">\(m\)</span> discrete gradient</strong> <span class="arithmatex">\(K_m = [G;\ mI]\)</span> (<span class="arithmatex">\(G\)</span> the 2D discrete gradient) spans the
+kernel of the curl–curl matrix and the gauged eigensolvers remove it without spurious modes.
+And the factor <span class="arithmatex">\(-i\)</span> turns the <span class="arithmatex">\(\pm im\)</span> couplings of the curl into real numbers: for lossless
+media the matrices are real symmetric, otherwise complex symmetric.</p>
+<p>With the cylindrical curl</p>
+<div class="arithmatex">\[
+(\nabla\times E)_r = \frac{im E_z - \partial_z(rE_\varphi)}{r}, \qquad
+(\nabla\times E)_\varphi = \partial_z E_r - \partial_r E_z, \qquad
+(\nabla\times E)_z = \frac{\partial_r(rE_\varphi) - imE_r}{r},
+\]</div>
+<p>the volume element <span class="arithmatex">\(r\,dr\,d\varphi\,dz\)</span> and the <span class="arithmatex">\(\varphi\)</span> integration done (the factor
+<span class="arithmatex">\(2\pi\)</span> is dropped), the bilinear forms of order <span class="arithmatex">\(m\)</span> with diagonal material tensors
+<span class="arithmatex">\(\mu^{-1} = \mathrm{diag}(\mu_r^{-1}, \mu_\varphi^{-1}, \mu_z^{-1})\)</span> and <span class="arithmatex">\(\varepsilon\)</span> read</p>
+<div class="arithmatex">\[
+a(E, V) = \int \Big[ \mu_r^{-1}\frac{(mE_z - \partial_z v)(mV_z - \partial_z w)}{r}
++ \mu_\varphi^{-1}(\partial_z E_r - \partial_r E_z)(\partial_z V_r - \partial_r V_z)\,r
++ \mu_z^{-1}\frac{(\partial_r v - mE_r)(\partial_r w - mV_r)}{r}\Big]\,dr\,dz ,
+\]</div>
+<div class="arithmatex">\[
+b(E, V) = \int \big[\varepsilon_r E_r V_r\,r + \varepsilon_\varphi\,v\,w / r
++ \varepsilon_z E_z V_z\,r\big]\,dr\,dz .
+\]</div>
+<p>The test functions are the complex conjugates of the trial basis (sesquilinear pairing
+with <span class="arithmatex">\(e^{-im\varphi}\)</span>), which is what makes the forms symmetric in <span class="arithmatex">\((E, v) \leftrightarrow
+(V, w)\)</span>; <span class="arithmatex">\(m \to -m\)</span> gives the same spectrum. <code>assemble_axisymmetric</code> returns the stiffness
+(the <span class="arithmatex">\(a\)</span> form) and the mass (the <span class="arithmatex">\(b\)</span> form) of the block vector <span class="arithmatex">\((e, v)\)</span>: the first
+<code>nedelec.num_dofs()</code> entries are the Nédélec coefficients, the rest the H1 coefficients of
+<span class="arithmatex">\(v\)</span>. Per-cell diagonal tensors in <span class="arithmatex">\((r, \varphi, z)\)</span> cover anisotropic media and the
+cylindrical PML (stretched tensors of Teixeira–Chew, stage 2).</p>
+<h2 id="the-axis">The axis</h2>
+<p>The <span class="arithmatex">\(1/r\)</span> terms are singular on the axis unless their numerators vanish there. The
+regularity of a field <span class="arithmatex">\(E_m e^{im\varphi}\)</span> at <span class="arithmatex">\(r = 0\)</span> requires</p>
+<table>
+<thead>
+<tr>
+<th>order</th>
+<th>conditions at <span class="arithmatex">\(r = 0\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="arithmatex">\(m = 0\)</span></td>
+<td><span class="arithmatex">\(E_\varphi = 0\)</span>, <span class="arithmatex">\(E_r = 0\)</span>; <span class="arithmatex">\(E_z\)</span> free</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(m = \pm1\)</span></td>
+<td><span class="arithmatex">\(E_z = 0\)</span>; <span class="arithmatex">\(E_r \pm iE_\varphi = 0\)</span> (the Cartesian components are regular)</td>
+</tr>
+<tr>
+<td>$</td>
+<td>m</td>
+</tr>
+</tbody>
+</table>
+<p>Of these only <span class="arithmatex">\(v = 0\)</span> (all <span class="arithmatex">\(m\)</span>; automatic for <span class="arithmatex">\(r E_\varphi\)</span> and imposed on the H1 DoFs of
+the axis facets) and <span class="arithmatex">\(E_z = 0\)</span> for <span class="arithmatex">\(m \ne 0\)</span> (tangential Nédélec DoFs of the axis facets)
+are Dirichlet data. The remaining conditions (<span class="arithmatex">\(E_r\)</span> on the axis, the <span class="arithmatex">\(m = \pm1\)</span> coupling)
+involve the normal component of the edge elements and are not imposed; the quadrature of the
+cells touching the axis (rule two degrees higher, Gauss points strictly inside) weights
+them, which is the established body-of-revolution practice. The gauge potential <span class="arithmatex">\(\psi\)</span>
+vanishes on the axis for <span class="arithmatex">\(m \ne 0\)</span> (<span class="arithmatex">\(v = m\psi\)</span>) and is free there for <span class="arithmatex">\(m = 0\)</span>. PEC walls fix
+the Nédélec trace and <span class="arithmatex">\(v\)</span> (<code>physics::AxisymmetricCavity</code> builds all index sets from the axis
+tag and the PEC tags).</p>
+<h2 id="eigenmodes-physicsaxisymmetrichpp">Eigenmodes (<code>physics/axisymmetric.hpp</code>)</h2>
+<p><code>AxisymmetricCavity</code> assembles the order-<span class="arithmatex">\(m\)</span> pencil, applies the constraints and calls
+<code>solvers::gauged_curl_curl_eigenpairs</code> with <span class="arithmatex">\(K_m\)</span>; it returns the lowest <span class="arithmatex">\(k_0\)</span> with the
+meridian and azimuthal coefficients. The modes of the PEC cylinder (radius <span class="arithmatex">\(a\)</span>, height <span class="arithmatex">\(h\)</span>)
+are the analytic reference,</p>
+<div class="arithmatex">\[
+\mathrm{TM}_{mnp}:\ k^2 = \Big(\frac{j_{mn}}{a}\Big)^2 + \Big(\frac{p\pi}{h}\Big)^2,\ p \ge 0;
+\qquad
+\mathrm{TE}_{mnp}:\ k^2 = \Big(\frac{j'_{mn}}{a}\Big)^2 + \Big(\frac{p\pi}{h}\Big)^2,\ p \ge 1,
+\]</div>
+<p>with the zeros <span class="arithmatex">\(j_{mn}\)</span> of <span class="arithmatex">\(J_m\)</span> and <span class="arithmatex">\(j'_{mn}\)</span> of <span class="arithmatex">\(J'_m\)</span>.</p>
+<p><strong>Verification</strong> (<code>tests/convergence/axisymmetric_cavity.cpp</code>,
+<code>tests/unit/physics/test_axisymmetric.cpp</code>): on the cylinder <span class="arithmatex">\(a = 1\)</span>, <span class="arithmatex">\(h = 1.5\)</span> the four
+lowest eigenvalues of <span class="arithmatex">\(m = 0, 1, 2\)</span> converge with rate <span class="arithmatex">\(2p\)</span> under h-refinement
+(<span class="arithmatex">\(p = 1\)</span>: <span class="arithmatex">\(1.9 / 1.8 / 1.9\)</span>; <span class="arithmatex">\(p = 2\)</span>: <span class="arithmatex">\(3.8 / 3.8 / 3.9\)</span> between <span class="arithmatex">\(h = 1/8\)</span> and <span class="arithmatex">\(1/16\)</span>, maximum
+relative errors <span class="arithmatex">\(3\cdot10^{-5}\)</span>, <span class="arithmatex">\(1.3\cdot10^{-5}\)</span>, <span class="arithmatex">\(1.0\cdot10^{-5}\)</span> at <span class="arithmatex">\(p = 2\)</span>, <span class="arithmatex">\(h = 1/16\)</span>)
+and no eigenvalue appears below the first physical one. The unit tests check that <span class="arithmatex">\(K_m\psi\)</span>
+lies in the kernel of the stiffness matrix to rounding for every <span class="arithmatex">\(m\)</span>, the symmetry and
+positivity of the matrices, the decoupling of the blocks for <span class="arithmatex">\(m = 0\)</span>, the <span class="arithmatex">\(m\)</span>-dependent
+axis conditions, and <span class="arithmatex">\(\mathrm{TM}_{010}\)</span> / <span class="arithmatex">\(\mathrm{TE}_{111}\)</span> on a coarse mesh.</p>
+<h2 id="resonances-with-the-cylindrical-pml-physicsaxisymmetricresonance">Resonances with the cylindrical PML (<code>physics::AxisymmetricResonance</code>)</h2>
+<p>Open resonators (micropillars, VCSELs, spheres) have quasi-normal modes with complex
+<span class="arithmatex">\(\omega\)</span> (<code>maxwell.md</code>, Resonances). The PML of ADR-0005 carries over as a <em>material</em>: with
+the stretch factors <span class="arithmatex">\(s_r(r)\)</span>, <span class="arithmatex">\(s_z(z)\)</span> of a <code>pml::PmlBox&lt;2&gt;</code> (layers on the <span class="arithmatex">\(r\)</span>-max, <span class="arithmatex">\(z\)</span>-min
+and <span class="arithmatex">\(z\)</span>-max sides, none on the axis) and the stretched radius <span class="arithmatex">\(\tilde r = r + i\int\hat\sigma_r\)</span>
+the cylindrical PML of Teixeira and Chew is the diagonal tensor</p>
+<div class="arithmatex">\[
+\Lambda = \mathrm{diag}\Big(\frac{s_\varphi s_z}{s_r},\ \frac{s_r s_z}{s_\varphi},\
+\frac{s_r s_\varphi}{s_z}\Big), \qquad s_\varphi = \frac{\tilde r}{r},
+\qquad \tilde\varepsilon = \varepsilon_r\Lambda, \quad \tilde\mu^{-1} = \mu_r^{-1}\Lambda^{-1},
+\]</div>
+<p>evaluated per quadrature point (<code>axisymmetric_pml_form</code>); the curl operator and the forms
+above are untouched. Inside the box <span class="arithmatex">\(\Lambda = I\)</span>. The order-<span class="arithmatex">\(m\)</span> pencil becomes complex
+symmetric, and <code>AxisymmetricResonance</code> solves it with the complex gauged shift-invert
+solver (<code>solvers::complex_eigenpairs_near_gauged</code>, the gradient <span class="arithmatex">\(K_m\)</span> restricted to the
+free DoFs) around the target <span class="arithmatex">\(k_0^2 = (\omega_{\text{target}}/c_0)^2\)</span>. Each mode carries
+<span class="arithmatex">\(\omega\)</span>, <span class="arithmatex">\(\lambda_{\mathrm{res}}\)</span>, <span class="arithmatex">\(Q = \mathrm{Re}\,\omega / (-2\,\mathrm{Im}\,\omega)\)</span>, the
+Arnoldi residual and both coefficient vectors.</p>
+<p><strong>Verification</strong> (<code>tests/convergence/axisymmetric_sphere_resonance.cpp</code>,
+<code>tests/unit/physics/test_axisymmetric_resonance.cpp</code>): the quasi-normal modes of a
+dielectric sphere of radius <span class="arithmatex">\(a\)</span> and index <span class="arithmatex">\(n\)</span> are the zeros of the Mie denominators in the
+complex size parameter <span class="arithmatex">\(x = ka\)</span>; for <span class="arithmatex">\(l = 1\)</span> (the lowest modes of order <span class="arithmatex">\(m = 1\)</span>) with the
+Riccati–Bessel functions <span class="arithmatex">\(\psi_1\)</span>, <span class="arithmatex">\(\xi_1\)</span>,</p>
+<div class="arithmatex">\[
+\mathrm{TE}_1:\ \psi_1(nx)\,\xi_1'(x) - n\,\xi_1(x)\,\psi_1'(nx) = 0, \qquad
+\mathrm{TM}_1:\ n\,\psi_1(nx)\,\xi_1'(x) - \xi_1(x)\,\psi_1'(nx) = 0 ,
+\]</div>
+<p>solved by Newton in the test. For <span class="arithmatex">\(n = 3\)</span> the poles are <span class="arithmatex">\(x_{\mathrm{TE}} = 0.98712 -
+0.06058i\)</span> and <span class="arithmatex">\(x_{\mathrm{TM}} = 1.44174 - 0.17947i\)</span>. On the half-disc meridian mesh of
+<code>square_with_disc</code> (curved interface, four cells per radius, PML of three radii beyond
+<span class="arithmatex">\(r, |z| = 3a\)</span>) the computed poles converge exponentially under p-refinement: relative
+errors <span class="arithmatex">\(2.9\cdot10^{-2}\)</span>, <span class="arithmatex">\(2.4\cdot10^{-4}\)</span>, <span class="arithmatex">\(3.5\cdot10^{-6}\)</span>, <span class="arithmatex">\(1.8\cdot10^{-6}\)</span> (TE) and
+<span class="arithmatex">\(3.7\cdot10^{-2}\)</span>, <span class="arithmatex">\(2.0\cdot10^{-3}\)</span>, <span class="arithmatex">\(2.3\cdot10^{-5}\)</span>, <span class="arithmatex">\(2.0\cdot10^{-6}\)</span> (TM) for
+<span class="arithmatex">\(p = 1 \ldots 4\)</span>, with Arnoldi residuals below <span class="arithmatex">\(10^{-8}\)</span>. The unit test also checks the PML
+tensors against the formula and that a layer on the axis side is rejected.</p>
+<h2 id="scattering-physicsaxisymmetricscattering">Scattering (<code>physics::AxisymmetricScattering</code>)</h2>
+<p>The scattered-field formulation of <code>maxwell.md</code> carries over order by order: the incident
+field is a solution in the background medium, its <span class="arithmatex">\(m\)</span>-th Fourier component in the scaled
+components <span class="arithmatex">\((E_r, v, E_z)\)</span> drives the volume source <span class="arithmatex">\(k_0^2(\varepsilon_r -
+\varepsilon_{bg})E^{inc}_m\)</span> in the cells whose material differs from the background (nowhere
+inside the PML), and the operator <span class="arithmatex">\(S_m - k_0^2 M_m\)</span> with the cylindrical PML is solved for the
+scattered field of that order. The source enters the forms through the same pairing as the
+mass term, <span class="arithmatex">\(\int (f_r V_r + f_z V_z)\,r + f_v\,w / r\)</span> with <span class="arithmatex">\(f_v = -i\,r f_\varphi\)</span>
+(<code>AxisymmetricForm::source</code>). An <span class="arithmatex">\(x\)</span>-polarised plane wave along the axis,
+<span class="arithmatex">\(E_0\hat x\,e^{ikz}\)</span>, has the orders <span class="arithmatex">\(m = \pm1\)</span> only:</p>
+<div class="arithmatex">\[
+(E_r, E_\varphi, E_z)_{\pm1} = \tfrac{E_0}{2}\,(1,\ \pm i,\ 0)\,e^{ikz}, \qquad
+(E_r, v, E_z)_{\pm1} = \tfrac{E_0}{2}\,(1,\ \pm r,\ 0)\,e^{ikz}
+\]</div>
+<p>(<code>axial_plane_wave</code>); the two orders are mirror images and carry the same power, so one
+solve suffices. Orders do not mix in quadratic quantities: the power of the full field through
+a surface of revolution is the sum over <span class="arithmatex">\(m\)</span> of</p>
+<div class="arithmatex">\[
+P_m = \int_\Gamma 2\pi r\,\tfrac12\,\mathrm{Re}\big(E_m\times H_m^*\big)\cdot n\,ds, \qquad
+H_m = \frac{\nabla\times E_m}{i\omega\mu},
+\]</div>
+<p>with the cylindrical curl of the mode (the azimuthal component is minus the 2D scalar curl
+of the meridian field) over the meridian curve <span class="arithmatex">\(\Gamma\)</span> of <code>postprocess::Surface</code>
+(<code>axisymmetric_poynting_flux</code>); the scattering cross-section is <span class="arithmatex">\(\sigma = P^{sca} / I^{inc}\)</span>
+with <span class="arithmatex">\(I^{inc} = |E_0|^2 / (2Z_0)\)</span> in vacuum.</p>
+<p><strong>Verification</strong> (<code>tests/convergence/axisymmetric_mie_sphere.cpp</code>,
+<code>tests/unit/physics/test_axisymmetric_scattering.cpp</code>): for the dielectric sphere <span class="arithmatex">\(n = 2\)</span>,
+<span class="arithmatex">\(ka = 1.5\)</span> the Mie series (Bohren–Huffman <span class="arithmatex">\(a_l\)</span>, <span class="arithmatex">\(b_l\)</span> with Riccati–Bessel functions by
+downward recurrence, computed in the test) gives <span class="arithmatex">\(\sigma / \pi a^2 = 4.2315\)</span>; the scattered
+power of the order <span class="arithmatex">\(m = 1\)</span> through the sphere interface, doubled, converges to it under
+p-refinement with relative errors <span class="arithmatex">\(1.9\cdot10^{-1}\)</span>, <span class="arithmatex">\(3.9\cdot10^{-3}\)</span>, <span class="arithmatex">\(1.3\cdot10^{-3}\)</span>,
+<span class="arithmatex">\(3.9\cdot10^{-6}\)</span> for <span class="arithmatex">\(p = 1 \ldots 4\)</span> — the 2.5D counterpart of convergence test #4. The unit
+tests check the plane-wave orders, the Rayleigh limit of the Mie series, the equality of the
+<span class="arithmatex">\(m = \pm1\)</span> powers, and that the discrete Poynting flux through the shell between the sphere
+and the box <span class="arithmatex">\(r, |z| &lt; 2a\)</span> vanishes up to the discretisation error.</p>
+<h2 id="dipoles-on-the-axis-axisymmetric_gaussian_dipole">Dipoles on the axis (<code>axisymmetric_gaussian_dipole</code>)</h2>
+<p>A point emitter on the axis is a current moment <span class="arithmatex">\(p\)</span> [A m] at <span class="arithmatex">\((r, z) = (0, z_0)\)</span>. With the
+total-field formulation (<code>AxisymmetricScatteringSetup::current</code>, the source
+<span class="arithmatex">\(f = i\omega\mu_0 J\)</span> in every cell, the PML absorbing the emitted field) and the Gaussian
+smearing of <code>maxwell.md</code> the orders are</p>
+<div class="arithmatex">\[
+\text{axial } (p \parallel \hat z):\ m = 0,\quad (f_r, f_v, f_z) = i\omega\mu_0\,p\,g\,(0, 0, 1);
+\qquad
+\text{transverse } (p \parallel \hat x):\ m = \pm1,\quad
+(f_r, f_v, f_z) = i\omega\mu_0\,\tfrac{p}{2}\,g\,(1, \pm r, 0),
+\]</div>
+<p>with <span class="arithmatex">\(g = e^{-(r^2 + (z - z_0)^2)/2\sigma^2} / ((2\pi)^{3/2}\sigma^3)\)</span>. The emitted power is
+the Poynting flux through any surface enclosing the source, and the Purcell factor its
+ratio to the free-space value. For the smeared dipole in vacuum the total power is
+<em>exactly</em> <span class="arithmatex">\(P_0\,e^{-k^2\sigma^2}\)</span> with the Larmor power <span class="arithmatex">\(P_0 = Z_0 k_0^2 |p|^2 / (12\pi)\)</span>
+(<code>dipole_vacuum_power</code>): the Gaussian form factor <span class="arithmatex">\(e^{-k^2\sigma^2/2}\)</span> multiplies the far
+field in every direction, and in a lossless medium the emitted power equals the radiated
+one. This gives an analytic reference without any limit <span class="arithmatex">\(\sigma \to 0\)</span>.</p>
+<p><strong>Verification</strong> (<code>tests/convergence/axisymmetric_dipole.cpp</code>,
+<code>tests/unit/physics/test_axisymmetric_dipole.cpp</code>): for <span class="arithmatex">\(ka = 1.5\)</span> and <span class="arithmatex">\(\sigma = 0.08a\)</span> the
+axial (<span class="arithmatex">\(m = 0\)</span>) and the transverse dipole (<span class="arithmatex">\(m = \pm1\)</span>, doubled) converge to
+<span class="arithmatex">\(P_0 e^{-k^2\sigma^2}\)</span> with relative errors <span class="arithmatex">\(1.7\cdot10^{-1}\)</span> / <span class="arithmatex">\(3.9\cdot10^{-2}\)</span>,
+<span class="arithmatex">\(1.9\cdot10^{-3}\)</span> / <span class="arithmatex">\(4.8\cdot10^{-3}\)</span>, <span class="arithmatex">\(2.0\cdot10^{-4}\)</span> / <span class="arithmatex">\(6.4\cdot10^{-5}\)</span> and
+<span class="arithmatex">\(2.4\cdot10^{-5}\)</span> / <span class="arithmatex">\(2.2\cdot10^{-5}\)</span> for <span class="arithmatex">\(p = 1\ldots4\)</span>. The unit test places the axial
+dipole at the centre of the sphere <span class="arithmatex">\(n = 3\)</span>: the electric dipole couples to the
+<span class="arithmatex">\(\mathrm{TM}_1\)</span> modes, and the Purcell factor peaks at <span class="arithmatex">\(\mathrm{Re}\,x_{\mathrm{TM}}\)</span> of the
+Mie pole found by the resonance solver, which ties the three problem classes together.</p>
+<h2 id="far-field-axisymmetric_far_field">Far field (<code>axisymmetric_far_field</code>)</h2>
+<p>The near-to-far transform of <code>maxwell.md</code> (Stratton–Chu with the equivalent currents
+<span class="arithmatex">\(J = n\times H\)</span>, <span class="arithmatex">\(M = -n\times E\)</span> on a closed surface in the background medium,
+<span class="arithmatex">\(F = \frac{ik}{4\pi}[Z N_t - \hat r\times L]\)</span> with <span class="arithmatex">\(N = \int J e^{-ik\hat r\cdot x'}\)</span>,
+<span class="arithmatex">\(L = \int M e^{-ik\hat r\cdot x'}\)</span>) is applied to one order: on a surface of revolution the
+azimuthal integration of <span class="arithmatex">\(e^{im\varphi'}\)</span> against the plane-wave phase
+<span class="arithmatex">\(e^{-ik\rho\sin\theta\cos(\varphi' - \varphi)}\)</span> is analytic,</p>
+<div class="arithmatex">\[
+\int_0^{2\pi} e^{im\varphi'}\,e^{-ik\rho\sin\theta\cos(\varphi'-\varphi)}\,d\varphi'
+= 2\pi\,(-i)^m J_m(k\rho\sin\theta)\,e^{im\varphi},
+\]</div>
+<p>and the Cartesian components of a cylindrical vector bring the factors <span class="arithmatex">\(\cos\varphi'\)</span>,
+<span class="arithmatex">\(\sin\varphi'\)</span>, i.e. the orders <span class="arithmatex">\(m \pm 1\)</span>. Only the meridian curve is integrated numerically
+(same quadrature as the flux), and the pattern of order <span class="arithmatex">\(m\)</span> is
+<span class="arithmatex">\(E \approx F(\theta)\,e^{im\varphi}\,e^{ikR}/R\)</span> with the spherical components <span class="arithmatex">\(F_\theta\)</span>,
+<span class="arithmatex">\(F_\varphi\)</span> evaluated at <span class="arithmatex">\(\varphi = 0\)</span>. The radiated power <span class="arithmatex">\(\int |F|^2 d\Omega / (2Z)\)</span> of the
+order (trapezoidal rule over the sampled polar angles) must equal the Poynting flux of the
+order through the same surface; the total pattern of a field with several orders is the sum
+of the <span class="arithmatex">\(F_m e^{im\varphi}\)</span>.</p>
+<p><strong>Verification</strong> (<code>tests/unit/physics/test_axisymmetric_farfield.cpp</code>,
+<code>tests/convergence/axisymmetric_mie_sphere.cpp</code>): the axial dipole in vacuum radiates the
+Larmor pattern, <span class="arithmatex">\(|F_\theta| \propto \sin\theta\)</span> to <span class="arithmatex">\(2\cdot10^{-3}\)</span> with <span class="arithmatex">\(F_\varphi = 0\)</span>, and
+its far-field power equals the near-field flux to <span class="arithmatex">\(2\cdot10^{-3}\)</span> (and the analytic
+<span class="arithmatex">\(P_0 e^{-k^2\sigma^2}\)</span> to <span class="arithmatex">\(5\cdot10^{-3}\)</span>) at <span class="arithmatex">\(p = 3\)</span>; the transverse dipole radiates along
+the axis and conserves power likewise; for the sphere scattering the cross-section from the
+far-field power agrees with the flux and converges to the Mie value (the convergence test
+prints both columns).</p>
+<h2 id="roadmap">Roadmap</h2>
+<p>The micropillar example (<code>examples/micropillar_qd</code>) exercises resonance, Purcell factor and
+β factor together. Still open: coupled orders for oblique incidence and
+adaptivity on the meridian plane with the <span class="arithmatex">\(r\)</span>-weighted estimator. The Python bindings
+(<code>AxisymmetricCavity</code>, <code>AxisymmetricResonance</code>, <code>AxisymmetricScattering</code>, <code>axial_plane_wave</code>,
+<code>axisymmetric_gaussian_dipole</code>, <code>axisymmetric_poynting_flux</code>, <code>axisymmetric_far_field</code>) follow the
+C++ API one to one.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,15 @@
+<map id="include/hpfem/physics/scattering.hpp" name="include/hpfem/physics/scattering.hpp">
+<area shape="rect" id="Node000001" title=" " alt="" coords="293,5,461,45"/>
+<area shape="rect" id="Node000002" href="$goal__oriented_8hpp.html" title=" " alt="" coords="5,93,173,133"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="302,52,153,96,152,91,300,47"/>
+<area shape="rect" id="Node000003" href="$postprocess_8hpp.html" title=" " alt="" coords="197,93,365,133"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="347,57,304,95,301,91,344,53"/>
+<area shape="rect" id="Node000006" href="$sweep_8hpp.html" title=" " alt="" coords="389,93,557,133"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="411,53,454,91,450,95,407,57"/>
+<area shape="rect" id="Node000007" href="$thermo__optical_8hpp.html" title=" " alt="" coords="581,93,749,133"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="455,47,603,91,602,96,453,52"/>
+<area shape="rect" id="Node000004" href="$axisymmetric_8hpp.html" title=" " alt="" coords="101,181,269,221"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="251,145,208,183,205,179,248,141"/>
+<area shape="rect" id="Node000005" href="$farfield_8hpp.html" title=" " alt="" coords="293,181,461,221"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="315,141,358,179,354,183,311,145"/>
+</map>

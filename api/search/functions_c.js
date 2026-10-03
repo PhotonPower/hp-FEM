@@ -1,0 +1,27 @@
+var searchData=
+[
+  ['name_0',['name',['../classhpfem_1_1solvers_1_1LinearSolver.html#a7a222f5dba23b78eba06d9d1afff1742',1,'hpfem::solvers::LinearSolver']]],
+  ['nedelec_5fcell_5ffunctions_1',['nedelec_cell_functions',['../namespacehpfem_1_1fespace.html#af0cfeee7d79edca6856d627f7dab665d',1,'hpfem::fespace']]],
+  ['nedelec_5fdimension_2',['nedelec_dimension',['../namespacehpfem_1_1fespace.html#ad85e631198f39f30d35ba684f17c5339',1,'hpfem::fespace']]],
+  ['nedelec_5fedge_5ffunctions_3',['nedelec_edge_functions',['../namespacehpfem_1_1fespace.html#ad462b99f78ef15c412f7c00a6f009488',1,'hpfem::fespace']]],
+  ['nedelec_5fface_5ffunctions_4',['nedelec_face_functions',['../namespacehpfem_1_1fespace.html#a080b7646126c838dce27be232701bd8b',1,'hpfem::fespace']]],
+  ['nedelecbasis_5',['NedelecBasis',['../classhpfem_1_1fespace_1_1NedelecBasis.html#ab8d087df797c2bb4df2a543f84c770f0',1,'hpfem::fespace::NedelecBasis']]],
+  ['nodes_6',['nodes',['../classhpfem_1_1mesh_1_1QuadraticGeometry.html#aa0dc2af7e6ba666ccafe560a20e6463a',1,'hpfem::mesh::QuadraticGeometry']]],
+  ['normalised_7',['normalised',['../structhpfem_1_1physics_1_1Bands.html#a5637303e7e76b0918e091e3fd4258f3c',1,'hpfem::physics::Bands']]],
+  ['num_5fboundary_5ffacets_8',['num_boundary_facets',['../classhpfem_1_1mesh_1_1Mesh.html#aa1072ecde5bbdc16fa1eaf8d6d8be44b',1,'hpfem::mesh::Mesh']]],
+  ['num_5fcell_5foverrides_9',['num_cell_overrides',['../classhpfem_1_1materials_1_1MaterialMap.html#ad3c2a3c2c274f6fe19aa21b99b614d3c',1,'hpfem::materials::MaterialMap']]],
+  ['num_5fcells_10',['num_cells',['../structhpfem_1_1mesh_1_1RefinementStep.html#a5ec99841cdaf5d2c2d6f921562a61d82',1,'hpfem::mesh::RefinementStep::num_cells()'],['../classhpfem_1_1mesh_1_1Mesh.html#a1cb9a6f1839f645822a6ff4d49f7b73a',1,'hpfem::mesh::Mesh::num_cells()']]],
+  ['num_5fconstrained_11',['num_constrained',['../classhpfem_1_1fespace_1_1Constraints.html#a27f6f8103b4de37e475a7f5209e17399',1,'hpfem::fespace::Constraints']]],
+  ['num_5fdofs_12',['num_dofs',['../classhpfem_1_1assembly_1_1StaticCondensation.html#a8790db2b9276460228c8305bfd3c7d04',1,'hpfem::assembly::StaticCondensation::num_dofs()'],['../classhpfem_1_1fespace_1_1Constraints.html#a07896167d1fadd234e367761bc3f8fab',1,'hpfem::fespace::Constraints::num_dofs()'],['../classhpfem_1_1fespace_1_1EntityDofMap.html#add0a33265c0975d69bbc83e12f38cdc3',1,'hpfem::fespace::EntityDofMap::num_dofs()'],['../classhpfem_1_1solvers_1_1ReducedBasis.html#a920909f3be14202f58c9cb4f4e2ccbef',1,'hpfem::solvers::ReducedBasis::num_dofs()']]],
+  ['num_5fedges_13',['num_edges',['../classhpfem_1_1mesh_1_1Mesh.html#a849bdf03fdcacddbb7b2e69a72078202',1,'hpfem::mesh::Mesh']]],
+  ['num_5ffaces_14',['num_faces',['../classhpfem_1_1mesh_1_1Mesh.html#a064b6a2f37187660205e6a4ade406231',1,'hpfem::mesh::Mesh']]],
+  ['num_5ffacets_15',['num_facets',['../classhpfem_1_1mesh_1_1Mesh.html#ad6a4bd6e9a6a399a92479e0462c5aabd',1,'hpfem::mesh::Mesh']]],
+  ['num_5ffree_16',['num_free',['../classhpfem_1_1fespace_1_1Constraints.html#a3f6cda55fb6e98c0cd0151f6999afb94',1,'hpfem::fespace::Constraints']]],
+  ['num_5ffree_5fdofs_17',['num_free_dofs',['../classhpfem_1_1physics_1_1TimeDomain.html#aca857e180e580c8e5404131062a06366',1,'hpfem::physics::TimeDomain']]],
+  ['num_5finterior_18',['num_interior',['../classhpfem_1_1assembly_1_1StaticCondensation.html#a9e3c0123526db06b94c32006a26fd9ef',1,'hpfem::assembly::StaticCondensation']]],
+  ['num_5flayers_19',['num_layers',['../classhpfem_1_1physics_1_1LayerStack.html#a10b67a6f43ab2d3ba6d27bba1a8d43f5',1,'hpfem::physics::LayerStack']]],
+  ['num_5fpoints_20',['num_points',['../classhpfem_1_1io_1_1VtkWriter.html#a525cccd5d07178a576e4d1097befc2b0',1,'hpfem::io::VtkWriter']]],
+  ['num_5fthreads_21',['num_threads',['../namespacehpfem.html#a5dc81ac8156ef9fd0e00261d13efb247',1,'hpfem']]],
+  ['num_5ftriplets_22',['num_triplets',['../classhpfem_1_1assembly_1_1SparseAssembler.html#af7ad54a4ca6ff7e4dc8f89ff07778b4a',1,'hpfem::assembly::SparseAssembler']]],
+  ['num_5fvertices_23',['num_vertices',['../classhpfem_1_1mesh_1_1Mesh.html#afa9904dbeee70e3e80fd7b47eac4b117',1,'hpfem::mesh::Mesh']]]
+];

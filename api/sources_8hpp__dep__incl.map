@@ -1,0 +1,22 @@
+<map id="include/hpfem/physics/sources.hpp" name="include/hpfem/physics/sources.hpp">
+<area shape="rect" id="Node000001" title=" " alt="" coords="371,5,539,45"/>
+<area shape="rect" id="Node000002" href="$layer__stack_8hpp.html" title=" " alt="" coords="311,93,479,133"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="436,58,410,95,406,92,431,55"/>
+<area shape="rect" id="Node000003" href="$scattering_8hpp.html" title=" " alt="" coords="232,181,400,221"/>
+<area shape="poly" id="edge10_Node000001_Node000003" title=" " alt="" coords="359,50,326,69,301,95,293,115,294,138,308,180,303,182,289,139,288,115,296,92,323,64,356,46"/>
+<area shape="rect" id="Node000005" href="$postprocess_8hpp.html" title=" " alt="" coords="389,269,557,309"/>
+<area shape="poly" id="edge9_Node000001_Node000005" title=" " alt="" coords="478,56,493,93,500,142,497,192,482,269,477,268,492,191,494,142,488,94,473,58"/>
+<area shape="rect" id="Node000008" href="$sweep_8hpp.html" title=" " alt="" coords="581,269,749,309"/>
+<area shape="poly" id="edge11_Node000001_Node000008" title=" " alt="" coords="482,54,514,92,653,267,649,271,510,95,478,58"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="370,145,335,183,331,179,366,142"/>
+<area shape="rect" id="Node000004" href="$goal__oriented_8hpp.html" title=" " alt="" coords="5,269,173,309"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="254,229,140,272,138,267,252,224"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="364,226,440,267,438,272,361,230"/>
+<area shape="poly" id="edge7_Node000003_Node000008" title=" " alt="" coords="407,222,589,267,588,272,405,227"/>
+<area shape="rect" id="Node000009" href="$thermo__optical_8hpp.html" title=" " alt="" coords="197,269,365,309"/>
+<area shape="poly" id="edge8_Node000003_Node000009" title=" " alt="" coords="306,235,291,270,287,268,301,233"/>
+<area shape="rect" id="Node000006" href="$axisymmetric_8hpp.html" title=" " alt="" coords="293,357,461,397"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="443,321,400,359,397,355,440,317"/>
+<area shape="rect" id="Node000007" href="$farfield_8hpp.html" title=" " alt="" coords="485,357,653,397"/>
+<area shape="poly" id="edge6_Node000005_Node000007" title=" " alt="" coords="507,317,550,355,546,359,503,321"/>
+</map>

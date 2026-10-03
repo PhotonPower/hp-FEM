@@ -1,0 +1,9 @@
+<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
+<area shape="rect" id="Node000000" title=" " alt="" coords="5,31,144,56"/>
+<area shape="rect" id="Node000001" href="$classhpfem_1_1Error.html" title=" " alt="" coords="192,31,295,56"/>
+<area shape="poly" id="edge3_Node000000_Node000001" title=" " alt="" coords="158,41,192,41,192,46,158,46"/>
+<area shape="rect" id="Node000002" href="$classhpfem_1_1InvalidArgument.html" title=" " alt="" coords="344,5,524,31"/>
+<area shape="poly" id="edge4_Node000001_Node000002" title=" " alt="" coords="308,32,343,27,344,33,309,37"/>
+<area shape="rect" id="Node000003" href="$classhpfem_1_1NotImplemented.html" title=" " alt="" coords="343,55,525,80"/>
+<area shape="poly" id="edge5_Node000001_Node000003" title=" " alt="" coords="309,49,343,53,342,58,308,54"/>
+</map>

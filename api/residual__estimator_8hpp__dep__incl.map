@@ -1,0 +1,18 @@
+<map id="include/hpfem/adaptivity/residual_estimator.hpp" name="include/hpfem/adaptivity/residual_estimator.hpp">
+<area shape="rect" id="Node000001" title=" " alt="" coords="93,5,278,45"/>
+<area shape="rect" id="Node000002" href="$goal__oriented_8hpp.html" title=" " alt="" coords="5,181,173,221"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="170,59,102,182,97,180,166,56"/>
+<area shape="rect" id="Node000003" href="$scattering_8hpp.html" title=" " alt="" coords="197,93,365,133"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="219,53,262,91,258,95,215,57"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="228,141,132,184,130,179,226,137"/>
+<area shape="rect" id="Node000004" href="$postprocess_8hpp.html" title=" " alt="" coords="197,181,365,221"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="284,147,284,181,279,181,279,147"/>
+<area shape="rect" id="Node000007" href="$sweep_8hpp.html" title=" " alt="" coords="389,181,557,221"/>
+<area shape="poly" id="edge7_Node000003_Node000007" title=" " alt="" coords="337,137,432,179,430,184,335,141"/>
+<area shape="rect" id="Node000008" href="$thermo__optical_8hpp.html" title=" " alt="" coords="581,181,749,221"/>
+<area shape="poly" id="edge8_Node000003_Node000008" title=" " alt="" coords="379,134,582,179,581,184,378,139"/>
+<area shape="rect" id="Node000005" href="$axisymmetric_8hpp.html" title=" " alt="" coords="101,269,269,309"/>
+<area shape="poly" id="edge5_Node000004_Node000005" title=" " alt="" coords="251,233,208,271,205,267,248,229"/>
+<area shape="rect" id="Node000006" href="$farfield_8hpp.html" title=" " alt="" coords="293,269,461,309"/>
+<area shape="poly" id="edge6_Node000004_Node000006" title=" " alt="" coords="315,229,358,267,354,271,311,233"/>
+</map>

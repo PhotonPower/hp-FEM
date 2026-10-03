@@ -1,0 +1,1340 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/theory/nedelec/">
+      
+      
+        <link rel="prev" href="../mesh/">
+      
+      
+        <link rel="next" href="../quadrature/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Nédélec elements - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#nedelec-edge-elements-and-reference-element-conventions" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Nédélec elements
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-not-nodal-elements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why not nodal elements
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#basis-family" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basis family
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-elements-and-local-numbering-binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference elements and local numbering (binding)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#orientation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Orientation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hierarchical-basis-fespacenedelec_basishpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hierarchical basis (fespace/nedelec_basis.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mapping
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-not-nodal-elements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why not nodal elements
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#basis-family" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basis family
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-elements-and-local-numbering-binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference elements and local numbering (binding)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#orientation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Orientation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hierarchical-basis-fespacenedelec_basishpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hierarchical basis (fespace/nedelec_basis.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mapping
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="nedelec-edge-elements-and-reference-element-conventions">Nédélec (edge) elements and reference-element conventions</h1>
+<h2 id="why-not-nodal-elements">Why not nodal elements</h2>
+<p>Nodal Lagrange elements approximate each Cartesian component in <span class="arithmatex">\(H^1\)</span>, i.e. they enforce
+full continuity of <span class="arithmatex">\(\mathbf{E}\)</span> across element faces. Physically only the <em>tangential</em>
+component is continuous at material interfaces; the normal component jumps by
+<span class="arithmatex">\(\varepsilon_1/\varepsilon_2\)</span>. Forcing it to be continuous (a) pollutes the eigenvalue
+spectrum with non-physical <em>spurious modes</em> and (b) converges to the wrong solution
+at re-entrant corners. <span class="arithmatex">\(H(\mathrm{curl})\)</span>-conforming elements fix both: they are tangentially
+continuous and reproduce the exact de Rham sequence
+<span class="arithmatex">\(H^1 \xrightarrow{\nabla} H(\mathrm{curl}) \xrightarrow{\nabla\times} H(\mathrm{div}) \xrightarrow{\nabla\cdot} L^2\)</span>
+on the discrete level, so the discrete kernel of the curl is exactly the gradient of the
+discrete <span class="arithmatex">\(H^1\)</span> space.</p>
+<h2 id="basis-family">Basis family</h2>
+<p>hpfem uses the <strong>hierarchical high-order Nédélec first-kind basis of Schöberl &amp; Zaglmayr</strong>
+(Zaglmayr, PhD thesis, JKU Linz 2006; Schöberl &amp; Zaglmayr, COMPEL 24 (2005) 374–384).
+Properties required by CLAUDE.md §2:</p>
+<ul>
+<li>functions are grouped by entity: <strong>edge</strong> functions (lowest order Whitney + higher
+  order gradients of edge-bubbles), <strong>face</strong> functions (gradient and non-gradient type),
+  <strong>cell</strong> functions;</li>
+<li>the order <span class="arithmatex">\(p\)</span> is assignable <strong>per entity</strong>, enabling <span class="arithmatex">\(p\)</span>-adaptivity with a minimum rule
+  on shared entities;</li>
+<li>gradient functions are explicit, which makes gauging/kernel filtering trivial.</li>
+</ul>
+<p>Shape functions on the reference element are built from Legendre <span class="arithmatex">\(\ell_i\)</span> and integrated
+Legendre <span class="arithmatex">\(L_i\)</span> polynomials in barycentric coordinates <span class="arithmatex">\(\lambda_j\)</span>; see Zaglmayr Sect. 5.2
+for the formulas. The implementation lives in <code>fespace/nedelec.hpp</code> and must cite the
+equation numbers it implements.</p>
+<h2 id="reference-elements-and-local-numbering-binding">Reference elements and local numbering (binding)</h2>
+<p><strong>Triangle</strong> <span class="arithmatex">\(\hat T\)</span>: vertices <span class="arithmatex">\(v_0=(0,0)\)</span>, <span class="arithmatex">\(v_1=(1,0)\)</span>, <span class="arithmatex">\(v_2=(0,1)\)</span>.
+Edges: <span class="arithmatex">\(e_0=(v_0,v_1)\)</span>, <span class="arithmatex">\(e_1=(v_1,v_2)\)</span>, <span class="arithmatex">\(e_2=(v_2,v_0)\)</span> (counter-clockwise).</p>
+<p><strong>Tetrahedron</strong> <span class="arithmatex">\(\hat K\)</span>: vertices <span class="arithmatex">\(v_0=(0,0,0)\)</span>, <span class="arithmatex">\(v_1=(1,0,0)\)</span>, <span class="arithmatex">\(v_2=(0,1,0)\)</span>, <span class="arithmatex">\(v_3=(0,0,1)\)</span>.
+Edges (6): <span class="arithmatex">\(e_0=(v_0,v_1)\)</span>, <span class="arithmatex">\(e_1=(v_0,v_2)\)</span>, <span class="arithmatex">\(e_2=(v_0,v_3)\)</span>, <span class="arithmatex">\(e_3=(v_1,v_2)\)</span>, <span class="arithmatex">\(e_4=(v_1,v_3)\)</span>, <span class="arithmatex">\(e_5=(v_2,v_3)\)</span>.
+Faces (4), face <span class="arithmatex">\(i\)</span> opposite vertex <span class="arithmatex">\(i\)</span>, vertices in increasing local order:
+<span class="arithmatex">\(f_0=(v_1,v_2,v_3)\)</span>, <span class="arithmatex">\(f_1=(v_0,v_2,v_3)\)</span>, <span class="arithmatex">\(f_2=(v_0,v_1,v_3)\)</span>, <span class="arithmatex">\(f_3=(v_0,v_1,v_2)\)</span>.</p>
+<p>These tables are the single source of truth in <code>mesh/simplex_topology.hpp</code>
+(<code>mesh::SimplexTopology&lt;Dim&gt;</code>, one layer below <code>fespace</code> in the module order);
+<code>fespace/reference_element.hpp</code> re-uses them. Global numbering and orientation of the
+derived mesh entities: <a href="../mesh/">Mesh topology</a>.</p>
+<p><code>fespace::ReferenceElement&lt;Dim&gt;</code> adds the geometry of the reference simplex: vertices
+<span class="arithmatex">\(e_0 = 0, e_i\)</span>, barycentric coordinates <span class="arithmatex">\(\lambda_0 = 1 - \sum_i \xi_i\)</span>, <span class="arithmatex">\(\lambda_i = \xi_i\)</span>
+with their constant gradients, the outward unit normal and measure of every local
+facet, the vertex opposite a facet, and affine parametrisations of edges (<span class="arithmatex">\(t \in [0,1]\)</span>
+from the first to the second local vertex) and facets (reference interval / triangle
+onto the facet with its vertices in table order). Quadrature on facets composes
+<code>facet_point</code> with the rules of <a href="../quadrature/">Quadrature</a>.</p>
+<h2 id="orientation">Orientation</h2>
+<p>Edge and face functions depend on the orientation of the entity. Two neighbouring cells
+must agree on it. Rule (ADR-0003): <strong>the global orientation of an edge points from the
+vertex with the smaller global index to the larger one; a face is oriented by sorting its
+global vertex indices ascending.</strong> The local→global DoF map stores, per cell, whether each
+local entity agrees with the global orientation and applies sign flips / permutation of
+the higher-order face functions accordingly. This rule is independent of mesh generator
+output and survives refinement, which is why it is preferred over "orientation from file".</p>
+<h2 id="hierarchical-basis-fespacenedelec_basishpp">Hierarchical basis (<code>fespace/nedelec_basis.hpp</code>)</h2>
+<p>The implemented space is Nédélec's <strong>first kind</strong> <span class="arithmatex">\(ND_p\)</span> (lowest order <span class="arithmatex">\(p = 1\)</span>: Whitney
+functions), <span class="arithmatex">\(\dim ND_p = p(p+2)\)</span> on the triangle and <span class="arithmatex">\(p(p+2)(p+3)/2\)</span> on the tetrahedron.
+With barycentric coordinates <span class="arithmatex">\(\lambda\)</span>, the Whitney function
+<span class="arithmatex">\(w_{ab} = \lambda_a\nabla\lambda_b - \lambda_b\nabla\lambda_a\)</span> (curl <span class="arithmatex">\(2\nabla\lambda_a
+\times\nabla\lambda_b\)</span>), the scaled integrated Legendre kernel
+<span class="arithmatex">\(u_i = L_i^S(\lambda_b - \lambda_a, \lambda_a + \lambda_b)\)</span> and the bubble factor
+<span class="arithmatex">\(v_j(\lambda) = \lambda\,P_j(2\lambda - 1)\)</span> of the <a href="../h1-basis/">H1 basis</a>:</p>
+<table>
+<thead>
+<tr>
+<th>entity, order <span class="arithmatex">\(p\)</span></th>
+<th>functions</th>
+<th>count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>edge <span class="arithmatex">\((a,b)\)</span></td>
+<td><span class="arithmatex">\(w_{ab}\)</span>; gradients <span class="arithmatex">\(\nabla u_i\)</span>, <span class="arithmatex">\(i = 2..p\)</span></td>
+<td><span class="arithmatex">\(p\)</span></td>
+</tr>
+<tr>
+<td>face <span class="arithmatex">\((a,b,c)\)</span> / triangle interior</td>
+<td>Type 1 <span class="arithmatex">\(\nabla(u_i v_j(\lambda_c))\)</span> for <span class="arithmatex">\(i \ge 2\)</span>, <span class="arithmatex">\(j \ge 0\)</span>, <span class="arithmatex">\(i+j+1 \le p\)</span>; Type A <span class="arithmatex">\(w_{ab}\,\lambda_c P_i(2\lambda_a-1)P_k(2\lambda_c-1)\)</span> for <span class="arithmatex">\(i+k \le p-2\)</span>; Type B <span class="arithmatex">\(w_{bc}\,\lambda_a P_k(2\lambda_a-1)\)</span> for <span class="arithmatex">\(k \le p-2\)</span></td>
+<td><span class="arithmatex">\((p-1)(p-2)/2 + p(p-1)/2 + (p-1) = p(p-1)\)</span></td>
+</tr>
+<tr>
+<td>tetrahedron interior</td>
+<td>Type 1 <span class="arithmatex">\(\nabla(u_i v_j(\lambda_2) v_k(\lambda_3))\)</span> for <span class="arithmatex">\(i+j+k+2 \le p\)</span>; Types A, B <span class="arithmatex">\(w_{01}\lambda_2\lambda_3\,q\)</span>, <span class="arithmatex">\(w_{02}\lambda_1\lambda_3\,q\)</span> with <span class="arithmatex">\(q = P_i(2\lambda_1-1)P_j(2\lambda_2-1)P_k(2\lambda_3-1)\)</span>, <span class="arithmatex">\(i+j+k \le p-3\)</span>; Type C <span class="arithmatex">\(w_{03}\lambda_1\lambda_2\,P_j(2\lambda_1-1)P_k(2\lambda_2-1)\)</span>, <span class="arithmatex">\(j+k \le p-3\)</span></td>
+<td><span class="arithmatex">\(p(p-1)(p-2)/2\)</span></td>
+</tr>
+</tbody>
+</table>
+<p>Why these lie in <span class="arithmatex">\(ND_p = P_{p-1}^d \oplus \{F \in \tilde P_p^d : x\cdot F = 0\}\)</span>: gradients of
+polynomials of degree <span class="arithmatex">\(\le p\)</span> are in <span class="arithmatex">\(ND_p\)</span>, and a Whitney function times any polynomial
+of degree <span class="arithmatex">\(\le p-1\)</span> is too, because the linear part of <span class="arithmatex">\(w_{ab}\)</span> is orthogonal to <span class="arithmatex">\(x\)</span>. The
+Whitney families are <em>complete</em> on the bubble space (<span class="arithmatex">\(w_{ab}\lambda_c P_{p-2}\)</span> and
+<span class="arithmatex">\(w_{bc}\lambda_a P_{p-2}\)</span> together already span all <span class="arithmatex">\(p(p-1)\)</span> interior functions of the
+triangle); to keep the gradients explicit, the last family is reduced to polynomials in
+one variable fewer, which removes exactly <span class="arithmatex">\(\dim \nabla W_p^{\text{int}}\)</span> functions. The
+obvious alternative, the non-gradient twins <span class="arithmatex">\(\nabla u\,v - u\nabla v\)</span> of Zaglmayr's
+second-kind basis, is <em>not</em> usable here: its lowest member is a combination of the
+Whitney products (found by the rank test). The counts match <span class="arithmatex">\(\dim ND_p\)</span>, and the
+tests verify linear independence (SPD mass matrix) and that every vector monomial of
+degree <span class="arithmatex">\(\le p-1\)</span> and every field <span class="arithmatex">\(x^\perp q\)</span> / <span class="arithmatex">\(x \times e_m q\)</span> of degree <span class="arithmatex">\(p\)</span> is
+reproduced exactly, hence the span <em>is</em> <span class="arithmatex">\(ND_p\)</span>. The de Rham property
+<span class="arithmatex">\(\nabla W_p \subset ND_p\)</span> is tested by projecting every gradient of the H1 basis.</p>
+<p>The gradient functions (edge gradients, Type 1) are marked as such in the function order,
+which makes gauging / kernel filtering a matter of index bookkeeping. Zaglmayr's
+Jacobi-weighted factors for better conditioning may replace <span class="arithmatex">\(P_j\)</span> later.</p>
+<p><strong>Function order per cell</strong>: edge 0, 1, … (Whitney, then <span class="arithmatex">\(\nabla u_2 \dots \nabla u_p\)</span>),
+then faces (Type 1 in <span class="arithmatex">\((i,j)\)</span>, Type A in <span class="arithmatex">\((i,k)\)</span>, Type B in <span class="arithmatex">\(k\)</span>), then the interior
+(Type 1 in <span class="arithmatex">\((i,j,k)\)</span>, then Types A, B, C in <span class="arithmatex">\((i,j,k)\)</span>). Orientation follows ADR-0003
+exactly as for the H1 basis: edges in ascending global vertex order (<code>edge_flipped</code>),
+faces by the sorted triple (<code>face_permutations</code>), so shared entities carry identical
+functions from all adjacent cells and the DoF map stores plain ids. <code>NedelecDofMap</code>
+(<code>fespace/dof_map.hpp</code>) numbers <span class="arithmatex">\(p\)</span> DoFs per edge, <span class="arithmatex">\(p(p-1)\)</span> per face and the interior
+functions per cell with the minimum rule; tangential continuity across every interior
+facet is checked by the tests with the covariant Piola map below.</p>
+<h2 id="mapping">Mapping</h2>
+<p>Vector shape functions are mapped covariantly (Piola transform for <span class="arithmatex">\(H(\mathrm{curl})\)</span>):</p>
+<div class="arithmatex">\[
+\phi(x) = J^{-T}\hat\phi(\hat x), \qquad
+\nabla\times\phi = \frac{1}{\det J}\, J\, \hat\nabla\times\hat\phi \quad (3D), \qquad
+\nabla\times\phi = \frac{1}{\det J}\, \hat\nabla\times\hat\phi \quad (2D).
+\]</div>
+<p>In 2D the vector field has two components and the curl is a scalar; the <span class="arithmatex">\(H(\mathrm{curl})\)</span>
+and <span class="arithmatex">\(H(\mathrm{div})\)</span> spaces are rotations of each other — do not exploit this silently,
+keep the 2D implementation an honest <span class="arithmatex">\(H(\mathrm{curl})\)</span> space.</p>
+<h2 id="verification">Verification</h2>
+<ul>
+<li>Tangential continuity: for every interior face, <span class="arithmatex">\(\mathbf{n}\times(\phi^+-\phi^-)=0\)</span> at
+  quadrature points (unit test on random meshes).</li>
+<li>Discrete de Rham: <span class="arithmatex">\(\nabla\times\nabla \phi_{H^1} = 0\)</span> exactly, and <code>rank(curl)</code> equals
+  <code>dim(H(curl)) − dim(H¹) + #components</code>.</li>
+<li>PEC cavity eigenvalues <span class="arithmatex">\(\pi^2(m^2+n^2+l^2)\)</span> with <strong>no</strong> eigenvalues clustering near zero
+  beyond the gradient kernel.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

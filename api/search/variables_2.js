@@ -1,0 +1,20 @@
+var searchData=
+[
+  ['c_0',['c',['../structhpfem_1_1physics_1_1MieSphere.html#af8e0d4f1074c8266479c5dc1c4f87a65',1,'hpfem::physics::MieSphere']]],
+  ['c0_1',['c0',['../namespacehpfem_1_1constants.html#ad918cbd8a195e40f317038f4e627dfe0',1,'hpfem::constants']]],
+  ['cell_2',['cell',['../structhpfem_1_1mesh_1_1LocatedPoint.html#ade35baa38bd9574553f2a34e7eafa607',1,'hpfem::mesh::LocatedPoint::cell'],['../structhpfem_1_1physics_1_1SurfacePoint.html#acdc67e0b0f3a6448fa85b3a751dc1bd4',1,'hpfem::physics::SurfacePoint::cell']]],
+  ['cell_5forder_3',['cell_order',['../structhpfem_1_1fespace_1_1CellLayout.html#afb4140988d463a9f96bdaa4a13d0a77b',1,'hpfem::fespace::CellLayout']]],
+  ['cells_4',['cells',['../structhpfem_1_1assembly_1_1EntitySet.html#af3db3340e107b3931fb6d662f4cffdb3',1,'hpfem::assembly::EntitySet']]],
+  ['children_5',['children',['../structhpfem_1_1mesh_1_1Mesh_1_1HangingFace.html#a476d8fc37fe63387f483923d7855f46b',1,'hpfem::mesh::Mesh::HangingFace::children'],['../structhpfem_1_1mesh_1_1Mesh_1_1HangingEdge.html#a160f55e73d7bf936afbde4f4a4240613',1,'hpfem::mesh::Mesh::HangingEdge::children']]],
+  ['coefficient_6',['coefficient',['../structhpfem_1_1fespace_1_1Constraints_1_1Term.html#a8173d1113b47dcc5f51acb54c9245503',1,'hpfem::fespace::Constraints::Term']]],
+  ['components_7',['components',['../structhpfem_1_1io_1_1VtkWriter_1_1Array.html#ad862116667da8134d583825dee0a78c9',1,'hpfem::io::VtkWriter::Array']]],
+  ['condense_8',['condense',['../structhpfem_1_1physics_1_1ScatteringSetup.html#a1b0ce8739c6786ac0420b0e5818b8d17',1,'hpfem::physics::ScatteringSetup']]],
+  ['conductivity_9',['conductivity',['../structhpfem_1_1physics_1_1ThermalSetup.html#ac0abb446966c01696544ac4156deed89',1,'hpfem::physics::ThermalSetup::conductivity'],['../structhpfem_1_1physics_1_1TimeDomainSetup.html#aaa8f48c0b8ad8c7b8a18b7e2c8e4b32b',1,'hpfem::physics::TimeDomainSetup::conductivity']]],
+  ['constitutive_10',['constitutive',['../structhpfem_1_1adaptivity_1_1HypercircleParts.html#af38b354962728f5a6e8293e6d6d10a99',1,'hpfem::adaptivity::HypercircleParts']]],
+  ['contributions_11',['contributions',['../structhpfem_1_1physics_1_1GoalEstimate.html#adcf782c36e2b90bd7b2b137508f84bcd',1,'hpfem::physics::GoalEstimate']]],
+  ['converged_12',['converged',['../structhpfem_1_1physics_1_1ThermoOpticalState.html#a25e6af1e0465a47423b2c180a2440db7',1,'hpfem::physics::ThermoOpticalState']]],
+  ['curl_13',['curl',['../structhpfem_1_1assembly_1_1HcurlErrorNorms.html#a9647060ff6919132cf49836dc7ff2c52',1,'hpfem::assembly::HcurlErrorNorms::curl'],['../structhpfem_1_1physics_1_1IncidentField.html#a35afa7e6579f17475158ab62cac89b0e',1,'hpfem::physics::IncidentField::curl']]],
+  ['curl_5fnorm_14',['curl_norm',['../structhpfem_1_1assembly_1_1HcurlErrorNorms.html#a0b081fb7ce87850de927e3255fb6f6c7',1,'hpfem::assembly::HcurlErrorNorms']]],
+  ['curl_5fsource_15',['curl_source',['../structhpfem_1_1assembly_1_1MaxwellForm.html#a96a43a08126e116474305361bced98ac',1,'hpfem::assembly::MaxwellForm']]],
+  ['current_16',['current',['../structhpfem_1_1physics_1_1AxisymmetricScatteringSetup.html#a925c74469d721c7c5788980a5e6dba63',1,'hpfem::physics::AxisymmetricScatteringSetup::current'],['../structhpfem_1_1physics_1_1ScatteringSetup.html#a016dcd8e312a5b0446287ea3064113b6',1,'hpfem::physics::ScatteringSetup::current'],['../structhpfem_1_1physics_1_1TimeDomainSetup.html#a2a352e7c54840cb472d0c3194a6aab7f',1,'hpfem::physics::TimeDomainSetup::current']]]
+];

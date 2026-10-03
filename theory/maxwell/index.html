@@ -1,0 +1,1911 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/theory/maxwell/">
+      
+      
+        <link rel="prev" href="../../roadmap/">
+      
+      
+        <link rel="next" href="../mesh/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Maxwell equations - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#time-harmonic-maxwell-equations" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Maxwell equations
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#strong-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strong form
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#weak-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Weak form
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discrete-forms-assemblymaxwell_formshpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discrete forms (assembly/maxwell_forms.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eigenproblems-and-gauging-solverseigen_solverhpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Eigenproblems and gauging (solvers/eigen_solver.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#problem-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problem classes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scattered-field-formulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scattered-field formulation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#layered-background-physicslayer_stackhpp-adr-0009" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layered background (physics/layer_stack.hpp, ADR-0009)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scattering-problems-physicsscatteringhpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scattering problems (physics/scattering.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#boundary-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Boundary conditions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bloch-periodic-constraints-assemblyperiodichpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bloch-periodic constraints (assembly/periodic.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#propagating-modes-physicspropagating_modehpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Propagating modes (physics/propagating_mode.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resonances-physicsresonancehpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resonances (physics/resonance.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#band-structures-physicsband_structurehpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Band structures (physics/band_structure.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#time-domain-physicstime_domainhpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Time domain (physics/time_domain.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#post-processing-quantities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Post-processing quantities
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#strong-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strong form
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#weak-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Weak form
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discrete-forms-assemblymaxwell_formshpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discrete forms (assembly/maxwell_forms.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eigenproblems-and-gauging-solverseigen_solverhpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Eigenproblems and gauging (solvers/eigen_solver.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#problem-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problem classes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scattered-field-formulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scattered-field formulation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#layered-background-physicslayer_stackhpp-adr-0009" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layered background (physics/layer_stack.hpp, ADR-0009)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scattering-problems-physicsscatteringhpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scattering problems (physics/scattering.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#boundary-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Boundary conditions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bloch-periodic-constraints-assemblyperiodichpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bloch-periodic constraints (assembly/periodic.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#propagating-modes-physicspropagating_modehpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Propagating modes (physics/propagating_mode.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resonances-physicsresonancehpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resonances (physics/resonance.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#band-structures-physicsband_structurehpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Band structures (physics/band_structure.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#time-domain-physicstime_domainhpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Time domain (physics/time_domain.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#post-processing-quantities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Post-processing quantities
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="time-harmonic-maxwell-equations">Time-harmonic Maxwell equations</h1>
+<p><strong>Convention: time dependence <span class="arithmatex">\(e^{-i\omega t}\)</span>, SI units.</strong> Lossy media have <span class="arithmatex">\(\operatorname{Im}\varepsilon &gt; 0\)</span>.</p>
+<h2 id="strong-form">Strong form</h2>
+<p>With <span class="arithmatex">\(\mathbf{D} = \varepsilon \mathbf{E}\)</span>, <span class="arithmatex">\(\mathbf{B} = \mu \mathbf{H}\)</span> and source current <span class="arithmatex">\(\mathbf{J}\)</span>:</p>
+<div class="arithmatex">\[
+\nabla \times \mathbf{E} = i\omega \mu \mathbf{H}, \qquad
+\nabla \times \mathbf{H} = -i\omega \varepsilon \mathbf{E} + \mathbf{J}.
+\]</div>
+<p>Eliminating <span class="arithmatex">\(\mathbf{H}\)</span> gives the second-order (curl–curl) equation solved by hpfem:</p>
+<div class="arithmatex">\[
+\nabla \times \left( \mu^{-1} \nabla \times \mathbf{E} \right) - \omega^2 \varepsilon \mathbf{E} = i\omega \mathbf{J}.
+\]</div>
+<p><span class="arithmatex">\(\varepsilon,\mu\)</span> are complex <span class="arithmatex">\(3\times 3\)</span> tensors (diagonal in most applications). The magnetic field is recovered as <span class="arithmatex">\(\mathbf{H} = (i\omega\mu)^{-1}\nabla\times\mathbf{E}\)</span>.</p>
+<h2 id="weak-form">Weak form</h2>
+<p>Find <span class="arithmatex">\(\mathbf{E} \in H(\mathrm{curl};\Omega)\)</span> with the prescribed tangential trace on PEC boundaries such that for all test functions <span class="arithmatex">\(\mathbf{v}\)</span>:</p>
+<div class="arithmatex">\[
+\int_\Omega \mu^{-1} (\nabla\times\mathbf{E})\cdot(\nabla\times\bar{\mathbf{v}}) \,dx
+- \omega^2 \int_\Omega \varepsilon \mathbf{E}\cdot\bar{\mathbf{v}} \,dx
+- \int_{\partial\Omega} \left( \mu^{-1}\nabla\times\mathbf{E}\right)\times\mathbf{n} \cdot \bar{\mathbf{v}} \,ds
+= i\omega \int_\Omega \mathbf{J}\cdot\bar{\mathbf{v}} \,dx .
+\]</div>
+<p>Discretisation: <span class="arithmatex">\(S \mathbf{e} - \omega^2 M \mathbf{e} = \mathbf{f}\)</span> with <span class="arithmatex">\(S_{ij} = (\mu^{-1}\nabla\times\phi_j, \nabla\times\phi_i)\)</span>, <span class="arithmatex">\(M_{ij} = (\varepsilon\phi_j,\phi_i)\)</span>.
+The basis functions are real, so conjugating the test function changes nothing; with complex <span class="arithmatex">\(\varepsilon\)</span> the matrices are complex-symmetric (not Hermitian), which solvers must respect.</p>
+<h2 id="discrete-forms-assemblymaxwell_formshpp">Discrete forms (<code>assembly/maxwell_forms.hpp</code>)</h2>
+<p><code>element_maxwell</code> integrates the forms on one cell with the <a href="../nedelec/">Nédélec basis</a>,
+the covariant Piola map <span class="arithmatex">\(\phi = J^{-T}\hat\phi\)</span>, <span class="arithmatex">\(\nabla\times\phi = J\,\hat\nabla\times\hat\phi/\det J\)</span>
+(3D) resp. <span class="arithmatex">\(\hat\nabla\times\hat\phi/\det J\)</span> (2D) and a <a href="../quadrature/">simplex rule</a> exact for
+degree <span class="arithmatex">\(2p + 2\)</span>:</p>
+<div class="arithmatex">\[
+S^K_{ij} = \sum_q w_q |\det J|\; (\nabla\times\phi_i)\cdot\mu^{-1}(x_q)\,(\nabla\times\phi_j), \qquad
+M^K_{ij} = \sum_q w_q |\det J|\; \phi_i\cdot\varepsilon(x_q)\,\phi_j, \qquad
+b^K_i = \sum_q w_q |\det J|\; \phi_i\cdot f(x_q).
+\]</div>
+<p><span class="arithmatex">\(\varepsilon\)</span> is a complex <span class="arithmatex">\(d\times d\)</span> tensor, <span class="arithmatex">\(\mu^{-1}\)</span> a complex tensor acting on curls
+(<span class="arithmatex">\(3\times3\)</span> in 3D, a scalar in 2D); PML cells supply stretched tensors (<a href="../pml/">pml.md</a>).
+<code>assemble_maxwell</code> returns <span class="arithmatex">\(S\)</span>, <span class="arithmatex">\(M\)</span> and <span class="arithmatex">\(b\)</span> separately so that scattering (<span class="arithmatex">\(S - \omega^2 M\)</span>)
+and eigenproblems (<span class="arithmatex">\(S e = \lambda M e\)</span>) share one assembly. <code>hcurl_error</code> measures
+<span class="arithmatex">\(\|E_h - E\|_{L^2}\)</span> and <span class="arithmatex">\(\|\nabla\times(E_h - E)\|_{L^2}\)</span>, <code>evaluate_hcurl</code> /
+<code>evaluate_hcurl_curl</code> the physical field and its curl (for <span class="arithmatex">\(H = (i\omega\mu)^{-1}\nabla\times
+E\)</span>) at a reference point of a cell or, with a <code>mesh::PointLocator</code>, at an arbitrary
+physical point (<a href="../mesh/#point-location">mesh.md</a>). <code>io::FieldExporter</code> writes <span class="arithmatex">\(E_h\)</span> and
+<span class="arithmatex">\(\nabla\times E_h\)</span> on a subdivided mesh and <code>io::cell_averages</code> the cell means for VTK
+(<a href="../mesh/#field-export">mesh.md</a>).
+<strong>PEC</strong> is <code>homogeneous_dirichlet</code> on the Nédélec DoF map (all edge and face DoFs of the
+tagged facets, i.e. the tangential trace) followed by <code>apply_dirichlet</code>; <strong>PMC</strong> needs no
+action. Verified by unit tests: symmetric and positive element matrices, gradient
+functions and discrete gradients of the vertex functions in the stiffness kernel
+(discrete de Rham), exact reproduction of constant fields, <span class="arithmatex">\(L^2\)</span> projection converging
+with rate <span class="arithmatex">\(p\)</span>, tensor coefficients entering linearly, and a vanishing tangential trace on
+PEC boundaries of a solved problem.</p>
+<h2 id="eigenproblems-and-gauging-solverseigen_solverhpp">Eigenproblems and gauging (<code>solvers/eigen_solver.hpp</code>)</h2>
+<p>The discrete curl operator has the exact kernel <span class="arithmatex">\(\nabla W_h\)</span> (discrete de Rham complex),
+so <span class="arithmatex">\(S e = \lambda M e\)</span> has the eigenvalue <span class="arithmatex">\(0\)</span> with multiplicity <span class="arithmatex">\(\dim W_h^0\)</span> (the
+H1 space with the same orders and boundary condition). Nédélec elements produce no
+<em>other</em> non-physical eigenvalues; the only task is to keep the Lanczos iteration away
+from this kernel. hpfem does this with the <strong>discrete gradient</strong> <span class="arithmatex">\(G\)</span>
+(<code>assembly/discrete_gradient.hpp</code>): because the hierarchical Nédélec basis contains the
+gradients of the H1 basis explicitly, <span class="arithmatex">\(G\)</span> has entries <span class="arithmatex">\(\pm1\)</span> (Whitney functions of the
+edges at a vertex) and <span class="arithmatex">\(1\)</span>, and <span class="arithmatex">\(S G = 0\)</span> holds to rounding; moreover
+<span class="arithmatex">\(G^T M G = K_{H^1}\)</span>, the Poisson stiffness matrix. The shift-invert operator
+<span class="arithmatex">\((S - \sigma M)^{-1} M\)</span> is applied together with the <span class="arithmatex">\(M\)</span>-orthogonal projector
+<span class="arithmatex">\(P = I - G (G^T M G)^{-1} G^T M\)</span> onto the complement of the gradients, which is an
+invariant subspace; with <span class="arithmatex">\(\sigma &lt; 0\)</span> the matrix <span class="arithmatex">\(S - \sigma M\)</span> is positive definite
+and the eigenvalues closest to <span class="arithmatex">\(\sigma\)</span> are the smallest resonances
+(<code>gauged_curl_curl_eigenpairs</code>, Spectra <code>SymGEigsShiftSolver</code> with Eigen SparseLU).
+PEC enters by restricting all matrices to the free DoFs (<code>extract</code>, <code>free_dofs</code>).
+Lossless media only for now: lossy or PML eigenproblems are complex symmetric and need
+an Arnoldi variant (M4+).</p>
+<p>Convergence test #2 (<code>tests/convergence/maxwell_cavity.cpp</code>): the PEC unit square
+(<span class="arithmatex">\(\lambda = \pi^2(m^2+n^2)\)</span>) and cube (<span class="arithmatex">\(\pi^2(m^2+n^2+l^2)\)</span>, at least two non-zero
+indices) with <span class="arithmatex">\(p = 1, 2\)</span>; the maximal relative error of the first eigenvalues must
+decay with rate <span class="arithmatex">\(2p\)</span>, no eigenvalue may lie below half the first exact one (zero
+spurious modes), and the unit test compares against a dense generalized eigensolver
+whose zero count equals <span class="arithmatex">\(\dim W_h^0\)</span>.</p>
+<h2 id="problem-classes">Problem classes</h2>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Unknown</th>
+<th>Equation</th>
+<th>Used for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scattering</td>
+<td><span class="arithmatex">\(\mathbf{E}\)</span> at fixed <span class="arithmatex">\(\omega\)</span></td>
+<td><span class="arithmatex">\((S-\omega^2M)\mathbf{e} = \mathbf{f}\)</span></td>
+<td>scatterometry, metasurfaces, PV, sensors</td>
+</tr>
+<tr>
+<td>Resonance (eigenmode)</td>
+<td><span class="arithmatex">\((\omega, \mathbf{E})\)</span></td>
+<td><span class="arithmatex">\(S\mathbf{e} = \omega^2 M\mathbf{e}\)</span>, complex <span class="arithmatex">\(\omega\)</span> with PML</td>
+<td>VCSEL, cavities, Purcell</td>
+</tr>
+<tr>
+<td>Propagating mode</td>
+<td><span class="arithmatex">\((k_z, \mathbf{E}_\perp)\)</span></td>
+<td>quadratic eigenproblem in <span class="arithmatex">\(k_z\)</span> at fixed <span class="arithmatex">\(\omega\)</span></td>
+<td>waveguides, PICs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scattered-field-formulation">Scattered-field formulation</h2>
+<p>For an incident field <span class="arithmatex">\(\mathbf{E}^{\mathrm{inc}}\)</span> that solves Maxwell in the background medium <span class="arithmatex">\(\varepsilon_b, \mu_b\)</span>, write <span class="arithmatex">\(\mathbf{E} = \mathbf{E}^{\mathrm{inc}} + \mathbf{E}^{\mathrm{sc}}\)</span>. Then <span class="arithmatex">\(\mathbf{E}^{\mathrm{sc}}\)</span> solves the curl–curl equation with the source
+<span class="arithmatex">\(\mathbf{f} = \omega^2 (\varepsilon - \varepsilon_b)\mathbf{E}^{\mathrm{inc}} - \nabla\times\big((\mu^{-1} - \mu_b^{-1})\nabla\times\mathbf{E}^{\mathrm{inc}}\big)\)</span> supported only on the scatterer, and PML absorbs <span class="arithmatex">\(\mathbf{E}^{\mathrm{sc}}\)</span> cleanly. In the weak form the curl term is integrated by parts, <span class="arithmatex">\(\ell(\mathbf{v}) = \omega^2\int(\varepsilon - \varepsilon_b)\mathbf{E}^{\mathrm{inc}}\cdot\mathbf{v} - \int(\mu^{-1} - \mu_b^{-1})\nabla\times\mathbf{E}^{\mathrm{inc}}\cdot\nabla\times\mathbf{v}\)</span>, which <code>MaxwellForm::source</code> and <code>MaxwellForm::curl_source</code> carry. For layered backgrounds (gratings, masks) the incident field is the analytic multilayer solution.</p>
+<h2 id="layered-background-physicslayer_stackhpp-adr-0009">Layered background (<code>physics/layer_stack.hpp</code>, ADR-0009)</h2>
+<p>Structures on substrates, in films or on multilayers are scattered-field problems whose
+background is a planar layer stack rather than a homogeneous medium. <code>physics::LayerStack&lt;Dim&gt;</code>
+holds an incidence medium (semi-infinite, lossless) above the coordinate <code>top</code>, finite
+non-magnetic layers and a semi-infinite substrate, perpendicular to the last coordinate (<span class="arithmatex">\(y\)</span>
+in 2D, <span class="arithmatex">\(z\)</span> in 3D). <code>plane_wave(k_0, \theta, \text{pol})</code> returns the exact field of a unit
+plane wave incident from above at the angle <span class="arithmatex">\(\theta\)</span> from the normal as an <code>IncidentField</code>
+(value and curl) together with the reflectance <span class="arithmatex">\(R\)</span>, the transmittance <span class="arithmatex">\(T\)</span> (power flux into the
+substrate, also when it is lossy) and the absorption <span class="arithmatex">\(A = 1 - R - T\)</span> of the finite layers.</p>
+<p>In every region <span class="arithmatex">\(j\)</span> the scalar wave function <span class="arithmatex">\(u\)</span> (<span class="arithmatex">\(E_s\)</span> for s polarisation, <span class="arithmatex">\(H\)</span> for p; in 2D
+only p exists because <code>Scattering&lt;2&gt;</code> solves for the in-plane <span class="arithmatex">\(E\)</span>) is
+$$
+u_j = e^{i k_\parallel x}\Big(a_j\, e^{-i k_{z,j}(z - z_j^{top})} + b_j\, e^{i k_{z,j}(z - z_j^{bot})}\Big),
+\qquad k_{z,j} = \sqrt{k_0^2\varepsilon_j - k_\parallel^2},\ \operatorname{Im} k_{z,j} \ge 0,
+$$
+with the downward amplitude <span class="arithmatex">\(a_j\)</span> referenced to the top and the upward amplitude <span class="arithmatex">\(b_j\)</span> to the
+bottom interface of the region, so that every exponential inside a layer has modulus <span class="arithmatex">\(\le 1\)</span>.
+With the admittance-like quantities <span class="arithmatex">\(q_j = k_{z,j}\)</span> (s) or <span class="arithmatex">\(k_{z,j}/\varepsilon_j\)</span> (p), the
+interface coefficients <span class="arithmatex">\(r_{j} = (q_j - q_{j+1})/(q_j + q_{j+1})\)</span>, <span class="arithmatex">\(t_j = 2q_j/(q_j + q_{j+1})\)</span>
+and the round trip <span class="arithmatex">\(\phi_j = e^{2 i k_{z,j} d_j}\)</span>, the total reflection at interface <span class="arithmatex">\(j\)</span> follows
+the Airy recursion from the substrate upwards,
+$$
+R_j = \frac{r_j + R_{j+1}\phi_{j+1}}{1 + r_j R_{j+1}\phi_{j+1}},\qquad R_N = r_N,
+$$
+and the amplitudes downwards, <span class="arithmatex">\(a_{j+1} = a_j^{bot}\, t_j / (1 + r_j R_{j+1}\phi_{j+1})\)</span>,
+<span class="arithmatex">\(b_{j+1} = R_{j+1}\, a_{j+1}\, e^{i k_{z,j+1} d_{j+1}}\)</span>. This is the S-matrix form of the
+transfer problem: a 50 µm silver layer gives the same <span class="arithmatex">\(R\)</span> as the half-infinite metal and a
+finite field everywhere, where transfer matrices overflow. <span class="arithmatex">\(E\)</span> and <span class="arithmatex">\(\nabla\times E = i\omega\mu_0 H\)</span>
+follow per plane-wave component from <span class="arithmatex">\(H = k\times E/(\omega\mu_0)\)</span> (s) and
+<span class="arithmatex">\(E = -k\times H/(\omega\varepsilon_0\varepsilon_j)\)</span> (p), <span class="arithmatex">\(R = |R_0|^2\)</span>,
+<span class="arithmatex">\(T = \operatorname{Re} q_{sub}\,|a_{sub}|^2 / \operatorname{Re} q_0\)</span>.</p>
+<p>Unit tests check Fresnel's coefficients for one interface (s and p, 2D and 3D), <span class="arithmatex">\(R + T = 1\)</span>
+for a Bragg mirror and <span class="arithmatex">\(R + T + A = 1\)</span> for lossy stacks, the thick-metal limit, the
+continuity of the tangential <span class="arithmatex">\(E\)</span>, of <span class="arithmatex">\(\varepsilon E_z\)</span> and of the tangential <span class="arithmatex">\(H\)</span> across every
+interface and the curl against finite differences. Used as background of the scattered-field
+formulation, the stack's field is the incident field and the source lives only where the
+permittivity deviates from the stack (see <code>Scattering</code>, next section, and the slit–groove
+benchmark in <a href="../../validation/">validation.md</a>).</p>
+<h2 id="scattering-problems-physicsscatteringhpp">Scattering problems (<code>physics/scattering.hpp</code>)</h2>
+<p><code>physics::Scattering&lt;Dim&gt;</code> solves, at a fixed angular frequency <span class="arithmatex">\(\omega\)</span> with
+<span class="arithmatex">\(k_0 = \omega / c_0\)</span> and SI lengths, the curl–curl equation divided by <span class="arithmatex">\(\mu_0\)</span>,</p>
+<div class="arithmatex">\[
+\nabla\times(\mu_r^{-1}\nabla\times\mathbf{E}) - k_0^2\,\varepsilon_r\,\mathbf{E} = \mathbf{f},
+\qquad \mathbf{f} = i\omega\mu_0\mathbf{J},
+\]</div>
+<p>on a Nédélec space with isotropic materials <span class="arithmatex">\((\varepsilon_r, \mu_r)\)</span> assigned by cell tag
+(<code>materials::MaterialMap</code>, the background for unlisted tags). Two formulations share the
+operator <span class="arithmatex">\(A = S - k_0^2 M\)</span> assembled with per-cell coefficients
+(<code>assemble_maxwell</code> with a cell-form factory):</p>
+<ul>
+<li><strong>total field</strong>: the unknown is <span class="arithmatex">\(\mathbf{E}\)</span>; sources are currents and the incident
+  field prescribed as tangential trace on <code>incident_tags</code> facets;</li>
+<li><strong>scattered field</strong>: the unknown is <span class="arithmatex">\(\mathbf{E}^{sc} = \mathbf{E} - \mathbf{E}^{inc}\)</span> for an
+  analytic incident field of the background medium; the sources
+  <span class="arithmatex">\(k_0^2(\varepsilon_r - \varepsilon_{r,b})\mathbf{E}^{inc}\)</span> (<code>source</code>) and
+  <span class="arithmatex">\(-(\mu_r^{-1} - \mu_{r,b}^{-1})\nabla\times\mathbf{E}^{inc}\)</span> (<code>curl_source</code>) live on the
+  scatterer only; PEC facets get <span class="arithmatex">\(\mathbf{n}\times\mathbf{E}^{sc} = -\mathbf{n}\times\mathbf{E}^{inc}\)</span>
+  and incident facets <span class="arithmatex">\(\mathbf{n}\times\mathbf{E}^{sc} = 0\)</span>.</li>
+</ul>
+<p>Analytic incident fields (<code>physics/sources.hpp</code>) come as value and curl: the plane wave
+<span class="arithmatex">\(\mathbf{E}_0 e^{i\mathbf{k}\cdot\mathbf{x}}\)</span> with <span class="arithmatex">\(\mathbf{E}_0\perp\mathbf{k}\)</span> (curl
+<span class="arithmatex">\(i\mathbf{k}\times\mathbf{E}\)</span>), and the dipole field, the outgoing solution of
+<span class="arithmatex">\(\nabla\times\nabla\times\mathbf{E} - k^2\mathbf{E} = \mathbf{p}\,\delta(\mathbf{x} - \mathbf{x}_0)\)</span>,
+<span class="arithmatex">\(\mathbf{E} = (I + \nabla\nabla/k^2)\,g\,\mathbf{p}\)</span> with the scalar Green's function
+<span class="arithmatex">\(g = e^{ikr}/(4\pi r)\)</span> (3D) or <span class="arithmatex">\(g = \tfrac{i}{4}H_0^{(1)}(kr)\)</span> (2D, line dipole with in-plane
+moment; Hankel functions from <code>core/special_functions.hpp</code>). Explicitly, with
+<span class="arithmatex">\(\mathbf{n} = (\mathbf{x} - \mathbf{x}_0)/r\)</span>,</p>
+<div class="arithmatex">\[
+\mathbf{E}_{3D} = g\Big[\big(1 + \tfrac{i}{kr} - \tfrac{1}{(kr)^2}\big)\mathbf{p}
++ \big(-1 - \tfrac{3i}{kr} + \tfrac{3}{(kr)^2}\big)\mathbf{n}(\mathbf{n}\cdot\mathbf{p})\Big],
+\qquad \nabla\times\mathbf{E} = \nabla g\times\mathbf{p},
+\]</div>
+<p>and in 2D <span class="arithmatex">\(\mathbf{E} = (g + g'/(k^2 r))\,\mathbf{p} + (g'' - g'/r)/k^2\;\mathbf{n}(\mathbf{n}\cdot\mathbf{p})\)</span>.</p>
+<p>The analytic dipole field is an incident field of the <em>homogeneous</em> background; an emitter
+inside a structure (a quantum dot in a cavity, <code>examples/quantum_dot_purcell</code>) is modelled
+instead as a volume current in the total-field formulation, <code>physics::gaussian_current</code>:
+<span class="arithmatex">\(\mathbf{f} = i\omega\mu_0\,\mathbf{p}\,g_\sigma(\mathbf{x} - \mathbf{x}_0)\)</span> with the
+normalised Gaussian <span class="arithmatex">\(g_\sigma\)</span> of a width <span class="arithmatex">\(\sigma\)</span> below the cell size and far below the
+wavelength. The emitted power is the Poynting flux of the total field through a closed
+surface around the current, and ratios such as the Purcell factor <span class="arithmatex">\(P/P_0\)</span> (the same current
+in the homogeneous host, on the same mesh) are insensitive to <span class="arithmatex">\(\sigma\)</span>: the example checks a
+current in front of a PEC mirror against the image-dipole solution to better than one per
+cent.
+Both are checked by finite differences (curl of the value, and
+<span class="arithmatex">\(\nabla\times\nabla\times\mathbf{E} = k^2\mathbf{E}\)</span>) in the unit tests.</p>
+<p>The solution is evaluated as total or scattered field at reference points of cells or, via
+<code>mesh::PointLocator</code>, at physical points (the incident field is added or subtracted
+according to the formulation), and <code>error</code> measures the unknown against an analytic field
+of the same kind. An optional <code>pml::PmlBox</code> replaces the material tensors by their
+stretched versions (<a href="../pml/">pml.md</a>). Bloch-periodic constraints, curved elements and
+post-processing (fluxes, cross-sections, far fields) are the following M4 items.</p>
+<p><strong>Mie reference</strong> (<code>physics/mie.hpp</code>): for the infinite dielectric cylinder under a plane
+wave with in-plane electric field (<span class="arithmatex">\(H_z\)</span> polarisation) the scattered field is
+<span class="arithmatex">\(H_z^s = \sum_n c_n H_n^{(1)}(kr)e^{in\varphi}\)</span> with
+<span class="arithmatex">\(c_n = i^n\,[n_c J_n'(kR)J_n(n_ckR) - J_n(kR)J_n'(n_ckR)] / [H_n^{(1)}(kR)J_n'(n_ckR) -
+n_c H_n^{(1)\prime}(kR)J_n(n_ckR)]\)</span> (continuity of <span class="arithmatex">\(H_z\)</span> and of <span class="arithmatex">\(\varepsilon^{-1}\partial_r H_z\)</span>),
+and the scattering width is <span class="arithmatex">\(\sigma_{sca} = \tfrac{4}{k}(|c_0|^2 + 2\sum_{n\ge1}|c_n|^2)\)</span>.
+Convergence test #4 (<code>tests/convergence/mie_cylinder.cpp</code>): a lossless cylinder
+(<span class="arithmatex">\(kR = 1.5\)</span>, <span class="arithmatex">\(n_c = 1.5\)</span>) in a PML-terminated box on the <code>square_with_disc</code> mesh with the
+curved interface, scattered-field formulation; the scattering width from the flux of the
+scattered field through the cylinder surface converges to the series value under
+p-refinement and the absorption cross-section vanishes within the discretisation error.</p>
+<p><strong>Mie sphere</strong> (<code>physics::mie_sphere</code>, Bohren &amp; Huffman ch. 4): a sphere of radius <span class="arithmatex">\(a\)</span> and
+complex permittivity <span class="arithmatex">\(\varepsilon_r\)</span> in a lossless background of index <span class="arithmatex">\(n_b\)</span> under the plane
+wave <span class="arithmatex">\(\hat x\,e^{ikz}\)</span>, <span class="arithmatex">\(k = n_b k_0\)</span>, size parameter <span class="arithmatex">\(x = ka\)</span>, relative index
+<span class="arithmatex">\(m = \sqrt{\varepsilon_r}/n_b\)</span>. With the Riccati–Bessel functions <span class="arithmatex">\(\psi_n(\rho) = \rho j_n(\rho)\)</span>,
+<span class="arithmatex">\(\xi_n(\rho) = \rho h_n^{(1)}(\rho)\)</span> and the logarithmic derivative
+<span class="arithmatex">\(D_n(mx) = \psi_n'(mx)/\psi_n(mx)\)</span>, evaluated for complex <span class="arithmatex">\(mx\)</span> by the downward recurrence of
+<span class="arithmatex">\(j_n\)</span> (<code>spherical_bessel_j(max_order, z)</code> in <code>core/special_functions.hpp</code>),
+$$
+a_n = \frac{(D_n/m + n/x)\psi_n(x) - \psi_{n-1}(x)}{(D_n/m + n/x)\xi_n(x) - \xi_{n-1}(x)},\qquad
+b_n = \frac{(mD_n + n/x)\psi_n(x) - \psi_{n-1}(x)}{(mD_n + n/x)\xi_n(x) - \xi_{n-1}(x)},
+$$
+<span class="arithmatex">\(Q_{sca} = \tfrac{2}{x^2}\sum_n (2n+1)(|a_n|^2 + |b_n|^2)\)</span>,
+<span class="arithmatex">\(Q_{ext} = \tfrac{2}{x^2}\sum_n (2n+1)\,\mathrm{Re}(a_n + b_n)\)</span>, <span class="arithmatex">\(Q_{abs} = Q_{ext} - Q_{sca}\)</span>,
+cross-sections <span class="arithmatex">\(\sigma = Q\pi a^2\)</span>. The fields are the vector spherical harmonic expansions
+<span class="arithmatex">\(E^{sca} = \sum_n E_n(i a_n N^{(3)}_{e1n} - b_n M^{(3)}_{o1n})\)</span> outside and
+<span class="arithmatex">\(E^{int} = \sum_n E_n(c_n M^{(1)}_{o1n} - i d_n N^{(1)}_{e1n})\)</span> inside,
+<span class="arithmatex">\(E_n = i^n(2n+1)/(n(n+1))\)</span>, with the internal coefficients
+<span class="arithmatex">\(c_n = m\,W_n/(\psi_n(mx)\xi_n'(x) - m\,\xi_n(x)\psi_n'(mx))\)</span>,
+<span class="arithmatex">\(d_n = m\,W_n/(m\,\psi_n(mx)\xi_n'(x) - \xi_n(x)\psi_n'(mx))\)</span>, <span class="arithmatex">\(W_n = \psi_n\xi_n' - \xi_n\psi_n' = i\)</span>.
+The unit tests check the optical theorem, the Rayleigh limit, the lossless limit and the
+continuity of the tangential field and of <span class="arithmatex">\(\varepsilon E_r\)</span> across the surface, which ties the
+four coefficient families and the harmonics together. The 3D half of convergence test #4 and
+validation benchmark C (<code>tests/convergence/mie_sphere.cpp</code>, <a href="../../validation/">validation.md</a>)
+compare <span class="arithmatex">\(Q_{sca}\)</span>, <span class="arithmatex">\(Q_{abs}\)</span> and the total field at points inside and outside against the
+series on the <code>box_with_ball</code> mesh.</p>
+<p><strong>Verification</strong> (<code>tests/convergence/maxwell_scattering.cpp</code>): with the exact tangential
+trace prescribed on all sides, a plane wave and a dipole field whose source lies outside
+the domain are reproduced with rate <span class="arithmatex">\(p\)</span> in the <span class="arithmatex">\(H(\mathrm{curl})\)</span> norm for <span class="arithmatex">\(p = 1, 2\)</span> in 2D
+and 3D (the first-kind space converges with rate <span class="arithmatex">\(p\)</span> in both the <span class="arithmatex">\(L^2\)</span> and the curl part);
+the scattered- and total-field formulations of a dielectric disc under the same boundary
+data converge to the same total field. Unit tests cover setup validation, materials by tag,
+the assembled operator against a manual assembly, a zero-contrast scatterer (zero
+scattered field), PEC data in the scattered-field formulation (vanishing total trace) and
+current sources.</p>
+<h2 id="boundary-conditions">Boundary conditions</h2>
+<ul>
+<li><strong>PEC</strong> <span class="arithmatex">\(\mathbf{n}\times\mathbf{E} = 0\)</span>: eliminate edge/face DoFs (<code>homogeneous_dirichlet</code>).</li>
+<li><strong>Prescribed tangential trace</strong> <span class="arithmatex">\(\mathbf{n}\times\mathbf{E} = \mathbf{n}\times\mathbf{g}\)</span> (incident
+  field on the boundary of a test domain, Dirichlet coupling to analytic solutions):
+  <code>tangential_dirichlet_values</code> projects <span class="arithmatex">\(\mathbf{g}\)</span> hierarchically onto the trace space, edge by
+  edge onto the <span class="arithmatex">\(p_e\)</span> edge functions (whose tangential traces are the Legendre polynomials
+  up to degree <span class="arithmatex">\(p_e - 1\)</span>, so the projection is exact for traces in the discrete space), then
+  in 3D the tangential remainder onto the face functions; eliminated with <code>apply_dirichlet</code>.</li>
+<li><strong>PMC</strong> <span class="arithmatex">\(\mathbf{n}\times(\mu^{-1}\nabla\times\mathbf{E}) = 0\)</span>: natural, do nothing.</li>
+<li><strong>Bloch-periodic</strong> <span class="arithmatex">\(\mathbf{E}(x+a) = e^{i\mathbf{k}\cdot\mathbf{a}}\mathbf{E}(x)\)</span>: slave-facet DoFs
+  constrained to the master-facet DoFs with the Bloch phase, see
+  <a href="#bloch-periodic-constraints">below</a>.</li>
+<li><strong>Transparent</strong>: PML, see <a href="../pml/">pml.md</a>.</li>
+</ul>
+<h2 id="bloch-periodic-constraints-assemblyperiodichpp">Bloch-periodic constraints (<code>assembly/periodic.hpp</code>)</h2>
+<p>For a periodic direction with lattice vector <span class="arithmatex">\(\mathbf{a}\)</span> (<code>PeriodicPair</code>: master tag, slave
+tag, shift, phase <span class="arithmatex">\(e^{i\mathbf{k}\cdot\mathbf{a}}\)</span>), the facets on the slave side are the master
+facets translated by <span class="arithmatex">\(\mathbf{a}\)</span> (matched by centroids; the two sides must be meshed
+identically). Every slave-facet DoF is expressed through the master-facet DoFs:
+<code>bloch_constraints</code> takes each master basis function, shifts it by <span class="arithmatex">\(\mathbf{a}\)</span> and
+multiplies by the phase, and projects its tangential trace onto the slave trace space with
+<code>tangential_dirichlet_values</code>. Because the trace spaces coincide, the projection is exact
+and the coefficients come out as the phase times <span class="arithmatex">\(\pm1\)</span> for edge functions (the sign is
+the orientation flip of ADR-0003 when the global vertex order differs between the two
+sides) and as the face permutation matrices in 3D — no orientation bookkeeping is needed.
+Two periodic directions share the corner edges: those chain (slave of a slave) and are
+resolved by substitution.</p>
+<p><code>fespace::Constraints</code> holds such linear relations <span class="arithmatex">\(x_s = \sum_i c_i x_{m_i}\)</span> generally
+(hanging nodes of irregular refinement will use the same object), resolves chains, rejects
+cycles, and applies them to an assembled system through the prolongation <span class="arithmatex">\(P\)</span> of the free
+DoFs: <span class="arithmatex">\(A_f = P^H A P\)</span>, <span class="arithmatex">\(b_f = P^H b\)</span>, solve, <span class="arithmatex">\(x = P x_f\)</span>. The conjugate transpose matters:
+the weak form is bilinear (test functions are not conjugated), and the boundary terms on
+the two periodic faces cancel only when the test functions carry the <em>inverse</em> phase
+<span class="arithmatex">\(e^{-i\mathbf{k}\cdot\mathbf{a}}\)</span>, which for real Bloch vectors is the conjugate (a plain
+transpose gives a wrong, non-convergent solution; complex Bloch vectors — evanescent
+Bloch waves — would need the inverse instead and are not supported yet). For real
+coefficients (hanging nodes) the two coincide. <code>physics::Scattering</code> does this when <code>ScatteringSetup::periodic</code>
+is set; Dirichlet data is applied before the reduction, which is consistent for DoFs that
+are both constrained and prescribed (box corners) as long as the data itself is periodic.</p>
+<p>Verified by unit tests (one-to-one coefficients with <span class="arithmatex">\(|c| = 1\)</span> on structured and randomly
+renumbered meshes, corner edges of two directions resolving to the product of the phases,
+the constrained solution satisfying its constraints) and by the convergence test
+<code>tests/convergence/bloch_plane_wave.cpp</code>: a plane wave at oblique incidence on a unit cell
+with Bloch-periodic sides and the exact trace on the remaining sides converges with rate
+<span class="arithmatex">\(p\)</span> in <span class="arithmatex">\(H(\mathrm{curl})\)</span> (2D with one periodic direction, 3D with two) and exponentially
+under p-refinement.</p>
+<h2 id="propagating-modes-physicspropagating_modehpp">Propagating modes (<code>physics/propagating_mode.hpp</code>)</h2>
+<p>For a waveguide with a 2D cross-section and propagation <span class="arithmatex">\(e^{i\beta z}\)</span>, write
+<span class="arithmatex">\(\mathbf{E} = (\mathbf{E}_t + \hat z E_z)\,e^{i\beta z}\)</span> with <span class="arithmatex">\(\mathbf{E}_t\)</span> in the Nédélec space
+and the scaled longitudinal field <span class="arithmatex">\(e_z = iE_z/\beta\)</span> in the H1 space of the same order. The
+curl–curl weak form then separates into the generalized eigenproblem (Lee–Sun–Cendes)</p>
+<div class="arithmatex">\[
+\begin{pmatrix} S - k_0^2 M_\varepsilon &amp; 0 \\ 0 &amp; 0 \end{pmatrix}
+\begin{pmatrix} e_t \\ e_z \end{pmatrix} = -\beta^2
+\begin{pmatrix} M_\mu &amp; M_\mu G \\ G^T M_\mu &amp; G^T M_\mu G - k_0^2 M^{H1}_\varepsilon \end{pmatrix}
+\begin{pmatrix} e_t \\ e_z \end{pmatrix},
+\]</div>
+<p>with the curl–curl matrix <span class="arithmatex">\(S\)</span> (weight <span class="arithmatex">\(\mu_r^{-1}\)</span>), the Nédélec mass matrices <span class="arithmatex">\(M_\varepsilon\)</span>,
+<span class="arithmatex">\(M_\mu\)</span> (weights <span class="arithmatex">\(\varepsilon_r\)</span>, <span class="arithmatex">\(\mu_r^{-1}\)</span>), the discrete gradient <span class="arithmatex">\(G\)</span> (so that
+<span class="arithmatex">\(\nabla_t e_z\)</span> is exactly <span class="arithmatex">\(G e_z\)</span> in the Nédélec basis) and the H1 mass matrix with weight
+<span class="arithmatex">\(\varepsilon_r\)</span>. The matrix on the right is indefinite and the one on the left singular, so the
+pencil is solved with the real nonsymmetric shift-invert Arnoldi of
+<code>solvers::generalized_eigenpairs_near</code> on <span class="arithmatex">\((A - \sigma B)^{-1}B\)</span> with
+<span class="arithmatex">\(\sigma = -1.05\,k_0^2 n_{\max}^2\)</span>: the eigenvalues <span class="arithmatex">\(-\beta^2\)</span> closest to <span class="arithmatex">\(\sigma\)</span> are the guided
+modes, largest <span class="arithmatex">\(\beta\)</span> first; spurious solutions sit at <span class="arithmatex">\(\beta^2 = 0\)</span> and never appear. PEC
+walls remove the tangential Nédélec DoFs and the H1 boundary DoFs. <code>PropagatingMode::solve</code>
+returns <span class="arithmatex">\(\beta\)</span>, <span class="arithmatex">\(n_{\mathrm{eff}} = \beta/k_0\)</span> and the coefficients of <span class="arithmatex">\(\mathbf{E}_t\)</span> and
+<span class="arithmatex">\(E_z = -i\beta e_z\)</span>. Lossless media only (the quadratic → linear step and the real Arnoldi
+assume real pencils); leaky and lossy modes need the complex solver of M6.</p>
+<p><strong>Verification</strong> (convergence test #5, <code>tests/convergence/slab_waveguide.cpp</code>): the symmetric
+slab (core <span class="arithmatex">\(n = 1.5\)</span>, <span class="arithmatex">\(d = 1\)</span>, cladding <span class="arithmatex">\(n = 1\)</span>, <span class="arithmatex">\(k_0 d = 2\)</span>, a single even TE mode) on a strip
+with PEC walls in <span class="arithmatex">\(y\)</span>, which admits exactly the TE modes <span class="arithmatex">\(E = E_y(x)\)</span>; the effective index
+converges to the root of <span class="arithmatex">\(\tan(\kappa d/2) = \gamma/\kappa\)</span> with rate <span class="arithmatex">\(2p\)</span> under h-refinement
+(least-squares rates 2.0 and 3.7 for <span class="arithmatex">\(p = 1, 2\)</span>; eigenvalue errors wobble from mesh to mesh)
+and exponentially under p-refinement (<span class="arithmatex">\(2\cdot10^{-3}\)</span>, <span class="arithmatex">\(10^{-7}\)</span>, <span class="arithmatex">\(6\cdot10^{-9}\)</span>, <span class="arithmatex">\(5\cdot10^{-13}\)</span>
+for <span class="arithmatex">\(p = 1..4\)</span> on four cells per unit length; the strip is <span class="arithmatex">\(\pm12\)</span> long so that the exponential
+tails do not limit the accuracy). The unit test also checks that
+the mode has no longitudinal field and that the setup rejects lossy materials and mismatched
+spaces.</p>
+<p>On a locally refined cross-section (<code>mesh::AdaptiveMesh</code>, hanging nodes) the Nédélec and the H1
+space are constrained with <code>assembly::hanging_constraints</code>, restricted to the DoFs left after
+the PEC elimination (<code>restrict_constraints</code>) and combined block-wise
+(<code>block_constraints</code>); the pencil is reduced with the prolongation and the eigenvectors are
+expanded, exactly as in the resonance solver, so the modes are conforming across the hanging
+edges (unit test on the slab with the core refined on one side).</p>
+<h2 id="resonances-physicsresonancehpp">Resonances (<code>physics/resonance.hpp</code>)</h2>
+<p>An open structure (a micro-cavity between Bragg mirrors, a plasmonic particle, a ring) has no
+bound states but <em>quasi-normal modes</em>: solutions of the source-free curl–curl equation with
+outgoing waves, which exist only at complex frequencies. With the <span class="arithmatex">\(e^{-i\omega t}\)</span> convention a
+mode decays in time as <span class="arithmatex">\(e^{\mathrm{Im}(\omega)\,t}\)</span>, so <span class="arithmatex">\(\mathrm{Im}\,\omega &lt; 0\)</span>, and its
+quality factor is</p>
+<div class="arithmatex">\[
+Q = \frac{\mathrm{Re}\,\omega}{-2\,\mathrm{Im}\,\omega},
+\qquad \lambda_{\mathrm{res}} = \frac{2\pi c_0}{\mathrm{Re}\,\omega}.
+\]</div>
+<p>The PML of the scattering problems turns the outgoing-wave condition into complex-symmetric
+absorbing layers (the stretched material tensors of <code>pml/pml.hpp</code>, designed at the target
+frequency), so the modes become eigenpairs of the discrete pencil</p>
+<div class="arithmatex">\[
+S\,e = k^2\,M\,e, \qquad k^2 = \omega^2/c_0^2 \in \mathbb{C},
+\]</div>
+<p>with the stiffness matrix <span class="arithmatex">\(S\)</span> (weight <span class="arithmatex">\(\mu_r^{-1}\)</span>, PML-stretched) and the mass matrix <span class="arithmatex">\(M\)</span>
+(weight <span class="arithmatex">\(\varepsilon_r\)</span>, PML-stretched, possibly lossy). PEC walls remove the tangential DoFs,
+hanging-node constraints are applied as in the scattering problem. <code>physics::Resonance</code>
+assembles this pencil and calls <code>solvers::complex_eigenpairs_near</code> with the shift
+<span class="arithmatex">\(\sigma = k_{\mathrm{target}}^2\)</span>: a shift-invert Arnoldi iteration in complex arithmetic on
+<span class="arithmatex">\((S - \sigma M)^{-1} M\)</span> (direct factorisation with the chosen backend, modified Gram–Schmidt
+with re-orthogonalisation, explicit restarts from the wanted Ritz vectors, the relative
+residual <span class="arithmatex">\(|h_{m+1,m}\,y_m| / |\theta|\)</span> as convergence test). The result is the list of modes
+ordered by the distance of <span class="arithmatex">\(\omega\)</span> to the target, each with <span class="arithmatex">\(\omega\)</span>, <span class="arithmatex">\(\lambda_{\mathrm{res}}\)</span>,
+<span class="arithmatex">\(Q\)</span>, the Arnoldi residual and the field coefficients. The pencil also contains the gradient
+kernel at <span class="arithmatex">\(k^2 = 0\)</span> and, on a strip with PEC walls, lossless guided modes of the layers;
+both lie away from a well-chosen target, and a narrow strip pushes the latter far up.</p>
+<p><strong>Verification</strong> (<code>tests/convergence/fabry_perot_resonance.cpp</code>): a dielectric slab (<span class="arithmatex">\(n = 3.5\)</span>,
+<span class="arithmatex">\(d = 1\)</span>) in vacuum on a strip with PEC walls (so that the <span class="arithmatex">\(y\)</span>-uniform modes <span class="arithmatex">\(E = E_y(x)\)</span> are
+the one-dimensional Fabry–Pérot modes) has the exact resonances</p>
+<div class="arithmatex">\[
+k_m = \frac{\pi m}{n d} - \frac{i}{n d}\ln\frac{n+1}{n-1},
+\qquad Q_m = \frac{\pi m}{2\ln\frac{n+1}{n-1}} ,
+\]</div>
+<p>from the round-trip condition <span class="arithmatex">\(r^2 e^{2iknd} = 1\)</span> with <span class="arithmatex">\(r = (n-1)/(n+1)\)</span>. With a PML of about
+two wavelengths on both sides the computed <span class="arithmatex">\(k_4\)</span> converges exponentially under p-refinement
+(relative errors <span class="arithmatex">\(1.4\cdot10^{-1}\)</span>, <span class="arithmatex">\(5.8\cdot10^{-2}\)</span>, <span class="arithmatex">\(1.0\cdot10^{-3}\)</span>, <span class="arithmatex">\(1.6\cdot10^{-4}\)</span>,
+<span class="arithmatex">\(8.5\cdot10^{-7}\)</span> for <span class="arithmatex">\(p = 1..5\)</span> on four cells per unit length; <span class="arithmatex">\(Q_4 = 10.690\)</span>), the
+neighbours <span class="arithmatex">\(k_3\)</span> and <span class="arithmatex">\(k_5\)</span> come out of the same run, and every returned pair satisfies the
+discrete pencil to <span class="arithmatex">\(10^{-15}\)</span>. The unit tests check the complex solver against a dense
+reference (scale invariant from <span class="arithmatex">\(O(1)\)</span> to <span class="arithmatex">\(O(10^{13})\)</span> matrices) and the closed PEC square
+(real eigenfrequencies <span class="arithmatex">\(c_0\pi\sqrt{m^2 + n^2}\)</span>, also on a hanging-node mesh).</p>
+<h2 id="band-structures-physicsband_structurehpp">Band structures (<code>physics/band_structure.hpp</code>)</h2>
+<p>A photonic crystal is a lossless periodic structure with lattice vectors <span class="arithmatex">\(a_j\)</span>. By Bloch's
+theorem its eigenmodes are Bloch waves, <span class="arithmatex">\(E(x + a_j) = e^{ik\cdot a_j} E(x)\)</span> for a wave vector
+<span class="arithmatex">\(k\)</span> of the first Brillouin zone, so one unit cell with the Bloch-periodic constraints of the
+previous section (phases <span class="arithmatex">\(e^{ik\cdot a_j}\)</span>, one <code>PeriodicPair</code> per lattice vector) carries the
+source-free eigenproblem</p>
+<div class="arithmatex">\[
+\nabla\times(\mu_r^{-1}\nabla\times E) = k_0^2\,\varepsilon_r\,E ,
+\qquad \omega_n(k) = c_0\,k_{0,n}(k),
+\]</div>
+<p>whose eigenvalues as functions of <span class="arithmatex">\(k\)</span> are the bands; the usual units are the normalised
+frequencies <span class="arithmatex">\(\omega a/(2\pi c_0) = k_0 a/(2\pi)\)</span>. <code>physics::BandStructure</code> assembles the
+stiffness and mass matrices (relative tensors, real and symmetric for lossless materials)
+and the discrete gradient <span class="arithmatex">\(G\)</span> once; per wave vector it builds the Bloch constraints of the
+Nédélec space <em>and</em> of the H1 space (<code>bloch_constraints</code> for <code>DofMap</code>: the scalar trace of
+the shifted master functions, same hierarchical projections on both sides), reduces the
+pencil with the prolongation <span class="arithmatex">\(P\)</span> of the Nédélec constraints,</p>
+<div class="arithmatex">\[
+S_k = P^H S P, \qquad M_k = P^H M P, \qquad
+G_k = (P^H P)^{-1} P^H\,G\,P_{\mathrm{H1}} ,
+\]</div>
+<p>and removes PEC DoFs if walls are present. <span class="arithmatex">\(S_k\)</span> and <span class="arithmatex">\(M_k\)</span> are complex Hermitian; <span class="arithmatex">\(G_k\)</span> is the
+discrete gradient of the Bloch-periodic H1 space, i.e. the exact kernel of <span class="arithmatex">\(S_k\)</span> (for
+<span class="arithmatex">\(k \neq 0\)</span> the constant field is no longer a gradient of a periodic function and the lowest
+band leaves zero). The eigenpairs come from <code>solvers::complex_eigenpairs_near_gauged</code>, the
+complex shift-invert Arnoldi iteration of the resonance solver with every Krylov vector
+projected onto the <span class="arithmatex">\(M_k\)</span>-orthogonal complement of the gradients,</p>
+<div class="arithmatex">\[
+\Pi = I - G_k\,(G_k^H M_k G_k)^{-1} G_k^H M_k ,
+\]</div>
+<p>so the eigenvalues at zero never appear and no spurious modes are produced — the same gauge
+as for the real cavity solver, in complex arithmetic. The shift sits below the lowest band
+(<span class="arithmatex">\(\sigma = -(2\pi/a)^2\)</span> by default), the result lists <span class="arithmatex">\(k_0\)</span> of the lowest bands in ascending
+order with the Arnoldi residuals; <code>path(corners, segments)</code> walks a polyline through the
+Brillouin zone (Γ–X–M–Γ for the square lattice).</p>
+<p><strong>Verification</strong> (<code>tests/convergence/empty_lattice_bands.cpp</code>): on the empty lattice (vacuum
+unit cell) the bands are the folded free-space dispersion <span class="arithmatex">\(k_0 = |k + G|\)</span> over the reciprocal
+lattice vectors <span class="arithmatex">\(G = 2\pi(m, n)/a\)</span>. At a generic wave vector the four lowest bands converge
+exponentially under p-refinement (maximum relative errors <span class="arithmatex">\(2.9\cdot10^{-2}\)</span>,
+<span class="arithmatex">\(4.8\cdot10^{-3}\)</span>, <span class="arithmatex">\(2.0\cdot10^{-4}\)</span>, <span class="arithmatex">\(4.4\cdot10^{-6}\)</span> for <span class="arithmatex">\(p = 1..4\)</span> on <span class="arithmatex">\(4\times4\)</span> cells) and
+with rate <span class="arithmatex">\(2p\)</span> under h-refinement (<span class="arithmatex">\(2.0\)</span> for <span class="arithmatex">\(p = 1\)</span>, <span class="arithmatex">\(3.9\)</span> for <span class="arithmatex">\(p = 2\)</span>). The unit tests
+check the zero of the lowest band at Γ (twofold: both polarisations, nothing else at zero),
+the symmetry <span class="arithmatex">\(\omega(-k) = \omega(k)\)</span>, that dielectric rods (<span class="arithmatex">\(\varepsilon_r = 8.9\)</span>) lower the
+bands, the H1 Bloch constraints on the interpolant of a Bloch function, and the gauged solver
+against a dense reference (kernel skipped, eigenvectors <span class="arithmatex">\(B\)</span>-orthogonal to the kernel).</p>
+<h2 id="time-domain-physicstime_domainhpp">Time domain (<code>physics/time_domain.hpp</code>)</h2>
+<p>The transient solver integrates the second-order wave equation for the electric field,
+obtained from Faraday's and Ampère's laws with a conductivity <span class="arithmatex">\(\sigma\)</span> and the current
+density <span class="arithmatex">\(J(x, t) = J(x)\,g(t)\)</span>,</p>
+<div class="arithmatex">\[
+\varepsilon\,\partial_t^2 E + \sigma\,\partial_t E + \nabla\times(\mu^{-1}\nabla\times E)
+= -\partial_t J ,
+\]</div>
+<p>in SI units with real <span class="arithmatex">\(\varepsilon = \varepsilon_0\varepsilon_r\)</span> and <span class="arithmatex">\(\mu = \mu_0\mu_r\)</span>
+(dispersive materials would need auxiliary differential equations and are not covered). The
+Nédélec discretisation gives the system <span class="arithmatex">\(M\ddot u + C\dot u + S u = f(t)\)</span> with the mass
+matrix <span class="arithmatex">\(M\)</span> (weight <span class="arithmatex">\(\varepsilon\)</span>), the stiffness matrix <span class="arithmatex">\(S\)</span> (weight <span class="arithmatex">\(\mu^{-1}\)</span>), the load
+<span class="arithmatex">\(f(t) = -g'(t)\,(J, \phi_i)\)</span> and the damping matrix <span class="arithmatex">\(C\)</span>, which collects the conductivity
+mass (weight <span class="arithmatex">\(\sigma\)</span>) and the boundary term of the <strong>first-order Silver–Müller absorbing
+condition</strong> <span class="arithmatex">\(n\times\mu^{-1}\nabla\times E = -Z^{-1}\partial_t E_t\)</span>: the tangential boundary
+mass <span class="arithmatex">\(\int_\Gamma Z^{-1}\phi_{i,t}\cdot\phi_{j,t}\,\mathrm dS\)</span> with the wave impedance
+<span class="arithmatex">\(Z = \sqrt{\mu/\varepsilon}\)</span> of the adjacent cell. It absorbs normally incident waves and
+reflects a few percent at oblique incidence (a time-domain PML is future work). PEC facets
+remove their tangential DoFs; the state vectors keep full length with zeros there.</p>
+<p>Time stepping is the implicit <strong>Newmark-β</strong> scheme: with the predictors
+<span class="arithmatex">\(\tilde u = u + \Delta t\,v + \Delta t^2(\tfrac12 - \beta)\,a\)</span> and
+<span class="arithmatex">\(\tilde v = v + \Delta t(1 - \gamma)\,a\)</span> the new acceleration solves</p>
+<div class="arithmatex">\[
+\big(M + \gamma\Delta t\,C + \beta\Delta t^2 S\big)\,a^{n+1}
+= f(t^{n+1}) - C\tilde v - S\tilde u ,
+\qquad u^{n+1} = \tilde u + \beta\Delta t^2 a^{n+1},
+\quad v^{n+1} = \tilde v + \gamma\Delta t\,a^{n+1},
+\]</div>
+<p>and the operator is factorised once (direct solver backend of <code>solvers::LinearSolver</code>),
+so a step costs one forward/backward substitution. The default <span class="arithmatex">\(\beta = 1/4\)</span>, <span class="arithmatex">\(\gamma = 1/2\)</span>
+is the trapezoidal rule: unconditionally stable, second order, with a phase error of
+<span class="arithmatex">\((\omega\Delta t)^2/12\)</span> per radian and exact conservation of the discrete energy
+<span class="arithmatex">\(\tfrac12(v^T M v + u^T S u)\)</span> of the undamped system, so <span class="arithmatex">\(\Delta t\)</span> is chosen for
+accuracy (about 20 steps per period for 1 % phase error per period). <span class="arithmatex">\(\gamma &gt; 1/2\)</span> (with
+<span class="arithmatex">\(\beta = (\gamma + 1/2)^2/4\)</span>) adds numerical damping of the high modes. The initial
+acceleration is the consistent one, <span class="arithmatex">\(M a^0 = f(t_0) - C v^0 - S u^0\)</span>. Sources are
+<code>TimeSignal</code>s with analytic derivatives (<code>gaussian_pulse</code>, <code>modulated_gaussian</code>), and
+<code>TimeDomain::run</code> calls an observer after every step for probes, energies or snapshots
+(<code>assembly::evaluate_hcurl</code> on <code>state.u</code>).</p>
+<p><strong>Verification</strong> (<code>tests/convergence/time_domain_cavity.cpp</code>,
+<code>tests/unit/physics/test_time_domain.cpp</code>): the TE<span class="arithmatex">\(_{11}\)</span> mode of the PEC unit square,
+<span class="arithmatex">\(E(x, t) = \nabla\times(\cos\pi x\cos\pi y)\cos\omega t\)</span> with <span class="arithmatex">\(\omega = c_0\pi\sqrt2\)</span>, is
+an exact solution. Started from its interpolant with zero velocity and evaluated after
+<span class="arithmatex">\(2.25\)</span> periods (where the phase error is fully visible), the relative <span class="arithmatex">\(L^2\)</span> error converges
+with order <span class="arithmatex">\(2\)</span> in <span class="arithmatex">\(\Delta t\)</span> (<span class="arithmatex">\(1.1\cdot10^{-1}\)</span>, <span class="arithmatex">\(2.9\cdot10^{-2}\)</span>, <span class="arithmatex">\(7.3\cdot10^{-3}\)</span> for
+<span class="arithmatex">\(20, 40, 80\)</span> steps per period on <span class="arithmatex">\(\mathrm{ND}_5\)</span>) and with order <span class="arithmatex">\(p\)</span> in <span class="arithmatex">\(h\)</span> at <span class="arithmatex">\(1600\)</span> steps
+per period (<span class="arithmatex">\(1.9\)</span> for <span class="arithmatex">\(p = 1\)</span>, <span class="arithmatex">\(2.3\ldots3.2\)</span> for <span class="arithmatex">\(p = 2\)</span>); the energy drift stays at
+<span class="arithmatex">\(10^{-15}\)</span>. The unit tests check the signals against finite differences, the setup
+validation, the monotone energy decay with conductivity and with <span class="arithmatex">\(\gamma &gt; 1/2\)</span>, the 3D
+cavity, and a modulated pulse radiated by a current sheet in a strip with absorbing ends,
+whose energy drops below <span class="arithmatex">\(2\,\%\)</span> of its peak once the pulse has left (and stays with PEC
+ends).</p>
+<h2 id="post-processing-quantities">Post-processing quantities</h2>
+<p>Implemented in <code>physics/postprocess.hpp</code>:</p>
+<ul>
+<li><strong>Surfaces</strong> are sets of mesh facets with an inside cell each (<code>Surface::around_cells</code>
+  for the interface of a tagged region, <code>Surface::boundary</code> for a tagged boundary,
+  <code>whole_boundary</code>); <code>surface_quadrature</code> maps Gauss rules through the cell geometry, so
+  curved facets get their curved measure and outward normal.</li>
+<li><strong>Poynting flux</strong> <span class="arithmatex">\(\int_S \tfrac12\operatorname{Re}(\mathbf{E}\times\bar{\mathbf{H}})\cdot\mathbf{n}\,ds\)</span>
+  with <span class="arithmatex">\(\mathbf{H} = (i\omega\mu_0\mu_r)^{-1}\nabla\times\mathbf{E}\)</span> of discrete, analytic or
+  combined fields (<code>poynting_flux</code>); in 2D the flux is per unit length.</li>
+<li><strong>Absorbed power</strong> <span class="arithmatex">\(P_{\mathrm{abs}} = \tfrac{\omega\varepsilon_0}{2}\int \operatorname{Im}(\varepsilon_r)|\mathbf{E}|^2\,dx\)</span>
+  (<code>absorbed_power</code>).</li>
+<li><strong>Cross-sections</strong> of a <code>Scattering</code> solution on a closed surface around the scatterer:
+  <span class="arithmatex">\(\sigma_{\mathrm{sca}} = P_{\mathrm{sca}}/I\)</span> from the outward flux of the scattered field,
+  <span class="arithmatex">\(\sigma_{\mathrm{abs}} = -P_{\mathrm{tot}}/I\)</span> from the inward flux of the total field,
+  <span class="arithmatex">\(\sigma_{\mathrm{ext}} = \sigma_{\mathrm{sca}} + \sigma_{\mathrm{abs}}\)</span>, with the incident
+  intensity <span class="arithmatex">\(I = |E_0|^2/(2Z)\)</span>, <span class="arithmatex">\(Z = Z_0\sqrt{\mu_r/\varepsilon_r}\)</span> of the background
+  (<code>cross_sections</code>, <code>plane_wave_intensity</code>).</li>
+</ul>
+<p>Verified by unit tests: surface measures and outward normals (also on the curved sphere),
+the flux of an analytic plane wave through a box side equals <span class="arithmatex">\(I\cos\theta\)</span> times the side
+and vanishes through the closed boundary (2D and 3D), the discrete plane-wave solution
+reproduces it, and for a lossy disc in a PML box the flux-based absorption agrees with the
+volume integral of the total field (energy balance).</p>
+<ul>
+<li><strong>Far field</strong> (<code>physics/farfield.hpp</code>): on a closed surface <span class="arithmatex">\(S\)</span> in the homogeneous
+  background that encloses all sources and scatterers, the equivalent currents
+  <span class="arithmatex">\(\mathbf{J} = \mathbf{n}\times\mathbf{H}\)</span>, <span class="arithmatex">\(\mathbf{M} = -\mathbf{n}\times\mathbf{E}\)</span> radiate
+  (Stratton–Chu / Huygens). With <span class="arithmatex">\(\mathbf{N} = \int_S \mathbf{J}e^{-ik\hat r\cdot x'}ds'\)</span> and
+  <span class="arithmatex">\(\mathbf{L} = \int_S \mathbf{M}e^{-ik\hat r\cdot x'}ds'\)</span> the pattern is
+  <span class="arithmatex">\(\mathbf{F} = \tfrac{ik}{4\pi}[Z\mathbf{N}_t - \hat r\times\mathbf{L}]\)</span> in 3D
+  (<span class="arithmatex">\(\mathbf{E}\approx\mathbf{F}e^{ikr}/r\)</span>) and <span class="arithmatex">\(\mathbf{F} = -\tfrac{k}{4}\sqrt{2/(\pi k)}\,
+  e^{-i\pi/4}[Z\,\mathbf{N}\cdot\hat t + L_z]\,\hat t\)</span> in 2D (<span class="arithmatex">\(\mathbf{E}\approx\mathbf{F}e^{ik\rho}/\sqrt\rho\)</span>,
+  <span class="arithmatex">\(\hat t = \hat z\times\hat r\)</span>); <code>FarField::pattern</code>, <code>radiated_power</code> (<span class="arithmatex">\(\int|F|^2 d\Omega/2Z\)</span>)
+  and <code>scattering_cross_section</code>. Verified against the closed-form dipole far fields
+  <span class="arithmatex">\(\mathbf{p}_t/(4\pi)\)</span> (3D) and <span class="arithmatex">\(\tfrac{i}{4}\sqrt{2/(\pi k)}e^{-i\pi/4}\mathbf{p}_t\)</span> (2D) sampled
+  on curved spheres / circles, the radiated power against the Poynting flux, and the Mie
+  cylinder's far-field cross-section against the flux-based one.</li>
+<li><strong>Diffraction orders</strong> (<code>physics/diffraction.hpp</code>, 2D): on a line <span class="arithmatex">\(x = x_0\)</span> in a
+  homogeneous region of a Bloch-periodic problem the field is <span class="arithmatex">\(\sum_m A_m e^{ik_{y,m}y}\)</span>,
+  <span class="arithmatex">\(k_{y,m} = k_{y,0} + 2\pi m/a\)</span>; <code>fourier_coefficients</code> samples the field with composite
+  Gauss rules along one period and <code>diffraction_efficiencies</code> gives
+  <span class="arithmatex">\(\eta_m = \mathrm{Re}(k_{x,m})|A_m|^2/(k_x^{inc}|E_0|^2)\)</span> with <span class="arithmatex">\(k_{x,m} = \sqrt{k^2n^2 - k_{y,m}^2}\)</span>
+  (evanescent orders: <span class="arithmatex">\(\eta_m = 0\)</span>). Verified with a Bloch plane wave (only the zeroth order,
+  efficiency one, analytically and from the discrete solution) and by convergence test #6
+  (<code>tests/convergence/lamellar_grating.cpp</code>): a lamellar grating (period 1, fill 0.5,
+  thickness 0.5, ridge index 2 on a substrate of index 1.5, <span class="arithmatex">\(\lambda = 0.8\)</span>, normal
+  incidence) in a Bloch-periodic unit cell with PML in <span class="arithmatex">\(\pm x\)</span>, scattered-field
+  formulation; the reflected orders come from the scattered field above the grating and
+  the transmitted ones from the total field below. The reference is an RCWA for the
+  <span class="arithmatex">\(H_z\)</span> polarisation with Li's factorisation rules (Laurent's rule for <span class="arithmatex">\(\varepsilon^{-1}
+  \partial_x H\)</span>, the inverse rule for <span class="arithmatex">\(\varepsilon^{-1}\partial_y H\)</span>), written in the test and
+  checked by energy conservation (<span class="arithmatex">\(\sum R + T = 1\)</span> to <span class="arithmatex">\(10^{-6}\)</span>) and truncation
+  independence; the FEM efficiencies converge to it under p-refinement (maximal
+  deviation <span class="arithmatex">\(1.1\cdot10^{-1}\)</span>, <span class="arithmatex">\(3.1\cdot10^{-2}\)</span>, <span class="arithmatex">\(2.0\cdot10^{-3}\)</span> for <span class="arithmatex">\(p = 1, 2, 3\)</span> on eight
+  cells per unit length, energy sum <span class="arithmatex">\(1.002\)</span> at <span class="arithmatex">\(p = 3\)</span>).</li>
+</ul>
+<p>Planned: Purcell factor <span class="arithmatex">\(F_P = P_{\mathrm{emitted}}/P_{\mathrm{bulk}}\)</span> for a point dipole.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
