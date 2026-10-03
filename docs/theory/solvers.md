@@ -88,7 +88,12 @@ equilibration removes every perturbed pivot (0 in all steps
 against up to 16 356 without it) with convergence identical to the CPU backends, while the
 matching and reordering options of cuDSS changed nothing. With it, the complete C++ and
 Python test suites run with every system on cuDSS (`HPFEM_GPU_MIN_UNKNOWNS=0`) without a
-single refused factorisation. `HPFEM_GPU_EQUILIBRATE=0` switches it off for comparisons. Results of different backends agree only to about $10^{-12}$
+single refused factorisation. `HPFEM_GPU_EQUILIBRATE=0` switches it off for comparisons.
+The gain at the size of the tests is coverage, not speed: the L-shape loop (21 steps up to
+21 623 DoFs) takes 1.42 s on SparseLU, 1.67 s with the default threshold and 1.89 s with
+every system on cuDSS, because the one-off cuDSS start (0.3–0.6 s) and the transfer per
+step are not amortised by factorisations of 10–20 k unknowns; the GPU pays off once the
+adaptive systems grow past a few 10⁴ unknowns, as in the threshold measurement above. Results of different backends agree only to about $10^{-12}$
 relative (different orderings, pivoting and summation orders); tests therefore compare
 against references with a tolerance and never rely on bitwise equality between runs or
 backends.
