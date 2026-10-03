@@ -121,6 +121,7 @@ void bind_assembly(py::module_& m);
 void bind_materials(py::module_& m);
 void bind_solvers(py::module_& m);
 void bind_physics(py::module_& m);
+void bind_layered(py::module_& m);
 void bind_postprocess(py::module_& m);
 /// `EstimatorOptions` alone: a default argument of `Scattering.estimate`, so registered
 /// before `bind_physics`.

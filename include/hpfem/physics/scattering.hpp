@@ -29,6 +29,7 @@
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/point_location.hpp"
+#include "hpfem/physics/layer_stack.hpp"
 #include "hpfem/physics/sources.hpp"
 #include "hpfem/pml/pml.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
@@ -46,6 +47,11 @@ struct ScatteringSetup {
   Real omega = 0;                    ///< angular frequency [rad/s]
   materials::MaterialMap materials;  ///< by cell tag; the background for unlisted tags
   IncidentField<Dim> incident;       ///< analytic field in the background medium (optional)
+  /// Layered background (ADR-0009): the incident field is then the stack's plane wave
+  /// (`LayerStack::plane_wave(...).field`), the scattered-field source lives only where a
+  /// cell's material deviates from the stack at the cell centroid, and cross-sections are
+  /// normalised by the incidence medium. Layer interfaces must coincide with facets.
+  std::optional<LayerStack<Dim>> background;
   Formulation formulation = Formulation::kTotalField;
   std::vector<mesh::Tag> pec_tags;            ///< facets with n × E = 0
   std::vector<mesh::Tag> incident_tags;       ///< facets with n × E = n × E_inc (test domains)
@@ -70,7 +76,8 @@ template <int Dim>
 class Scattering {
  public:
   /// @throws InvalidArgument if ω ≤ 0, the scattered-field formulation or incident facets
-  ///         lack an incident field, or a current is given with the scattered field.
+  ///         lack an incident field, a current is given with the scattered field, or a
+  ///         cell straddles an interface of the layered background.
   Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringSetup<Dim> setup);
 
   [[nodiscard]] const fespace::NedelecDofMap<Dim>& dofs() const noexcept { return *dofs_; }
@@ -80,6 +87,13 @@ class Scattering {
   [[nodiscard]] const materials::Material& material(Index cell) const {
     return setup_.materials.of_cell(dofs_->mesh(), cell);
   }
+  /// Background material of cell c: the layer of `setup.background` at the cell centroid,
+  /// otherwise `materials.background()`. The scattered-field source is proportional to
+  /// `material(c) − background_material(c)`.
+  [[nodiscard]] const materials::Material& background_material(Index cell) const;
+  /// Medium the incident wave travels in: the incidence medium of the layered background,
+  /// otherwise `materials.background()` (normalisation of cross-sections).
+  [[nodiscard]] const materials::Material& incidence_material() const;
 
   /// Coefficients and sources of cell c for `assemble_maxwell`: relative tensors
   /// μr⁻¹ I, εr I and the sources of the formulation.

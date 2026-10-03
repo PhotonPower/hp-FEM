@@ -1,6 +1,7 @@
 #include "hpfem/physics/scattering.hpp"
 
 #include <algorithm>
+#include <limits>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -36,6 +37,40 @@ Scattering<Dim>::Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringS
   if (setup_.incident && !setup_.incident.curl) {
     throw InvalidArgument("Scattering: the incident field needs its curl");
   }
+  if (setup_.background) {
+    // every cell must lie inside one region of the stack (interfaces on facets)
+    const auto& mesh = dofs_->mesh();
+    const LayerStack<Dim>& stack = *setup_.background;
+    for (Index c = 0; c < mesh.num_cells(); ++c) {
+      const int region = stack.region(mesh::affine_map(mesh, c).centroid()(Dim - 1));
+      const Real above =
+          region == 0 ? std::numeric_limits<Real>::infinity() : stack.interface(region - 1);
+      const Real below = region == stack.num_layers() + 1 ? -std::numeric_limits<Real>::infinity()
+                                                          : stack.interface(region);
+      const Real tolerance = 1e-9 * (std::abs(stack.top() - stack.bottom()) + 1e-300);
+      for (const Index v : mesh.cell_vertices(c)) {
+        const Real z = mesh.vertex(v)(Dim - 1);
+        if (z > above + tolerance || z < below - tolerance) {
+          throw InvalidArgument(fmt::format(
+              "Scattering: cell {} straddles an interface of the layered background (vertex "
+              "coordinate {} outside the region [{}, {}] of its centroid); put the interfaces on "
+              "mesh lines",
+              c, z, below, above));
+        }
+      }
+    }
+  }
+}
+
+template <int Dim>
+const materials::Material& Scattering<Dim>::background_material(Index cell) const {
+  if (!setup_.background) return setup_.materials.background();
+  return setup_.background->material_at(mesh::affine_map(dofs_->mesh(), cell).centroid());
+}
+
+template <int Dim>
+const materials::Material& Scattering<Dim>::incidence_material() const {
+  return setup_.background ? setup_.background->incidence_medium() : setup_.materials.background();
 }
 
 template <int Dim>
@@ -51,7 +86,7 @@ assembly::MaxwellForm<Dim> Scattering<Dim>::form_of_cell(Index cell) const {
   using assembly::ComplexCurl;
   using assembly::ComplexVector;
   const materials::Material& m = material(cell);
-  const materials::Material& b = setup_.materials.background();
+  const materials::Material& b = background_material(cell);
   assembly::MaxwellForm<Dim> form;
   const Complex inv_mu = 1.0 / m.mu_r;
   const Complex eps = m.eps_r;

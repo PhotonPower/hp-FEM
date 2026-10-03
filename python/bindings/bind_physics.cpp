@@ -78,6 +78,9 @@ void bind_physics_dim(py::module_& m) {
       .def_readwrite("omega", &ScatteringSetup<Dim>::omega)
       .def_readwrite("materials", &ScatteringSetup<Dim>::materials)
       .def_readwrite("incident", &ScatteringSetup<Dim>::incident)
+      .def_readwrite("background", &ScatteringSetup<Dim>::background,
+                     "optional LayerStack: layered background of the scattered-field "
+                     "formulation (ADR-0009); set incident to its plane_wave(...).field")
       .def_readwrite("formulation", &ScatteringSetup<Dim>::formulation)
       .def_readwrite("pec_tags", &ScatteringSetup<Dim>::pec_tags)
       .def_readwrite("incident_tags", &ScatteringSetup<Dim>::incident_tags,
@@ -108,6 +111,9 @@ void bind_physics_dim(py::module_& m) {
            py::keep_alive<1, 2>())
       .def_property_readonly("dofs", &Scattering<Dim>::dofs,
                              py::return_value_policy::reference_internal)
+      .def("background_material", &Scattering<Dim>::background_material, py::arg("cell"),
+           "material of the (layered) background at the cell centroid")
+      .def_property_readonly("incidence_material", &Scattering<Dim>::incidence_material)
       .def_property_readonly("setup", &Scattering<Dim>::setup,
                              py::return_value_policy::reference_internal)
       .def_property_readonly("wavenumber", &Scattering<Dim>::wavenumber, "k0 = omega / c0 [1/m]")

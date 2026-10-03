@@ -22,6 +22,7 @@ PYBIND11_MODULE(_hpfem, m) {
   bind_solvers(m);
   bind_adaptivity_options(m);
   bind_physics(m);
+  bind_layered(m);
   bind_postprocess(m);
   bind_adaptivity(m);
   bind_io(m);
