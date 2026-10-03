@@ -64,7 +64,12 @@ Finding the DLL at run time, in this order: environment variable `HPFEM_GPU_DLL`
 compiled in from the CMake cache variable `HPFEM_GPU_DLL`, `hpfem_gpu.dll` next to the
 executable, the plain name on the loader path. The cuDSS runtime DLLs must be on `PATH`
 (`HPFEM_GPU_BIN_DIR` prepends them for the tests, like `MUMPS_BIN_DIR`). `cudss_status()`
-tells why the backend is or is not usable. Rationale and measurements: ADR-0008.
+tells why the backend is or is not usable. Rationale and measurements: ADR-0008. In short
+(RTX 3090, complex double, 24 CPU threads): the GPU factorisation is 1.8–2.3× faster than
+sequential MUMPS on a 163k-unknown Newmark operator and a 70k-unknown 3D PML scattering
+system, and a repeated solve of one factorisation is 30–140× faster (milliseconds instead of
+tenths of a second), which is where time stepping, Arnoldi iterations and sweeps spend their
+time; residuals are $10^{-13}$ to $10^{-15}$ on both.
 
 ### Verification
 
