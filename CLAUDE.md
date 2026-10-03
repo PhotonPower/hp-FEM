@@ -348,6 +348,13 @@ permittivity feedback loop with per-cell `MaterialMap` overrides), `hpfem.pv` (c
 generation profiles for device solvers) and the `solar_cell_texture` example;
 `docs/theory/multiphysics.md`. All roadmap milestones M0-M9 are done; what remains is the
 backlog (dual formulation, band structures, time domain, GPU assembly, MPI).
+**M10 (validation against the literature)** is complete apart from the blocked gold-dimer
+item: rib waveguide (Vassallo 1997), metallic lamellar grating (Granet & Guizal 1996), Mie
+sphere (Bohren & Huffman, with `physics::mie_sphere` and `mesh::box_with_ball`) and the
+slit–groove problem in silver (Besbes et al. 2007 / Burger et al. 2013) on the new layered
+background of the scattered-field formulation (ADR-0009, `physics::LayerStack`); results,
+deviations and the honest assessment of each are in `docs/validation.md`, the long local
+runs (ctest label `validation-long`) in `benchmarks/results/`.
 See `docs/roadmap.md`.
 
 ## 13. Parallel agents on one machine

@@ -127,7 +127,7 @@ TEST_CASE("LayerStack: single interface reproduces Fresnel, incident wave has un
   REQUIRE_THROWS_AS(stack2.plane_wave(k0, 1.6), hpfem::InvalidArgument);
 }
 
-TEST_CASE("LayerStack: multilayers — energy balance, quarter-wave stack, thick metal, regions",
+TEST_CASE("LayerStack: multilayers - energy balance, quarter-wave stack, thick metal, regions",
           "[physics][layered]") {
   const Real lambda = 850e-9;
   const Real k0 = 2 * std::numbers::pi / lambda;
