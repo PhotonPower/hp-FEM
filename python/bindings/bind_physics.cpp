@@ -6,6 +6,7 @@
 
 #include "common.hpp"
 #include "hpfem/adaptivity/residual_estimator.hpp"
+#include "hpfem/physics/axisymmetric.hpp"
 #include "hpfem/physics/band_structure.hpp"
 #include "hpfem/physics/propagating_mode.hpp"
 #include "hpfem/physics/resonance.hpp"
@@ -456,6 +457,129 @@ void bind_physics(py::module_& m) {
       .def_readonly("field", &physics::ResonantMode::field);
   bind_physics_dim<2>(m);
   bind_physics_dim<3>(m);
+  // --- axisymmetric (2.5D) problems: meridian mesh, one problem per azimuthal order -------
+  {
+    using fespace::DofMap;
+    using fespace::NedelecDofMap;
+    using physics::AxisymmetricCavity;
+    using physics::AxisymmetricCavitySetup;
+    using physics::AxisymmetricMode;
+    using physics::AxisymmetricResonance;
+    using physics::AxisymmetricResonanceSetup;
+    using physics::AxisymmetricResonantMode;
+    using physics::AxisymmetricScatteredField;
+    using physics::AxisymmetricScattering;
+    using physics::AxisymmetricScatteringSetup;
+    py::class_<AxisymmetricCavitySetup>(
+        m, "AxisymmetricCavitySetup",
+        "Closed axisymmetric cavity on the meridian mesh (x = r, y = z): lossless materials, "
+        "PEC facet tags, the axis facet tag, the azimuthal order m and the number of modes")
+        .def(py::init<>())
+        .def_readwrite("materials", &AxisymmetricCavitySetup::materials)
+        .def_readwrite("pec_tags", &AxisymmetricCavitySetup::pec_tags)
+        .def_readwrite("axis_tag", &AxisymmetricCavitySetup::axis_tag)
+        .def_readwrite("azimuthal_order", &AxisymmetricCavitySetup::azimuthal_order)
+        .def_readwrite("num_modes", &AxisymmetricCavitySetup::num_modes)
+        .def_readwrite("krylov_dimension", &AxisymmetricCavitySetup::krylov_dimension)
+        .def_readwrite("tolerance", &AxisymmetricCavitySetup::tolerance)
+        .def_readwrite("max_iterations", &AxisymmetricCavitySetup::max_iterations)
+        .def_readwrite("extra_quadrature_order", &AxisymmetricCavitySetup::extra_quadrature_order);
+    py::class_<AxisymmetricMode>(m, "AxisymmetricMode", "k0 and the coefficients of one mode")
+        .def_readonly("wavenumber", &AxisymmetricMode::wavenumber)
+        .def_readonly("meridian", &AxisymmetricMode::meridian, "(E_r, E_z) on the Nedelec map")
+        .def_readonly("azimuthal", &AxisymmetricMode::azimuthal, "v = -i r E_phi on the H1 map");
+    py::class_<AxisymmetricCavity>(m, "AxisymmetricCavity",
+                                   "Order-m eigenmodes with the gauged real eigensolver")
+        .def(py::init<const NedelecDofMap<2>&, const DofMap<2>&, AxisymmetricCavitySetup>(),
+             py::arg("meridian"), py::arg("azimuthal"), py::arg("setup"), py::keep_alive<1, 2>(),
+             py::keep_alive<1, 3>(), Release())
+        .def_property_readonly("setup", &AxisymmetricCavity::setup,
+                               py::return_value_policy::reference_internal)
+        .def_property_readonly("num_free_dofs",
+                               [](const AxisymmetricCavity& self) {
+                                 return static_cast<Index>(self.free_dofs().size());
+                               })
+        .def("solve", &AxisymmetricCavity::solve, Release(), "lowest modes, ascending in k0");
+    py::class_<AxisymmetricResonanceSetup>(
+        m, "AxisymmetricResonanceSetup",
+        "Open axisymmetric resonator: target omega, materials, PEC and axis tags, order m, "
+        "cylindrical PML box (no layer on the axis side)")
+        .def(py::init<>())
+        .def_readwrite("target_omega", &AxisymmetricResonanceSetup::target_omega)
+        .def_readwrite("materials", &AxisymmetricResonanceSetup::materials)
+        .def_readwrite("pec_tags", &AxisymmetricResonanceSetup::pec_tags)
+        .def_readwrite("axis_tag", &AxisymmetricResonanceSetup::axis_tag)
+        .def_readwrite("azimuthal_order", &AxisymmetricResonanceSetup::azimuthal_order)
+        .def_readwrite("pml", &AxisymmetricResonanceSetup::pml)
+        .def_readwrite("num_modes", &AxisymmetricResonanceSetup::num_modes)
+        .def_readwrite("krylov_dimension", &AxisymmetricResonanceSetup::krylov_dimension)
+        .def_readwrite("tolerance", &AxisymmetricResonanceSetup::tolerance)
+        .def_readwrite("max_iterations", &AxisymmetricResonanceSetup::max_iterations)
+        .def_readwrite("solver", &AxisymmetricResonanceSetup::solver)
+        .def_readwrite("extra_quadrature_order",
+                       &AxisymmetricResonanceSetup::extra_quadrature_order)
+        .def_readwrite("pml_extra_quadrature_order",
+                       &AxisymmetricResonanceSetup::pml_extra_quadrature_order);
+    py::class_<AxisymmetricResonantMode>(m, "AxisymmetricResonantMode",
+                                         "Quasi-normal mode of order m")
+        .def_readonly("omega", &AxisymmetricResonantMode::omega)
+        .def_readonly("wavelength", &AxisymmetricResonantMode::wavelength)
+        .def_readonly("quality", &AxisymmetricResonantMode::quality)
+        .def_readonly("residual", &AxisymmetricResonantMode::residual)
+        .def_readonly("meridian", &AxisymmetricResonantMode::meridian)
+        .def_readonly("azimuthal", &AxisymmetricResonantMode::azimuthal);
+    py::class_<AxisymmetricResonance>(m, "AxisymmetricResonance",
+                                      "Order-m quasi-normal modes with the cylindrical PML")
+        .def(py::init<const NedelecDofMap<2>&, const DofMap<2>&, AxisymmetricResonanceSetup>(),
+             py::arg("meridian"), py::arg("azimuthal"), py::arg("setup"), py::keep_alive<1, 2>(),
+             py::keep_alive<1, 3>())
+        .def_property_readonly("setup", &AxisymmetricResonance::setup,
+                               py::return_value_policy::reference_internal)
+        .def("solve", &AxisymmetricResonance::solve, Release(),
+             "modes ordered by the distance of omega to the target");
+    m.def("axial_plane_wave", &physics::axial_plane_wave, py::arg("amplitude"), py::arg("k"),
+          py::arg("m"),
+          "Order m = +-1 of the x-polarised plane wave E0 x e^{ikz} along the axis in the scaled "
+          "components (E_r, v = -i r E_phi, E_z)");
+    py::class_<AxisymmetricScatteringSetup>(
+        m, "AxisymmetricScatteringSetup",
+        "Scattered-field problem of one azimuthal order: omega, materials (background for "
+        "unlisted tags), PEC and axis tags, order m, PML box, the m-th component of the "
+        "incident field as a callable x -> (E_r, v, E_z)")
+        .def(py::init<>())
+        .def_readwrite("omega", &AxisymmetricScatteringSetup::omega)
+        .def_readwrite("materials", &AxisymmetricScatteringSetup::materials)
+        .def_readwrite("pec_tags", &AxisymmetricScatteringSetup::pec_tags)
+        .def_readwrite("axis_tag", &AxisymmetricScatteringSetup::axis_tag)
+        .def_readwrite("azimuthal_order", &AxisymmetricScatteringSetup::azimuthal_order)
+        .def_readwrite("pml", &AxisymmetricScatteringSetup::pml)
+        .def_readwrite("incident", &AxisymmetricScatteringSetup::incident)
+        .def_readwrite("solver", &AxisymmetricScatteringSetup::solver)
+        .def_readwrite("extra_quadrature_order",
+                       &AxisymmetricScatteringSetup::extra_quadrature_order)
+        .def_readwrite("pml_extra_quadrature_order",
+                       &AxisymmetricScatteringSetup::pml_extra_quadrature_order);
+    py::class_<AxisymmetricScatteredField>(m, "AxisymmetricScatteredField",
+                                           "Scattered field of one order")
+        .def_readonly("azimuthal_order", &AxisymmetricScatteredField::azimuthal_order)
+        .def_readonly("meridian", &AxisymmetricScatteredField::meridian)
+        .def_readonly("azimuthal", &AxisymmetricScatteredField::azimuthal);
+    py::class_<AxisymmetricScattering>(m, "AxisymmetricScattering",
+                                       "Assembles S - k0^2 M with PML and source and solves")
+        .def(py::init<const NedelecDofMap<2>&, const DofMap<2>&, AxisymmetricScatteringSetup>(),
+             py::arg("meridian"), py::arg("azimuthal"), py::arg("setup"), py::keep_alive<1, 2>(),
+             py::keep_alive<1, 3>())
+        .def_property_readonly("setup", &AxisymmetricScattering::setup,
+                               py::return_value_policy::reference_internal)
+        .def_property_readonly("wavenumber", &AxisymmetricScattering::wavenumber)
+        .def("solve", &AxisymmetricScattering::solve, Release(), "scattered field of order m");
+    m.def("axisymmetric_poynting_flux", &physics::axisymmetric_poynting_flux, py::arg("meridian"),
+          py::arg("azimuthal"), py::arg("meridian_coefficients"), py::arg("azimuthal_coefficients"),
+          py::arg("azimuthal_order"), py::arg("omega"), py::arg("materials"), py::arg("surface"),
+          py::arg("order") = 8, Release(),
+          "Power [W] of the order-m field through the surface of revolution of the meridian "
+          "surface (2 pi r Re(E x H*) . n / 2 integrated)");
+  }
 
   using physics::PropagatingMode;
   using physics::WaveguideMode;

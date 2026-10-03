@@ -37,6 +37,9 @@ using AxisymmetricTensorField = std::function<Eigen::Matrix<Complex, 3, 1>(const
 struct AxisymmetricForm {
   AxisymmetricTensorField inverse_permeability;
   AxisymmetricTensorField permittivity;
+  /// Volume source @f$ (f_r,\ f_v = -i r f_arphi,\ f_z) @f$ in the scaled components, paired
+  /// with @f$ (V_r r,\ w / r,\ V_z r) @f$; empty means zero.
+  AxisymmetricTensorField source;
   /// Total degree of the quadrature rule for this cell; overrides `2p + extra_order`.
   std::optional<int> quadrature_order;
 };
@@ -49,6 +52,7 @@ using AxisymmetricFormFactory = std::function<AxisymmetricForm(Index)>;
 struct AxisymmetricSystem {
   SparseMatrix stiffness;
   SparseMatrix mass;
+  Vector rhs;  ///< load of the sources (zero without)
   Index num_nedelec = 0;
   Index num_h1 = 0;
 };

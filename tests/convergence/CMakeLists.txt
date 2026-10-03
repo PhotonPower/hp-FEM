@@ -47,6 +47,9 @@ hpfem_add_test(convergence_axisymmetric_cavity convergence
 hpfem_add_test(convergence_axisymmetric_sphere_resonance convergence
   axisymmetric_sphere_resonance.cpp)
 
+hpfem_add_test(convergence_axisymmetric_mie_sphere convergence
+  axisymmetric_mie_sphere.cpp)
+
 hpfem_add_test(convergence_estimator_effectivity convergence
   estimator_effectivity.cpp)
 

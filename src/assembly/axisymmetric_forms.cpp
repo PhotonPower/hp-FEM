@@ -55,6 +55,7 @@ AxisymmetricSystem assemble_axisymmetric(const fespace::NedelecDofMap<2>& nedele
   for (const Index c : on_axis) touches_axis[as_size(c)] = true;
   const Real mm = static_cast<Real>(m);
 
+  Vector rhs = Vector::Zero(n);
   std::vector<Eigen::Triplet<Complex, Index>> ts;
   std::vector<Eigen::Triplet<Complex, Index>> tm;
   for (Index c = 0; c < mesh.num_cells(); ++c) {
@@ -80,6 +81,7 @@ AxisymmetricSystem assemble_axisymmetric(const fespace::NedelecDofMap<2>& nedele
     Eigen::Matrix<Real, 1, Eigen::Dynamic> val(1, nh);
     Matrix s = Matrix::Zero(ne + nh, ne + nh);
     Matrix mass = Matrix::Zero(ne + nh, ne + nh);
+    Vector load = Vector::Zero(ne + nh);
     for (std::size_t q = 0; q < rule.size(); ++q) {
       const auto g = geometry->evaluate(rule.points[q]);
       const Real r = g.x(0);
@@ -136,12 +138,19 @@ AxisymmetricSystem assemble_axisymmetric(const fespace::NedelecDofMap<2>& nedele
                       eps_z * (phi_z.transpose() * phi_z).template cast<Complex>());
       mass.bottomRightCorner(nh, nh) +=
           (w * eps_phi) * (val.transpose() * val).template cast<Complex>();
+      if (form.source) {
+        const Eigen::Matrix<Complex, 3, 1> f = form.source(g.x);
+        load.head(ne) += (dx * r) * (f(0) * phi_r.transpose().template cast<Complex>() +
+                                     f(2) * phi_z.transpose().template cast<Complex>());
+        load.tail(nh) += (w * f(1)) * val.transpose().template cast<Complex>();
+      }
     }
     const auto e_dofs = nedelec.cell_dofs(c);
     const auto h_dofs = h1.cell_dofs(c);
     std::vector<Index> block(as_size(ne + nh));
     for (Index i = 0; i < ne; ++i) block[as_size(i)] = e_dofs[as_size(i)];
     for (Index j = 0; j < nh; ++j) block[as_size(ne + j)] = n_e + h_dofs[as_size(j)];
+    for (Index i = 0; i < ne + nh; ++i) rhs(block[as_size(i)]) += load(i);
     for (Index i = 0; i < ne + nh; ++i) {
       for (Index j = 0; j < ne + nh; ++j) {
         if (s(i, j) != Complex{0.0, 0.0})
@@ -153,6 +162,7 @@ AxisymmetricSystem assemble_axisymmetric(const fespace::NedelecDofMap<2>& nedele
     }
   }
   AxisymmetricSystem out;
+  out.rhs = std::move(rhs);
   out.num_nedelec = n_e;
   out.num_h1 = n_h;
   out.stiffness.resize(n, n);

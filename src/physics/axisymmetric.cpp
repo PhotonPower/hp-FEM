@@ -8,11 +8,14 @@
 
 #include "hpfem/assembly/dirichlet.hpp"
 #include "hpfem/assembly/discrete_gradient.hpp"
+#include "hpfem/assembly/maxwell_forms.hpp"
 #include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/fespace/h1_basis.hpp"
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/solvers/eigen_solver.hpp"
+#include "hpfem/solvers/linear_solver.hpp"
 
 namespace hpfem::physics {
 
@@ -218,6 +221,133 @@ std::vector<AxisymmetricResonantMode> AxisymmetricResonance::solve() const {
     modes.push_back(std::move(mode));
   }
   return modes;
+}
+
+AxisymmetricField axial_plane_wave(Complex amplitude, Real k, int m) {
+  if (m != 1 && m != -1) {
+    throw InvalidArgument("axial_plane_wave: the axial plane wave has the orders m = +1, -1 only");
+  }
+  const Real sign = m > 0 ? 1.0 : -1.0;
+  return [amplitude, k, sign](const Point<2>& x) {
+    const Complex phase = 0.5 * amplitude * std::exp(kI * k * x(1));
+    return Eigen::Matrix<Complex, 3, 1>(phase, sign * x(0) * phase, Complex{0.0, 0.0});
+  };
+}
+
+AxisymmetricScattering::AxisymmetricScattering(const fespace::NedelecDofMap<2>& meridian,
+                                               const fespace::DofMap<2>& azimuthal,
+                                               AxisymmetricScatteringSetup setup)
+    : meridian_(&meridian), azimuthal_(&azimuthal), setup_(std::move(setup)) {
+  if (setup_.omega <= 0) throw InvalidArgument("AxisymmetricScattering: omega must be positive");
+  if (!setup_.incident) {
+    throw InvalidArgument("AxisymmetricScattering: the incident field is required");
+  }
+  if (setup_.pml && setup_.pml->thickness()[0] != 0) {
+    throw InvalidArgument(
+        "AxisymmetricScattering: the PML box must not have a layer on the axis side (x-min "
+        "thickness must be 0)");
+  }
+  k0_ = setup_.omega / constants::c0;
+  sets_ = axisymmetric_dof_sets(meridian, azimuthal, setup_.pec_tags, setup_.axis_tag,
+                                setup_.azimuthal_order);
+  log().info("AxisymmetricScattering: m = {}, k0 = {:.6g}, {} free of {} block DoFs, PML {}",
+             setup_.azimuthal_order, k0_, sets_.free.size(),
+             meridian.num_dofs() + azimuthal.num_dofs(), setup_.pml ? "yes" : "no");
+}
+
+assembly::AxisymmetricForm AxisymmetricScattering::form_of_cell(Index cell) const {
+  const auto& mesh = meridian_->mesh();
+  const auto& material = setup_.materials.of_cell(mesh, cell);
+  const auto& background = setup_.materials.background();
+  assembly::AxisymmetricForm form;
+  if (setup_.pml && setup_.pml->in_layer(mesh::affine_map(mesh, cell).centroid())) {
+    const int p = meridian_->cell_order(cell);
+    form = axisymmetric_pml_form(*setup_.pml, material, 2 * p + setup_.pml_extra_quadrature_order);
+  } else {
+    form = material_form(material);
+  }
+  const Complex contrast = k0_ * k0_ * (material.eps_r - background.eps_r);
+  if (contrast != Complex{0.0, 0.0}) {
+    form.source = [contrast, incident = setup_.incident](const Point<2>& x) {
+      return Eigen::Matrix<Complex, 3, 1>(contrast * incident(x));
+    };
+  }
+  return form;
+}
+
+AxisymmetricScatteredField AxisymmetricScattering::solve() const {
+  const int m = setup_.azimuthal_order;
+  const auto system = assembly::assemble_axisymmetric(
+      *meridian_, *azimuthal_, m, [this](Index c) { return form_of_cell(c); },
+      setup_.extra_quadrature_order);
+  SparseMatrix a = assembly::extract(SparseMatrix(system.stiffness - (k0_ * k0_) * system.mass),
+                                     sets_.free, sets_.free);
+  a.makeCompressed();
+  Vector rhs(static_cast<Index>(sets_.free.size()));
+  for (Index j = 0; j < rhs.size(); ++j) rhs(j) = system.rhs(sets_.free[as_size(j)]);
+  const Vector reduced = solvers::solve_direct(a, rhs, setup_.solver);
+  AxisymmetricScatteredField out;
+  out.azimuthal_order = m;
+  const Index n_e = meridian_->num_dofs();
+  Vector full = Vector::Zero(n_e + azimuthal_->num_dofs());
+  for (Index j = 0; j < reduced.size(); ++j) full(sets_.free[as_size(j)]) = reduced(j);
+  out.meridian = full.head(n_e);
+  out.azimuthal = full.tail(azimuthal_->num_dofs());
+  log().info("AxisymmetricScattering: solved m = {} ({} unknowns)", m, reduced.size());
+  return out;
+}
+
+Real axisymmetric_poynting_flux(const fespace::NedelecDofMap<2>& meridian,
+                                const fespace::DofMap<2>& azimuthal,
+                                const Vector& meridian_coefficients,
+                                const Vector& azimuthal_coefficients, int azimuthal_order,
+                                Real omega, const materials::MaterialMap& materials,
+                                const Surface<2>& surface, int order) {
+  if (meridian_coefficients.size() != meridian.num_dofs() ||
+      azimuthal_coefficients.size() != azimuthal.num_dofs()) {
+    throw InvalidArgument("axisymmetric_poynting_flux: coefficients do not match the maps");
+  }
+  const auto& mesh = meridian.mesh();
+  const Real mm = static_cast<Real>(azimuthal_order);
+  Real power = 0;
+  for (const auto& point : surface_quadrature<2>(mesh, surface, order)) {
+    const Real r = point.x(0);
+    if (!(r > 0)) continue;  // the axis contributes nothing (weight r)
+    const Index c = point.cell;
+    // meridian field and its scalar curl, azimuthal v and its gradient
+    const assembly::ComplexVector<2> e =
+        assembly::evaluate_hcurl<2>(meridian, meridian_coefficients, c, point.xi);
+    // the 2D scalar curl d_r E_z - d_z E_r is minus the azimuthal cylindrical component
+    const Complex curl_phi =
+        -assembly::evaluate_hcurl_curl<2>(meridian, meridian_coefficients, c, point.xi)(0);
+    const fespace::H1Basis<2> basis(azimuthal.cell_layout(c));
+    const auto geometry = mesh::cell_geometry(mesh, c);
+    const auto g = geometry->evaluate(point.xi);
+    std::vector<Real> psi(as_size(basis.size()));
+    std::vector<Point<2>> ref_grad(as_size(basis.size()));
+    basis.evaluate(point.xi, psi, ref_grad);
+    const auto dofs = azimuthal.cell_dofs(c);
+    Complex v = 0;
+    Eigen::Matrix<Complex, 2, 1> grad_v = Eigen::Matrix<Complex, 2, 1>::Zero();
+    for (Index i = 0; i < basis.size(); ++i) {
+      const Complex coefficient = azimuthal_coefficients(dofs[as_size(i)]);
+      v += coefficient * psi[as_size(i)];
+      grad_v += coefficient * (g.inverse_transpose * ref_grad[as_size(i)]).template cast<Complex>();
+    }
+    const Complex e_phi = kI * v / r;
+    const Complex curl_r = kI * (mm * e(1) - grad_v(1)) / r;
+    const Complex curl_z = kI * (grad_v(0) - mm * e(0)) / r;
+    const Complex mu = constants::mu0 * materials.of_cell(mesh, c).mu_r;
+    const Complex factor = 1.0 / (kI * omega * mu);
+    const Complex h_r = factor * curl_r;
+    const Complex h_phi = factor * curl_phi;
+    const Complex h_z = factor * curl_z;
+    const Complex s_r = e_phi * std::conj(h_z) - e(1) * std::conj(h_phi);
+    const Complex s_z = e(0) * std::conj(h_phi) - e_phi * std::conj(h_r);
+    power += point.weight * 2 * constants::pi * r * 0.5 *
+             (s_r * point.normal(0) + s_z * point.normal(1)).real();
+  }
+  return power;
 }
 
 }  // namespace hpfem::physics
