@@ -14,6 +14,7 @@
 #include "hpfem/physics/sweep.hpp"
 #include "hpfem/physics/thermal.hpp"
 #include "hpfem/physics/thermo_optical.hpp"
+#include "hpfem/physics/time_domain.hpp"
 
 namespace hpfem::python {
 
@@ -347,11 +348,87 @@ void bind_physics_dim(py::module_& m) {
            "bands at the Bloch wave vector k [1/m]")
       .def("path", &BandStructure<Dim>::path, py::arg("corners"), py::arg("segments"), Release(),
            "bands along the polyline of wave vectors, corners included");
+  using physics::TimeDomain;
+  using physics::TimeDomainSetup;
+  using physics::TimeState;
+  py::class_<TimeDomainSetup<Dim>>(
+      m, named("TimeDomainSetup", Dim).c_str(),
+      "Transient problem: real materials by tag, conductivity [S/m] by tag, PEC and "
+      "absorbing (first-order Silver-Mueller) facet tags, a current density J(x) with a "
+      "TimeSignal g(t) (source -J g'(t)), the time step and the Newmark parameters")
+      .def(py::init<>())
+      .def_readwrite("materials", &TimeDomainSetup<Dim>::materials)
+      .def_readwrite("conductivity", &TimeDomainSetup<Dim>::conductivity)
+      .def_readwrite("pec_tags", &TimeDomainSetup<Dim>::pec_tags)
+      .def_readwrite("absorbing_tags", &TimeDomainSetup<Dim>::absorbing_tags)
+      .def_readwrite("current", &TimeDomainSetup<Dim>::current)
+      .def_readwrite("signal", &TimeDomainSetup<Dim>::signal)
+      .def_readwrite("dt", &TimeDomainSetup<Dim>::dt)
+      .def_readwrite("beta", &TimeDomainSetup<Dim>::beta)
+      .def_readwrite("gamma", &TimeDomainSetup<Dim>::gamma)
+      .def_readwrite("solver", &TimeDomainSetup<Dim>::solver)
+      .def_readwrite("extra_quadrature_order", &TimeDomainSetup<Dim>::extra_quadrature_order);
+  py::class_<TimeState<Dim>>(m, named("TimeState", Dim).c_str(),
+                             "Field u = E, velocity v and acceleration a at a time")
+      .def_readwrite("time", &TimeState<Dim>::time)
+      .def_readwrite("u", &TimeState<Dim>::u)
+      .def_readwrite("v", &TimeState<Dim>::v)
+      .def_readwrite("a", &TimeState<Dim>::a)
+      .def_readonly("step", &TimeState<Dim>::step);
+  py::class_<TimeDomain<Dim>>(
+      m, named("TimeDomain", Dim).c_str(),
+      "Assembles the matrices once, factorises the Newmark operator and advances a state")
+      // assembles in the constructor: release the GIL so that Python callbacks (the
+      // current density) can run from the assembly threads
+      .def(py::init<const ND&, TimeDomainSetup<Dim>>(), py::arg("dofs"), py::arg("setup"),
+           py::keep_alive<1, 2>(), Release())
+      .def_property_readonly("setup", &TimeDomain<Dim>::setup,
+                             py::return_value_policy::reference_internal)
+      .def_property_readonly("num_free_dofs", &TimeDomain<Dim>::num_free_dofs)
+      .def(
+          "initialize",
+          [](const TimeDomain<Dim>& self, const Vector& u0, const Vector& v0, Real t0) {
+            return self.initialize(u0, v0, t0);
+          },
+          py::arg("u0"), py::arg("v0"), py::arg("t0") = 0.0, Release(),
+          "state at t0 with the consistent acceleration")
+      .def(
+          "initialize", [](const TimeDomain<Dim>& self, Real t0) { return self.initialize(t0); },
+          py::arg("t0") = 0.0, Release(), "zero state")
+      .def("step", &TimeDomain<Dim>::step, py::arg("state"), Release(), "one Newmark step")
+      .def(
+          "run",
+          [](const TimeDomain<Dim>& self, TimeState<Dim>& state, int steps,
+             const std::function<void(const TimeState<Dim>&)>& observer) {
+            self.run(state, steps, observer);
+          },
+          py::arg("state"), py::arg("steps"), py::arg("observer") = nullptr, Release(),
+          "steps Newmark steps, observer(state) after each one")
+      .def("energy", &TimeDomain<Dim>::energy, py::arg("state"),
+           "discrete energy (v^T M v + u^T S u) / 2 [J]")
+      .def("load", &TimeDomain<Dim>::load, py::arg("t"), "load on the free DoFs at time t")
+      .def_property_readonly("stiffness", &TimeDomain<Dim>::stiffness)
+      .def_property_readonly("mass", &TimeDomain<Dim>::mass)
+      .def_property_readonly("damping", &TimeDomain<Dim>::damping);
 }
 
 }  // namespace
 
 void bind_physics(py::module_& m) {
+  py::class_<physics::TimeSignal>(m, "TimeSignal", "Time signal g(t) with its derivative")
+      .def(py::init([](std::function<Real(Real)> value, std::function<Real(Real)> derivative) {
+             return physics::TimeSignal{std::move(value), std::move(derivative)};
+           }),
+           py::arg("value"), py::arg("derivative"))
+      .def(
+          "__call__", [](const physics::TimeSignal& s, Real t) { return s.value(t); }, py::arg("t"))
+      .def(
+          "derivative", [](const physics::TimeSignal& s, Real t) { return s.derivative(t); },
+          py::arg("t"));
+  m.def("gaussian_pulse", &physics::gaussian_pulse, py::arg("t0"), py::arg("width"),
+        "exp(-(t - t0)^2 / (2 width^2))");
+  m.def("modulated_gaussian", &physics::modulated_gaussian, py::arg("omega"), py::arg("t0"),
+        py::arg("width"), "sin(omega (t - t0)) exp(-(t - t0)^2 / (2 width^2))");
   py::enum_<physics::Formulation>(m, "Formulation")
       .value("TOTAL_FIELD", physics::Formulation::kTotalField,
              "unknown E; the incident field enters through boundary data / currents")

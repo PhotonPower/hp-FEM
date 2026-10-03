@@ -27,6 +27,18 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   (exact pair gives η = 0, 3D cube, lossy problem), Python `dual_solution`,
   `hypercircle_estimate`, `HypercircleEstimate`. Theory: docs/theory/error-estimation.md,
   section "Dual formulation and guaranteed bounds".
+- `physics::TimeDomain` (backlog): transient Maxwell solver. The second-order wave
+  equation for E with real materials, conductivity by tag, PEC walls and the first-order
+  Silver–Müller absorbing boundary (tangential boundary mass with the local wave impedance)
+  is integrated with the implicit Newmark-β scheme (trapezoidal rule by default:
+  unconditionally stable, second order, energy conserving); the Newmark operator is
+  factorised once. Sources are a current density J(x) times a `TimeSignal` with analytic
+  derivative (`gaussian_pulse`, `modulated_gaussian`), `run` calls an observer per step,
+  `energy` gives the discrete energy. Convergence test `time_domain_cavity` (TE11 mode:
+  order 2 in dt, order p in h, energy drift 1e-15), unit tests (signals, validation,
+  conductivity decay, 3D cavity, pulse leaving a strip through the absorbing ends), Python
+  `TimeDomain2D/3D`, `TimeDomainSetup2D/3D`, `TimeState2D/3D`, `TimeSignal`. Theory:
+  docs/theory/maxwell.md, section "Time domain".
 
 ## [0.2.0] — 2026-10-03
 Second release: everything from the Nédélec elements to the multiphysics step —

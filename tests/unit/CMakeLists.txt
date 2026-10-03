@@ -66,7 +66,8 @@ hpfem_add_test(test_physics unit
   physics/test_resonance.cpp
   physics/test_thermal.cpp
   physics/test_thermo_optical.cpp
-  physics/test_band_structure.cpp)
+  physics/test_band_structure.cpp
+  physics/test_time_domain.cpp)
 
 hpfem_add_test(test_hanging unit
   assembly/test_interpolation.cpp

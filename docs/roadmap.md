@@ -156,5 +156,8 @@ holds. Estimated effort is in rough "focused sessions".
   complex phases on the Nédélec and H1 spaces, gauged complex shift-invert Arnoldi,
   bands per wave vector and along Γ–X–M paths; convergence test on the empty lattice,
   `BandStructure2D/3D` in Python)
-- transient (time-domain) solver via implicit time stepping
+- [x] transient (time-domain) solver via implicit time stepping (`physics::TimeDomain`:
+  Newmark-β on the second-order E wave equation, conductivity, PEC, first-order absorbing
+  boundary, current sources with time signals; convergence test `time_domain_cavity`,
+  Python `TimeDomain2D/3D`)
 - GPU assembly

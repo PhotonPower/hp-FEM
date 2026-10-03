@@ -382,6 +382,66 @@ the symmetry $\omega(-k) = \omega(k)$, that dielectric rods ($\varepsilon_r = 8.
 bands, the H1 Bloch constraints on the interpolant of a Bloch function, and the gauged solver
 against a dense reference (kernel skipped, eigenvectors $B$-orthogonal to the kernel).
 
+## Time domain (`physics/time_domain.hpp`)
+
+The transient solver integrates the second-order wave equation for the electric field,
+obtained from Faraday's and Ampère's laws with a conductivity $\sigma$ and the current
+density $J(x, t) = J(x)\,g(t)$,
+
+$$
+\varepsilon\,\partial_t^2 E + \sigma\,\partial_t E + \nabla\times(\mu^{-1}\nabla\times E)
+= -\partial_t J ,
+$$
+
+in SI units with real $\varepsilon = \varepsilon_0\varepsilon_r$ and $\mu = \mu_0\mu_r$
+(dispersive materials would need auxiliary differential equations and are not covered). The
+Nédélec discretisation gives the system $M\ddot u + C\dot u + S u = f(t)$ with the mass
+matrix $M$ (weight $\varepsilon$), the stiffness matrix $S$ (weight $\mu^{-1}$), the load
+$f(t) = -g'(t)\,(J, \phi_i)$ and the damping matrix $C$, which collects the conductivity
+mass (weight $\sigma$) and the boundary term of the **first-order Silver–Müller absorbing
+condition** $n\times\mu^{-1}\nabla\times E = -Z^{-1}\partial_t E_t$: the tangential boundary
+mass $\int_\Gamma Z^{-1}\phi_{i,t}\cdot\phi_{j,t}\,\mathrm dS$ with the wave impedance
+$Z = \sqrt{\mu/\varepsilon}$ of the adjacent cell. It absorbs normally incident waves and
+reflects a few percent at oblique incidence (a time-domain PML is future work). PEC facets
+remove their tangential DoFs; the state vectors keep full length with zeros there.
+
+Time stepping is the implicit **Newmark-β** scheme: with the predictors
+$\tilde u = u + \Delta t\,v + \Delta t^2(\tfrac12 - \beta)\,a$ and
+$\tilde v = v + \Delta t(1 - \gamma)\,a$ the new acceleration solves
+
+$$
+\big(M + \gamma\Delta t\,C + \beta\Delta t^2 S\big)\,a^{n+1}
+= f(t^{n+1}) - C\tilde v - S\tilde u ,
+\qquad u^{n+1} = \tilde u + \beta\Delta t^2 a^{n+1},
+\quad v^{n+1} = \tilde v + \gamma\Delta t\,a^{n+1},
+$$
+
+and the operator is factorised once (direct solver backend of `solvers::LinearSolver`),
+so a step costs one forward/backward substitution. The default $\beta = 1/4$, $\gamma = 1/2$
+is the trapezoidal rule: unconditionally stable, second order, with a phase error of
+$(\omega\Delta t)^2/12$ per radian and exact conservation of the discrete energy
+$\tfrac12(v^T M v + u^T S u)$ of the undamped system, so $\Delta t$ is chosen for
+accuracy (about 20 steps per period for 1 % phase error per period). $\gamma > 1/2$ (with
+$\beta = (\gamma + 1/2)^2/4$) adds numerical damping of the high modes. The initial
+acceleration is the consistent one, $M a^0 = f(t_0) - C v^0 - S u^0$. Sources are
+`TimeSignal`s with analytic derivatives (`gaussian_pulse`, `modulated_gaussian`), and
+`TimeDomain::run` calls an observer after every step for probes, energies or snapshots
+(`assembly::evaluate_hcurl` on `state.u`).
+
+**Verification** (`tests/convergence/time_domain_cavity.cpp`,
+`tests/unit/physics/test_time_domain.cpp`): the TE$_{11}$ mode of the PEC unit square,
+$E(x, t) = \nabla\times(\cos\pi x\cos\pi y)\cos\omega t$ with $\omega = c_0\pi\sqrt2$, is
+an exact solution. Started from its interpolant with zero velocity and evaluated after
+$2.25$ periods (where the phase error is fully visible), the relative $L^2$ error converges
+with order $2$ in $\Delta t$ ($1.1\cdot10^{-1}$, $2.9\cdot10^{-2}$, $7.3\cdot10^{-3}$ for
+$20, 40, 80$ steps per period on $\mathrm{ND}_5$) and with order $p$ in $h$ at $1600$ steps
+per period ($1.9$ for $p = 1$, $2.3\ldots3.2$ for $p = 2$); the energy drift stays at
+$10^{-15}$. The unit tests check the signals against finite differences, the setup
+validation, the monotone energy decay with conductivity and with $\gamma > 1/2$, the 3D
+cavity, and a modulated pulse radiated by a current sheet in a strip with absorbing ends,
+whose energy drops below $2\,\%$ of its peak once the pulse has left (and stays with PEC
+ends).
+
 ## Post-processing quantities
 
 Implemented in `physics/postprocess.hpp`:
