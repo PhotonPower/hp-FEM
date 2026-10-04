@@ -12,6 +12,7 @@
 #include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/fespace/h1_basis.hpp"
 #include "hpfem/fespace/nedelec_basis.hpp"
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/mesh/simplex_topology.hpp"
@@ -20,6 +21,8 @@
 namespace hpfem::physics {
 
 namespace {
+
+constexpr mesh::Tag kRim = 1;  ///< facet tag of the rim of an extracted 3D port cross-section
 
 /// Legendre polynomials P_0 … P_n at ξ ∈ [−1, 1].
 void legendre(int n, Real xi, std::vector<Real>& p) {
@@ -31,6 +34,13 @@ void legendre(int n, Real xi, std::vector<Real>& p) {
   }
 }
 
+/// Plain cross product of complex 3-vectors (Eigen's `cross` conjugates nothing either, but
+/// keep the arithmetic explicit).
+Eigen::Matrix<Complex, 3, 1> cross3(const Eigen::Matrix<Complex, 3, 1>& a,
+                                    const Eigen::Matrix<Complex, 3, 1>& b) {
+  return {a(1) * b(2) - a(2) * b(1), a(2) * b(0) - a(0) * b(2), a(0) * b(1) - a(1) * b(0)};
+}
+
 }  // namespace
 
 template <int Dim>
@@ -38,16 +48,21 @@ PortModes<Dim>::PortModes(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag fac
                           const materials::MaterialMap& materials, Real omega, Index num_modes,
                           int extra_order)
     : omega_(omega) {
-  if constexpr (Dim != 2) {
-    (void)dofs;
-    (void)facet_tag;
-    (void)materials;
-    (void)num_modes;
-    (void)extra_order;
-    throw InvalidArgument("PortModes: waveguide ports are implemented for 2D problems only");
+  if (!(omega > 0)) throw InvalidArgument("PortModes: omega must be positive");
+  if (num_modes < 1) throw InvalidArgument("PortModes: num_modes must be >= 1");
+  if constexpr (Dim == 2) {
+    build_2d(dofs, facet_tag, materials, num_modes, extra_order);
   } else {
-    if (!(omega > 0)) throw InvalidArgument("PortModes: omega must be positive");
-    if (num_modes < 1) throw InvalidArgument("PortModes: num_modes must be >= 1");
+    build_3d(dofs, facet_tag, materials, num_modes, extra_order);
+  }
+}
+
+template <int Dim>
+void PortModes<Dim>::build_2d(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag facet_tag,
+                              const materials::MaterialMap& materials, Index num_modes,
+                              int extra_order) {
+  if constexpr (Dim == 2) {
+    const Real omega = omega_;
     const auto& mesh = dofs.mesh();
     const Surface<2> surface = Surface<2>::boundary(mesh, facet_tag);
     if (surface.facets.empty()) {
@@ -85,6 +100,7 @@ PortModes<Dim>::PortModes(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag fac
     }
     origin_ = a;
     tangent_ = direction;
+    tangent2_ = Point<2>::Zero();
     normal_ = n;
     length_ = extent;
     // reference direction of the sign convention: lexicographically increasing end points
@@ -164,8 +180,9 @@ PortModes<Dim>::PortModes(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag fac
     }
     Eigen::GeneralizedSelfAdjointEigenSolver<Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>>
         solver(a_mat.real(), b_mat.real());
-    if (solver.info() != Eigen::Success)
+    if (solver.info() != Eigen::Success) {
       throw Error("PortModes: the cross-section eigensolver failed");
+    }
     const Index available = std::min<Index>(num_modes, num_1d_);
     const Real s_mid = 0.5 * length_;
     for (Index m = 0; m < available; ++m) {
@@ -260,6 +277,291 @@ PortModes<Dim>::PortModes(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag fac
                std::count_if(modes_.begin(), modes_.end(),
                              [](const PortMode& mode) { return mode.propagating; }),
                n_modes > 0 ? modes_.front().effective_index.real() : 0.0);
+  } else {
+    (void)dofs;
+    (void)facet_tag;
+    (void)materials;
+    (void)num_modes;
+    (void)extra_order;
+  }
+}
+
+template <int Dim>
+void PortModes<Dim>::build_3d(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag facet_tag,
+                              const materials::MaterialMap& materials, Index num_modes,
+                              int extra_order) {
+  if constexpr (Dim == 3) {
+    using Vec3 = Eigen::Matrix<Complex, 3, 1>;
+    using Vec2 = Eigen::Matrix<Complex, 2, 1>;
+    const Real omega = omega_;
+    const auto& mesh = dofs.mesh();
+    const Surface<3> surface = Surface<3>::boundary(mesh, facet_tag);
+    if (surface.facets.empty()) {
+      throw InvalidArgument(
+          fmt::format("PortModes: no boundary facet carries the port tag {}", facet_tag));
+    }
+    // --- frame (t1, t2, n), n outward, t1 x t2 = n -------------------------------------------
+    const auto& first = surface.facets.front();
+    const auto& fv0 = mesh.facet_vertices(first.facet);
+    const Point<3> p0 = mesh.vertex(fv0[0]);
+    Point<3> n = (mesh.vertex(fv0[1]) - p0).cross(mesh.vertex(fv0[2]) - p0);
+    if (!(n.norm() > 0)) throw InvalidArgument("PortModes: degenerate port facet");
+    n.normalize();
+    if (n.dot(p0 - mesh::affine_map(mesh, first.inside_cell).centroid()) < 0) n = -n;
+    int axis = 0;
+    for (int k = 1; k < 3; ++k) {
+      if (std::abs(n(k)) < std::abs(n(axis))) axis = k;
+    }
+    Point<3> t1 = Point<3>::Unit(axis);
+    t1 -= t1.dot(n) * n;
+    t1.normalize();
+    const Point<3> t2 = n.cross(t1);
+    origin_ = p0;
+    tangent_ = t1;
+    tangent2_ = t2;
+    normal_ = n;
+    // --- the cross-section mesh in frame coordinates ------------------------------------------
+    std::map<Index, Index> vertex_index;
+    std::vector<Point<2>> uv;
+    Real extent = 0;
+    for (const auto& f : surface.facets) {
+      for (const Index v : mesh.facet_vertices(f.facet)) {
+        if (vertex_index.contains(v)) continue;
+        vertex_index.emplace(v, static_cast<Index>(uv.size()));
+        const Point<3> d = mesh.vertex(v) - p0;
+        uv.emplace_back(d.dot(t1), d.dot(t2));
+        extent = std::max(extent, d.norm());
+      }
+    }
+    for (const auto& [v, i] : vertex_index) {
+      if (std::abs((mesh.vertex(v) - p0).dot(n)) > 1e-9 * extent) {
+        throw InvalidArgument("PortModes: the port facets must lie on one plane");
+      }
+    }
+    Point<2> uv_centroid = Point<2>::Zero();
+    for (const Point<2>& p : uv) uv_centroid += p;
+    uv_centroid /= static_cast<Real>(uv.size());
+    length_ = 0;
+    for (const Point<2>& p : uv) length_ = std::max(length_, 2 * (p - uv_centroid).norm());
+    std::vector<mesh::Mesh<2>::CellVertices> cells;
+    std::vector<mesh::Tag> tags;
+    std::vector<int> orders;
+    for (const auto& f : surface.facets) {
+      const auto& fv = mesh.facet_vertices(f.facet);
+      mesh::Mesh<2>::CellVertices ids{vertex_index.at(fv[0]), vertex_index.at(fv[1]),
+                                      vertex_index.at(fv[2])};
+      const Point<2> d1 = uv[as_size(ids[1])] - uv[as_size(ids[0])];
+      const Point<2> d2 = uv[as_size(ids[2])] - uv[as_size(ids[0])];
+      if (d1(0) * d2(1) - d1(1) * d2(0) < 0) std::swap(ids[1], ids[2]);
+      cells.push_back(ids);
+      tags.push_back(mesh.cell_tag(f.inside_cell));
+      orders.push_back(dofs.cell_order(f.inside_cell));
+      const auto& material = materials.of_cell(mesh, f.inside_cell);
+      if (material.eps_r.imag() != 0 || material.mu_r.imag() != 0) {
+        throw InvalidArgument(
+            fmt::format("PortModes: cell {} on the port has a lossy material", f.inside_cell));
+      }
+    }
+    auto section = std::make_shared<mesh::Mesh<2>>(uv, cells, tags);
+    for (const Index f : section->boundary_facets()) section->set_facet_tag(f, kRim);
+    section_ = section;
+    section_nedelec_ = std::make_shared<const fespace::NedelecDofMap<2>>(*section_, orders);
+    section_h1_ = std::make_shared<const fespace::DofMap<2>>(*section_, orders);
+    WaveguideSetup setup;
+    setup.omega = omega;
+    setup.materials = materials;
+    setup.pec_tags = {kRim};
+    setup.num_modes = num_modes;
+    const PropagatingMode<2> solver(*section_nedelec_, *section_h1_, setup);
+    section_modes_ = solver.solve();
+    const Real k0 = omega / constants::c0;
+    // --- quadrature on the port: 3D basis, mode fields, sign convention ----------------------
+    int p_max = 1;
+    for (const int p : orders) p_max = std::max(p_max, p);
+    const auto points = surface_quadrature<3>(mesh, surface, 2 * p_max + extra_order);
+    const std::size_t per_facet = points.size() / surface.facets.size();
+    HPFEM_ASSERT(per_facet * surface.facets.size() == points.size(),
+                 "surface quadrature must use the same rule on every facet");
+    const Index n_modes = static_cast<Index>(section_modes_.size());
+    functionals_.assign(as_size(n_modes), Vector::Zero(dofs.num_dofs()));
+    normalisations_.assign(as_size(n_modes), Complex{0.0, 0.0});
+    std::vector<Real> power(as_size(n_modes), 0.0);
+    std::vector<Point<3>> ref_values;
+    std::vector<fespace::CurlVector<3>> ref_curls;
+    // frame coordinates and section reference points of the quadrature points
+    std::vector<Index> cell2(points.size());
+    std::vector<Point<2>> xi2(points.size());
+    Point<3> port_centre = Point<3>::Zero();
+    Real area = 0;
+    for (std::size_t q = 0; q < points.size(); ++q) {
+      cell2[q] = static_cast<Index>(q / per_facet);
+      const Point<3> d = points[q].x - p0;
+      xi2[q] = mesh::affine_map(*section_, cell2[q]).to_reference(Point<2>(d.dot(t1), d.dot(t2)));
+      port_centre += points[q].weight * points[q].x;
+      area += points[q].weight;
+    }
+    port_centre /= area;
+    for (Index m = 0; m < n_modes; ++m) {
+      WaveguideMode& wm = section_modes_[as_size(m)];
+      PortMode mode;
+      mode.beta = Complex{wm.beta, 0.0};
+      mode.effective_index = mode.beta / k0;
+      mode.propagating = true;
+      // sign: the largest component of the mean transverse field positive, else of the first
+      // moment about the port centre
+      Eigen::Matrix<Real, 3, 1> mean = Eigen::Matrix<Real, 3, 1>::Zero();
+      Eigen::Matrix<Real, 3, 3> moment = Eigen::Matrix<Real, 3, 3>::Zero();
+      Real magnitude = 0;
+      for (std::size_t q = 0; q < points.size(); ++q) {
+        Vec2 e_t;
+        Complex e_z;
+        Vec2 grad;
+        section_field(m, cell2[q], xi2[q], e_t, e_z, grad);
+        const Eigen::Matrix<Real, 3, 1> e3 = (e_t(0).real() * t1 + e_t(1).real() * t2);
+        mean += points[q].weight * e3;
+        moment += points[q].weight * e3 * (points[q].x - port_centre).transpose();
+        magnitude += points[q].weight * e3.norm();
+      }
+      Real pick = 0;
+      if (mean.cwiseAbs().maxCoeff() > 1e-8 * magnitude) {
+        Index k = 0;
+        mean.cwiseAbs().maxCoeff(&k);
+        pick = mean(k);
+      } else {
+        Index r = 0, c = 0;
+        moment.cwiseAbs().maxCoeff(&r, &c);
+        pick = moment(r, c);
+      }
+      if (pick < 0) {
+        wm.transverse = -wm.transverse;
+        wm.longitudinal = -wm.longitudinal;
+      }
+      modes_.push_back(mode);
+    }
+    // --- functionals, normalisations, powers --------------------------------------------------
+    const Vec3 n_c = n.template cast<Complex>();
+    for (std::size_t q = 0; q < points.size(); ++q) {
+      const SurfacePoint<3>& sp = points[q];
+      const auto geometry = mesh::cell_geometry(mesh, sp.cell);
+      const auto g = geometry->evaluate(sp.xi);
+      const fespace::NedelecBasis<3> nd_basis(dofs.cell_layout(sp.cell));
+      ref_values.resize(as_size(nd_basis.size()));
+      ref_curls.resize(as_size(nd_basis.size()));
+      nd_basis.evaluate(sp.xi, ref_values, ref_curls);
+      const auto cell_dofs = dofs.cell_dofs(sp.cell);
+      if (q % per_facet == 0) {
+        for (const Index d : cell_dofs) port_dofs_.push_back(d);
+      }
+      const Real mu_r = materials.of_cell(mesh, sp.cell).mu_r.real();
+      for (Index m = 0; m < n_modes; ++m) {
+        Vec2 e_t;
+        Complex e_z;
+        Vec2 grad;
+        section_field(m, cell2[q], xi2[q], e_t, e_z, grad);
+        const Complex beta = modes_[as_size(m)].beta;
+        const Vec2 v2 = grad - kI * beta * e_t;  // (curl E)_t = v x n
+        const Vec3 e3 = e_t(0) * t1.template cast<Complex>() + e_t(1) * t2.template cast<Complex>();
+        const Vec3 v3 = v2(0) * t1.template cast<Complex>() + v2(1) * t2.template cast<Complex>();
+        const Vec3 w3 = v3 / mu_r;  // n x (mu^-1 curl E)
+        const Vec3 h3 = cross3(v3, n_c) / (kI * omega * constants::mu0 * mu_r);
+        normalisations_[as_size(m)] += sp.weight * e3.dot(w3);  // no conjugation
+        power[as_size(m)] += 0.5 * sp.weight * cross3(e3, h3.conjugate()).dot(n_c).real();
+        Vector& q_m = functionals_[as_size(m)];
+        for (Index i = 0; i < nd_basis.size(); ++i) {
+          const Point<3> phi = g.inverse_transpose * ref_values[as_size(i)];
+          q_m(cell_dofs[as_size(i)]) += sp.weight * phi.template cast<Complex>().dot(w3);
+        }
+      }
+    }
+    std::sort(port_dofs_.begin(), port_dofs_.end());
+    port_dofs_.erase(std::unique(port_dofs_.begin(), port_dofs_.end()), port_dofs_.end());
+    std::vector<Index> touched;
+    for (const Index d : port_dofs_) {
+      bool nonzero = false;
+      for (const Vector& fvec : functionals_) nonzero |= std::abs(fvec(d)) > 0;
+      if (nonzero) touched.push_back(d);
+    }
+    port_dofs_ = std::move(touched);
+    for (Index m = 0; m < n_modes; ++m) modes_[as_size(m)].power = power[as_size(m)];
+    log().info("PortModes: tag {}, {} facets, {} section DoFs, {} guided modes, n_eff = {:.6g}",
+               facet_tag, surface.facets.size(),
+               section_nedelec_->num_dofs() + section_h1_->num_dofs(), n_modes,
+               n_modes > 0 ? modes_.front().effective_index.real() : 0.0);
+  } else {
+    (void)dofs;
+    (void)facet_tag;
+    (void)materials;
+    (void)num_modes;
+    (void)extra_order;
+  }
+}
+
+template <int Dim>
+void PortModes<Dim>::section_field(Index m, Index cell, const Point<2>& xi,
+                                   Eigen::Matrix<Complex, 2, 1>& e_t, Complex& e_z,
+                                   Eigen::Matrix<Complex, 2, 1>& grad_e_z) const {
+  const WaveguideMode& wm = section_modes_[as_size(m)];
+  const auto geometry = mesh::cell_geometry(*section_, cell);
+  const auto g = geometry->evaluate(xi);
+  const fespace::NedelecBasis<2> nd_basis(section_nedelec_->cell_layout(cell));
+  const fespace::H1Basis<2> h1_basis(section_h1_->cell_layout(cell));
+  std::vector<Point<2>> ref_values(as_size(nd_basis.size()));
+  std::vector<fespace::CurlVector<2>> ref_curls(as_size(nd_basis.size()));
+  std::vector<Real> psi(as_size(h1_basis.size()));
+  std::vector<Point<2>> ref_grad(as_size(h1_basis.size()));
+  nd_basis.evaluate(xi, ref_values, ref_curls);
+  h1_basis.evaluate(xi, psi, ref_grad);
+  e_t.setZero();
+  e_z = Complex{0.0, 0.0};
+  grad_e_z.setZero();
+  const auto nd_dofs = section_nedelec_->cell_dofs(cell);
+  for (Index i = 0; i < nd_basis.size(); ++i) {
+    const Point<2> phi = g.inverse_transpose * ref_values[as_size(i)];
+    e_t += wm.transverse(nd_dofs[as_size(i)]) * phi.template cast<Complex>();
+  }
+  const auto h1_dofs = section_h1_->cell_dofs(cell);
+  for (Index j = 0; j < h1_basis.size(); ++j) {
+    const Complex a = wm.longitudinal(h1_dofs[as_size(j)]);
+    e_z += a * psi[as_size(j)];
+    grad_e_z += a * (g.inverse_transpose * ref_grad[as_size(j)]).template cast<Complex>();
+  }
+}
+
+template <int Dim>
+Index PortModes<Dim>::section_cell(const Point<2>& uv, Point<2>& xi) const {
+  if (!section_) return kInvalidIndex;
+  const Real tol = 1e-9;
+  for (Index c = 0; c < section_->num_cells(); ++c) {
+    xi = mesh::affine_map(*section_, c).to_reference(uv);
+    if (xi(0) >= -tol && xi(1) >= -tol && xi(0) + xi(1) <= 1 + tol) return c;
+  }
+  return kInvalidIndex;
+}
+
+template <int Dim>
+Eigen::Matrix<Complex, Dim, 1> PortModes<Dim>::transverse_field(Index m,
+                                                                const Point<Dim>& x) const {
+  if constexpr (Dim == 2) {
+    const Real s = (x - origin_).dot(tangent_);
+    if (std::abs((x - origin_).dot(normal_)) > 1e-9 * length_) {
+      throw InvalidArgument("PortModes::transverse_field: the point is not on the port");
+    }
+    return trace(m, s) * tangent_.template cast<Complex>();
+  } else {
+    const Point<3> d = x - origin_;
+    if (std::abs(d.dot(normal_)) > 1e-9 * length_) {
+      throw InvalidArgument("PortModes::transverse_field: the point is not on the port plane");
+    }
+    Point<2> xi;
+    const Index cell = section_cell(Point<2>(d.dot(tangent_), d.dot(tangent2_)), xi);
+    if (cell == kInvalidIndex) {
+      throw InvalidArgument("PortModes::transverse_field: the point is outside the port");
+    }
+    Eigen::Matrix<Complex, 2, 1> e_t;
+    Complex e_z;
+    Eigen::Matrix<Complex, 2, 1> grad;
+    section_field(m, cell, xi, e_t, e_z, grad);
+    return e_t(0) * tangent_.template cast<Complex>() + e_t(1) * tangent2_.template cast<Complex>();
   }
 }
 
@@ -288,6 +590,9 @@ void PortModes<Dim>::basis(const Segment& seg, Real s, std::vector<Real>& values
 
 template <int Dim>
 const typename PortModes<Dim>::Segment& PortModes<Dim>::segment_at(Real s) const {
+  if (segments_.empty()) {
+    throw InvalidArgument("PortModes: port coordinates exist for 2D ports only");
+  }
   for (const Segment& seg : segments_) {
     if (s >= seg.s0 - 1e-12 * length_ && s <= seg.s1 + 1e-12 * length_) return seg;
   }

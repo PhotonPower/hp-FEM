@@ -197,7 +197,17 @@ void bind_physics_dim(py::module_& m) {
       .def("trace", &physics::PortModes<Dim>::trace, py::arg("m"), py::arg("s"),
            "tangential trace E . t' of mode m at the port coordinate s")
       .def("profile", &physics::PortModes<Dim>::profile, py::arg("m"), py::arg("s"),
-           "H_z profile of mode m at the port coordinate s");
+           "H_z profile of mode m at the port coordinate s")
+      .def("transverse_field", &physics::PortModes<Dim>::transverse_field, py::arg("m"),
+           py::arg("x"), "tangential electric field of mode m at the point x on the port")
+      .def_property_readonly("tangent2", &physics::PortModes<Dim>::tangent2)
+      .def_property_readonly(
+          "section",
+          [](const physics::PortModes<Dim>& p) -> std::optional<mesh::Mesh<2>> {
+            if (p.section() == nullptr) return std::nullopt;
+            return *p.section();
+          },
+          "3D: the extracted cross-section mesh in frame coordinates (None in 2D)");
   m.def(
       "s_parameters",
       [](const ND& dofs, ScatteringSetup<Dim> setup) {

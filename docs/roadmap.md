@@ -213,9 +213,14 @@ Integrated photonics beyond the effective-index model and the tools around the s
   low-rank modal boundary term in `Scattering`, `port_coefficients`, `s_parameters`);
   convergence test `waveguide_port` (slab section: S21 and |S11| exponential in p),
   Python `WaveguidePort` / `PortModes2D` / `s_parameters`
-- [ ] 3D ports: cross-section modes from `PropagatingMode` on the extracted port mesh,
-  vector traces, the same expansion; the ring resonator with ports in 3D (SOI cross-section)
-  as the example, S-parameters of a directional coupler against coupled-mode theory
+- [x] 3D ports: cross-section modes from `PropagatingMode` on the extracted port mesh
+  (`PortModes<3>`: frame, planar section with the inside cells' tags and orders, PEC rim,
+  n × (μ⁻¹ curl E) = (∇ₜE_z − iβEₜ)/μᵣ, modal powers, orientation-independent signs);
+  convergence test `waveguide_port_3d` (rectangular waveguide TE10: S21 and |S11| decay
+  with p), `PortModes3D` / `s_parameters` for `Scattering3D` in Python
+- [ ] the ring resonator with ports in 3D (SOI cross-section) as the example, S-parameters
+  of a directional coupler against coupled-mode theory (needs the GPU solver for the
+  mesh sizes involved)
 - [ ] modal expansion by Riesz projection on the resonance solver (`physics::RieszProjection`,
   `AxisymmetricRieszProjection`: residues of the resolvent on circles around the
   quasi-normal modes plus a background contour, spectra of linear observables as sums over

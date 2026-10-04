@@ -176,7 +176,9 @@ std::vector<WaveguideMode> PropagatingMode<Dim>::solve() const {
   std::vector<WaveguideMode> modes;
   for (Index i = 0; i < result.eigenvalues.size(); ++i) {
     const Real lambda = result.eigenvalues(i);
-    if (!(lambda < 0)) continue;  // beta^2 <= 0: radiation or spurious
+    // beta^2 <= 0: radiation or spurious (the gradient kernel sits at beta^2 = 0 up to
+    // rounding, so a relative threshold keeps it out)
+    if (!(lambda < -1e-10 * k2 * max_index_ * max_index_)) continue;
     const Real beta = std::sqrt(-lambda);
     if (beta > k0_ * max_index_ * (1.0 + 1e-6)) continue;
     WaveguideMode mode;
