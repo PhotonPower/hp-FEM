@@ -11,6 +11,7 @@ seconds) and appends them to the file given as its first argument. Results are k
 | `bench_solver_integration` | Where one factorisation serves many solves, with every available direct solver (SparseLU, MUMPS, cuDSS): the transient PEC cavity (`physics::TimeDomain`, n = 128, p = 2: setup with two factorisations, seconds per Newmark step), an 8-angle sweep of `physics::ScatteringOperator` (n = 96, p = 3: one-by-one `solve` against batched `solve_many`, with and without load assembly), `physics::Resonance` (complex shift-invert Arnoldi, n = 96, p = 2) and the real gauged Lanczos `gauged_curl_curl_eigenpairs` with the real SparseLU against the complexified MUMPS / cuDSS factorisation |
 | `bench_backend_threshold` | Factorisation and median solve time of every available backend over the problem size (Maxwell operator of a plane wave, square p = 2 with n = 8 … 128 and cube p = 2 with n = 3 … 12), the basis of the `kAuto` threshold `HPFEM_GPU_MIN_UNKNOWNS` |
 | `bench_device_arnoldi` | Complex shift-invert Arnoldi with the Krylov basis on the host against the basis on the device (`solvers::DeviceArnoldi`): `physics::Resonance` of the closed PEC square (ungauged) and `physics::BandStructure` of the empty square lattice (gauged), p = 2, 6 eigenvalues, 24 Krylov vectors, every backend; arguments `[results.json] [n]` (default n = 96, 92 k DoFs) |
+| `bench_sweep_shares` | Shares of a parameter sweep with every backend: the angle sweep of `ScatteringOperator::solve_many` (unit square, p = 3, 100 incident fields) split into factorisation, loads (Scattering setup, `assemble_maxwell_load`, Dirichlet data), the batched solve and, on cuDSS, the pure host-device transfer of the same volume; and a frequency sweep with `ReducedBasis` (8 snapshots, 100 reduced solves) split into snapshots, projections, loads, reduced solves and lifts; arguments `[results.json] [n] [p] [nrhs] [nfreq]` |
 | `bench_hybrid_memory` | 3D Maxwell operator of a plane wave on the unit cube at growing size (n = 12, 16, 20, p = 2 by default; arguments `[results.json] [max_n] [p]`) with every backend: factor size, memory, mode (cuDSS device or hybrid) and time, the basis of the hybrid-memory statement in ADR-0008; runs for a long time |
 | `gpu/spmv_solve_bench` | GPU micro-benchmark behind ADR-0008: complex double SpMV (OpenMP CSR vs cuSPARSE) and direct solves (Eigen SparseLU vs cuDSS LU, one and eight right-hand sides) on matrices exported by `gpu/export_matrices.py` (Newmark operator of the transient solver, 3D scattering operator with PML). Built on its own with nvcc + MSVC, see `gpu/CMakeLists.txt`; MUMPS timings of the same matrices via `python/` (`hpfem.make_direct_solver`) |
 
@@ -44,3 +45,10 @@ other sessions on the machine.
 (RTX 3090, cuDSS 0.8) for n = 96 and n = 192 (92 k and 369 k DoFs): the device basis saves
 20–35 % against the host basis with cuDSS solves, SparseLU is 3–16× slower; the numbers are
 in docs/theory/solvers.md.
+
+`results/2026-10-04-VR-sweep-shares.json` — `bench_sweep_shares` on the same machine at
+194 k DoFs: on cuDSS the 100-angle sweep takes 3.2 s, of which the loads are 2.6 s (26 ms
+per incident field, 20 ms of it the load assembly) and the batched solve 0.3 s, where the
+transfers alone are 0.21 s; the frequency sweep is bounded by the 8 snapshot factorisations
+(5.7 s) against 0.07 s of projections and 0.14 s of reduced solves. Device-resident sweep
+vectors would therefore save at most 6 %; the lever is the per-field load assembly.
