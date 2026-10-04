@@ -598,7 +598,25 @@ void bind_physics(py::module_& m) {
         .def_property_readonly("setup", &AxisymmetricScattering::setup,
                                py::return_value_policy::reference_internal)
         .def_property_readonly("wavenumber", &AxisymmetricScattering::wavenumber)
-        .def("solve", &AxisymmetricScattering::solve, Release(), "scattered field of order m");
+        .def("solve", &AxisymmetricScattering::solve, Release(), "scattered field of order m")
+        .def("estimate", &AxisymmetricScattering::estimate, py::arg("field"),
+             py::arg("options") = adaptivity::EstimatorOptions{}, Release(),
+             "r-weighted residual indicators of a solution (adaptivity.Estimate)")
+        .def("error", &AxisymmetricScattering::error, py::arg("field"), py::arg("exact"),
+             py::arg("exact_curl") = physics::AxisymmetricField{}, Release(),
+             "weighted L2 and H(curl) errors against an exact field (E_r, v, E_z) and its "
+             "cylindrical curl");
+    py::class_<physics::AxisymmetricError>(m, "AxisymmetricError",
+                                           "Weighted L2 norms of the field and curl errors")
+        .def_readonly("l2", &physics::AxisymmetricError::l2)
+        .def_readonly("curl", &physics::AxisymmetricError::curl);
+    m.def("axisymmetric_error", &physics::axisymmetric_error, py::arg("meridian"),
+          py::arg("azimuthal"), py::arg("meridian_coefficients"), py::arg("azimuthal_coefficients"),
+          py::arg("azimuthal_order"), py::arg("exact"),
+          py::arg("exact_curl") = physics::AxisymmetricField{}, py::arg("extra_order") = 4,
+          Release(),
+          "Error of an order-m field against the exact (E_r, v, E_z) and its cylindrical curl "
+          "in the norms of the body of revolution");
     py::class_<physics::AxisymmetricFarField>(
         m, "AxisymmetricFarField",
         "Far-field pattern F(theta) e^{im phi} e^{ikR}/R of one order at phi = 0")

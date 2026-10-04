@@ -3,6 +3,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- hp-adaptivity on the meridian plane (M11, last item): `adaptivity::axisymmetric_residual_estimate`
+  (the r-weighted residual estimator of the mode equation, cylindrical curl and divergence,
+  hanging facets), hanging-node constraints in `AxisymmetricCavity`, `AxisymmetricResonance`
+  and `AxisymmetricScattering` (block constraints restricted to the free DoFs, gauge gradient
+  by restriction), `axisymmetric_error` and `AxisymmetricScattering::estimate` / `error`;
+  unit tests, the convergence test `axisymmetric_hp_corner` (manufactured re-entrant PEC edge,
+  error ~ exp(-0.27 N^(1/3)), effectivity 3.5-5.6) and Python bindings. M11 is complete.
 - Shift-invert Arnoldi with the Krylov basis on the device: `solvers::DeviceArnoldi` (GPU
   library API version 4, `hpfem_gpu_arnoldi_*` and rectangular device matrices) keeps the
   basis on the GPU, computes w = P K^-1 B v_j there (cuDSS solve, device products, the gauge

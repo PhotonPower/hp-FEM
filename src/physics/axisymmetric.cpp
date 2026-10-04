@@ -2,17 +2,22 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 #include <vector>
 
 #include <fmt/format.h>
 
+#include "hpfem/adaptivity/axisymmetric_estimator.hpp"
 #include "hpfem/assembly/dirichlet.hpp"
 #include "hpfem/assembly/discrete_gradient.hpp"
+#include "hpfem/assembly/hanging_constraints.hpp"
 #include "hpfem/assembly/maxwell_forms.hpp"
+#include "hpfem/assembly/quadrature.hpp"
 #include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
 #include "hpfem/fespace/h1_basis.hpp"
+#include "hpfem/fespace/nedelec_basis.hpp"
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/solvers/eigen_solver.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
@@ -57,6 +62,16 @@ AxisymmetricDofSets axisymmetric_dof_sets(const fespace::NedelecDofMap<2>& merid
     sets.free.push_back(n_e + d);
   }
   sets.free_potential = assembly::free_dofs(azimuthal.num_dofs(), psi_fixed);
+  if (!mesh.is_conforming()) {
+    const fespace::Constraints nd_c = assembly::hanging_constraints(meridian);
+    const fespace::Constraints h1_c = assembly::hanging_constraints(azimuthal);
+    sets.constraints = assembly::block_constraints(
+        assembly::restrict_constraints(nd_c, assembly::free_dofs(n_e, nd_fixed)),
+        assembly::restrict_constraints(h1_c, assembly::free_dofs(azimuthal.num_dofs(), v_fixed)));
+    sets.potential_constraints = assembly::restrict_constraints(h1_c, sets.free_potential);
+    log().debug("axisymmetric_dof_sets: {} hanging constraints on the free block DoFs",
+                sets.constraints->num_constrained());
+  }
   log().debug("axisymmetric_dof_sets: m = {}, {} free of {} block DoFs, {} axis facets", m,
               sets.free.size(), n_e + azimuthal.num_dofs(), axis.size());
   return sets;
@@ -105,6 +120,58 @@ assembly::AxisymmetricForm material_form(const materials::Material& material) {
   return form;
 }
 
+/// Reduced pencil on the free DoFs: the rows and columns of `free` (and `free_potential`
+/// for the gradient), then @f$ P^H A P @f$ with the hanging-node prolongation P on
+/// non-conforming meshes (the gradient becomes @f$ R K P_\psi @f$ with the restriction R to
+/// the unconstrained DoFs).
+struct ReducedPencil {
+  SparseMatrix stiffness;
+  SparseMatrix mass;
+  SparseMatrix gradient;
+};
+
+ReducedPencil reduce_pencil(const SparseMatrix& stiffness, const SparseMatrix& mass,
+                            const SparseMatrix& gradient, const AxisymmetricDofSets& sets) {
+  ReducedPencil out;
+  out.stiffness = assembly::extract(stiffness, sets.free, sets.free);
+  out.mass = assembly::extract(mass, sets.free, sets.free);
+  out.gradient = assembly::extract(gradient, sets.free, sets.free_potential);
+  if (sets.constraints) {
+    const Vector zero = Vector::Zero(out.stiffness.rows());
+    out.stiffness = sets.constraints->reduce(out.stiffness, zero).first;
+    out.mass = sets.constraints->reduce(out.mass, zero).first;
+    // the gradient of a constrained potential satisfies the block constraints, so its
+    // reduced coefficients are the rows of the unconstrained DoFs: K_f = R K P_psi
+    const fespace::Constraints& c = *sets.constraints;
+    std::vector<Eigen::Triplet<Complex, Index>> rows;
+    for (Index d = 0; d < c.num_dofs(); ++d) {
+      if (!c.is_constrained(d)) rows.emplace_back(c.reduced_index(d), d, Complex{1.0, 0.0});
+    }
+    SparseMatrix restriction(c.num_free(), c.num_dofs());
+    restriction.setFromTriplets(rows.begin(), rows.end());
+    const SparseMatrix p_psi = sets.potential_constraints->prolongation();
+    const SparseMatrix left = restriction * out.gradient;
+    out.gradient = left * p_psi;
+    out.gradient.makeCompressed();
+  }
+  return out;
+}
+
+/// The full block vector from the solution on the (constrained) free DoFs.
+Vector expand_to_full(const Vector& reduced, const AxisymmetricDofSets& sets, Index n_block) {
+  const Vector free = sets.constraints ? sets.constraints->expand(reduced) : reduced;
+  Vector full = Vector::Zero(n_block);
+  for (Index j = 0; j < free.size(); ++j) full(sets.free[as_size(j)]) = free(j);
+  return full;
+}
+
+/// Identity index set 0, …, n − 1.
+std::vector<Index> all_indices(Index n) {
+  std::vector<Index> out(as_size(n));
+  std::iota(out.begin(), out.end(), Index{0});
+  return out;
+}
+
 }  // namespace
 
 AxisymmetricCavity::AxisymmetricCavity(const fespace::NedelecDofMap<2>& meridian,
@@ -136,16 +203,20 @@ std::vector<AxisymmetricMode> AxisymmetricCavity::solve() const {
   options.krylov_dimension = setup_.krylov_dimension;
   options.tolerance = setup_.tolerance;
   options.max_iterations = setup_.max_iterations;
-  const auto result = solvers::gauged_curl_curl_eigenpairs(
-      system_.stiffness, system_.mass, gradient_, sets_.free, sets_.free_potential, options);
-  std::vector<AxisymmetricMode> modes;
   const Index n_e = meridian_->num_dofs();
+  const Index n_block = n_e + azimuthal_->num_dofs();
+  const ReducedPencil pencil = reduce_pencil(system_.stiffness, system_.mass, gradient_, sets_);
+  const auto result = solvers::gauged_curl_curl_eigenpairs(
+      pencil.stiffness, pencil.mass, pencil.gradient, all_indices(pencil.stiffness.rows()),
+      all_indices(pencil.gradient.cols()), options);
+  std::vector<AxisymmetricMode> modes;
   for (Index i = 0; i < result.eigenvalues.size(); ++i) {
     AxisymmetricMode mode;
     mode.wavenumber = std::sqrt(std::max(result.eigenvalues(i), Real{0.0}));
-    mode.meridian = result.eigenvectors.col(i).head(n_e).template cast<Complex>();
-    mode.azimuthal =
-        result.eigenvectors.col(i).tail(azimuthal_->num_dofs()).template cast<Complex>();
+    const Vector full =
+        expand_to_full(result.eigenvectors.col(i).template cast<Complex>(), sets_, n_block);
+    mode.meridian = full.head(n_e);
+    mode.azimuthal = full.tail(azimuthal_->num_dofs());
     modes.push_back(std::move(mode));
   }
   return modes;
@@ -189,9 +260,10 @@ std::vector<AxisymmetricResonantMode> AxisymmetricResonance::solve() const {
       *meridian_, *azimuthal_, m, [this](Index c) { return form_of_cell(c); },
       setup_.extra_quadrature_order);
   const SparseMatrix gradient = assembly::axisymmetric_gradient(*azimuthal_, *meridian_, m);
-  const SparseMatrix s = assembly::extract(system.stiffness, sets_.free, sets_.free);
-  const SparseMatrix mass = assembly::extract(system.mass, sets_.free, sets_.free);
-  const SparseMatrix k = assembly::extract(gradient, sets_.free, sets_.free_potential);
+  const ReducedPencil pencil = reduce_pencil(system.stiffness, system.mass, gradient, sets_);
+  const SparseMatrix& s = pencil.stiffness;
+  const SparseMatrix& mass = pencil.mass;
+  const SparseMatrix& k = pencil.gradient;
   solvers::EigenOptions options;
   options.num_eigenvalues = setup_.num_modes;
   options.krylov_dimension = setup_.krylov_dimension;
@@ -211,10 +283,7 @@ std::vector<AxisymmetricResonantMode> AxisymmetricResonance::solve() const {
     mode.wavelength = 2 * constants::pi * constants::c0 / mode.omega.real();
     mode.quality = mode.omega.real() / (-2 * mode.omega.imag());
     mode.residual = result.residuals(i);
-    Vector full = Vector::Zero(n_block);
-    for (Index j = 0; j < static_cast<Index>(sets_.free.size()); ++j) {
-      full(sets_.free[as_size(j)]) = result.eigenvectors(j, i);
-    }
+    Vector full = expand_to_full(result.eigenvectors.col(i), sets_, n_block);
     full /= full.norm();
     mode.meridian = full.head(n_e);
     mode.azimuthal = full.tail(azimuthal_->num_dofs());
@@ -320,12 +389,16 @@ AxisymmetricScatteredField AxisymmetricScattering::solve() const {
   a.makeCompressed();
   Vector rhs(static_cast<Index>(sets_.free.size()));
   for (Index j = 0; j < rhs.size(); ++j) rhs(j) = system.rhs(sets_.free[as_size(j)]);
+  if (sets_.constraints) {
+    auto reduced_system = sets_.constraints->reduce(a, rhs);
+    a = std::move(reduced_system.first);
+    rhs = std::move(reduced_system.second);
+  }
   const Vector reduced = solvers::solve_direct(a, rhs, setup_.solver, solvers::Symmetry::kDetect);
   AxisymmetricScatteredField out;
   out.azimuthal_order = m;
   const Index n_e = meridian_->num_dofs();
-  Vector full = Vector::Zero(n_e + azimuthal_->num_dofs());
-  for (Index j = 0; j < reduced.size(); ++j) full(sets_.free[as_size(j)]) = reduced(j);
+  const Vector full = expand_to_full(reduced, sets_, n_e + azimuthal_->num_dofs());
   out.meridian = full.head(n_e);
   out.azimuthal = full.tail(azimuthal_->num_dofs());
   log().info("AxisymmetricScattering: solved m = {} ({} unknowns)", m, reduced.size());
@@ -595,6 +668,87 @@ AxisymmetricFarField superpose_far_field(const std::vector<AxisymmetricFarField>
     }
   }
   return out;
+}
+
+adaptivity::Estimate AxisymmetricScattering::estimate(
+    const AxisymmetricScatteredField& field, const adaptivity::EstimatorOptions& options) const {
+  return adaptivity::axisymmetric_residual_estimate(
+      *meridian_, *azimuthal_, field.meridian, field.azimuthal, setup_.azimuthal_order, k0_ * k0_,
+      [this](Index c) { return form_of_cell(c); }, options);
+}
+
+AxisymmetricError AxisymmetricScattering::error(const AxisymmetricScatteredField& field,
+                                                const AxisymmetricField& exact,
+                                                const AxisymmetricField& exact_curl) const {
+  return axisymmetric_error(*meridian_, *azimuthal_, field.meridian, field.azimuthal,
+                            setup_.azimuthal_order, exact, exact_curl,
+                            setup_.extra_quadrature_order);
+}
+
+AxisymmetricError axisymmetric_error(const fespace::NedelecDofMap<2>& meridian,
+                                     const fespace::DofMap<2>& azimuthal,
+                                     const Vector& meridian_coefficients,
+                                     const Vector& azimuthal_coefficients, int azimuthal_order,
+                                     const AxisymmetricField& exact,
+                                     const AxisymmetricField& exact_curl, int extra_order) {
+  if (&meridian.mesh() != &azimuthal.mesh()) {
+    throw InvalidArgument("axisymmetric_error: the maps must share the mesh");
+  }
+  if (meridian_coefficients.size() != meridian.num_dofs() ||
+      azimuthal_coefficients.size() != azimuthal.num_dofs()) {
+    throw InvalidArgument("axisymmetric_error: coefficient vectors do not match the DoF maps");
+  }
+  if (!exact) throw InvalidArgument("axisymmetric_error: the exact field is required");
+  const auto& mesh = meridian.mesh();
+  std::vector<bool> touches_axis(as_size(mesh.num_cells()), false);
+  for (const Index c : assembly::axis_cells(mesh)) touches_axis[as_size(c)] = true;
+  const Real mm = static_cast<Real>(azimuthal_order);
+  Real l2 = 0;
+  Real curl = 0;
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    const int p = std::max(meridian.cell_order(c), azimuthal.cell_order(c));
+    const auto geometry = mesh::cell_geometry(mesh, c);
+    const auto rule = assembly::simplex_quadrature<2>(
+        2 * p + extra_order + (touches_axis[as_size(c)] ? 2 : 0) + (geometry->is_affine() ? 0 : 2));
+    const fespace::NedelecBasis<2> nd_basis(meridian.cell_layout(c));
+    const fespace::H1Basis<2> h1_basis(azimuthal.cell_layout(c));
+    const Vector e = assembly::gather(meridian_coefficients, meridian.cell_dofs(c));
+    const Vector v = assembly::gather(azimuthal_coefficients, azimuthal.cell_dofs(c));
+    std::vector<Point<2>> ref_values(as_size(nd_basis.size()));
+    std::vector<fespace::CurlVector<2>> ref_curls(as_size(nd_basis.size()));
+    std::vector<Real> psi(as_size(h1_basis.size()));
+    std::vector<Point<2>> ref_grad(as_size(h1_basis.size()));
+    for (std::size_t q = 0; q < rule.size(); ++q) {
+      const auto g = geometry->evaluate(rule.points[q]);
+      const Real r = g.x(0);
+      const Real dx = rule.weights[q] * std::abs(g.det);
+      nd_basis.evaluate(rule.points[q], ref_values, ref_curls);
+      h1_basis.evaluate(rule.points[q], psi, ref_grad);
+      Complex e_r = 0, e_z = 0, curl2d = 0, vv = 0, dv_r = 0, dv_z = 0;
+      for (Index i = 0; i < nd_basis.size(); ++i) {
+        const Point<2> phi = g.inverse_transpose * ref_values[as_size(i)];
+        e_r += e(i) * phi(0);
+        e_z += e(i) * phi(1);
+        curl2d += e(i) * (ref_curls[as_size(i)](0) / g.det);
+      }
+      for (Index j = 0; j < h1_basis.size(); ++j) {
+        const Point<2> grad = g.inverse_transpose * ref_grad[as_size(j)];
+        vv += v(j) * psi[as_size(j)];
+        dv_r += v(j) * grad(0);
+        dv_z += v(j) * grad(1);
+      }
+      const Eigen::Matrix<Complex, 3, 1> ex = exact(g.x);
+      const Complex d_r = e_r - ex(0);
+      const Complex d_v = vv - ex(1);
+      const Complex d_z = e_z - ex(2);
+      l2 += dx * (r * (std::norm(d_r) + std::norm(d_z)) + std::norm(d_v) / r);
+      Eigen::Matrix<Complex, 3, 1> curl_h(kI * (mm * e_z - dv_z) / r, -curl2d,
+                                          kI * (dv_r - mm * e_r) / r);
+      if (exact_curl) curl_h -= exact_curl(g.x);
+      curl += dx * r * curl_h.squaredNorm();
+    }
+  }
+  return {std::sqrt(l2), std::sqrt(curl)};
 }
 
 }  // namespace hpfem::physics

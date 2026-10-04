@@ -181,3 +181,62 @@ def test_oblique_incidence_sums_the_orders_to_mie():
     )
     phase = np.exp(1j * x * (np.sin(theta_i) * 0.6 * np.cos(0.7) + np.cos(theta_i) * 0.3))
     assert np.isclose(e_z, -np.sin(theta_i) * phase)
+
+
+def test_estimator_and_error_on_a_locally_refined_meridian_mesh():
+    # manufactured gradient mode at a re-entrant PEC edge (axisymmetric_corner.hpp of the
+    # C++ tests):
+    # local refinement of the edge cells (hanging nodes) lowers the error, the estimator follows
+    full = hpfem.rectangle(4, 4, [0.0, -1.0], [2.0, 1.0])
+    root = hpfem.extract(full, lambda c: not (c[0] > 1.0 and c[1] < 0.0))
+    for f in root.boundary_facets:
+        v = [root.vertex(int(i)) for i in root.facet_vertices(int(f))]
+        root.set_facet_tag(int(f), AXIS if max(abs(p[0]) for p in v) < 1e-12 else 9)
+    nu = 2.0 / 3.0
+
+    def potential(x):
+        r, z = x
+        rho = np.hypot(r - 1.0, z)
+        theta = np.arctan2(z, r - 1.0) % (2 * np.pi)
+        return r * (2.0 - r) * (1.0 - z * z) * rho**nu * np.sin(nu * theta)
+
+    def exact(x):
+        h = 1e-6
+        d_r = (potential(x + [h, 0.0]) - potential(x - [h, 0.0])) / (2 * h)
+        d_z = (potential(x + [0.0, h]) - potential(x - [0.0, h])) / (2 * h)
+        return np.array([d_r, potential(x), d_z], dtype=complex)
+
+    adaptive = hpfem.AdaptiveMesh2D(root)
+    errors = []
+    for _ in range(2):
+        mesh = adaptive.mesh
+        nd = hpfem.NedelecDofMap2D(mesh, 2)
+        h1 = hpfem.DofMap2D(mesh, 2)
+        setup = hpfem.AxisymmetricScatteringSetup()
+        setup.omega = c0
+        setup.pec_tags = [9]
+        setup.axis_tag = AXIS
+        setup.azimuthal_order = 1
+        setup.current = lambda x: -exact(x)
+        problem = hpfem.AxisymmetricScattering(nd, h1, setup)
+        field = problem.solve()
+        err = problem.error(field, exact)
+        est = problem.estimate(field)
+        assert len(est.indicators) == mesh.num_cells
+        assert 0.1 < est.total() / np.hypot(err.l2, err.curl) < 50.0
+        assert np.isclose(
+            err.l2,
+            hpfem.axisymmetric_error(nd, h1, field.meridian, field.azimuthal, 1, exact).l2,
+        )
+        errors.append(np.hypot(err.l2, err.curl))
+        corner = [
+            c
+            for c in range(mesh.num_cells)
+            if any(
+                np.linalg.norm(mesh.vertex(int(v)) - [1.0, 0.0]) < 1e-12
+                for v in mesh.cell_vertices(c)
+            )
+        ]
+        adaptive.refine(corner)
+    assert not adaptive.mesh.is_conforming
+    assert errors[1] < 0.9 * errors[0]

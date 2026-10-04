@@ -56,6 +56,7 @@ add_library(hpfem
   $<$<BOOL:${HPFEM_ENABLE_MUMPS}>:solvers/mumps_solver.cpp>
   $<$<BOOL:${HPFEM_ENABLE_CUDA}>:solvers/cudss_solver.cpp>
   adaptivity/residual_estimator.cpp
+  adaptivity/axisymmetric_estimator.cpp
   adaptivity/marking.cpp
   adaptivity/refinement.cpp
   adaptivity/smoothness.cpp

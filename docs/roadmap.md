@@ -202,7 +202,9 @@ Bodies of revolution on the meridian mesh, one 2D problem per azimuthal order m.
   far field)
 - [x] oblique incidence by the sum over the orders (`oblique_plane_wave`, `scatter_orders`,
   `superpose_far_field`; sphere at 50° vs Mie, exponential in p)
-- [ ] later: adaptivity on the meridian plane with the r-weighted estimator
+- [x] hp-adaptivity on the meridian plane (`adaptivity::axisymmetric_residual_estimate`,
+  hanging-node constraints in the three problem classes, `AxisymmetricScattering::estimate` /
+  `error`); convergence test at a re-entrant PEC edge, exponential in N^(1/3)
 
 ## Backlog / ideas
 - [x] dual H-formulation for guaranteed error bounds (`adaptivity::dual_solution` on the
