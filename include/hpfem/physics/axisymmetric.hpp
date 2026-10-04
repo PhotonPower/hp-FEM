@@ -15,8 +15,10 @@
 #include <optional>
 #include <vector>
 
+#include "hpfem/adaptivity/residual_estimator.hpp"
 #include "hpfem/assembly/axisymmetric_forms.hpp"
 #include "hpfem/core/types.hpp"
+#include "hpfem/fespace/constraints.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/mesh.hpp"
@@ -27,10 +29,15 @@
 namespace hpfem::physics {
 
 /// Free DoFs of the block vector (e, v) and of the gauge potential ψ after the PEC and axis
-/// conditions of order m.
+/// conditions of order m, and the hanging-node constraints of a locally refined meridian mesh.
 struct AxisymmetricDofSets {
   std::vector<Index> free;            ///< block indices (Nédélec first, then H1 of v)
   std::vector<Index> free_potential;  ///< H1 indices of ψ
+  /// Hanging-node constraints (`assembly::hanging_constraints`) of the block vector,
+  /// restricted to `free` and numbered within it; absent on a conforming mesh.
+  std::optional<fespace::Constraints> constraints;
+  /// The same for ψ, restricted to `free_potential`.
+  std::optional<fespace::Constraints> potential_constraints;
 };
 
 /// Index sets of order m: PEC fixes the Nédélec trace and v; the axis fixes v for every m
@@ -183,6 +190,26 @@ enum class AxisDipole { kAxial, kTransverse };
 /// @f$ P_0 = Z_0 k_0^2 |p|^2 / (12\pi) @f$ [W].
 [[nodiscard]] Real dipole_vacuum_power(Complex moment, Real omega);
 
+/// Error of an order-m field against an exact one in the norms of the body of revolution
+/// (factor 2π dropped): @f$ \|e\|^2 = \int(|e_r|^2 + |e_\varphi|^2 + |e_z|^2)\,r\,dr\,dz @f$ with
+/// @f$ e_\varphi = i e_v / r @f$, and the same for the cylindrical curl.
+struct AxisymmetricError {
+  Real l2 = 0;    ///< weighted L2 norm of the field error
+  Real curl = 0;  ///< weighted L2 norm of the curl error
+};
+
+/// Error of the coefficients `meridian` (E_r, E_z) and `azimuthal` (v) of order m against the
+/// exact field `exact` in the scaled components (E_r, v = −i r E_φ, E_z) and its cylindrical
+/// curl `exact_curl` = ((∇×E)_r, (∇×E)_φ, (∇×E)_z); an empty `exact_curl` means zero. The
+/// discrete curl of the mode is @f$ (\tfrac{i}{r}(mE_z - \partial_z v),\ \partial_zE_r -
+/// \partial_rE_z,\ \tfrac{i}{r}(\partial_rv - mE_r)) @f$. Quadrature of degree 2p +
+/// `extra_order` (+2 on cells touching the axis and on curved cells).
+/// @throws InvalidArgument if the maps differ in mesh or a vector does not match its map.
+[[nodiscard]] AxisymmetricError axisymmetric_error(
+    const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
+    const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
+    const AxisymmetricField& exact, const AxisymmetricField& exact_curl = {}, int extra_order = 4);
+
 /// Description of an axisymmetric scattering problem (scattered-field formulation): the
 /// incident field is a solution in the background medium, the source
 /// @f$ k_0^2(\varepsilon_r - \varepsilon_{bg})E^{inc} @f$ lives in the cells whose material
@@ -228,6 +255,16 @@ class AxisymmetricScattering {
   [[nodiscard]] assembly::AxisymmetricForm form_of_cell(Index cell) const;
   /// @throws Error if the factorisation fails.
   [[nodiscard]] AxisymmetricScatteredField solve() const;
+  /// Element indicators of a solution (`adaptivity::axisymmetric_residual_estimate` with the
+  /// per-cell forms of this problem and k0²): the residual of the equation actually solved,
+  /// PML and contrast source included.
+  [[nodiscard]] adaptivity::Estimate estimate(
+      const AxisymmetricScatteredField& field,
+      const adaptivity::EstimatorOptions& options = {}) const;
+  /// Error of a solution against an exact field (`axisymmetric_error`).
+  [[nodiscard]] AxisymmetricError error(const AxisymmetricScatteredField& field,
+                                        const AxisymmetricField& exact,
+                                        const AxisymmetricField& exact_curl = {}) const;
   [[nodiscard]] const std::vector<Index>& free_dofs() const noexcept { return sets_.free; }
 
  private:

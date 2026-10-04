@@ -190,6 +190,14 @@ error with 12 600 DoFs at $p = 2$ in 3 s. The singular solution limits uniform r
 $N^{-1/3}$ for every $p$ (the $h$ part of convergence test #7; the $hp$ part follows with
 the $hp$ decision).
 
+## Bodies of revolution
+
+The loop runs unchanged on the meridian mesh of the axisymmetric solver: the problem
+classes constrain the hanging DoFs of both spaces, and `adaptivity::axisymmetric_residual_estimate`
+is the r-weighted residual estimator of the mode equation. See
+[axisymmetric.md](axisymmetric.md#hp-adaptivity-on-the-meridian-plane) for the formulas and
+the convergence test at a re-entrant PEC edge (exponential in $N^{1/3}$, $b = 0.27$).
+
 ## Data-structure consequences (why M1/M2 must prepare this)
 
 - DoF numbering is **entity-based** (vertex → edge → face → cell) with a per-entity order,

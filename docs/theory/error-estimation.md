@@ -67,6 +67,12 @@ the scatterer boundary).
 `Estimate` returns $\eta_K$ per cell and the four squared contributions (`parts`), the
 global $\eta$ (`total()`) and the worst cell (`argmax()`).
 
+### Bodies of revolution (`adaptivity::axisymmetric_residual_estimate`)
+
+The same estimator for the equation of one azimuthal order on the meridian mesh, with the
+cylindrical curl and divergence and the weight $r$ in every integral; formulas and
+verification in [axisymmetric.md](axisymmetric.md#hp-adaptivity-on-the-meridian-plane).
+
 ## Goal-oriented estimation (dual-weighted residual)
 
 Scatterometry and metasurface design need accuracy in a *functional* $Q(E)$ (a Fourier

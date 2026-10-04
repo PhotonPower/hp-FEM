@@ -306,12 +306,101 @@ superposed orders carrying the total power to $10^{-2}$, and the cross-section c
 exponentially in $p$ (both polarisations, relative errors $3\cdot10^{-1}$, $8\cdot10^{-3}$,
 $1.5\cdot10^{-3}$, $8\cdot10^{-5}$ for $p = 1, \dots, 4$ with seven to nine orders).
 
+## hp-adaptivity on the meridian plane (`adaptivity/axisymmetric_estimator.hpp`)
+
+The adaptive loop of [hp-adaptivity.md](hp-adaptivity.md) runs unchanged on the meridian
+mesh: `mesh::AdaptiveMesh<2>` supplies the one-irregular h-refinement, the DoF maps the
+variable orders, Dörfler marking, the hp decision by error prediction and `hp_refine` are
+mesh-generic. Two pieces are specific to the body of revolution.
+
+**Hanging nodes.** On a locally refined meridian mesh the hanging DoFs of both spaces are
+constrained (`assembly::hanging_constraints` of the Nédélec map for $(E_r, E_z)$ and of the
+H1 map for $v$); `axisymmetric_dof_sets` restricts the constraints to the free DoFs after the
+PEC and axis conditions and combines them into block constraints, and the three problem
+classes reduce their systems by $P^H A P$ before solving (the eigenvalue problems reduce the
+pencil; the solution is expanded back to the full block vector). The gauge gradient of the
+constrained potential, $K_m P_\psi$, satisfies the block constraints exactly (the hanging
+constraints are interpolation-based and the gradient of a polynomial is a polynomial), so its
+reduced form is the restriction $R K_m P_\psi$ to the unconstrained rows, not $P^H K_m
+P_\psi$: with $P^H$ the kernel of the reduced pencil would be mis-represented and the gauged
+eigensolver would return spurious values (observed: the TM$_{010}$ wavenumber $2.36$ instead
+of $2.405$ on a one-irregular cylinder mesh).
+
+**The r-weighted residual estimator.** `adaptivity::axisymmetric_residual_estimate` is the
+residual estimator of [error-estimation.md](error-estimation.md) for the three-dimensional
+equation of the mode $E(r, z)e^{im\varphi}$, evaluated in the norms of the body of revolution:
+every cell and facet integral of the meridian mesh carries the weight $r$ of the volume
+element $r\,dr\,dz$ (the factor $2\pi$ dropped as in the forms),
+
+$$
+\eta_K^2 = \frac{h_K^2}{p_K^2}\int_K\big(|R_K|^2 + |\nabla\cdot d|^2\big)\,r\,dr\,dz
+         + \sum_{F\subset\partial K}\frac{h_F}{2p_F}\int_F\big(|[\![n\times w]\!]|^2
+         + |[\![n\cdot d]\!]|^2\big)\,r\,ds ,
+$$
+
+with $w = \mu^{-1}\nabla\times E_{hp}$, $d = f + k^2\varepsilon E_{hp}$ and
+$R_K = d - \nabla\times w$ in cylindrical components. For the scaled unknowns the curl of the
+mode is
+
+$$
+\nabla\times E = \Big(\frac{i}{r}(mE_z - \partial_z v),\ \partial_zE_r - \partial_rE_z,\
+\frac{i}{r}(\partial_r v - mE_r)\Big),
+$$
+
+and for the unscaled vector $w$ and the field $d$ (with $E_\varphi = iv/r$, $f_\varphi =
+if_v/r$)
+
+$$
+(\nabla\times w)_r = \frac{im}{r}w_z - \partial_z w_\varphi,\quad
+(\nabla\times w)_\varphi = \partial_z w_r - \partial_r w_z,\quad
+(\nabla\times w)_z = \frac{1}{r}\partial_r(rw_\varphi) - \frac{im}{r}w_r,\quad
+\nabla\cdot d = \frac1r\partial_r(rd_r) + \frac{im}{r}d_\varphi + \partial_z d_z .
+$$
+
+The facet normal lies in the meridian plane, so $|n\times w|^2 = |w_\varphi|^2 + |n_zw_r -
+n_rw_z|^2$ and $n\cdot d = n_rd_r + n_zd_z$. The derivatives inside a cell come from central
+differences in reference coordinates as in the Cartesian estimator; facets on the axis and
+on PEC walls carry no term (the axis conditions are essential), hanging child facets are
+integrated against the cell of their parent, and cells touching the axis use a quadrature
+rule two degrees higher. On those cells the $1/r$ terms of the residual are rational: the
+combinations that vanish for the regular solution at $r = 0$ (for $|m| = 1$ e.g.
+$w_\varphi - imw_r$) do so only up to the discretisation error for $E_{hp}$, which adds a
+logarithmic factor to the indicator of the axis cells; the loop below shows no over-refinement
+of the axis. `AxisymmetricScattering::estimate` wraps the call with the per-cell forms of the
+problem (PML tensors and contrast source included) and $k_0^2$; `axisymmetric_error` and
+`AxisymmetricScattering::error` measure the error against an exact field in the weighted
+$L^2$ and $H(\mathrm{curl})$ norms.
+
+**Verification** (`tests/unit/adaptivity/test_axisymmetric_estimator.cpp`,
+`tests/unit/physics/test_axisymmetric_adaptive.cpp`,
+`tests/convergence/axisymmetric_hp_corner.cpp`): the estimator vanishes ($< 10^{-8}$
+relative) for an exact gradient mode $\nabla(\psi e^{i\varphi})$ with polynomial $\psi$ on
+conforming and on one-irregular meshes and localises a perturbed interior DoF; the cavity
+modes of the PEC cylinder on a one-irregular mesh stay at the Bessel values and the expanded
+eigenvectors satisfy the constraints. The convergence test uses a manufactured solution with
+a re-entrant PEC edge: the meridian domain $[0,2]\times[-1,1]$ minus the quadrant $r > 1$,
+$z < 0$ (a cylindrical cavity whose lower half is filled by a PEC ring) and the curl-free mode
+$E = \nabla(\psi e^{i\varphi})$, $\psi = r(2-r)(1-z^2)\rho^{2/3}\sin(2\theta/3)$ with polar
+coordinates $(\rho, \theta)$ about the edge point $(1, 0)$, which vanishes on every wall,
+meets the axis conditions of $m = 1$ through the factor $r$ and solves $\nabla\times\nabla
+\times E - k^2E = -k^2E$ ($k = 1$) with $|E| \sim \rho^{-1/3}$ at the edge. The hp loop
+(Dörfler $0.5$, error prediction, from $p = 1$ on 24 cells) reaches a weighted
+$H(\mathrm{curl})$ error of $2.2\cdot10^{-4}$ at $34\,000$ DoFs from $0.64$ on the start mesh:
+
+| DoF | 33 | 609 | 2 900 | 6 100 | 11 600 | 16 800 | 25 500 | 34 000 |
+|---|---|---|---|---|---|---|---|---|
+| error | $6.4\cdot10^{-1}$ | $1.8\cdot10^{-1}$ | $3.0\cdot10^{-2}$ | $9.8\cdot10^{-3}$ | $2.8\cdot10^{-3}$ | $1.2\cdot10^{-3}$ | $5.0\cdot10^{-4}$ | $2.2\cdot10^{-4}$ |
+
+Fit $\exp(-bN^{1/3})$ over the last ten steps: $b = 0.27$, algebraic slope $-2.1$ for
+$N \ge 4000$ (uniform h-refinement would give $-1/3$), the edge cells h-refined in 67 of 74
+decisions, $p$ up to 7 away from the edge, effectivity index between 3.5 and 5.6 throughout.
+
 ## Roadmap
 
 The micropillar example (`examples/micropillar_qd`) exercises resonance, Purcell factor and
 β factor together. Oblique incidence is covered by the sum over the orders
-(`scatter_orders`). Still open: adaptivity on the meridian plane with the $r$-weighted
-estimator. The Python bindings
+(`scatter_orders`), hp-adaptivity on the meridian plane by the r-weighted estimator and the
+hanging-node constraints of the problem classes; the milestone is complete. The Python bindings
 (`AxisymmetricCavity`, `AxisymmetricResonance`, `AxisymmetricScattering`, `axial_plane_wave`,
 `axisymmetric_gaussian_dipole`, `axisymmetric_poynting_flux`, `axisymmetric_far_field`,
 `oblique_plane_wave`, `scatter_orders`, `superpose_far_field`) follow the C++ API one to one.
