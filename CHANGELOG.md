@@ -3,6 +3,14 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Newmark loop of `physics::TimeDomain` on the GPU: with the cuDSS backend the state stays
+  on the device, every step is two device-resident sparse products (own SpMV kernel), the
+  fused vector updates and the solve, with only the load scalar crossing per step; the
+  state is downloaded for observer calls and at the end (`HPFEM_GPU_STEPPER=0` keeps the
+  host loop). Same recursion as `step_reduced`, identical results. 164 k DoFs: 3.5 ms per
+  step against 8.3 ms with the host loop and 43 ms on MUMPS. C interface API version 3
+  (`hpfem_gpu_matrix_*`, `hpfem_gpu_stepper_*`), `solvers::DeviceMatrix`,
+  `solvers::DeviceStepper`, `LinearSolver::backend()`.
 - `physics::TimeDomain::run` works on the reduced (free-DoF) vectors and rebuilds the full
   state only for the observer and at the end (`step_reduced`); 164 k DoF, p = 2 on the CPU:
   54 → 44 ms per step. The reduced step is the hook for the GPU time stepper.
