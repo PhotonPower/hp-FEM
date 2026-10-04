@@ -90,6 +90,8 @@ void bind_physics_dim(py::module_& m) {
       .def_readwrite("current", &ScatteringSetup<Dim>::current)
       .def_readwrite("pml", &ScatteringSetup<Dim>::pml)
       .def_readwrite("periodic", &ScatteringSetup<Dim>::periodic)
+      .def_readwrite("ports", &ScatteringSetup<Dim>::ports,
+                     "waveguide ports (modal absorption and excitation; 2D)")
       .def_readwrite("solver", &ScatteringSetup<Dim>::solver)
       .def_readwrite("condense", &ScatteringSetup<Dim>::condense)
       .def_readwrite("extra_quadrature_order", &ScatteringSetup<Dim>::extra_quadrature_order)
@@ -131,6 +133,10 @@ void bind_physics_dim(py::module_& m) {
       .def("constraints", &Scattering<Dim>::constraints, Release(),
            "hanging-node followed by Bloch constraints")
       .def("solve", &Scattering<Dim>::solve, Release())
+      .def("port_modes", &Scattering<Dim>::port_modes, py::arg("port"),
+           py::return_value_policy::reference_internal, "modes of port p of the setup")
+      .def("port_coefficients", &Scattering<Dim>::port_coefficients, py::arg("solution"), Release(),
+           "incoming and outgoing modal amplitudes on every port")
       .def(
           "total_field",
           [](const Scattering<Dim>& p, const ScatteringSolution<Dim>& s, Index c,
@@ -172,6 +178,33 @@ void bind_physics_dim(py::module_& m) {
            py::arg("options") = adaptivity::EstimatorOptions{}, Release(),
            "Residual-based element indicators of the solution");
 
+  py::class_<physics::PortModes<Dim>>(m, named("PortModes", Dim).c_str(),
+                                      "Modes, functionals and normalisations of one port")
+      .def(py::init<const ND&, mesh::Tag, const materials::MaterialMap&, Real, Index, int>(),
+           py::arg("dofs"), py::arg("facet_tag"), py::arg("materials"), py::arg("omega"),
+           py::arg("num_modes"), py::arg("extra_order") = 2, py::keep_alive<1, 2>(), Release())
+      .def_property_readonly("modes", &physics::PortModes<Dim>::modes)
+      .def_property_readonly("num_modes", &physics::PortModes<Dim>::num_modes)
+      .def_property_readonly("length", &physics::PortModes<Dim>::length)
+      .def_property_readonly("origin", &physics::PortModes<Dim>::origin)
+      .def_property_readonly("tangent", &physics::PortModes<Dim>::tangent)
+      .def_property_readonly("normal", &physics::PortModes<Dim>::normal)
+      .def("functional", &physics::PortModes<Dim>::functional, py::arg("m"),
+           py::return_value_policy::copy, "q_m on the DoF map")
+      .def("normalisation", &physics::PortModes<Dim>::normalisation, py::arg("m"))
+      .def("coefficients", &physics::PortModes<Dim>::coefficients, py::arg("e"),
+           "c_m = q_m^T e / N_m of a discrete field")
+      .def("trace", &physics::PortModes<Dim>::trace, py::arg("m"), py::arg("s"),
+           "tangential trace E . t' of mode m at the port coordinate s")
+      .def("profile", &physics::PortModes<Dim>::profile, py::arg("m"), py::arg("s"),
+           "H_z profile of mode m at the port coordinate s");
+  m.def(
+      "s_parameters",
+      [](const ND& dofs, ScatteringSetup<Dim> setup) {
+        return physics::s_parameters<Dim>(dofs, std::move(setup));
+      },
+      py::arg("dofs"), py::arg("setup"), Release(),
+      "Power-normalised S-matrix of the ports of the setup (one solve per propagating channel)");
   py::class_<ScatteringOperator<Dim>>(
       m, named("ScatteringOperator", Dim).c_str(),
       "The operator of a scattering problem assembled, constrained and factorised once; "
@@ -553,6 +586,36 @@ void bind_riesz_common(py::module_& m) {
 }  // namespace
 
 void bind_physics(py::module_& m) {
+  py::class_<physics::WaveguidePort>(m, "WaveguidePort",
+                                     "A modal port on boundary facets (2D: a straight line)")
+      .def(py::init<>())
+      .def(py::init([](mesh::Tag facet_tag, Index num_modes, std::vector<Complex> incident) {
+             return physics::WaveguidePort{facet_tag, num_modes, std::move(incident)};
+           }),
+           py::arg("facet_tag"), py::arg("num_modes") = 1,
+           py::arg("incident") = std::vector<Complex>{})
+      .def_readwrite("facet_tag", &physics::WaveguidePort::facet_tag)
+      .def_readwrite("num_modes", &physics::WaveguidePort::num_modes,
+                     "modes of the expansion: guided first, then by decay")
+      .def_readwrite("incident", &physics::WaveguidePort::incident, "incoming amplitudes per mode");
+  py::class_<physics::PortMode>(m, "PortMode", "One mode of a port cross-section")
+      .def_readonly("beta", &physics::PortMode::beta)
+      .def_readonly("effective_index", &physics::PortMode::effective_index)
+      .def_readonly("power", &physics::PortMode::power, "power [W] of the unit-amplitude mode")
+      .def_readonly("propagating", &physics::PortMode::propagating);
+  py::class_<physics::PortCoefficients>(m, "PortCoefficients",
+                                        "Incoming and outgoing modal amplitudes on one port")
+      .def_readonly("incoming", &physics::PortCoefficients::incoming)
+      .def_readonly("outgoing", &physics::PortCoefficients::outgoing);
+  py::class_<physics::PortChannel>(m, "PortChannel", "A propagating (port, mode) channel")
+      .def_readonly("port", &physics::PortChannel::port)
+      .def_readonly("mode", &physics::PortChannel::mode)
+      .def_readonly("beta", &physics::PortChannel::beta)
+      .def_readonly("power", &physics::PortChannel::power);
+  py::class_<physics::SParameters>(m, "SParameters",
+                                   "Power-normalised S-matrix over the propagating channels")
+      .def_readonly("channels", &physics::SParameters::channels)
+      .def_readonly("s", &physics::SParameters::s, "channels x channels, column = excitation");
   py::class_<physics::TimeSignal>(m, "TimeSignal", "Time signal g(t) with its derivative")
       .def(py::init([](std::function<Real(Real)> value, std::function<Real(Real)> derivative) {
              return physics::TimeSignal{std::move(value), std::move(derivative)};

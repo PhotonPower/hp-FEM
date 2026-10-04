@@ -40,6 +40,16 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   (Jacobi–Anger expansion of the plane wave, s and p polarisation, power-based stopping
   criterion, far-field superposition); sphere at 50° reproduces the Mie cross-section
   with exponential convergence in p; Python bindings.
+- Waveguide ports with modal excitation and S-parameters in 2D (M12): `physics::WaveguidePort`
+  on `ScatteringSetup::ports`, `PortModes<2>` (TM slab modes of the port cross-section by a
+  hierarchical 1D p-FEM on the port edges, bi-orthogonal functionals and powers, orientation-
+  independent sign convention), the low-rank modal boundary term and excitation in
+  `Scattering::solve`, `Scattering::port_coefficients` and `physics::s_parameters`
+  (power-normalised S-matrix, one solve per propagating channel); unit tests (parallel-plate
+  modes, slab dispersion, straight guides: transmission phases, no reflection, symmetric
+  unitary S), the convergence test `waveguide_port` (S21 error 1e-2 → 2e-11 and |S11| 6e-3 →
+  2e-12 for p = 1…5), Python bindings and test, theory section
+  `docs/theory/maxwell.md#waveguide-ports-and-s-parameters`.
 
 ## [0.3.0] — 2026-10-04
 Third release: the backlog of 0.2.0 and two new milestones. Highlights: the axisymmetric

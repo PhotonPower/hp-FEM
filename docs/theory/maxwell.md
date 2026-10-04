@@ -269,6 +269,8 @@ current sources.
   constrained to the master-facet DoFs with the Bloch phase, see
   [below](#bloch-periodic-constraints).
 - **Transparent**: PML, see [pml.md](pml.md).
+- **Waveguide port**: modal absorption and excitation on boundary facets, the low-rank
+  term of the mode expansion, see [below](#waveguide-ports-and-s-parameters-physicswaveguide_porthpp).
 
 ## Bloch-periodic constraints (`assembly/periodic.hpp`)
 
@@ -351,6 +353,84 @@ the PEC elimination (`restrict_constraints`) and combined block-wise
 (`block_constraints`); the pencil is reduced with the prolongation and the eigenvectors are
 expanded, exactly as in the resonance solver, so the modes are conforming across the hanging
 edges (unit test on the slab with the core refined on one side).
+## Waveguide ports and S-parameters (`physics/waveguide_port.hpp`)
+
+A port is a set of boundary facets through which the guided modes of an attached waveguide
+enter and leave the domain. On the port $\Gamma$ the tangential field is expanded in the
+modes of the cross-section, $E_t = \sum_m (a_m + b_m)\,\hat e_m$ with prescribed incoming
+amplitudes $a_m$ and unknown outgoing $b_m$. The natural boundary term of the weak form,
+in 2D $\oint_\Gamma (\mu^{-1}\nabla\times E)\,(v\cdot t')\,ds$ with the tangent
+$t' = (n_y, -n_x)$ (from $\int_\Omega \nabla\times(c)\cdot v = \int_\Omega c\,\nabla\times v +
+\oint c\,(v\cdot t')$), is written with the modal expansion of $w = \mu^{-1}\nabla\times E =
+\sum_m (b_m - a_m)\,\hat w_m$: the magnetic field of a mode flips sign with its direction of
+propagation, the tangential electric field does not. The modes are bi-orthogonal,
+$\int_\Gamma \hat e_m\hat w_n\,ds = \delta_{mn}N_m$, so the unknown sum $a_m + b_m$ is the
+projection $c_m = \int_\Gamma E_t\hat w_m\,ds / N_m$ of the solution itself, and the port
+contributes
+
+$$
+\sum_m \frac{1}{N_m}\,q_m q_m^\top \quad\text{to the operator},\qquad
+2\sum_m a_m\,q_m \quad\text{to the load},\qquad
+q_{m,i} = \int_\Gamma (\phi_i\cdot t')\,\hat w_m\,ds ,
+$$
+
+a low-rank term on the port DoFs (edge DoFs of the port facets; the static condensation of
+the interior DoFs is unaffected). Modes in the expansion leave without reflection; modes not
+included see a PEC, so a port far enough from any scatterer needs only the guided modes, and
+a near field at the port is absorbed by adding evanescent modes (`num_modes`). After the
+solve, $b_m = c_m - a_m$; the power-normalised scattering matrix over the propagating
+channels $(p, m)$ is $S_{ij} = b_i\sqrt{P_i}/(a_j\sqrt{P_j})$ with the modal powers $P_m$
+(`s_parameters` solves once per channel with unit incoming amplitude on that channel).
+
+**2D port modes.** For the in-plane field $E = (E_x, E_y)$ with $H_z$ out of plane the port
+is a straight chain of boundary edges with the cross-section coordinate $s$ (increasing
+along $t'$) and the outward normal coordinate $\xi$. A mode $H_z = h(s)\,e^{i\beta\xi}$ solves
+
+$$
+\partial_s\big(\varepsilon_r^{-1}\partial_s h\big) + k_0^2\mu_r\,h = \beta^2\varepsilon_r^{-1}h ,
+$$
+
+discretised with a hierarchical 1D p-FEM on the port edges (vertex functions and integrated
+Legendre bubbles, the orders of the inside cells, materials of the inside cells; the dense
+generalized eigenproblem $A h = -\beta^2 B h$ with $A = K_{1/\varepsilon} - k_0^2M_\mu$,
+$B = M_{1/\varepsilon}$). The ends of the port lie on PEC walls, where $E_\xi \propto
+\partial_s h = 0$ is the natural condition, so no essential condition is imposed. Modes are
+ordered by $-\beta^2$ ascending: guided modes first (largest $\beta$), then the propagating
+box modes of a closed cross-section, then the evanescent ones with the slowest decay
+($\beta = i|\beta|$). From Ampère's law, $E = (i/\omega\varepsilon)\nabla\times H$, the outgoing
+mode has the tangential trace and the curl
+
+$$
+\hat e_m = E\cdot t' = -\frac{\beta_m}{\omega\varepsilon_0\varepsilon_r(s)}\,h_m(s),\qquad
+\hat w_m = \mu_r^{-1}\nabla\times E = i\omega\mu_0\,h_m(s),
+$$
+
+so that $\hat w_m = -i(k_0^2\varepsilon_r/\beta_m)\,\hat e_m$ (for the TEM mode this is the
+Silver–Müller condition $\nabla\times E = -ik_0\,E\cdot t'$ with the convention
+$e^{-i\omega t}$), $N_m = \int\hat e_m\hat w_m\,ds \propto h_m^\top B h_m$ (the
+bi-orthogonality is the $B$-orthogonality of the eigenvectors) and the power of the
+unit-amplitude mode is $P_m = \beta_m/(2\omega\varepsilon_0)\int h_m^2/\varepsilon_r\,ds$ (zero
+for evanescent modes). The eigenvectors are $B$-normalised and their sign is fixed
+independently of the port's orientation: the tangential electric field of the mode along the
+direction from the lexicographically smaller end point of the port to the larger one is
+positive at the port midpoint (positive slope for a mode vanishing there), so that parallel
+ports of a straight guide carry identical mode fields and $S_{21} = e^{i\beta L}$. Ports
+require the total-field formulation and lossless materials on the port; 3D ports (modes of
+the 2D cross-section from `PropagatingMode`) are a later item of M12.
+
+**Verification** (`tests/unit/physics/test_waveguide_port.cpp`,
+`tests/convergence/waveguide_port.cpp`): the port modes of the PEC parallel plate are
+$\cos(n\pi s/a)$ with $\beta_n = \sqrt{k_0^2 - (n\pi/a)^2}$ ($10^{-6}$ at $p = 4$, evanescent
+$n = 2$ with $\beta = i|\beta|$ and zero power), the even TM mode of the slab reproduces the
+root of $\kappa\tan(\kappa d/2) = (\varepsilon_{\mathrm{core}}/\varepsilon_{\mathrm{clad}})\gamma$ to
+$10^{-6}$; a straight parallel plate with two propagating modes has $S_{ij} = \delta_{m_im_j}
+e^{i\beta_mL}$ between the ports and no reflection or mode conversion ($2\cdot10^{-5}$), $S$
+symmetric and unitary; the slab section transmits its guided mode with $e^{i\beta L}$. The
+convergence test refines the order on a fixed mesh of the slab section: both the error of
+$S_{21}$ against $e^{ik_0n_{\mathrm{eff}}L}$ with the analytic $n_{\mathrm{eff}}$ and the
+residual reflection $|S_{11}|$ decay exponentially in $p$ (the 1D port modes converge with
+the same order as the 2D field).
+
 ## Resonances (`physics/resonance.hpp`)
 
 An open structure (a micro-cavity between Bragg mirrors, a plasmonic particle, a ring) has no
