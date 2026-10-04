@@ -277,4 +277,48 @@ struct AxisymmetricFarField {
     Real omega, const materials::MaterialMap& materials, const Surface<2>& surface,
     const std::vector<Real>& theta, int order = 8);
 
+/// Polarisation of a plane wave relative to its plane of incidence (the x–z plane).
+enum class PlanePolarisation { kS, kP };
+
+/// Order m of the plane wave @f$ E_0\,\hat p\,e^{ik\cdot x} @f$ with the wave vector
+/// @f$ k(\sin\theta_i, 0, \cos\theta_i) @f$ (angle θ_i from the axis, in the x–z plane) and the
+/// polarisation @f$ \hat p = \hat y @f$ (s) or @f$ (\cos\theta_i, 0, -\sin\theta_i) @f$ (p). The
+/// Jacobi–Anger expansion @f$ e^{ik_\perp\rho\cos\varphi} = \sum_n i^n
+/// J_n(k_\perp\rho)e^{in\varphi}
+/// @f$ gives, with @f$ a_n = i^n J_n(k_\perp\rho) @f$ and @f$ k_\perp = k\sin\theta_i @f$,
+/// @f$ E_{\rho,m} = \tfrac{p_x}{2}(a_{m-1} + a_{m+1}) + \tfrac{p_y}{2i}(a_{m-1} - a_{m+1}) @f$,
+/// @f$ E_{\varphi,m} = -\tfrac{p_x}{2i}(a_{m-1} - a_{m+1}) + \tfrac{p_y}{2}(a_{m-1} + a_{m+1}) @f$,
+/// @f$ E_{z,m} = p_z a_m @f$, all times @f$ E_0 e^{ikz\cos\theta_i} @f$, in the scaled components
+/// @f$ (E_r, v = -i r E_\varphi, E_z) @f$. At θ_i = 0 only m = ±1 survive (`axial_plane_wave`).
+/// The orders decouple on a body of revolution; the full response is the sum over m, which
+/// converges once |m| exceeds @f$ k_\perp @f$ times the radius of the scatterer.
+[[nodiscard]] AxisymmetricField oblique_plane_wave(Complex amplitude, Real k, Real theta_i,
+                                                   PlanePolarisation polarisation, int m);
+
+/// Fields of several orders and their powers through a common surface.
+struct AxisymmetricOrders {
+  std::vector<int> orders;                         ///< m of every solved order
+  std::vector<AxisymmetricScatteredField> fields;  ///< one per order
+  std::vector<Real> power;                         ///< power [W] of every order
+  [[nodiscard]] Real total_power() const;          ///< Σ_m power (orders are orthogonal)
+};
+
+/// Solves the scattering problem of `setup` for the orders m = 0, ±1, ±2, … with the incident
+/// component `incident_of_order(m)`, stopping when |m| ≥ 2 and the power of both ±m through
+/// `surface` falls below `tolerance` times the total so far, or at `max_order`. The setup's
+/// `azimuthal_order` and `incident` are overwritten per order.
+/// @throws InvalidArgument for max_order < 0 or a negative tolerance.
+[[nodiscard]] AxisymmetricOrders scatter_orders(
+    const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
+    AxisymmetricScatteringSetup setup,
+    const std::function<AxisymmetricField(int)>& incident_of_order, int max_order,
+    const Surface<2>& surface, Real tolerance = 1e-6);
+
+/// Far-field pattern of the sum of orders at the azimuth φ: @f$ F(\theta, \varphi) = \sum_m
+/// F_m(\theta)\,e^{im\varphi} @f$ in the spherical components (the patterns must share the
+/// polar angles). The radiated power of the result is that of the full field.
+/// @throws InvalidArgument if the patterns do not share their angles.
+[[nodiscard]] AxisymmetricFarField superpose_far_field(
+    const std::vector<AxisymmetricFarField>& patterns, const std::vector<int>& orders, Real phi);
+
 }  // namespace hpfem::physics

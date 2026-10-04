@@ -510,4 +510,91 @@ AxisymmetricFarField axisymmetric_far_field(
   return out;
 }
 
+AxisymmetricField oblique_plane_wave(Complex amplitude, Real k, Real theta_i,
+                                     PlanePolarisation polarisation, int m) {
+  const Real k_perp = k * std::sin(theta_i);
+  const Real k_z = k * std::cos(theta_i);
+  const Real p_x = polarisation == PlanePolarisation::kP ? std::cos(theta_i) : 0.0;
+  const Real p_y = polarisation == PlanePolarisation::kS ? 1.0 : 0.0;
+  const Real p_z = polarisation == PlanePolarisation::kP ? -std::sin(theta_i) : 0.0;
+  // a_n = i^n J_n(k_perp rho), J_{-n} = (-1)^n J_n
+  const auto a = [k_perp](int n, Real rho) {
+    static const Complex powers[4] = {{1.0, 0.0}, {0.0, 1.0}, {-1.0, 0.0}, {0.0, -1.0}};
+    const int order = std::abs(n);
+    Real j = std::cyl_bessel_j(static_cast<Real>(order), k_perp * rho);
+    if (n < 0 && order % 2 == 1) j = -j;
+    return powers[((n % 4) + 4) % 4] * j;
+  };
+  return [=](const Point<2>& x) {
+    const Real rho = x(0);
+    const Complex phase = amplitude * std::exp(kI * k_z * x(1));
+    const Complex sum = 0.5 * (a(m - 1, rho) + a(m + 1, rho));
+    const Complex diff = (a(m - 1, rho) - a(m + 1, rho)) / (2.0 * kI);
+    const Complex e_r = phase * (p_x * sum + p_y * diff);
+    const Complex e_phi = phase * (-p_x * diff + p_y * sum);
+    const Complex e_z = phase * p_z * a(m, rho);
+    return Eigen::Matrix<Complex, 3, 1>(e_r, -kI * rho * e_phi, e_z);
+  };
+}
+
+Real AxisymmetricOrders::total_power() const {
+  Real sum = 0;
+  for (const Real p : power) sum += p;
+  return sum;
+}
+
+AxisymmetricOrders scatter_orders(const fespace::NedelecDofMap<2>& meridian,
+                                  const fespace::DofMap<2>& azimuthal,
+                                  AxisymmetricScatteringSetup setup,
+                                  const std::function<AxisymmetricField(int)>& incident_of_order,
+                                  int max_order, const Surface<2>& surface, Real tolerance) {
+  if (max_order < 0) throw InvalidArgument("scatter_orders: max_order must not be negative");
+  if (tolerance < 0) throw InvalidArgument("scatter_orders: the tolerance must not be negative");
+  AxisymmetricOrders out;
+  const auto solve_order = [&](int m) {
+    setup.azimuthal_order = m;
+    setup.incident = incident_of_order(m);
+    setup.current = {};
+    const AxisymmetricScattering problem(meridian, azimuthal, setup);
+    AxisymmetricScatteredField field = problem.solve();
+    const Real p = axisymmetric_poynting_flux(meridian, azimuthal, field.meridian, field.azimuthal,
+                                              m, setup.omega, setup.materials, surface);
+    out.orders.push_back(m);
+    out.fields.push_back(std::move(field));
+    out.power.push_back(p);
+    return p;
+  };
+  solve_order(0);
+  for (int m = 1; m <= max_order; ++m) {
+    const Real p = solve_order(m) + solve_order(-m);
+    const Real total = out.total_power();
+    log().info("scatter_orders: |m| = {}: power {:.3e} W of {:.3e} W so far", m, p, total);
+    if (m >= 2 && p <= tolerance * total) break;
+  }
+  return out;
+}
+
+AxisymmetricFarField superpose_far_field(const std::vector<AxisymmetricFarField>& patterns,
+                                         const std::vector<int>& orders, Real phi) {
+  if (patterns.empty() || patterns.size() != orders.size()) {
+    throw InvalidArgument("superpose_far_field: one order per pattern is required");
+  }
+  AxisymmetricFarField out = patterns.front();
+  out.azimuthal_order = 0;
+  std::fill(out.f_theta.begin(), out.f_theta.end(), Complex{0.0, 0.0});
+  std::fill(out.f_phi.begin(), out.f_phi.end(), Complex{0.0, 0.0});
+  for (std::size_t i = 0; i < patterns.size(); ++i) {
+    const auto& p = patterns[i];
+    if (p.theta.size() != out.theta.size()) {
+      throw InvalidArgument("superpose_far_field: the patterns must share their polar angles");
+    }
+    const Complex rotation = std::exp(kI * static_cast<Real>(orders[i]) * phi);
+    for (std::size_t t = 0; t < out.theta.size(); ++t) {
+      out.f_theta[t] += rotation * p.f_theta[t];
+      out.f_phi[t] += rotation * p.f_phi[t];
+    }
+  }
+  return out;
+}
+
 }  // namespace hpfem::physics

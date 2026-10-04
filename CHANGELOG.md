@@ -17,6 +17,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - Python: `hpfem.DeviceMatrix`, `hpfem.DeviceStepper`, `LinearSolver.backend` and
   `complex_eigenpairs_near_gauged`; `python/tests/test_gpu.py` (skipped without the GPU
   library).
+- `physics::scatter_orders` / `oblique_plane_wave` / `superpose_far_field` (M11 backlog):
+  oblique incidence on bodies of revolution by the sum over the azimuthal orders
+  (Jacobi–Anger expansion of the plane wave, s and p polarisation, power-based stopping
+  criterion, far-field superposition); sphere at 50° reproduces the Mie cross-section
+  with exponential convergence in p; Python bindings.
 
 ## [0.3.0] — 2026-10-04
 Third release: the backlog of 0.2.0 and two new milestones. Highlights: the axisymmetric

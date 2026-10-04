@@ -129,3 +129,55 @@ def test_dipole_in_vacuum_radiates_the_larmor_power():
     assert np.max(np.abs(np.array(far.f_phi))) < 1e-6 * f_theta.max()
     assert np.allclose(f_theta[30:151] / f_theta[90], np.sin(theta[30:151]), rtol=1e-2)
     assert np.isclose(far.radiated_power(), power, rtol=1e-2)
+
+
+def test_oblique_incidence_sums_the_orders_to_mie():
+    # a sphere scatters the same cross-section at every angle; at 50 degrees the plane wave
+    # spreads over the orders m = 0, +-1, +-2, ... which are solved one by one and summed
+    n, x = 2.0, 1.5
+    theta_i = np.radians(50.0)
+    mesh = half_disc(4)
+    nd = hpfem.NedelecDofMap2D(mesh, 2)
+    h1 = hpfem.DofMap2D(mesh, 2)
+    setup = hpfem.AxisymmetricScatteringSetup()
+    setup.omega = x * c0
+    setup.materials.set(2, hpfem.Material.dielectric(n))
+    setup.axis_tag = AXIS
+    setup.pml = hpfem.PmlBox2D([0.0, -3.0], [3.0, 3.0], [0.0, 3.0, 3.0, 3.0], x)
+    surface = hpfem.Surface2D.around_cells(mesh, 2)
+    result = hpfem.scatter_orders(
+        nd,
+        h1,
+        setup,
+        lambda m: hpfem.oblique_plane_wave(1.0, x, theta_i, hpfem.PlanePolarisation.S, m),
+        8,
+        surface,
+        1e-5,
+    )
+    assert result.orders[:3] == [0, 1, -1]
+    assert len(result.orders) == len(result.fields) == len(result.power)
+    power = np.asarray(result.power)
+    assert np.allclose(power[1::2][: (len(power) - 1) // 2], power[2::2], rtol=1e-6)
+    sigma = result.total_power() / (1.0 / (2 * hpfem.constants.Z0))
+    mie = mie_scattering_efficiency(x, n) * np.pi
+    assert np.isclose(sigma, mie, rtol=5e-2)
+    # the summed orders restore the plane wave at a point: E_z = -sin(theta) e^{ik.x} for p
+    theta = np.linspace(0.0, np.pi, 19)
+    patterns = [
+        hpfem.axisymmetric_far_field(
+            nd, h1, f.meridian, f.azimuthal, m, setup.omega, setup.materials, surface, theta
+        )
+        for m, f in zip(result.orders, result.fields)
+    ]
+    total = hpfem.superpose_far_field(patterns, result.orders, 0.3)
+    assert len(total.f_theta) == len(theta)
+    assert total.radiated_power() > 0.0
+    point = np.array([0.6, 0.3])
+    orders = range(-20, 21)
+    e_z = sum(
+        np.exp(1j * m * 0.7)
+        * hpfem.oblique_plane_wave(1.0, x, theta_i, hpfem.PlanePolarisation.P, m)(point)[2]
+        for m in orders
+    )
+    phase = np.exp(1j * x * (np.sin(theta_i) * 0.6 * np.cos(0.7) + np.cos(theta_i) * 0.3))
+    assert np.isclose(e_z, -np.sin(theta_i) * phase)
