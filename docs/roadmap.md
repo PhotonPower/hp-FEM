@@ -200,8 +200,9 @@ Bodies of revolution on the meridian mesh, one 2D problem per azimuthal order m.
 - [x] far field from the m contributions (`axisymmetric_far_field`: Stratton–Chu with the
   analytic azimuthal integration; Larmor pattern of the dipole, Mie cross-section from the
   far field)
-- [ ] later: coupled orders for oblique incidence, adaptivity on the meridian plane with
-  the r-weighted estimator
+- [x] oblique incidence by the sum over the orders (`oblique_plane_wave`, `scatter_orders`,
+  `superpose_far_field`; sphere at 50° vs Mie, exponential in p)
+- [ ] later: adaptivity on the meridian plane with the r-weighted estimator
 
 ## Backlog / ideas
 - [x] dual H-formulation for guaranteed error bounds (`adaptivity::dual_solution` on the
