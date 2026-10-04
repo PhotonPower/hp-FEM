@@ -2,8 +2,8 @@
 // right-hand sides and solutions should stay on the device (ADR-0008): an angle sweep of a
 // plane wave on the unit square (`physics::ScatteringOperator::solve_many`, one
 // factorisation, `nrhs` incident fields) split into load assembly, the batched solve and
-// the recovery, with the pure host-device transfer of the same data volume measured
-// through a device-resident identity matrix (`solvers::DeviceMatrix::apply_many`); and a
+// the recovery (`HPFEM_GPU_TIMING=1` splits the batched solve into upload, device solve
+// and download); and a
 // frequency sweep with `solvers::ReducedBasis` (`A(k) = S - k^2 M`, snapshots at a few
 // wavenumbers, `nfreq` reduced solves) split into snapshots, projections and the reduced
 // solves with lifts. Prints one JSON line per run and, with a file argument, appends them
@@ -37,7 +37,6 @@
 #include "hpfem/physics/scattering.hpp"
 #include "hpfem/physics/sources.hpp"
 #include "hpfem/physics/sweep.hpp"
-#include "hpfem/solvers/device_matrix.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
 #include "hpfem/solvers/reduced_basis.hpp"
 
@@ -134,18 +133,6 @@ void angle_sweep(const hpfem::mesh::Mesh<2>& mesh, int p, Index n, Index nrhs) {
     start = Clock::now();
     for (Index j = 0; j < nrhs; ++j) (void)solver->solve(Vector(rhs.col(j)));
     const Real solve_one_by_one = seconds(start);
-    // the transfer of the same volume: identity on the device, apply_many = upload +
-    // trivial kernel + download
-    Real transfer = -1.0;
-    if (backend == DirectSolverBackend::kCudss && hpfem::solvers::DeviceMatrix::available()) {
-      SparseMatrix identity(system.rhs.size(), system.rhs.size());
-      identity.setIdentity();
-      const hpfem::solvers::DeviceMatrix device(identity);
-      (void)device.apply_many(rhs.leftCols(1));
-      start = Clock::now();
-      (void)device.apply_many(rhs);
-      transfer = seconds(start);
-    }
     // the loads alone: one solve per incident minus the pure solve
     start = Clock::now();
     for (Index j = 0; j < std::min<Index>(nrhs, 10); ++j)
@@ -177,9 +164,9 @@ void angle_sweep(const hpfem::mesh::Mesh<2>& mesh, int p, Index n, Index nrhs) {
     record(
         "angle_sweep", n, p, dofs.num_dofs(), backend,
         fmt::format(
-            R"("nrhs": {}, "factorize_s": {:.4f}, "sweep_many_s": {:.4f}, "solve_many_s": {:.4f}, "solve_one_by_one_s": {:.4f}, "transfer_s": {:.4f}, "load_and_finish_per_rhs_s": {:.5f}, "scattering_ctor_per_rhs_s": {:.5f}, "load_assembly_per_rhs_s": {:.5f}, "dirichlet_data_per_rhs_s": {:.5f}, "solutions": {})",
-            nrhs, factorize, sweep, solve_many, solve_one_by_one, transfer, load_and_finish_each,
-            ctor / ten, assembly / ten, dirichlet / ten, batched.size()));
+            R"("nrhs": {}, "factorize_s": {:.4f}, "sweep_many_s": {:.4f}, "solve_many_s": {:.4f}, "solve_one_by_one_s": {:.4f}, "load_and_finish_per_rhs_s": {:.5f}, "scattering_ctor_per_rhs_s": {:.5f}, "load_assembly_per_rhs_s": {:.5f}, "dirichlet_data_per_rhs_s": {:.5f}, "solutions": {})",
+            nrhs, factorize, sweep, solve_many, solve_one_by_one, load_and_finish_each, ctor / ten,
+            assembly / ten, dirichlet / ten, batched.size()));
   }
 }
 

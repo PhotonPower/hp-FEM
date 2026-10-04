@@ -33,6 +33,11 @@ fails with `HPFEM_GPU_ERR_OUT_OF_MEMORY` and the numbers in the message. `HPFEM_
 or `0` forces the mode. `hpfem_gpu_factor_info2` (API version 2) reports mode, estimates
 and memory held.
 
+`HPFEM_GPU_TIMING=1` prints the split upload / solve / download of every `hpfem_gpu_solve`
+call to stderr (194 k unknowns, 100 right-hand sides on an RTX 3090: 45 ms / 166 ms / 52 ms;
+pinned staging buffers were tried and gained nothing on this machine, so the copies stay
+pageable).
+
 ## Requirements
 
 | Component | Version used | Notes |

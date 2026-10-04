@@ -2,8 +2,10 @@
 // solver, the CSR matrix and the dense right-hand sides live on the device, indices are
 // passed as 64-bit (CUDSS_R_64I) exactly as the library stores them.
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <cuda_runtime.h>
 #include <cudss.h>
@@ -449,15 +451,35 @@ hpfem_gpu_status hpfem_gpu_solve(hpfem_gpu_solver* solver, int64_t nrhs, const d
                  solver->input.reserve(count * sizeof(cuDoubleComplex)));
   HPFEM_GPU_CUDA(solver, "solve: allocate output",
                  solver->output.reserve(count * sizeof(cuDoubleComplex)));
+  // HPFEM_GPU_TIMING=1 prints the split upload / solve / download of every call to stderr
+  static const bool timing = [] {
+    const char* env = std::getenv("HPFEM_GPU_TIMING");
+    return env != nullptr && *env == '1';
+  }();
+  const auto t0 = std::chrono::steady_clock::now();
   HPFEM_GPU_CUDA(solver, "solve: upload right-hand side",
                  cudaMemcpyAsync(solver->input.ptr, b, count * sizeof(cuDoubleComplex),
                                  cudaMemcpyHostToDevice, solver->stream));
+  if (timing) HPFEM_GPU_CUDA(solver, "solve: timing", cudaStreamSynchronize(solver->stream));
+  const auto t1 = std::chrono::steady_clock::now();
   const hpfem_gpu_status status = hpfem_gpu_solve_device(
       solver, nrhs, solver->input.as<cuDoubleComplex>(), solver->output.as<cuDoubleComplex>());
   if (status != HPFEM_GPU_OK) return status;
+  const auto t2 = std::chrono::steady_clock::now();
   HPFEM_GPU_CUDA(
       solver, "solve: download solution",
       cudaMemcpy(x, solver->output.ptr, count * sizeof(cuDoubleComplex), cudaMemcpyDeviceToHost));
+  if (timing) {
+    const auto t3 = std::chrono::steady_clock::now();
+    const auto ms = [](auto from, auto to) {
+      return std::chrono::duration<double, std::milli>(to - from).count();
+    };
+    std::fprintf(
+        stderr,
+        "hpfem_gpu_solve: n = %lld, nrhs = %lld: upload %.1f ms, solve %.1f ms, download %.1f ms\n",
+        static_cast<long long>(solver->n), static_cast<long long>(nrhs), ms(t0, t1), ms(t1, t2),
+        ms(t2, t3));
+  }
   return HPFEM_GPU_OK;
 }
 
