@@ -10,7 +10,12 @@
 #   cmake --build build/gpu --config Release
 #   ctest --test-dir build/gpu -C Release          # self-test on the installed GPU
 #
-# Linux: cmake -S gpu -B build/gpu -Dcudss_DIR=/usr/lib/x86_64-linux-gnu/cmake/cudss …
+# Linux / WSL (nvcc + GCC; see README.md "Build (Linux / WSL)", untested so far):
+#   cmake -S gpu -B build/gpu -DCMAKE_BUILD_TYPE=Release \
+#         -Dcudss_DIR=/usr/lib/x86_64-linux-gnu/cmake/cudss
+#   cmake --build build/gpu && ctest --test-dir build/gpu
+# The .so gets an RPATH to the cuDSS library directory so that the loader of the hp-FEM
+# library needs neither LD_LIBRARY_PATH nor an installed cuDSS.
 cmake_minimum_required(VERSION 3.25)
 # must precede project(): the CUDA compiler check fixes the architecture list
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES OR CMAKE_CUDA_ARCHITECTURES STREQUAL "")
@@ -50,6 +55,25 @@ set_target_properties(hpfem_gpu PROPERTIES
 if(MSVC)
   target_compile_options(hpfem_gpu PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/W4 -Xcompiler=/wd4100>)
+else()
+  target_compile_options(hpfem_gpu PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-Wall -Xcompiler=-Wextra>
+    $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra>)
+endif()
+
+# directory of the cuDSS shared libraries (Linux): lib/cmake/cudss -> lib; recorded as the
+# RPATH of hpfem_gpu.so and prepended to LD_LIBRARY_PATH for the self-test
+set(HPFEM_CUDSS_LIB_DIR "" CACHE PATH "Directory of the cuDSS shared libraries (Linux)")
+if(UNIX AND NOT HPFEM_CUDSS_LIB_DIR AND cudss_DIR)
+  get_filename_component(_cudss_lib "${cudss_DIR}/../.." ABSOLUTE)
+  if(EXISTS "${_cudss_lib}")
+    set(HPFEM_CUDSS_LIB_DIR "${_cudss_lib}" CACHE PATH "" FORCE)
+  endif()
+endif()
+if(UNIX AND HPFEM_CUDSS_LIB_DIR)
+  set_target_properties(hpfem_gpu PROPERTIES
+    BUILD_RPATH "${HPFEM_CUDSS_LIB_DIR}"
+    INSTALL_RPATH "${HPFEM_CUDSS_LIB_DIR}")
 endif()
 
 # directory of the cuDSS runtime DLLs for the self-test (Windows); lib/<cuda>/cmake/cudss
@@ -77,5 +101,8 @@ if(HPFEM_GPU_BUILD_SELFTEST)
   if(HPFEM_CUDSS_BIN_DIR)
     set_tests_properties(hpfem_gpu_selftest hpfem_gpu_selftest_hybrid PROPERTIES
       ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${HPFEM_CUDSS_BIN_DIR}")
+  elseif(UNIX AND HPFEM_CUDSS_LIB_DIR)
+    set_tests_properties(hpfem_gpu_selftest hpfem_gpu_selftest_hybrid PROPERTIES
+      ENVIRONMENT_MODIFICATION "LD_LIBRARY_PATH=path_list_prepend:${HPFEM_CUDSS_LIB_DIR}")
   endif()
 endif()

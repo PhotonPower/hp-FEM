@@ -52,6 +52,13 @@ template <int Dim>
 [[nodiscard]] DirichletData tangential_dirichlet_values(
     const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag tag,
     const std::type_identity_t<ComplexVectorField<Dim>>& g);
+/// The traces of several fields on the same facets in one pass (the incident fields of an
+/// angle sweep): one DirichletData per field with the same DoFs, each equal to the single
+/// call up to round-off.
+template <int Dim>
+[[nodiscard]] std::vector<DirichletData> tangential_dirichlet_values(
+    const fespace::NedelecDofMap<Dim>& dofs, std::span<const Index> facets,
+    std::span<const std::type_identity_t<ComplexVectorField<Dim>>> gs);
 /// All DoFs on the facets, value 0: homogeneous Dirichlet for H1, PEC (vanishing
 /// tangential trace) for the Nédélec space.
 template <int Dim, class Counts>
@@ -96,6 +103,12 @@ extern template DirichletData dirichlet_values<2>(const fespace::DofMap<2>&, mes
                                                   const ScalarField<2>&);
 extern template DirichletData dirichlet_values<3>(const fespace::DofMap<3>&, mesh::Tag,
                                                   const ScalarField<3>&);
+extern template std::vector<DirichletData> tangential_dirichlet_values<2>(
+    const fespace::NedelecDofMap<2>&, std::span<const Index>,
+    std::span<const ComplexVectorField<2>>);
+extern template std::vector<DirichletData> tangential_dirichlet_values<3>(
+    const fespace::NedelecDofMap<3>&, std::span<const Index>,
+    std::span<const ComplexVectorField<3>>);
 extern template DirichletData tangential_dirichlet_values<2>(const fespace::NedelecDofMap<2>&,
                                                              std::span<const Index>,
                                                              const ComplexVectorField<2>&);

@@ -168,6 +168,46 @@ assembly::DirichletData Scattering<Dim>::dirichlet() const {
 }
 
 template <int Dim>
+std::vector<assembly::DirichletData> Scattering<Dim>::dirichlet_many(
+    std::span<const IncidentField<Dim>> incidents) const {
+  using assembly::ComplexVector;
+  const std::vector<Index> pec = facets(setup_.pec_tags);
+  const std::vector<Index> incident = facets(setup_.incident_tags);
+  const bool total = setup_.formulation == Formulation::kTotalField;
+  // the part independent of the incident field (homogeneous) and the facets whose values
+  // vary with it, in the same order of precedence as dirichlet()
+  const std::vector<Index>& homogeneous = total ? pec : incident;
+  const std::vector<Index>& varying = total ? incident : pec;
+  std::optional<assembly::DirichletData> fixed;
+  if (!homogeneous.empty()) fixed = assembly::homogeneous_dirichlet(*dofs_, homogeneous);
+  std::vector<assembly::ComplexVectorField<Dim>> fields;
+  fields.reserve(incidents.size());
+  for (const IncidentField<Dim>& field : incidents) {
+    if (total) {
+      fields.push_back(field.value);
+    } else {
+      const auto value = field.value;
+      fields.push_back([value](const Point<Dim>& x) { return ComplexVector<Dim>(-value(x)); });
+    }
+  }
+  std::vector<assembly::DirichletData> traces;
+  if (!varying.empty()) {
+    traces = assembly::tangential_dirichlet_values(
+        *dofs_, varying, std::span<const assembly::ComplexVectorField<Dim>>(fields));
+  }
+  std::vector<assembly::DirichletData> out;
+  out.reserve(incidents.size());
+  for (std::size_t k = 0; k < incidents.size(); ++k) {
+    std::vector<assembly::DirichletData> parts;
+    if (total && fixed) parts.push_back(*fixed);
+    if (!varying.empty()) parts.push_back(traces[k]);
+    if (!total && fixed) parts.push_back(*fixed);
+    out.push_back(assembly::merge_dirichlet(parts));
+  }
+  return out;
+}
+
+template <int Dim>
 assembly::AssembledSystem Scattering<Dim>::assemble_raw() const {
   auto system = assembly::assemble_maxwell(
       *dofs_, [this](Index cell) { return form_of_cell(cell); }, setup_.extra_quadrature_order);

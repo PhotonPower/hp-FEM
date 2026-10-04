@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <span>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
@@ -102,16 +103,39 @@ std::vector<EntityPoint<Dim>> cell_points(const mesh::CellGeometry<Dim>& geometr
   return out;
 }
 
-/// The interpolation state of one space.
-template <int Dim, class Counts, class Sampler>
+/// One sampler, or several sampled at the same points (the Dirichlet data of a sweep).
+template <class Sampler>
+struct SingleSampler {
+  const Sampler& g;
+  [[nodiscard]] Index count() const noexcept { return 1; }
+  template <int Dim>
+  [[nodiscard]] auto sample(Index, Index c, const Point<Dim>& xi, const Point<Dim>& x) const {
+    return g(c, xi, x);
+  }
+};
+template <class Sampler>
+struct MultiSampler {
+  std::span<const Sampler> gs;
+  [[nodiscard]] Index count() const noexcept { return static_cast<Index>(gs.size()); }
+  template <int Dim>
+  [[nodiscard]] auto sample(Index j, Index c, const Point<Dim>& xi, const Point<Dim>& x) const {
+    return gs[as_size(j)](c, xi, x);
+  }
+};
+
+/// The interpolation state of one space: k functions sampled at the same points, one
+/// column of coefficients each; the geometry, the basis traces and the Gram matrices are
+/// evaluated once for all of them. The single function is the case k = 1 with the same
+/// operations per column.
+template <int Dim, class Counts, class Samplers>
 class Interpolator {
  public:
   using Traits = detail::SpaceTraits<Dim, Counts>;
   static constexpr int kComponents = Traits::kComponents;
-  using Value = Eigen::Matrix<Complex, kComponents, 1>;
+  using Value = Eigen::Matrix<Complex, kComponents, Eigen::Dynamic>;
 
-  Interpolator(const fespace::EntityDofMap<Dim, Counts>& dofs, const Sampler& g)
-      : dofs_(dofs), mesh_(dofs.mesh()), g_(g) {}
+  Interpolator(const fespace::EntityDofMap<Dim, Counts>& dofs, const Samplers& samplers)
+      : dofs_(dofs), mesh_(dofs.mesh()), samplers_(samplers), k_(samplers.count()) {}
 
   /// Projects the remainder on the functions [offset, offset + n) of cell c at the points.
   void project(Index c, Index offset, Index n, const std::vector<EntityPoint<Dim>>& points) {
@@ -120,14 +144,14 @@ class Interpolator {
     const auto geometry = mesh::cell_geometry(mesh_, c);
     const auto ids = dofs_.cell_dofs(c);
     // known coefficients of the other functions of the cell
-    std::vector<std::pair<Index, Complex>> known;
+    std::vector<std::pair<Index, Vector>> known;
     for (Index i = 0; i < static_cast<Index>(ids.size()); ++i) {
       if (i >= offset && i < offset + n) continue;
       const auto found = values_.find(ids[as_size(i)]);
       if (found != values_.end()) known.emplace_back(i, found->second);
     }
     Eigen::MatrixXd gram = Eigen::MatrixXd::Zero(n, n);
-    Vector rhs = Vector::Zero(n);
+    Matrix rhs = Matrix::Zero(n, k_);
     typename Traits::Values phi;
     Eigen::Matrix<Real, kComponents, Eigen::Dynamic> trace(kComponents, n);
     for (const auto& point : points) {
@@ -137,9 +161,9 @@ class Interpolator {
       if constexpr (kComponents > 1) r = point.projector.template cast<Complex>() * r;
       for (const auto& [i, coefficient] : known) {
         if constexpr (kComponents == 1) {
-          r -= coefficient * phi.col(i);
+          r -= phi.col(i).template cast<Complex>() * coefficient.transpose();
         } else {
-          r -= coefficient * (point.projector * phi.col(i)).template cast<Complex>();
+          r -= (point.projector * phi.col(i)).template cast<Complex>() * coefficient.transpose();
         }
       }
       for (Index j = 0; j < n; ++j) {
@@ -150,12 +174,16 @@ class Interpolator {
         }
       }
       gram += point.weight * trace.transpose() * trace;
-      rhs += point.weight * (trace.transpose().template cast<Complex>() * r);
+      for (Index j = 0; j < k_; ++j) {
+        rhs.col(j) += point.weight * (trace.transpose().template cast<Complex>() * r.col(j));
+      }
     }
     const auto ldlt = gram.ldlt();
-    const Vector coefficient = ldlt.solve(rhs.real()).template cast<Complex>() +
+    const Matrix coefficient = ldlt.solve(rhs.real()).template cast<Complex>() +
                                Complex(0.0, 1.0) * ldlt.solve(rhs.imag()).template cast<Complex>();
-    for (Index j = 0; j < n; ++j) values_[ids[as_size(offset + j)]] = coefficient(j);
+    for (Index j = 0; j < n; ++j) {
+      values_[ids[as_size(offset + j)]] = coefficient.row(j).transpose();
+    }
   }
 
   void vertex(Index v, Index c) {
@@ -165,7 +193,7 @@ class Interpolator {
     const Point<Dim> x = mesh_.geometry_order() == 1
                              ? mesh_.vertex(v)
                              : mesh::cell_geometry(mesh_, c)->evaluate(xi).x;
-    values_[dofs_.vertex_dof(v)] = sample(c, xi, x)(0);
+    values_[dofs_.vertex_dof(v)] = sample(c, xi, x).row(0).transpose();
   }
 
   void edge(Index e) {
@@ -200,31 +228,42 @@ class Interpolator {
     project(c, traits.basis.cell_offset(), n, cell_points<Dim>(*mesh::cell_geometry(mesh_, c), p));
   }
 
-  [[nodiscard]] DofValues result() const {
-    DofValues out;
-    out.dofs.reserve(values_.size());
-    out.values.resize(static_cast<Index>(values_.size()));
+  /// One DofValues per function (the same DoFs in every one).
+  [[nodiscard]] std::vector<DofValues> result() const {
+    std::vector<DofValues> out(as_size(k_));
+    for (DofValues& values : out) {
+      values.dofs.reserve(values_.size());
+      values.values.resize(static_cast<Index>(values_.size()));
+    }
     Index i = 0;
     for (const auto& [dof, value] : values_) {
-      out.dofs.push_back(dof);
-      out.values(i++) = value;
+      for (Index j = 0; j < k_; ++j) {
+        out[as_size(j)].dofs.push_back(dof);
+        out[as_size(j)].values(i) = value(j);
+      }
+      ++i;
     }
     return out;
   }
 
  private:
   [[nodiscard]] Value sample(Index c, const Point<Dim>& xi, const Point<Dim>& x) const {
-    if constexpr (kComponents == 1) {
-      return Value(g_(c, xi, x));
-    } else {
-      return g_(c, xi, x);
+    Value out(kComponents, k_);
+    for (Index j = 0; j < k_; ++j) {
+      if constexpr (kComponents == 1) {
+        out(0, j) = samplers_.sample(j, c, xi, x);
+      } else {
+        out.col(j) = samplers_.sample(j, c, xi, x);
+      }
     }
+    return out;
   }
 
   const fespace::EntityDofMap<Dim, Counts>& dofs_;
   const mesh::Mesh<Dim>& mesh_;
-  const Sampler& g_;
-  std::map<Index, Complex> values_;
+  Samplers samplers_;
+  Index k_;
+  std::map<Index, Vector> values_;
 };
 
 /// A cell containing each vertex of the set (first cell of an incident edge of the set, or
@@ -246,10 +285,10 @@ std::map<Index, Index> vertex_cells(const mesh::Mesh<Dim>& mesh, const EntitySet
   return out;
 }
 
-template <int Dim, class Counts, class Sampler>
-DofValues interpolate_set(const fespace::EntityDofMap<Dim, Counts>& dofs, const EntitySet<Dim>& set,
-                          const Sampler& g) {
-  Interpolator<Dim, Counts, Sampler> interpolator(dofs, g);
+template <int Dim, class Counts, class Samplers>
+std::vector<DofValues> interpolate_set(const fespace::EntityDofMap<Dim, Counts>& dofs,
+                                       const EntitySet<Dim>& set, const Samplers& samplers) {
+  Interpolator<Dim, Counts, Samplers> interpolator(dofs, samplers);
   if constexpr (Counts::kVertexDofs == 1) {
     const auto cells = vertex_cells(dofs.mesh(), set);
     for (const Index v : set.vertices) interpolator.vertex(v, cells.at(v));
@@ -262,7 +301,8 @@ DofValues interpolate_set(const fespace::EntityDofMap<Dim, Counts>& dofs, const 
 
 template <int Dim, class Counts, class Sampler>
 Vector interpolate_all(const fespace::EntityDofMap<Dim, Counts>& dofs, const Sampler& g) {
-  const DofValues values = interpolate_set(dofs, EntitySet<Dim>::all(dofs.mesh()), g);
+  const DofValues values =
+      interpolate_set(dofs, EntitySet<Dim>::all(dofs.mesh()), SingleSampler<Sampler>{g}).front();
   Vector out = Vector::Zero(dofs.num_dofs());
   for (Index i = 0; i < values.size(); ++i) out(values.dofs[as_size(i)]) = values.values(i);
   return out;
@@ -332,13 +372,26 @@ EntitySet<Dim> EntitySet<Dim>::all(const mesh::Mesh<Dim>& mesh) {
 template <int Dim>
 DofValues interpolate(const fespace::DofMap<Dim>& dofs, const EntitySet<Dim>& set,
                       const std::type_identity_t<ScalarSampler<Dim>>& g) {
-  return interpolate_set(dofs, set, g);
+  return interpolate_set(dofs, set, SingleSampler<ScalarSampler<Dim>>{g}).front();
 }
 
 template <int Dim>
 DofValues interpolate(const fespace::NedelecDofMap<Dim>& dofs, const EntitySet<Dim>& set,
                       const std::type_identity_t<VectorSampler<Dim>>& g) {
-  return interpolate_set(dofs, set, g);
+  return interpolate_set(dofs, set, SingleSampler<VectorSampler<Dim>>{g}).front();
+}
+
+template <int Dim>
+std::vector<DofValues> interpolate(const fespace::DofMap<Dim>& dofs, const EntitySet<Dim>& set,
+                                   std::span<const std::type_identity_t<ScalarSampler<Dim>>> gs) {
+  return interpolate_set(dofs, set, MultiSampler<ScalarSampler<Dim>>{gs});
+}
+
+template <int Dim>
+std::vector<DofValues> interpolate(const fespace::NedelecDofMap<Dim>& dofs,
+                                   const EntitySet<Dim>& set,
+                                   std::span<const std::type_identity_t<VectorSampler<Dim>>> gs) {
+  return interpolate_set(dofs, set, MultiSampler<VectorSampler<Dim>>{gs});
 }
 
 template <int Dim>
@@ -373,6 +426,16 @@ template DofValues interpolate<2>(const fespace::NedelecDofMap<2>&, const Entity
                                   const VectorSampler<2>&);
 template DofValues interpolate<3>(const fespace::NedelecDofMap<3>&, const EntitySet<3>&,
                                   const VectorSampler<3>&);
+template std::vector<DofValues> interpolate<2>(const fespace::DofMap<2>&, const EntitySet<2>&,
+                                               std::span<const ScalarSampler<2>>);
+template std::vector<DofValues> interpolate<3>(const fespace::DofMap<3>&, const EntitySet<3>&,
+                                               std::span<const ScalarSampler<3>>);
+template std::vector<DofValues> interpolate<2>(const fespace::NedelecDofMap<2>&,
+                                               const EntitySet<2>&,
+                                               std::span<const VectorSampler<2>>);
+template std::vector<DofValues> interpolate<3>(const fespace::NedelecDofMap<3>&,
+                                               const EntitySet<3>&,
+                                               std::span<const VectorSampler<3>>);
 template Vector interpolate<2>(const fespace::DofMap<2>&, const ScalarSampler<2>&);
 template Vector interpolate<3>(const fespace::DofMap<3>&, const ScalarSampler<3>&);
 template Vector interpolate<2>(const fespace::NedelecDofMap<2>&, const VectorSampler<2>&);

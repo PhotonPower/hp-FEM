@@ -100,6 +100,11 @@ class Scattering {
   [[nodiscard]] assembly::MaxwellForm<Dim> form_of_cell(Index cell) const;
   /// Dirichlet data of the unknown field on the PEC and incident facets.
   [[nodiscard]] assembly::DirichletData dirichlet() const;
+  /// The same for several incident fields of this setup (same tags, formulation and
+  /// materials), interpolated in one pass over the facets; element k equals `dirichlet()`
+  /// of the setup with `incident = incidents[k]` up to round-off.
+  [[nodiscard]] std::vector<assembly::DirichletData> dirichlet_many(
+      std::span<const IncidentField<Dim>> incidents) const;
   /// @f$ A = S - k_0^2 M @f$ and the load without boundary conditions.
   [[nodiscard]] assembly::AssembledSystem assemble_raw() const;
   /// @f$ A = S - k_0^2 M @f$ and the load with the Dirichlet data applied (conforming

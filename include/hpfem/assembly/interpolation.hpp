@@ -63,6 +63,17 @@ template <int Dim>
 [[nodiscard]] DofValues interpolate(const fespace::NedelecDofMap<Dim>& dofs,
                                     const EntitySet<Dim>& set,
                                     const std::type_identity_t<VectorSampler<Dim>>& g);
+/// Several functions on the same entities in one pass (geometry, basis traces and Gram
+/// matrices once): one DofValues per function, the same DoFs in each; column j equals the
+/// single interpolation of gs[j] up to round-off.
+template <int Dim>
+[[nodiscard]] std::vector<DofValues> interpolate(
+    const fespace::DofMap<Dim>& dofs, const EntitySet<Dim>& set,
+    std::span<const std::type_identity_t<ScalarSampler<Dim>>> gs);
+template <int Dim>
+[[nodiscard]] std::vector<DofValues> interpolate(
+    const fespace::NedelecDofMap<Dim>& dofs, const EntitySet<Dim>& set,
+    std::span<const std::type_identity_t<VectorSampler<Dim>>> gs);
 /// Interpolation on the whole mesh as a coefficient vector.
 template <int Dim>
 [[nodiscard]] Vector interpolate(const fespace::DofMap<Dim>& dofs,
@@ -88,6 +99,18 @@ extern template DofValues interpolate<2>(const fespace::NedelecDofMap<2>&, const
                                          const VectorSampler<2>&);
 extern template DofValues interpolate<3>(const fespace::NedelecDofMap<3>&, const EntitySet<3>&,
                                          const VectorSampler<3>&);
+extern template std::vector<DofValues> interpolate<2>(const fespace::DofMap<2>&,
+                                                      const EntitySet<2>&,
+                                                      std::span<const ScalarSampler<2>>);
+extern template std::vector<DofValues> interpolate<3>(const fespace::DofMap<3>&,
+                                                      const EntitySet<3>&,
+                                                      std::span<const ScalarSampler<3>>);
+extern template std::vector<DofValues> interpolate<2>(const fespace::NedelecDofMap<2>&,
+                                                      const EntitySet<2>&,
+                                                      std::span<const VectorSampler<2>>);
+extern template std::vector<DofValues> interpolate<3>(const fespace::NedelecDofMap<3>&,
+                                                      const EntitySet<3>&,
+                                                      std::span<const VectorSampler<3>>);
 extern template Vector interpolate<2>(const fespace::DofMap<2>&, const ScalarSampler<2>&);
 extern template Vector interpolate<3>(const fespace::DofMap<3>&, const ScalarSampler<3>&);
 extern template Vector interpolate<2>(const fespace::NedelecDofMap<2>&, const VectorSampler<2>&);
