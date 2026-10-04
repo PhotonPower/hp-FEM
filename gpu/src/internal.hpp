@@ -114,7 +114,9 @@ hpfem_gpu_status hpfem_gpu_solve_device(hpfem_gpu_solver* solver, int64_t nrhs,
                                         const cuDoubleComplex* d_b, cuDoubleComplex* d_x);
 
 struct hpfem_gpu_matrix {
-  int64_t n = 0;
+  int64_t n = 0;     // rows (kept for the square case)
+  int64_t rows = 0;  // rows and columns; square unless created with hpfem_gpu_matrix_create_rect
+  int64_t cols = 0;
   int64_t nnz = 0;
   DeviceBuffer row_ptr;
   DeviceBuffer col;

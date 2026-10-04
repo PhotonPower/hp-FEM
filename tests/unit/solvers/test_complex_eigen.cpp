@@ -15,7 +15,9 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "hpfem/core/error.hpp"
+#include "hpfem/solvers/device_arnoldi.hpp"
 #include "hpfem/solvers/eigen_solver.hpp"
+#include "hpfem/solvers/linear_solver.hpp"
 
 using Catch::Approx;
 using hpfem::Complex;
@@ -161,4 +163,134 @@ TEST_CASE("complex_eigenpairs_near_gauged skips the kernel spanned by the gradie
   REQUIRE_THROWS_AS(
       hpfem::solvers::complex_eigenpairs_near_gauged(a, b, SparseMatrix(n - 1, 2), sigma, options),
       hpfem::InvalidArgument);
+}
+
+TEST_CASE("DeviceArnoldi: the Krylov basis on the GPU reproduces the host recursion",
+          "[solvers][eigen][complex][gpu]") {
+  using hpfem::solvers::available;
+  using hpfem::solvers::DeviceArnoldi;
+  using hpfem::solvers::DirectSolverBackend;
+  using hpfem::solvers::make_direct_solver;
+  using hpfem::solvers::Symmetry;
+  const Index n = 600;
+  const Index ncv = 14;
+  const auto [a, b] = pencil(n, 1.0);
+  const Complex sigma{0.9, 0.05};
+  SparseMatrix shifted = a - sigma * b;
+  shifted.makeCompressed();
+  if (!available(DirectSolverBackend::kCudss)) {
+    auto lu = make_direct_solver(DirectSolverBackend::kSparseLu);
+    lu->factorize(shifted);
+    CHECK(!DeviceArnoldi::available(*lu));
+    CHECK_THROWS_AS(DeviceArnoldi(*lu, b, nullptr, nullptr, ncv), hpfem::Error);
+    return;
+  }
+  auto solver = make_direct_solver(DirectSolverBackend::kCudss, Symmetry::kDetect);
+  solver->factorize(shifted);
+  REQUIRE(DeviceArnoldi::available(*solver));
+  CHECK(DeviceArnoldi::basis_bytes(n, ncv) == 16 * static_cast<std::size_t>(n * (ncv + 4)));
+  // host recursion with the same factorisation: classical Gram–Schmidt twice
+  Vector start(n);
+  for (Index i = 0; i < n; ++i) {
+    start(i) = Complex(std::sin(0.37 * static_cast<Real>(i)), std::cos(1.1 * static_cast<Real>(i)));
+  }
+  Matrix v = Matrix::Zero(n, ncv + 1);
+  v.col(0) = start / start.norm();
+  Matrix h_host = Matrix::Zero(ncv + 1, ncv);
+  Matrix h_device = Matrix::Zero(ncv + 1, ncv);
+  DeviceArnoldi device(*solver, b, nullptr, nullptr, ncv);
+  device.set_start(start);
+  for (Index j = 0; j < ncv; ++j) {
+    Vector w = solver->solve(Vector(b * v.col(j)));
+    for (int pass = 0; pass < 2; ++pass) {
+      const Vector c = v.leftCols(j + 1).adjoint() * w;
+      h_host.col(j).head(j + 1) += c;
+      w -= v.leftCols(j + 1) * c;
+    }
+    h_host(j + 1, j) = w.norm();
+    v.col(j + 1) = w / w.norm();
+    Vector column;
+    h_device(j + 1, j) = device.iterate(j, column);
+    REQUIRE(column.size() == j + 1);
+    h_device.col(j).head(j + 1) = column;
+  }
+  REQUIRE((h_device - h_host).norm() < 1e-12 * h_host.norm());
+  // the Ritz values of both Hessenberg matrices
+  Eigen::ComplexEigenSolver<Matrix> host(h_host.topLeftCorner(ncv, ncv));
+  Eigen::ComplexEigenSolver<Matrix> dev(h_device.topLeftCorner(ncv, ncv));
+  std::vector<Complex> ritz_host(host.eigenvalues().data(), host.eigenvalues().data() + ncv);
+  std::vector<Complex> ritz_device(dev.eigenvalues().data(), dev.eigenvalues().data() + ncv);
+  const auto by_modulus = [](Complex p, Complex q) { return std::abs(p) > std::abs(q); };
+  std::sort(ritz_host.begin(), ritz_host.end(), by_modulus);
+  std::sort(ritz_device.begin(), ritz_device.end(), by_modulus);
+  for (Index k = 0; k < ncv; ++k) {
+    REQUIRE(std::abs(ritz_device[hpfem::as_size(k)] - ritz_host[hpfem::as_size(k)]) <
+            1e-10 * std::abs(ritz_host[hpfem::as_size(k)]));
+  }
+  // the basis itself, Ritz vectors as V_m y and the restart vector
+  const Matrix basis = device.combine(ncv + 1, Matrix::Identity(ncv + 1, ncv + 1));
+  REQUIRE((basis - v).norm() < 1e-12 * v.norm());
+  const Matrix y = host.eigenvectors().leftCols(3);
+  REQUIRE((device.combine(ncv, y) - v.leftCols(ncv) * y).norm() < 1e-12 * y.norm());
+  Vector c(ncv);
+  for (Index i = 0; i < ncv; ++i) c(i) = Complex(1.0 / static_cast<Real>(i + 1), 0.1);
+  device.restart(ncv, c);
+  const Vector expected = (v.leftCols(ncv) * c).normalized();
+  REQUIRE((device.combine(1, Matrix::Identity(1, 1)).col(0) - expected).norm() < 1e-12);
+  // errors: wrong sizes
+  CHECK_THROWS_AS(device.set_start(Vector::Ones(n + 1)), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(device.iterate(ncv, c), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(device.restart(ncv + 2, c), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(device.combine(ncv, Matrix::Identity(3, 3)), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(DeviceArnoldi(*solver, a.topLeftCorner(n - 1, n - 1), nullptr, nullptr, ncv),
+                  hpfem::InvalidArgument);
+  // a gauge needs its factorisation on the device
+  auto lu = make_direct_solver(DirectSolverBackend::kSparseLu);
+  CHECK(!DeviceArnoldi::available(*lu));
+  const SparseMatrix g = Matrix::Ones(n, 1).sparseView();
+  CHECK_THROWS_AS(DeviceArnoldi(*solver, b, &g, lu.get(), ncv), hpfem::Error);
+}
+
+TEST_CASE("complex_eigenpairs_near on the GPU gives the eigenvalues of the host path",
+          "[solvers][eigen][complex][gpu]") {
+  using hpfem::solvers::available;
+  using hpfem::solvers::DirectSolverBackend;
+  if (!available(DirectSolverBackend::kCudss)) return;
+  // the shift-invert solver with the Krylov basis on the device (cuDSS) against the host
+  // basis (SparseLU): same eigenvalues to 1e-10, with and without the gauge projection
+  const Index n = 800;
+  const auto [a, b] = pencil(n, 1.0);
+  const Complex sigma{1.2, 0.1};
+  EigenOptions options;
+  options.num_eigenvalues = 6;
+  options.krylov_dimension = 24;
+  const auto host = complex_eigenpairs_near(a, b, sigma, options, DirectSolverBackend::kSparseLu);
+  const auto device = complex_eigenpairs_near(a, b, sigma, options, DirectSolverBackend::kCudss);
+  REQUIRE(host.num_converged == 6);
+  REQUIRE(device.num_converged == 6);
+  for (Index i = 0; i < 6; ++i) {
+    REQUIRE(std::abs(device.eigenvalues(i) - host.eigenvalues(i)) <
+            1e-10 * std::abs(host.eigenvalues(i)));
+    const Vector x = device.eigenvectors.col(i);
+    REQUIRE((a * x - device.eigenvalues(i) * (b * x)).norm() < 1e-8);
+  }
+  // gauged: G spans eight directions; every eigenvector is B-orthogonal to them
+  std::vector<Eigen::Triplet<Complex, Index>> entries;
+  for (Index i = 0; i < n; ++i) {
+    entries.emplace_back(i, i % 8, Complex{1.0, 0.05 * static_cast<Real>(i % 5)});
+  }
+  SparseMatrix g(n, 8);
+  g.setFromTriplets(entries.begin(), entries.end());
+  const auto host_gauged = hpfem::solvers::complex_eigenpairs_near_gauged(
+      a, b, g, sigma, options, DirectSolverBackend::kSparseLu);
+  const auto device_gauged = hpfem::solvers::complex_eigenpairs_near_gauged(
+      a, b, g, sigma, options, DirectSolverBackend::kCudss);
+  REQUIRE(host_gauged.num_converged == 6);
+  REQUIRE(device_gauged.num_converged == 6);
+  for (Index i = 0; i < 6; ++i) {
+    REQUIRE(std::abs(device_gauged.eigenvalues(i) - host_gauged.eigenvalues(i)) <
+            1e-10 * std::abs(host_gauged.eigenvalues(i)));
+    const Vector x = device_gauged.eigenvectors.col(i);
+    REQUIRE((g.adjoint() * (b * x)).norm() < 1e-8);
+  }
 }

@@ -93,3 +93,23 @@ TEST_CASE("Resonance on a hanging-node mesh and setup errors", "[physics][resona
   bad.num_modes = 0;
   REQUIRE_THROWS_AS(Resonance<2>(dofs, bad), hpfem::InvalidArgument);
 }
+
+TEST_CASE("Resonance on the GPU: the Krylov basis on the device gives the host modes",
+          "[physics][resonance][gpu]") {
+  using hpfem::solvers::DirectSolverBackend;
+  if (!hpfem::solvers::available(DirectSolverBackend::kCudss)) return;
+  const Mesh<2> mesh = rectangle(8, 8);
+  const NedelecDofMap<2> dofs(mesh, 3);
+  ResonanceSetup<2> host_setup = closed_box(1.2 * kPi);
+  host_setup.solver = DirectSolverBackend::kSparseLu;
+  ResonanceSetup<2> device_setup = host_setup;
+  device_setup.solver = DirectSolverBackend::kCudss;
+  const auto host = Resonance<2>(dofs, host_setup).solve();
+  const auto device = Resonance<2>(dofs, device_setup).solve();
+  REQUIRE(host.size() == 3);
+  REQUIRE(device.size() == 3);
+  for (std::size_t i = 0; i < 3; ++i) {
+    REQUIRE(std::abs(device[i].omega - host[i].omega) < 1e-10 * std::abs(host[i].omega));
+    REQUIRE(device[i].residual < 1e-10);
+  }
+}

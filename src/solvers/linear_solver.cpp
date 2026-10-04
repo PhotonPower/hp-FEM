@@ -18,6 +18,7 @@
 
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/solvers/device_arnoldi.hpp"
 #include "hpfem/solvers/device_matrix.hpp"
 #include "hpfem/solvers/device_stepper.hpp"
 
@@ -213,6 +214,32 @@ Vector DeviceMatrix::apply(const Vector& /*x*/) const {
 }
 Matrix DeviceMatrix::apply_many(const Matrix& /*x*/) const {
   throw Error("DeviceMatrix needs the GPU backend (configure with HPFEM_ENABLE_CUDA)");
+}
+
+struct DeviceArnoldi::Impl {};
+bool DeviceArnoldi::available(const LinearSolver& /*shifted*/) noexcept {
+  return false;
+}
+std::size_t DeviceArnoldi::basis_bytes(Index n, Index ncv) noexcept {
+  return 16 * static_cast<std::size_t>(n) * static_cast<std::size_t>(ncv + 4);
+}
+DeviceArnoldi::DeviceArnoldi(LinearSolver& /*shifted*/, const SparseMatrix& /*b*/,
+                             const SparseMatrix* /*gradient*/, LinearSolver* /*gauge*/,
+                             Index /*ncv*/) {
+  throw Error("DeviceArnoldi needs the GPU backend (configure with HPFEM_ENABLE_CUDA)");
+}
+DeviceArnoldi::~DeviceArnoldi() = default;
+void DeviceArnoldi::set_start(const Vector& /*start*/) {
+  throw Error("DeviceArnoldi needs the GPU backend (configure with HPFEM_ENABLE_CUDA)");
+}
+Real DeviceArnoldi::iterate(Index /*j*/, Vector& /*h_column*/) {
+  throw Error("DeviceArnoldi needs the GPU backend (configure with HPFEM_ENABLE_CUDA)");
+}
+void DeviceArnoldi::restart(Index /*m*/, const Vector& /*coefficients*/) {
+  throw Error("DeviceArnoldi needs the GPU backend (configure with HPFEM_ENABLE_CUDA)");
+}
+Matrix DeviceArnoldi::combine(Index /*m*/, const Matrix& /*coefficients*/) const {
+  throw Error("DeviceArnoldi needs the GPU backend (configure with HPFEM_ENABLE_CUDA)");
 }
 
 struct DeviceStepper::Impl {};
