@@ -3,6 +3,17 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Batched loads and Dirichlet data for sweeps: `assembly::assemble_maxwell_loads` assembles
+  the loads of all incident fields in one pass over the cells (geometry, quadrature and
+  basis functions once per cell, cell colouring instead of per-thread copies of the n x k
+  result), the hierarchical interpolation samples several functions at once
+  (`interpolate` / `tangential_dirichlet_values` on a span of functions,
+  `Scattering::dirichlet_many`), and `ScatteringOperator::solve_many` uses both: the
+  100-angle sweep at 194 k DoFs takes 0.78 s instead of 3.2 s on cuDSS, the same saving on
+  every backend; columns agree with the single-field paths to 1e-14. The measurement behind
+  it (`bench_sweep_shares`: device-resident sweep vectors would have saved 0.1 s) and
+  `HPFEM_GPU_TIMING=1` (upload / solve / download split of a GPU solve) are recorded;
+  the Linux build of the GPU library is prepared in `gpu/` (RPATH, README) but untested.
 - hp-adaptivity on the meridian plane (M11, last item): `adaptivity::axisymmetric_residual_estimate`
   (the r-weighted residual estimator of the mode equation, cylindrical curl and divergence,
   hanging facets), hanging-node constraints in `AxisymmetricCavity`, `AxisymmetricResonance`
