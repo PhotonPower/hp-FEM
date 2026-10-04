@@ -403,6 +403,81 @@ discrete pencil to $10^{-15}$. The unit tests check the complex solver against a
 reference (scale invariant from $O(1)$ to $O(10^{13})$ matrices) and the closed PEC square
 (real eigenfrequencies $c_0\pi\sqrt{m^2 + n^2}$, also on a hanging-node mesh).
 
+## Modal expansion by Riesz projection (`physics/riesz_projection.hpp`)
+
+How much of a scattering or emission problem is carried by a given quasi-normal mode? The
+solution $x(\omega) = A(\omega)^{-1} b(\omega)$ of the discrete source problem on the pencil
+of the resonance solver, $A(\omega) = S - (\omega/c_0)^2 M$ with the PML frozen at its design
+frequency, is a meromorphic function of $\omega$: the stiffness and mass matrices do not depend
+on $\omega$, the source does so analytically (a current enters as $i\omega\mu_0 b_J$), and the
+poles are exactly the eigenvalues $\omega_n$ of `physics::Resonance` /
+`physics::AxisymmetricResonance`. Cauchy's integral formula on a contour $C_0$ around the real
+frequencies of interest, with small circles $C_n$ around the enclosed poles, therefore splits
+the solution into modal contributions and a background (Zschiedrich, Binkowski, Nikolay,
+Burger, Lockau, Schmidt, *Phys. Rev. A* **98**, 043806 (2018)):
+
+$$
+x(\omega) = \frac{1}{2\pi i}\oint_{C_0}\frac{x(\omega')}{\omega'-\omega}\,d\omega'
+ - \sum_n \frac{1}{2\pi i}\oint_{C_n}\frac{x(\omega')}{\omega'-\omega}\,d\omega' .
+$$
+
+For a simple pole the modal term is exactly $R_n/(\omega-\omega_n)$ with the residue
+$R_n = \frac{1}{2\pi i}\oint_{C_n} x(\omega')\,d\omega'$: one vector per mode, valid at every
+$\omega$ (inside the circle as well, so high-$Q$ modes next to the real axis need no special
+treatment) and obtained without normalising the eigenvector — the residue *is* the eigenvector
+times its excitation coefficient. Poles too close to each other (circles below a fraction of
+$|\omega|$) share a contour, whose contribution keeps the $\omega$-dependent integral
+(for $\omega$ inside such a group contour the direct solution minus the integral).
+
+**Contours and quadrature.** `RieszSetup` lists the poles (from the resonance solver — every
+pole inside the background contour must be listed, which `Resonance` guarantees when its
+farthest returned mode lies outside), the range $[\omega_{\min}, \omega_{\max}]$ and the point
+counts. The background contour is an ellipse around the range (semi-axes: half the width plus
+a margin, times `background_aspect` in the imaginary direction — a flat ellipse keeps the
+heavily damped PML modes outside), every pole inside it gets a circle of radius
+`radius_factor` times its distance to the nearest other pole or to the background contour.
+All contours are integrated by the trapezoidal rule, which converges exponentially for
+periodic analytic integrands: the error of a contour with $N$ points decays like $\rho^N$
+with $\rho < 1$ the ratio between the contour and the distance of the nearest singularity of
+the integrand. For the pole circles that is the next pole ($\rho \le$ `radius_factor`, so
+16 points give $10^{-8}$); for the background integrand the enclosed poles themselves would
+set $\rho$, so the modal parts $\sum_n R_n/(\omega'-\omega_n)$ are subtracted from it before
+integration — their own Cauchy integral over $C_0$ vanishes because both poles are enclosed —
+and the rate is then governed by the poles *outside* $C_0$ and by the evaluation frequency
+$\omega$ (the factor $1/(\omega'-\omega)$ is singular at $\omega$, so the expansion converges
+best well inside the range). Every contour reports the relative difference between its $N$-
+and $N/2$-point rules (the latter is free, every second point with doubled weights) as a
+convergence check, with a warning above `convergence_warning`. Each contour point costs one
+factorisation of $A(\omega')$ and one batched solve for all sources (`solve_many`); on cuDSS
+a 194 k-DoF problem takes about 1.5 s per point.
+
+**Observables.** Any linear functional $Q(x) = q^\top x$ — point values
+(`add_point_value`), the emitted power of a current source
+$Q(x) = -\tfrac12\int E\cdot J^* = -\tfrac12\,\overline{b_J}^{\,\top} x$ (`add_emitted_power`;
+bodies of revolution carry the azimuthal factor $2\pi$), Fourier coefficients and far-field
+amplitudes through the functionals of `assembly/functionals.hpp` — is sampled on the contours,
+so its modal contributions $Q(R_n)/(\omega-\omega_n)$ and background follow for a whole
+spectrum without further solves (`spectrum(source, functional, omegas)`: one row per contour,
+the background last; `total` is their sum). Because $\mathrm{Re}$ is linear, the real parts of
+the modal shares of the emitted power add up to the physical power exactly; the Purcell
+spectrum of an emitter is thus a sum of Lorentzians plus a smooth background. Quadratic
+quantities (fluxes through surfaces, $|E|^2$) are not expanded: `expand(source, omega)` returns
+the exact field as the sum of the modal fields and the (stored) background field, and the modal
+fields `field(contour, source, omega)` may be post-processed individually, aware that the
+cross terms are then lost.
+
+**Verification** (`tests/unit/physics/test_riesz_projection.cpp`): on the Fabry–Pérot strip
+of the resonance test (dipole line current inside the slab, 12 listed modes) the sum of the
+modal terms and the background reproduces the directly solved emitted power and a point value
+at 20 frequencies across the range to $10^{-8}$ (24 points per pole, 64 on the background),
+the expanded field equals the direct field, the residue of the $m = 4$ mode is parallel to the
+eigenvector of the resonance solver, and the background integral converges like $0.4^N$
+(errors $3.9\cdot10^{-4}$, $2.5\cdot10^{-7}$, $1.7\cdot10^{-10}$, $1.1\cdot10^{-13}$ for 8, 16,
+24, 32 points, the half-rule estimate tracking them). The same identity holds on the order-1
+block pencil of a dielectric sphere with a transverse dipole at its centre (2.5D, Mie poles of
+the sphere resonance test). `examples/micropillar_qd` compares the Purcell spectrum of the
+quantum dot from the modal sum with the frequency sweep of the example.
+
 ## Band structures (`physics/band_structure.hpp`)
 
 A photonic crystal is a lossless periodic structure with lattice vectors $a_j$. By Bloch's
