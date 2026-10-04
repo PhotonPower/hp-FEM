@@ -355,6 +355,23 @@ functions `solve_many` and `plane_wave_sweep` wrap this for lists of incident fi
 vectors — the angle sweep of a scatterometry measurement costs one factorisation plus one
 batched triangular solve.
 
+The loads of all incident fields are assembled in one pass over the cells
+(`assembly::assemble_maxwell_loads`): geometry, quadrature rule and basis functions of a cell
+are evaluated once, only the source values differ per field; the cells are coloured so that
+no two cells of a colour share a DoF and every colour scatters straight into the $n 	imes k$
+result in parallel (no per-thread copies of it). The Dirichlet data of the fields comes from
+one pass over the facets as well (`Scattering::dirichlet_many`, the multi-function
+`interpolate`: basis traces and Gram matrices once, one right-hand side column per field).
+Both agree with the single-field paths to round-off ($10^{-14}$ in the unit tests). Measured
+(`bench_sweep_shares`, `benchmarks/results/2026-10-04-VR-sweep-shares.json`, unit square
+p = 3, 194 k DoFs, 100 incident fields, cuDSS): the sweep took 3.2 s with the loads
+assembled one by one (26 ms per field, of which 20 ms the load assembly and 5 ms the
+Dirichlet data) and takes 0.78 s batched (loads 0.075 s, Dirichlet data 0.032 s, the
+batched solve 0.27 s with 45 ms upload, 166 ms device solve and 52 ms download by
+`HPFEM_GPU_TIMING=1`); the same saving applies to every backend. Right-hand sides and
+solutions resident on the device would have saved only the 0.1 s of transfers and were not
+built.
+
 **Frequency sweeps, reduced basis.** `solvers::ReducedBasis` collects snapshots
 (full solutions at a few parameter values) into an orthonormal basis $V$ (modified
 Gram–Schmidt with re-orthogonalisation, dependent snapshots dropped) and provides the

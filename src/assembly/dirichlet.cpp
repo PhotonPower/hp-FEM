@@ -57,6 +57,17 @@ DirichletData tangential_dirichlet_values(const fespace::NedelecDofMap<Dim>& dof
   return tangential_dirichlet_values(dofs, std::span<const Index>(facets), g);
 }
 
+template <int Dim>
+std::vector<DirichletData> tangential_dirichlet_values(
+    const fespace::NedelecDofMap<Dim>& dofs, std::span<const Index> facets,
+    std::span<const std::type_identity_t<ComplexVectorField<Dim>>> gs) {
+  std::vector<VectorSampler<Dim>> samplers;
+  samplers.reserve(gs.size());
+  for (const auto& g : gs) samplers.push_back(physical_sampler<Dim>(g));
+  return interpolate(dofs, EntitySet<Dim>::of_facets(dofs.mesh(), facets),
+                     std::span<const VectorSampler<Dim>>(samplers));
+}
+
 template <int Dim, class Counts>
 DirichletData homogeneous_dirichlet(const fespace::EntityDofMap<Dim, Counts>& dofs,
                                     std::span<const Index> facets) {
@@ -170,6 +181,12 @@ template DirichletData tangential_dirichlet_values<2>(const fespace::NedelecDofM
 template DirichletData tangential_dirichlet_values<3>(const fespace::NedelecDofMap<3>&,
                                                       std::span<const Index>,
                                                       const ComplexVectorField<3>&);
+template std::vector<DirichletData> tangential_dirichlet_values<2>(
+    const fespace::NedelecDofMap<2>&, std::span<const Index>,
+    std::span<const ComplexVectorField<2>>);
+template std::vector<DirichletData> tangential_dirichlet_values<3>(
+    const fespace::NedelecDofMap<3>&, std::span<const Index>,
+    std::span<const ComplexVectorField<3>>);
 template DirichletData tangential_dirichlet_values<2>(const fespace::NedelecDofMap<2>&, mesh::Tag,
                                                       const ComplexVectorField<2>&);
 template DirichletData tangential_dirichlet_values<3>(const fespace::NedelecDofMap<3>&, mesh::Tag,

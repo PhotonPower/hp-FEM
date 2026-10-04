@@ -102,6 +102,60 @@ TEST_CASE("assemble_maxwell_loads: several loads in one pass agree with the sing
   CHECK(hpfem::assembly::assemble_maxwell_loads<2>(dofs, empty).norm() == 0.0);
 }
 
+TEST_CASE("Dirichlet data of several fields in one pass agree with the single calls",
+          "[assembly][sweep]") {
+  const Mesh<2> mesh = hanging_mesh();
+  const NedelecDofMap<2> dofs(mesh, 3);
+  const std::vector<Index> facets(mesh.boundary_facets().begin(), mesh.boundary_facets().end());
+  const std::vector<Real> angles{0.3, 1.1, 2.4};
+  std::vector<hpfem::assembly::ComplexVectorField<2>> fields;
+  for (const Real a : angles) fields.push_back(wave(a).value);
+  const auto many = hpfem::assembly::tangential_dirichlet_values<2>(dofs, facets, fields);
+  REQUIRE(many.size() == 3);
+  for (std::size_t k = 0; k < 3; ++k) {
+    const auto single = hpfem::assembly::tangential_dirichlet_values<2>(dofs, facets, fields[k]);
+    REQUIRE(many[k].dofs == single.dofs);
+    CHECK((many[k].values - single.values).norm() < 1e-14 * single.values.norm());
+  }
+  // H1: vertex values and edge projections of three scalar functions
+  const hpfem::fespace::DofMap<2> h1(mesh, 3);
+  std::vector<hpfem::assembly::ScalarSampler<2>> samplers;
+  for (const Real a : angles) {
+    samplers.push_back([a](Index, const Point<2>&, const Point<2>& x) {
+      return Complex{std::sin(a * x(0)), std::cos(a * x(1))};
+    });
+  }
+  const auto set = hpfem::assembly::EntitySet<2>::of_facets(mesh, facets);
+  const auto h1_many = hpfem::assembly::interpolate<2>(h1, set, samplers);
+  REQUIRE(h1_many.size() == 3);
+  for (std::size_t k = 0; k < 3; ++k) {
+    const auto single = hpfem::assembly::interpolate<2>(h1, set, samplers[k]);
+    REQUIRE(h1_many[k].dofs == single.dofs);
+    CHECK((h1_many[k].values - single.values).norm() < 1e-14 * single.values.norm());
+  }
+  // the scattering problem: both formulations, PEC and incident facets
+  for (const auto formulation : {Formulation::kTotalField, Formulation::kScatteredField}) {
+    ScatteringSetup<2> setup;
+    setup.omega = kWavenumber * hpfem::constants::c0;
+    setup.incident = wave(0.3);
+    setup.formulation = formulation;
+    setup.incident_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin};
+    setup.pec_tags = {box_tag::kYMax};
+    const Scattering<2> problem(dofs, setup);
+    std::vector<IncidentField<2>> incidents;
+    for (const Real a : angles) incidents.push_back(wave(a));
+    const auto batched = problem.dirichlet_many(incidents);
+    REQUIRE(batched.size() == 3);
+    for (std::size_t k = 0; k < 3; ++k) {
+      ScatteringSetup<2> single_setup = setup;
+      single_setup.incident = incidents[k];
+      const auto single = Scattering<2>(dofs, single_setup).dirichlet();
+      REQUIRE(batched[k].dofs == single.dofs);
+      CHECK((batched[k].values - single.values).norm() < 1e-14 * (single.values.norm() + 1e-300));
+    }
+  }
+}
+
 TEST_CASE("one factorisation solves many incident fields", "[physics][sweep]") {
   const Mesh<2> mesh = hanging_mesh();
   for (Index c = 0; c < mesh.num_cells(); ++c) {

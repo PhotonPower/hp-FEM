@@ -42,7 +42,8 @@ class ScatteringOperator {
   /// Solutions for several incident fields (same current) with one batched triangular
   /// solve (`LinearSolver::solve_many`): the loads of all fields are assembled in one pass
   /// over the cells (`assembly::assemble_maxwell_loads`: geometry, quadrature and basis
-  /// functions once per cell, only the source values per field), eliminated per field, and
+  /// functions once per cell, only the source values per field), their Dirichlet data in
+  /// one pass over the facets (`Scattering::dirichlet_many`), each load is eliminated, and
   /// the factorisation is applied to all right-hand sides at once (one device round trip
   /// on the GPU backend).
   [[nodiscard]] std::vector<ScatteringSolution<Dim>> solve_many(
@@ -53,8 +54,8 @@ class ScatteringOperator {
   /// Reduced, eliminated load of a setup; `full_load` receives the unreduced load (needed to
   /// recover the condensed unknowns).
   [[nodiscard]] Vector reduced_load(const ScatteringSetup<Dim>& setup, Vector& full_load) const;
-  /// Condenses, reduces and eliminates an assembled load of `variant` (its Dirichlet data).
-  [[nodiscard]] Vector reduce_load(const Scattering<Dim>& variant, Vector load) const;
+  /// Condenses, reduces and eliminates an assembled load with the given Dirichlet data.
+  [[nodiscard]] Vector reduce_load(const assembly::DirichletData& data, Vector load) const;
   /// Expands and recovers a reduced solution.
   [[nodiscard]] ScatteringSolution<Dim> finish(Vector x, const Vector& full_load,
                                                Formulation formulation) const;

@@ -47,8 +47,11 @@ other sessions on the machine.
 in docs/theory/solvers.md.
 
 `results/2026-10-04-VR-sweep-shares.json` — `bench_sweep_shares` on the same machine at
-194 k DoFs: on cuDSS the 100-angle sweep takes 3.2 s, of which the loads are 2.6 s (26 ms
-per incident field, 20 ms of it the load assembly) and the batched solve 0.27 s (upload 45 ms,
-device solve 166 ms, download 52 ms by `HPFEM_GPU_TIMING=1`); the frequency sweep is bounded by the 8 snapshot factorisations
-(5.7 s) against 0.07 s of projections and 0.14 s of reduced solves. Device-resident sweep
-vectors would therefore save at most 3 %; the lever is the per-field load assembly.
+194 k DoFs: on cuDSS the 100-angle sweep took 3.2 s with the loads assembled one by one
+(26 ms per incident field, 20 ms of it the load assembly, 5 ms the Dirichlet data) and takes
+0.78 s with the batched loads (`assemble_maxwell_loads`, 0.075 s) and Dirichlet data
+(`Scattering::dirichlet_many`, 0.032 s); the batched solve is 0.27 s (upload 45 ms, device
+solve 166 ms, download 52 ms by `HPFEM_GPU_TIMING=1`). The frequency sweep is bounded by the
+8 snapshot factorisations (5.7 s) against 0.07 s of projections and 0.14 s of reduced solves.
+Device-resident sweep vectors would have saved at most the 0.1 s of transfers and were not
+built.

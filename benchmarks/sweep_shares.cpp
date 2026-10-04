@@ -178,12 +178,17 @@ void angle_sweep(const hpfem::mesh::Mesh<2>& mesh, int p, Index n, Index nrhs) {
         hpfem::assembly::assemble_maxwell_loads<2>(dofs, forms, setup.extra_quadrature_order);
     const Real batched_loads = seconds(start);
     (void)all_loads;
+    start = Clock::now();
+    const auto all_data = problem.dirichlet_many(incidents);
+    const Real batched_dirichlet = seconds(start);
+    (void)all_data;
     record(
         "angle_sweep", n, p, dofs.num_dofs(), backend,
         fmt::format(
-            R"("nrhs": {}, "factorize_s": {:.4f}, "sweep_many_s": {:.4f}, "solve_many_s": {:.4f}, "solve_one_by_one_s": {:.4f}, "load_and_finish_per_rhs_s": {:.5f}, "batched_loads_s": {:.4f}, "scattering_ctor_per_rhs_s": {:.5f}, "load_assembly_per_rhs_s": {:.5f}, "dirichlet_data_per_rhs_s": {:.5f}, "solutions": {})",
+            R"("nrhs": {}, "factorize_s": {:.4f}, "sweep_many_s": {:.4f}, "solve_many_s": {:.4f}, "solve_one_by_one_s": {:.4f}, "load_and_finish_per_rhs_s": {:.5f}, "batched_loads_s": {:.4f}, "batched_dirichlet_s": {:.4f}, "scattering_ctor_per_rhs_s": {:.5f}, "load_assembly_per_rhs_s": {:.5f}, "dirichlet_data_per_rhs_s": {:.5f}, "solutions": {})",
             nrhs, factorize, sweep, solve_many, solve_one_by_one, load_and_finish_each,
-            batched_loads, ctor / ten, assembly / ten, dirichlet / ten, batched.size()));
+            batched_loads, batched_dirichlet, ctor / ten, assembly / ten, dirichlet / ten,
+            batched.size()));
   }
 }
 

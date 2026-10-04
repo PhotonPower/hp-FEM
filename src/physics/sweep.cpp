@@ -64,15 +64,15 @@ Vector ScatteringOperator<Dim>::reduced_load(const ScatteringSetup<Dim>& setup,
   const Scattering<Dim> variant(dofs, setup);  // the forms and Dirichlet data of this setup
   full_load = assembly::assemble_maxwell_load<Dim>(
       dofs, [&variant](Index c) { return variant.form_of_cell(c); }, setup.extra_quadrature_order);
-  return reduce_load(variant, full_load);
+  return reduce_load(variant.dirichlet(), full_load);
 }
 
 template <int Dim>
-Vector ScatteringOperator<Dim>::reduce_load(const Scattering<Dim>& variant, Vector load) const {
+Vector ScatteringOperator<Dim>::reduce_load(const assembly::DirichletData& data,
+                                            Vector load) const {
   if (condensation_) load = condensation_->condense_load(load);
   if (constraints_) load = constraints_->reduce_rhs(load);
   // Dirichlet values of this setup on the problem's Dirichlet set
-  const assembly::DirichletData data = variant.dirichlet();
   if (data.dofs != dirichlet_dofs_) {
     throw InvalidArgument(
         "ScatteringOperator::solve: the Dirichlet DoF set differs from the problem's");
@@ -129,9 +129,10 @@ std::vector<ScatteringSolution<Dim>> ScatteringOperator<Dim>::solve_many(
   }
   const Matrix full_loads =
       assembly::assemble_maxwell_loads<Dim>(dofs, forms, setup.extra_quadrature_order);
+  const std::vector<assembly::DirichletData> data = problem_->dirichlet_many(incidents);
   Matrix loads(solver_->size(), count);
   for (Index j = 0; j < count; ++j) {
-    loads.col(j) = reduce_load(variants[as_size(j)], full_loads.col(j));
+    loads.col(j) = reduce_load(data[as_size(j)], full_loads.col(j));
   }
   const Matrix x = solver_->solve_many(loads);
   out.reserve(incidents.size());
