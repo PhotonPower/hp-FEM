@@ -2,6 +2,23 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+
+## [0.3.0] — 2026-10-04
+Third release: the backlog of 0.2.0 and two new milestones. Highlights: the axisymmetric
+(2.5D) solver of ADR-0010 — eigenmodes, quasi-normal modes with the cylindrical PML, scattering
+by the axial plane wave, dipole sources on the axis and the far field, each verified against an
+analytic reference (Bessel zeros, Mie poles, Mie cross-section, Larmor power), with the
+micropillar quantum-dot example; the GPU backend of ADR-0008 — cuDSS direct solver behind
+`LinearSolver` as a separately built C-ABI library (nvcc + MSVC, cuDSS 0.8; without it 0.3.0
+behaves as before), `solve_many`, automatic `kAuto` selection above 10 000 unknowns,
+complex-symmetric LDL^T with symmetry detection, hybrid memory for factors beyond the device
+memory, diagonal equilibration for hp-adaptive systems and the Newmark time stepper on the
+device (164 k DoF: 3.5 ms per step against 43 ms with MUMPS); the validation milestone M10
+against the literature (rib waveguide, metallic grating, Mie sphere, slit–groove in silver)
+with the layered background of ADR-0009; and the earlier backlog items: Floquet–Bloch band
+structures, the dual formulation with the guaranteed hypercircle bound, and the transient
+Maxwell solver. Convergence tests #1–#7 plus the new ones (band structure, hypercircle,
+transient cavity, axisymmetric cavity / sphere resonances / Mie sphere / dipole) run in CI.
 ### Added
 - Newmark loop of `physics::TimeDomain` on the GPU: with the cuDSS backend the state stays
   on the device, every step is two device-resident sparse products (own SpMV kernel), the
