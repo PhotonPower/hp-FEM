@@ -116,6 +116,19 @@ template <int Dim>
     const fespace::NedelecDofMap<Dim>& dofs,
     const std::type_identity_t<CellFormFactory<Dim>>& form_of_cell, int extra_order = 2);
 
+/// Several load vectors in one pass over the cells (the incident fields of an angle sweep):
+/// column k of the result is `assemble_maxwell_load(dofs, forms[k], extra_order)`, but the
+/// geometry, the quadrature rule and the basis functions of a cell are evaluated once for
+/// all loads and only the source values differ. The cells are coloured so that no two
+/// cells of a colour share a DoF, and every colour is assembled in parallel straight into
+/// the result (no per-thread copies of the n × k matrix). Loads whose quadrature order
+/// differs on a cell are integrated one by one on that cell, so every column agrees with
+/// the single-load assembly up to the summation order (round-off).
+template <int Dim>
+[[nodiscard]] Matrix assemble_maxwell_loads(
+    const fespace::NedelecDofMap<Dim>& dofs,
+    std::span<const std::type_identity_t<CellFormFactory<Dim>>> forms, int extra_order = 2);
+
 /// Errors of the discrete field against (E, curl E).
 struct HcurlErrorNorms {
   Real l2 = 0;         ///< ‖E_h − E‖_L2
@@ -182,6 +195,10 @@ extern template Vector assemble_maxwell_load<2>(const fespace::NedelecDofMap<2>&
                                                 const CellFormFactory<2>&, int);
 extern template Vector assemble_maxwell_load<3>(const fespace::NedelecDofMap<3>&,
                                                 const CellFormFactory<3>&, int);
+extern template Matrix assemble_maxwell_loads<2>(const fespace::NedelecDofMap<2>&,
+                                                 std::span<const CellFormFactory<2>>, int);
+extern template Matrix assemble_maxwell_loads<3>(const fespace::NedelecDofMap<3>&,
+                                                 std::span<const CellFormFactory<3>>, int);
 extern template HcurlErrorNorms hcurl_error<2>(
     const fespace::NedelecDofMap<2>&, const Vector&, const ComplexVectorField<2>&,
     const std::function<ComplexCurl<2>(const Point<2>&)>&, int);

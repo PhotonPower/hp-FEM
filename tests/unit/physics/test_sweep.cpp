@@ -63,6 +63,45 @@ Mesh<2> hanging_mesh() {
 
 }  // namespace
 
+TEST_CASE("assemble_maxwell_loads: several loads in one pass agree with the single loads",
+          "[assembly][sweep]") {
+  // three sources (volume source, curl source, both) on a hanging mesh with mixed cell orders:
+  // every column of the batched assembly equals the single assembly up to round-off; a
+  // load with its own quadrature order on some cells takes the per-load path on them
+  const Mesh<2> mesh = hanging_mesh();
+  const NedelecDofMap<2> dofs(mesh, 3);
+  hpfem::assembly::MaxwellForm<2> volume;
+  volume.source = [](const Point<2>& x) {
+    return ComplexVector<2>(Complex{std::sin(x(0)), x(1)}, Complex{0.3, std::cos(x(1))});
+  };
+  hpfem::assembly::MaxwellForm<2> curl;
+  curl.curl_source = [](const Point<2>& x) {
+    return hpfem::assembly::ComplexCurl<2>(Complex{x(0) * x(1), 1.0});
+  };
+  hpfem::assembly::MaxwellForm<2> both = volume;
+  both.curl_source = curl.curl_source;
+  const std::vector<hpfem::assembly::CellFormFactory<2>> forms{
+      [&volume](Index) { return volume; }, [&curl](Index) { return curl; },
+      [&both](Index c) {
+        hpfem::assembly::MaxwellForm<2> form = both;
+        if (c % 3 == 0) form.quadrature_order = 11;  // forces the per-load rule on these cells
+        return form;
+      }};
+  const Matrix batched = hpfem::assembly::assemble_maxwell_loads<2>(dofs, forms);
+  REQUIRE(batched.rows() == dofs.num_dofs());
+  REQUIRE(batched.cols() == 3);
+  for (Index k = 0; k < 3; ++k) {
+    const Vector single = hpfem::assembly::assemble_maxwell_load<2>(dofs, forms[as_size(k)]);
+    REQUIRE(single.norm() > 0);
+    CHECK((batched.col(k) - single).norm() < 1e-14 * single.norm());
+  }
+  // an empty list and loads without sources
+  CHECK(hpfem::assembly::assemble_maxwell_loads<2>(dofs, {}).cols() == 0);
+  const std::vector<hpfem::assembly::CellFormFactory<2>> empty{
+      [](Index) { return hpfem::assembly::MaxwellForm<2>{}; }};
+  CHECK(hpfem::assembly::assemble_maxwell_loads<2>(dofs, empty).norm() == 0.0);
+}
+
 TEST_CASE("one factorisation solves many incident fields", "[physics][sweep]") {
   const Mesh<2> mesh = hanging_mesh();
   for (Index c = 0; c < mesh.num_cells(); ++c) {

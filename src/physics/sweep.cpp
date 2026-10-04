@@ -62,9 +62,13 @@ Vector ScatteringOperator<Dim>::reduced_load(const ScatteringSetup<Dim>& setup,
                                              Vector& full_load) const {
   const auto& dofs = problem_->dofs();
   const Scattering<Dim> variant(dofs, setup);  // the forms and Dirichlet data of this setup
-  Vector load = assembly::assemble_maxwell_load<Dim>(
+  full_load = assembly::assemble_maxwell_load<Dim>(
       dofs, [&variant](Index c) { return variant.form_of_cell(c); }, setup.extra_quadrature_order);
-  full_load = load;
+  return reduce_load(variant, full_load);
+}
+
+template <int Dim>
+Vector ScatteringOperator<Dim>::reduce_load(const Scattering<Dim>& variant, Vector load) const {
   if (condensation_) load = condensation_->condense_load(load);
   if (constraints_) load = constraints_->reduce_rhs(load);
   // Dirichlet values of this setup on the problem's Dirichlet set
@@ -109,16 +113,30 @@ std::vector<ScatteringSolution<Dim>> ScatteringOperator<Dim>::solve_many(
   ScatteringSetup<Dim> setup = problem_->setup();
   setup.current = current;
   const Index count = static_cast<Index>(incidents.size());
-  std::vector<Vector> full_loads(incidents.size());
-  Matrix loads(solver_->size(), count);
+  const auto& dofs = problem_->dofs();
+  // one Scattering variant per incident field (forms and Dirichlet data), all loads in one
+  // pass over the cells
+  std::vector<Scattering<Dim>> variants;
+  variants.reserve(incidents.size());
   for (Index j = 0; j < count; ++j) {
     setup.incident = incidents[as_size(j)];
-    loads.col(j) = reduced_load(setup, full_loads[as_size(j)]);
+    variants.emplace_back(dofs, setup);
+  }
+  std::vector<assembly::CellFormFactory<Dim>> forms;
+  forms.reserve(incidents.size());
+  for (const Scattering<Dim>& variant : variants) {
+    forms.push_back([&variant](Index c) { return variant.form_of_cell(c); });
+  }
+  const Matrix full_loads =
+      assembly::assemble_maxwell_loads<Dim>(dofs, forms, setup.extra_quadrature_order);
+  Matrix loads(solver_->size(), count);
+  for (Index j = 0; j < count; ++j) {
+    loads.col(j) = reduce_load(variants[as_size(j)], full_loads.col(j));
   }
   const Matrix x = solver_->solve_many(loads);
   out.reserve(incidents.size());
   for (Index j = 0; j < count; ++j) {
-    out.push_back(finish(x.col(j), full_loads[as_size(j)], setup.formulation));
+    out.push_back(finish(x.col(j), full_loads.col(j), setup.formulation));
   }
   return out;
 }

@@ -161,12 +161,29 @@ void angle_sweep(const hpfem::mesh::Mesh<2>& mesh, int p, Index n, Index nrhs) {
       (void)data;
     }
     const Real ten = static_cast<Real>(std::min<Index>(nrhs, 10));
+    // the batched load assembly of all incident fields (what solve_many does)
+    std::vector<hpfem::physics::Scattering<2>> variants;
+    variants.reserve(incidents.size());
+    for (const auto& incident : incidents) {
+      hpfem::physics::ScatteringSetup<2> variant_setup = setup;
+      variant_setup.incident = incident;
+      variants.emplace_back(dofs, variant_setup);
+    }
+    std::vector<hpfem::assembly::CellFormFactory<2>> forms;
+    for (const auto& variant : variants) {
+      forms.push_back([&variant](Index c) { return variant.form_of_cell(c); });
+    }
+    start = Clock::now();
+    const Matrix all_loads =
+        hpfem::assembly::assemble_maxwell_loads<2>(dofs, forms, setup.extra_quadrature_order);
+    const Real batched_loads = seconds(start);
+    (void)all_loads;
     record(
         "angle_sweep", n, p, dofs.num_dofs(), backend,
         fmt::format(
-            R"("nrhs": {}, "factorize_s": {:.4f}, "sweep_many_s": {:.4f}, "solve_many_s": {:.4f}, "solve_one_by_one_s": {:.4f}, "load_and_finish_per_rhs_s": {:.5f}, "scattering_ctor_per_rhs_s": {:.5f}, "load_assembly_per_rhs_s": {:.5f}, "dirichlet_data_per_rhs_s": {:.5f}, "solutions": {})",
-            nrhs, factorize, sweep, solve_many, solve_one_by_one, load_and_finish_each, ctor / ten,
-            assembly / ten, dirichlet / ten, batched.size()));
+            R"("nrhs": {}, "factorize_s": {:.4f}, "sweep_many_s": {:.4f}, "solve_many_s": {:.4f}, "solve_one_by_one_s": {:.4f}, "load_and_finish_per_rhs_s": {:.5f}, "batched_loads_s": {:.4f}, "scattering_ctor_per_rhs_s": {:.5f}, "load_assembly_per_rhs_s": {:.5f}, "dirichlet_data_per_rhs_s": {:.5f}, "solutions": {})",
+            nrhs, factorize, sweep, solve_many, solve_one_by_one, load_and_finish_each,
+            batched_loads, ctor / ten, assembly / ten, dirichlet / ten, batched.size()));
   }
 }
 

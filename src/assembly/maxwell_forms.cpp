@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <map>
+#include <span>
 #include <vector>
 
 #include "hpfem/assembly/sparse_assembler.hpp"
@@ -208,6 +209,116 @@ Vector assemble_maxwell_load(const fespace::NedelecDofMap<Dim>& dofs,
   return std::move(rhs[0]);
 }
 
+namespace {
+
+/// Greedy colouring of the cells such that no two cells of a colour share a DoF; returns
+/// the cells grouped by colour. Interior DoFs belong to one cell, so only entity DoFs
+/// create conflicts (edge neighbours in 2D, edge and face neighbours in 3D).
+template <int Dim>
+std::vector<std::vector<Index>> colour_cells(const fespace::NedelecDofMap<Dim>& dofs) {
+  const Index cells = dofs.mesh().num_cells();
+  std::vector<std::vector<Index>> cells_of_dof(as_size(dofs.num_dofs()));
+  for (Index c = 0; c < cells; ++c) {
+    for (const Index dof : dofs.cell_dofs(c)) cells_of_dof[as_size(dof)].push_back(c);
+  }
+  std::vector<int> colour(as_size(cells), -1);
+  std::vector<std::vector<Index>> groups;
+  std::vector<bool> used;
+  for (Index c = 0; c < cells; ++c) {
+    used.assign(groups.size(), false);
+    for (const Index dof : dofs.cell_dofs(c)) {
+      for (const Index other : cells_of_dof[as_size(dof)]) {
+        if (colour[as_size(other)] >= 0) used[as_size(colour[as_size(other)])] = true;
+      }
+    }
+    std::size_t k = 0;
+    while (k < used.size() && used[k]) ++k;
+    if (k == groups.size()) groups.emplace_back();
+    colour[as_size(c)] = static_cast<int>(k);
+    groups[k].push_back(c);
+  }
+  return groups;
+}
+
+}  // namespace
+
+template <int Dim>
+Matrix assemble_maxwell_loads(const fespace::NedelecDofMap<Dim>& dofs,
+                              std::span<const std::type_identity_t<CellFormFactory<Dim>>> forms,
+                              int extra_order) {
+  const auto& mesh = dofs.mesh();
+  const Index n = dofs.num_dofs();
+  const Index count = static_cast<Index>(forms.size());
+  Matrix loads = Matrix::Zero(n, count);
+  if (count == 0) return loads;
+  const int threads = num_threads();
+  std::vector<std::map<int, QuadratureRule<Dim>>> rules(as_size(threads));
+  const std::vector<std::vector<Index>> groups = colour_cells(dofs);
+  for (const auto& group : groups) {
+    parallel_for(static_cast<Index>(group.size()), [&](Index i, int thread) {
+      const Index c = group[as_size(i)];
+      std::vector<MaxwellForm<Dim>> cell_forms;
+      cell_forms.reserve(as_size(count));
+      bool any = false;
+      for (const auto& factory : forms) {
+        cell_forms.push_back(factory(c));
+        any = any || cell_forms.back().source || cell_forms.back().curl_source;
+      }
+      if (!any) return;
+      const int p = dofs.cell_order(c);
+      const fespace::NedelecBasis<Dim> basis(dofs.cell_layout(c));
+      const auto geometry = mesh::cell_geometry(mesh, c);
+      const int default_order = 2 * p + extra_order + (geometry->is_affine() ? 0 : 2);
+      const auto order_of = [&](const MaxwellForm<Dim>& form) {
+        return form.quadrature_order ? *form.quadrature_order : default_order;
+      };
+      const int order = order_of(cell_forms.front());
+      bool same_order = true;
+      for (const auto& form : cell_forms) same_order = same_order && order_of(form) == order;
+      Matrix local = Matrix::Zero(basis.size(), count);
+      const auto integrate = [&](const QuadratureRule<Dim>& rule, Index first, Index last) {
+        for (std::size_t q = 0; q < rule.size(); ++q) {
+          const auto g = geometry->evaluate(rule.points[q]);
+          const Real dx = rule.weights[q] * std::abs(g.det);
+          const PhysicalBasis<Dim> phi(basis, g, rule.points[q]);
+          for (Index k = first; k < last; ++k) {
+            const MaxwellForm<Dim>& form = cell_forms[as_size(k)];
+            if (form.source) {
+              const ComplexVector<Dim> f = form.source(g.x);
+              local.col(k) += dx * (phi.values.transpose().template cast<Complex>() * f);
+            }
+            if (form.curl_source) {
+              const ComplexCurl<Dim> gc = form.curl_source(g.x);
+              local.col(k) += dx * (phi.curls.transpose().template cast<Complex>() * gc);
+            }
+          }
+        }
+      };
+      auto& thread_rules = rules[as_size(thread)];
+      const auto rule_of = [&](int o) -> const QuadratureRule<Dim>& {
+        auto& rule = thread_rules[o];
+        if (rule.size() == 0) rule = simplex_quadrature<Dim>(o);
+        return rule;
+      };
+      if (same_order) {
+        integrate(rule_of(order), 0, count);
+      } else {
+        for (Index k = 0; k < count; ++k) {
+          integrate(rule_of(order_of(cell_forms[as_size(k)])), k, k + 1);
+        }
+      }
+      // the cells of a colour share no DoF: direct scatter without races
+      const std::span<const Index> ids = dofs.cell_dofs(c);
+      for (Index j = 0; j < static_cast<Index>(ids.size()); ++j) {
+        loads.row(ids[as_size(j)]) += local.row(j);
+      }
+    });
+  }
+  log().debug("assemble_maxwell_loads<{}>: {} loads over {} cells in {} colours, {} threads", Dim,
+              count, mesh.num_cells(), groups.size(), threads);
+  return loads;
+}
+
 template <int Dim>
 HcurlErrorNorms hcurl_error(
     const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h,
@@ -321,6 +432,10 @@ template Vector assemble_maxwell_load<2>(const fespace::NedelecDofMap<2>&,
                                          const CellFormFactory<2>&, int);
 template Vector assemble_maxwell_load<3>(const fespace::NedelecDofMap<3>&,
                                          const CellFormFactory<3>&, int);
+template Matrix assemble_maxwell_loads<2>(const fespace::NedelecDofMap<2>&,
+                                          std::span<const CellFormFactory<2>>, int);
+template Matrix assemble_maxwell_loads<3>(const fespace::NedelecDofMap<3>&,
+                                          std::span<const CellFormFactory<3>>, int);
 template HcurlErrorNorms hcurl_error<2>(const fespace::NedelecDofMap<2>&, const Vector&,
                                         const ComplexVectorField<2>&,
                                         const std::function<ComplexCurl<2>(const Point<2>&)>&, int);
