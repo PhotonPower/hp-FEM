@@ -2,6 +2,21 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+### Added
+- Shift-invert Arnoldi with the Krylov basis on the device: `solvers::DeviceArnoldi` (GPU
+  library API version 4, `hpfem_gpu_arnoldi_*` and rectangular device matrices) keeps the
+  basis on the GPU, computes w = P K^-1 B v_j there (cuDSS solve, device products, the gauge
+  projection with a second cuDSS factorisation), orthogonalises by classical Gram-Schmidt
+  applied twice with reduction and update kernels and forms restart and Ritz vectors as
+  V_m c; `complex_eigenpairs_near` / `complex_eigenpairs_near_gauged` run on a `KrylovBasis`
+  abstraction (host and device, same algorithm) and take the device whenever the shift is
+  factorised by cuDSS and the memory estimate fits (`HPFEM_GPU_ARNOLDI=0` keeps the host
+  basis). Measured with 24 Krylov vectors, factorisation included: `Resonance` 369 k DoFs
+  5.5 s to 3.5 s, gauged `BandStructure` 369 k DoFs 9.2 s to 6.4 s against the host basis
+  with cuDSS solves (`bench_device_arnoldi`).
+- Python: `hpfem.DeviceMatrix`, `hpfem.DeviceStepper`, `LinearSolver.backend` and
+  `complex_eigenpairs_near_gauged`; `python/tests/test_gpu.py` (skipped without the GPU
+  library).
 
 ## [0.3.0] — 2026-10-04
 Third release: the backlog of 0.2.0 and two new milestones. Highlights: the axisymmetric
