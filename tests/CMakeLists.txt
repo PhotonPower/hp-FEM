@@ -6,11 +6,15 @@ function(hpfem_add_test name label)
   target_link_libraries(${name} PRIVATE hpfem::hpfem Catch2::Catch2WithMain)
   hpfem_set_warnings(${name})
   # Windows: the MUMPS DLLs live next to the MSYS2 tools and the cuDSS DLLs in their own
-  # install tree, neither need be on PATH
+  # install tree, neither need be on PATH; Linux: the same directory goes to LD_LIBRARY_PATH
   set(_hpfem_test_env "")
   foreach(dir IN LISTS MUMPS_BIN_DIR HPFEM_GPU_BIN_DIR)
     if(dir)
-      list(APPEND _hpfem_test_env "PATH=path_list_prepend:${dir}")
+      if(WIN32)
+        list(APPEND _hpfem_test_env "PATH=path_list_prepend:${dir}")
+      else()
+        list(APPEND _hpfem_test_env "LD_LIBRARY_PATH=path_list_prepend:${dir}")
+      endif()
     endif()
   endforeach()
   if(_hpfem_test_env)

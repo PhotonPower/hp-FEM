@@ -45,7 +45,7 @@ pageable).
 | NVIDIA driver | ≥ 591 (CUDA 13.1) | the driver's CUDA version must cover the toolkit used |
 | CUDA toolkit | 13.4 (≥ 12.0 should work) | `nvcc`, `cudart` (linked statically) |
 | cuDSS | 0.8.0 (`lib/13`) | <https://developer.nvidia.com/cudss>; run-time DLLs `cudss64_0.dll`, `cudss_mtlayer_*.dll` |
-| Host compiler | MSVC 19.44 (VS 2022 Build Tools) on Windows, GCC on Linux | MSVC runtime linked statically |
+| Host compiler | MSVC 19.44 (VS 2022 Build Tools) on Windows, GCC on Linux (untested) | MSVC runtime linked statically |
 | GPU | compute capability 8.6 (RTX 3090) by default | `-DCMAKE_CUDA_ARCHITECTURES=…` for others |
 
 ## Build (Windows, PowerShell or Git Bash)
@@ -57,16 +57,39 @@ cmake --build build/gpu --config Release
 ctest --test-dir build/gpu -C Release --output-on-failure     # self-test on the GPU
 ```
 
-Linux:
+The DLL ends up in `build/gpu/bin/Release/hpfem_gpu.dll`. Its only run-time dependencies
+are the cuDSS DLLs and the system libraries; the cuDSS `bin` directory must be on `PATH`
+(the self-test gets it prepended by CTest).
 
-```bash
-cmake -S gpu -B build/gpu -DCMAKE_BUILD_TYPE=Release -Dcudss_DIR=<cudss>/lib/cmake/cudss
-cmake --build build/gpu && ctest --test-dir build/gpu
-```
+## Build (Linux / WSL)
 
-The DLL ends up in `build/gpu/bin/Release/hpfem_gpu.dll` (Linux: `build/gpu/bin/hpfem_gpu.so`).
-Its only run-time dependencies are the cuDSS DLLs and the system libraries; the cuDSS `bin`
-directory must be on `PATH` (the self-test gets it prepended by CTest).
+The same CMake project builds `hpfem_gpu.so` with `nvcc` and GCC; the C ABI, the loader
+(`dlopen`) and the self-test are the same. **This path is prepared but not yet exercised on a
+Linux machine** (the development machine has no WSL with CUDA); please report what breaks.
+
+1. NVIDIA driver on the host (WSL 2 uses the Windows driver), CUDA toolkit 12.x / 13.x
+   (`nvcc`, the host GCC must be one the toolkit supports, e.g. GCC 13 for CUDA 12.4+) and
+   cuDSS 0.8 for Linux — the `.deb` / `.tar.xz` from <https://developer.nvidia.com/cudss>
+   installs `libcudss.so.0` and `lib/cmake/cudss/` under `/usr/lib/x86_64-linux-gnu/` (deb)
+   or the unpacked tree.
+2. Configure and build:
+
+   ```bash
+   cmake -S gpu -B build/gpu -DCMAKE_BUILD_TYPE=Release \
+         -Dcudss_DIR=/usr/lib/x86_64-linux-gnu/cmake/cudss      # or <tree>/lib/cmake/cudss
+   cmake --build build/gpu
+   ctest --test-dir build/gpu --output-on-failure                  # self-test on the GPU
+   ```
+
+   `-DCMAKE_CUDA_ARCHITECTURES=…` selects the GPU (default 86). The library records the
+   cuDSS directory as its RPATH, so neither `LD_LIBRARY_PATH` nor an installed cuDSS is
+   needed at run time; the self-test gets the directory prepended to `LD_LIBRARY_PATH` by
+   CTest as well (`HPFEM_CUDSS_LIB_DIR`, derived from `cudss_DIR`).
+3. Configure the hp-FEM library with `-DHPFEM_ENABLE_CUDA=ON
+   -DHPFEM_GPU_DLL=$PWD/build/gpu/bin/hpfem_gpu.so` (and `-DHPFEM_GPU_BIN_DIR=<cudss lib
+   dir>` only if the RPATH is not wanted; the tests then get it on `LD_LIBRARY_PATH`).
+   Without the `.so` the library behaves as before (`available(kCudss)` is false); the CI
+   has no GPU and exercises exactly this path.
 
 ## Using it from the library
 
