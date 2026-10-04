@@ -295,7 +295,7 @@ def run(quick: bool = False) -> dict:
     wavelengths = np.linspace(res.wavelength_nm - span, res.wavelength_nm + span, count) * units.nm
     spec = spectrum(wavelengths, top, bottom, radius, order=order)
     modal = modal_spectrum(wavelengths, top, bottom, radius, order=order,
-                           points=(12, 32) if quick else (16, 48))  # fmt: skip
+                           points=(16, 40) if quick else (16, 48))  # fmt: skip
     return {
         "resonance": asdict(res),
         "spectrum": asdict(spec),

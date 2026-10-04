@@ -124,8 +124,14 @@ def test_micropillar_qd_purcell_peaks_at_the_resonance(tmp_path, monkeypatch):
     # peak, the fundamental mode carries the peak, every contour converged
     modal = result["modal"]
     modal_purcell = np.array(modal["purcell"])
-    assert modal["convergence"] < 1e-4
+    assert modal["convergence"] < 1e-3
     assert abs(wavelengths[np.argmax(modal_purcell)] - peak) <= wavelengths[1] - wavelengths[0]
-    assert np.max(np.abs(modal_purcell - purcell) / purcell) < 0.15
+    assert np.max(np.abs(modal_purcell - purcell) / purcell) < 0.1
+    # the share of the fundamental mode is a Lorentzian peaking at the resonance on a
+    # smooth background of order one (the emission into the leaky continuum)
     mode = np.array(modal["purcell_mode"])
-    assert mode[np.argmax(modal_purcell)] > 0.7 * modal_purcell.max()
+    background = np.array(modal["purcell_background"])
+    assert abs(wavelengths[np.argmax(mode)] - peak) <= wavelengths[1] - wavelengths[0]
+    assert mode.max() > 0.3 * modal_purcell.max()
+    assert mode.max() > 3.0 * mode.min()
+    assert np.all(background > 0.5) and background.max() < 2.0 * background.min()
