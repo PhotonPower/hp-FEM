@@ -190,6 +190,22 @@ Floquet–Bloch bands of a unit cell, `ScatteringOperator2D` /
 `point_value_functional` or a Python functional for goal-oriented estimation, `VtkWriter2D`
 for meshes with data arrays. `help(hpfem.<name>)` shows the bound signature and docstring.
 
+## GPU backend
+
+With the separately built GPU library (`gpu/README.md`, `HPFEM_ENABLE_CUDA`) the direct
+solvers can run on cuDSS: `hpfem.available(hpfem.DirectSolverBackend.CUDSS)` tells whether the
+library and a device are present, `hpfem.cudss_status()` why not, and
+`hpfem.gpu_min_unknowns()` the size from which `AUTO` prefers the GPU. Every problem class
+with a `solver` field accepts `DirectSolverBackend.CUDSS`; `TimeDomain2D/3D` then keep the
+whole Newmark loop on the device (identical results to the host loop, state downloaded only
+for observers and at the end). The building blocks are bound as well: `DeviceMatrix(csr)`
+with `apply` / `apply_many` keeps a sparse matrix on the GPU for repeated products, and
+`DeviceStepper(newmark, damping, stiffness, load, dt, beta, gamma)` with `set_state`, `step`
+and `get_state` runs the Newmark recursion on the device for a Newmark operator factorised
+by cuDSS; `solver.backend` names the backend `AUTO` chose, `solver.details` its factor
+statistics. `python/tests/test_gpu.py` compares all of this with the host and is skipped
+without the library.
+
 ## Tests
 
 `python/tests/` runs in CI (`pip install ".[dev]" && pytest python/tests`, under a minute):

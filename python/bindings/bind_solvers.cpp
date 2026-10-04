@@ -1,9 +1,12 @@
 /// Bindings of `solvers`: direct solver backends (SparseLU, MUMPS), the factorise-once
 /// `LinearSolver`, the gauged curl–curl eigensolver and the shift-invert pencil solver.
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "common.hpp"
+#include "hpfem/solvers/device_matrix.hpp"
+#include "hpfem/solvers/device_stepper.hpp"
 #include "hpfem/solvers/eigen_solver.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
 #include "hpfem/solvers/reduced_basis.hpp"
@@ -55,12 +58,59 @@ void bind_solvers(py::module_& m) {
       .def_property_readonly("size", &solvers::LinearSolver::size)
       .def_property_readonly("name", &solvers::LinearSolver::name)
       .def_property_readonly("details", &solvers::LinearSolver::details,
-                             "backend facts about the factorisation (entries, memory, mode)");
+                             "backend facts about the factorisation (entries, memory, mode)")
+      .def_property_readonly(
+          "backend", &solvers::LinearSolver::backend, py::return_value_policy::reference_internal,
+          "the solver doing the work (AUTO: the backend chosen in factorize, None before)");
   m.def("make_direct_solver", &solvers::make_direct_solver,
         py::arg("backend") = DirectSolverBackend::kAuto,
         py::arg("symmetry") = solvers::Symmetry::kGeneral,
         "The requested backend (AUTO chooses in factorize); symmetry as guaranteed by the "
         "caller");
+
+  py::class_<solvers::DeviceMatrix>(
+      m, "DeviceMatrix",
+      "A sparse matrix kept on the GPU for repeated products (cuDSS library, API 3)")
+      .def(py::init<const SparseMatrix&>(), py::arg("matrix"), Release(),
+           "uploads the CSR matrix once")
+      .def("apply", &solvers::DeviceMatrix::apply, py::arg("x"), Release(), "y = A x")
+      .def("apply_many", &solvers::DeviceMatrix::apply_many, py::arg("x"), Release(),
+           "one product per column (n x k)")
+      .def_property_readonly("rows", &solvers::DeviceMatrix::rows)
+      .def_property_readonly("cols", &solvers::DeviceMatrix::cols)
+      .def_static("available", &solvers::DeviceMatrix::available,
+                  "GPU library with API version 3 loaded and a device present");
+  py::class_<solvers::DeviceStepper>(
+      m, "DeviceStepper",
+      "Newmark time stepping on the GPU: the state u, v, a stays on the device; the recursion "
+      "of TimeDomain.step (TimeDomain2D/3D use it automatically with the cuDSS backend)")
+      .def(py::init([](solvers::LinearSolver& newmark, std::optional<SparseMatrix> damping,
+                       const SparseMatrix& stiffness, std::optional<Vector> load, Real dt,
+                       Real beta, Real gamma) {
+             return std::make_unique<solvers::DeviceStepper>(newmark, damping ? &*damping : nullptr,
+                                                             stiffness, load ? &*load : nullptr, dt,
+                                                             beta, gamma);
+           }),
+           py::arg("newmark"), py::arg("damping"), py::arg("stiffness"), py::arg("load"),
+           py::arg("dt"), py::arg("beta") = 0.25, py::arg("gamma") = 0.5, py::keep_alive<1, 2>(),
+           Release(),
+           "newmark: the factorised K = M + gamma dt C + beta dt^2 S (cuDSS); damping / load may "
+           "be None")
+      .def("set_state", &solvers::DeviceStepper::set_state, py::arg("u"), py::arg("v"),
+           py::arg("a"), Release(), "uploads the reduced state vectors")
+      .def("step", &solvers::DeviceStepper::step, py::arg("load_scale"), Release(),
+           "one Newmark step with the load load_scale * load")
+      .def(
+          "get_state",
+          [](const solvers::DeviceStepper& stepper) {
+            Vector u, v, a;
+            stepper.get_state(u, v, a);
+            return py::make_tuple(u, v, a);  // builds Python objects: keep the GIL
+          },
+          "(u, v, a) downloaded from the device")
+      .def_property_readonly("size", &solvers::DeviceStepper::size)
+      .def_static("available", &solvers::DeviceStepper::available, py::arg("newmark"),
+                  "newmark is (or, for AUTO, chose) the cuDSS backend of a library with API 3");
 
   py::class_<solvers::EigenOptions>(m, "EigenOptions")
       .def(py::init([](Index num_eigenvalues, Real shift, Index krylov_dimension, Real tolerance,
