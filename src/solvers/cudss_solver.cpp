@@ -13,6 +13,8 @@
 
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/solvers/device_matrix.hpp"
+#include "hpfem/solvers/device_stepper.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
 #include "hpfem_gpu.h"
 
@@ -90,7 +92,19 @@ struct GpuApi {
   hpfem_gpu_factor_info_fn factor_info = nullptr;
   hpfem_gpu_factor_info2_fn factor_info2 = nullptr;  // API version 2 only
   hpfem_gpu_last_error_fn last_error = nullptr;
+  hpfem_gpu_matrix_create_fn matrix_create = nullptr;  // API version 3 only
+  hpfem_gpu_matrix_destroy_fn matrix_destroy = nullptr;
+  hpfem_gpu_matrix_apply_fn matrix_apply = nullptr;
+  hpfem_gpu_matrix_last_error_fn matrix_last_error = nullptr;
+  hpfem_gpu_stepper_create_fn stepper_create = nullptr;  // API version 3 only
+  hpfem_gpu_stepper_destroy_fn stepper_destroy = nullptr;
+  hpfem_gpu_stepper_set_state_fn stepper_set_state = nullptr;
+  hpfem_gpu_stepper_get_state_fn stepper_get_state = nullptr;
+  hpfem_gpu_stepper_step_fn stepper_step = nullptr;
+  hpfem_gpu_stepper_last_error_fn stepper_last_error = nullptr;
   int api_version = 0;
+
+  [[nodiscard]] bool has_matrices() const noexcept { return matrix_apply != nullptr; }
 
   [[nodiscard]] bool usable() const noexcept { return failure.empty(); }
 };
@@ -138,6 +152,21 @@ GpuApi load_gpu_api() {
   api.solve = api.library.symbol<hpfem_gpu_solve_fn>("hpfem_gpu_solve");
   api.factor_info = api.library.symbol<hpfem_gpu_factor_info_fn>("hpfem_gpu_factor_info");
   api.factor_info2 = api.library.symbol<hpfem_gpu_factor_info2_fn>("hpfem_gpu_factor_info2");
+  api.matrix_create = api.library.symbol<hpfem_gpu_matrix_create_fn>("hpfem_gpu_matrix_create");
+  api.matrix_destroy = api.library.symbol<hpfem_gpu_matrix_destroy_fn>("hpfem_gpu_matrix_destroy");
+  api.matrix_apply = api.library.symbol<hpfem_gpu_matrix_apply_fn>("hpfem_gpu_matrix_apply");
+  api.matrix_last_error =
+      api.library.symbol<hpfem_gpu_matrix_last_error_fn>("hpfem_gpu_matrix_last_error");
+  api.stepper_create = api.library.symbol<hpfem_gpu_stepper_create_fn>("hpfem_gpu_stepper_create");
+  api.stepper_destroy =
+      api.library.symbol<hpfem_gpu_stepper_destroy_fn>("hpfem_gpu_stepper_destroy");
+  api.stepper_set_state =
+      api.library.symbol<hpfem_gpu_stepper_set_state_fn>("hpfem_gpu_stepper_set_state");
+  api.stepper_get_state =
+      api.library.symbol<hpfem_gpu_stepper_get_state_fn>("hpfem_gpu_stepper_get_state");
+  api.stepper_step = api.library.symbol<hpfem_gpu_stepper_step_fn>("hpfem_gpu_stepper_step");
+  api.stepper_last_error =
+      api.library.symbol<hpfem_gpu_stepper_last_error_fn>("hpfem_gpu_stepper_last_error");
   api.last_error = api.library.symbol<hpfem_gpu_last_error_fn>("hpfem_gpu_last_error");
   if (api_version == nullptr || version == nullptr || device_info == nullptr ||
       api.create == nullptr || api.destroy == nullptr || api.factorize == nullptr ||
@@ -157,6 +186,27 @@ GpuApi load_gpu_api() {
   if (api.api_version >= 2 && api.factor_info2 == nullptr) {
     api.failure = fmt::format("{} claims API version {} but lacks hpfem_gpu_factor_info2", api.path,
                               api.api_version);
+    return api;
+  }
+  if (api.api_version < 3) {
+    api.matrix_create = nullptr;
+    api.matrix_destroy = nullptr;
+    api.matrix_apply = nullptr;
+    api.matrix_last_error = nullptr;
+    api.stepper_create = nullptr;
+    api.stepper_destroy = nullptr;
+    api.stepper_set_state = nullptr;
+    api.stepper_get_state = nullptr;
+    api.stepper_step = nullptr;
+    api.stepper_last_error = nullptr;
+  } else if (api.matrix_create == nullptr || api.matrix_destroy == nullptr ||
+             api.matrix_apply == nullptr || api.matrix_last_error == nullptr ||
+             api.stepper_create == nullptr || api.stepper_destroy == nullptr ||
+             api.stepper_set_state == nullptr || api.stepper_get_state == nullptr ||
+             api.stepper_step == nullptr || api.stepper_last_error == nullptr) {
+    api.failure = fmt::format(
+        "{} claims API version {} but lacks the hpfem_gpu_matrix / hpfem_gpu_stepper functions",
+        api.path, api.api_version);
     return api;
   }
   api.version = version();
@@ -299,6 +349,7 @@ class CudssSolver final : public LinearSolver {
     return x;
   }
 
+  [[nodiscard]] hpfem_gpu_solver* handle() const noexcept { return ready_ ? solver_ : nullptr; }
   [[nodiscard]] Index size() const noexcept override { return size_; }
   [[nodiscard]] std::string name() const override {
     return fmt::format("cuDSS ({}, {}{}{})", api_.version, api_.device, symmetric_ ? ", LDL^T" : "",
@@ -333,6 +384,207 @@ std::string cudss_status() {
 
 std::unique_ptr<LinearSolver> make_cudss(Symmetry symmetry) {
   return std::make_unique<CudssSolver>(symmetry);
+}
+
+// ---------------------------------------------------------------------------- DeviceMatrix
+
+struct DeviceMatrix::Impl {
+  const GpuApi* api = nullptr;
+  hpfem_gpu_matrix* matrix = nullptr;
+  ~Impl() {
+    if (matrix != nullptr) api->matrix_destroy(matrix);
+  }
+};
+
+bool DeviceMatrix::available() noexcept {
+  try {
+    const GpuApi& api = gpu_api();
+    return api.usable() && api.has_matrices();
+  } catch (...) {
+    return false;
+  }
+}
+
+DeviceMatrix::DeviceMatrix(const SparseMatrix& matrix) : impl_(std::make_unique<Impl>()) {
+  const GpuApi& api = gpu_api();
+  if (!api.usable())
+    throw Error(fmt::format("DeviceMatrix: GPU backend unavailable: {}", api.failure));
+  if (!api.has_matrices()) {
+    throw Error(
+        fmt::format("DeviceMatrix: {} implements hpfem_gpu API version {}, device "
+                    "matrices need version 3",
+                    api.path, api.api_version));
+  }
+  impl_->api = &api;
+  const SparseMatrix* csr = &matrix;
+  SparseMatrix compressed;
+  if (!matrix.isCompressed()) {
+    compressed = matrix;
+    compressed.makeCompressed();
+    csr = &compressed;
+  }
+  const hpfem_gpu_status status =
+      api.matrix_create(&impl_->matrix, csr->rows(), csr->nonZeros(),
+                        reinterpret_cast<const int64_t*>(csr->outerIndexPtr()),
+                        reinterpret_cast<const int64_t*>(csr->innerIndexPtr()),
+                        reinterpret_cast<const double*>(csr->valuePtr()));
+  if (status != HPFEM_GPU_OK || impl_->matrix == nullptr) {
+    throw Error(fmt::format("DeviceMatrix: uploading the {} x {} matrix failed (status {})",
+                            csr->rows(), csr->cols(), static_cast<int>(status)));
+  }
+  rows_ = csr->rows();
+  cols_ = csr->cols();
+  if (rows_ != cols_) {
+    throw InvalidArgument(fmt::format("DeviceMatrix: matrix is {} x {}, not square", rows_, cols_));
+  }
+}
+
+hpfem_gpu_matrix* DeviceMatrix::handle() const noexcept {
+  return impl_ ? impl_->matrix : nullptr;
+}
+
+DeviceMatrix::~DeviceMatrix() = default;
+DeviceMatrix::DeviceMatrix(DeviceMatrix&&) noexcept = default;
+DeviceMatrix& DeviceMatrix::operator=(DeviceMatrix&&) noexcept = default;
+
+Vector DeviceMatrix::apply(const Vector& x) const {
+  if (x.size() != cols_) {
+    throw InvalidArgument(
+        fmt::format("DeviceMatrix: vector has {} entries, matrix has {} columns", x.size(), cols_));
+  }
+  Vector y(rows_);
+  const hpfem_gpu_status status =
+      impl_->api->matrix_apply(impl_->matrix, 1, reinterpret_cast<const double*>(x.data()),
+                               reinterpret_cast<double*>(y.data()));
+  if (status != HPFEM_GPU_OK) {
+    throw Error(fmt::format("DeviceMatrix: product failed: {}",
+                            impl_->api->matrix_last_error(impl_->matrix)));
+  }
+  return y;
+}
+
+// ---------------------------------------------------------------------------- DeviceStepper
+
+namespace {
+
+const CudssSolver* cudss_backend(const LinearSolver& solver) noexcept {
+  return dynamic_cast<const CudssSolver*>(solver.backend());
+}
+
+}  // namespace
+
+struct DeviceStepper::Impl {
+  const GpuApi* api = nullptr;
+  std::unique_ptr<DeviceMatrix> damping;
+  std::unique_ptr<DeviceMatrix> stiffness;
+  hpfem_gpu_stepper* stepper = nullptr;
+  ~Impl() {
+    if (stepper != nullptr) api->stepper_destroy(stepper);
+  }
+};
+
+bool DeviceStepper::available(const LinearSolver& newmark) noexcept {
+  try {
+    const GpuApi& api = gpu_api();
+    if (!api.usable() || api.stepper_step == nullptr) return false;
+    const CudssSolver* backend = cudss_backend(newmark);
+    return backend != nullptr && backend->handle() != nullptr;
+  } catch (...) {
+    return false;
+  }
+}
+
+DeviceStepper::DeviceStepper(LinearSolver& newmark, const SparseMatrix* damping,
+                             const SparseMatrix& stiffness, const Vector* load, Real dt, Real beta,
+                             Real gamma)
+    : impl_(std::make_unique<Impl>()) {
+  if (!available(newmark)) {
+    throw Error(
+        "DeviceStepper: the Newmark operator is not factorised by the cuDSS backend of "
+        "an hpfem_gpu library with API version 3 or later");
+  }
+  const GpuApi& api = gpu_api();
+  impl_->api = &api;
+  const CudssSolver* backend = cudss_backend(newmark);
+  if (backend == nullptr || backend->handle() == nullptr) {
+    throw Error("DeviceStepper: the Newmark operator is not a factorised cuDSS solver");
+  }
+  size_ = newmark.size();
+  if (stiffness.rows() != size_ || stiffness.cols() != size_ ||
+      (damping != nullptr && (damping->rows() != size_ || damping->cols() != size_)) ||
+      (load != nullptr && load->size() != size_)) {
+    throw InvalidArgument(fmt::format(
+        "DeviceStepper: the matrices and the load must match the {} unknowns of the operator",
+        size_));
+  }
+  if (!(dt > 0)) throw InvalidArgument("DeviceStepper: the time step must be positive");
+  impl_->stiffness = std::make_unique<DeviceMatrix>(stiffness);
+  if (damping != nullptr && damping->nonZeros() > 0) {
+    impl_->damping = std::make_unique<DeviceMatrix>(*damping);
+  }
+  // the DeviceMatrix objects own hpfem_gpu_matrix handles; the stepper needs the raw ones
+  const hpfem_gpu_status status = api.stepper_create(
+      &impl_->stepper, backend->handle(), impl_->damping ? impl_->damping->handle() : nullptr,
+      impl_->stiffness->handle(), size_,
+      load != nullptr ? reinterpret_cast<const double*>(load->data()) : nullptr, dt, beta, gamma);
+  if (status != HPFEM_GPU_OK || impl_->stepper == nullptr) {
+    throw Error(fmt::format("DeviceStepper: creating the device stepper failed (status {})",
+                            static_cast<int>(status)));
+  }
+}
+
+DeviceStepper::~DeviceStepper() = default;
+
+void DeviceStepper::set_state(const Vector& u, const Vector& v, const Vector& a) {
+  if (u.size() != size_ || v.size() != size_ || a.size() != size_) {
+    throw InvalidArgument(
+        fmt::format("DeviceStepper: the state vectors must have {} entries", size_));
+  }
+  const hpfem_gpu_status status = impl_->api->stepper_set_state(
+      impl_->stepper, reinterpret_cast<const double*>(u.data()),
+      reinterpret_cast<const double*>(v.data()), reinterpret_cast<const double*>(a.data()));
+  if (status != HPFEM_GPU_OK) {
+    throw Error(fmt::format("DeviceStepper: uploading the state failed: {}",
+                            impl_->api->stepper_last_error(impl_->stepper)));
+  }
+}
+
+void DeviceStepper::step(Real load_scale) {
+  const hpfem_gpu_status status = impl_->api->stepper_step(impl_->stepper, load_scale);
+  if (status != HPFEM_GPU_OK) {
+    throw Error(fmt::format("DeviceStepper: step failed: {}",
+                            impl_->api->stepper_last_error(impl_->stepper)));
+  }
+}
+
+void DeviceStepper::get_state(Vector& u, Vector& v, Vector& a) const {
+  u.resize(size_);
+  v.resize(size_);
+  a.resize(size_);
+  const hpfem_gpu_status status = impl_->api->stepper_get_state(
+      impl_->stepper, reinterpret_cast<double*>(u.data()), reinterpret_cast<double*>(v.data()),
+      reinterpret_cast<double*>(a.data()));
+  if (status != HPFEM_GPU_OK) {
+    throw Error(fmt::format("DeviceStepper: downloading the state failed: {}",
+                            impl_->api->stepper_last_error(impl_->stepper)));
+  }
+}
+
+Matrix DeviceMatrix::apply_many(const Matrix& x) const {
+  if (x.rows() != cols_) {
+    throw InvalidArgument(
+        fmt::format("DeviceMatrix: vectors have {} rows, matrix has {} columns", x.rows(), cols_));
+  }
+  Matrix y(rows_, x.cols());
+  if (x.cols() == 0) return y;
+  const hpfem_gpu_status status =
+      impl_->api->matrix_apply(impl_->matrix, x.cols(), reinterpret_cast<const double*>(x.data()),
+                               reinterpret_cast<double*>(y.data()));
+  if (status != HPFEM_GPU_OK) {
+    throw Error(fmt::format("DeviceMatrix: product failed: {}",
+                            impl_->api->matrix_last_error(impl_->matrix)));
+  }
+  return y;
 }
 
 }  // namespace hpfem::solvers

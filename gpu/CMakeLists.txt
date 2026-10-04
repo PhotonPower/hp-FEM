@@ -34,7 +34,8 @@ option(HPFEM_GPU_BUILD_SELFTEST "Build the stand-alone self-test executable" ON)
 find_package(CUDAToolkit 12.0 REQUIRED)
 find_package(cudss 0.6 REQUIRED CONFIG)
 
-add_library(hpfem_gpu SHARED src/cudss_solver.cu include/hpfem_gpu.h)
+add_library(hpfem_gpu SHARED src/cudss_solver.cu src/matrix.cu src/stepper.cu src/internal.hpp
+  include/hpfem_gpu.h)
 target_include_directories(hpfem_gpu PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_compile_definitions(hpfem_gpu PRIVATE HPFEM_GPU_BUILD)
 target_link_libraries(hpfem_gpu PRIVATE CUDA::cudart_static cudss)  # only the cuDSS DLLs remain run-time dependencies

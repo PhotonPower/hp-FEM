@@ -309,6 +309,128 @@ int main(int argc, char** argv) {
     }
     run_case("random sparse, rows scaled 1e-8..1e8", badly, HPFEM_GPU_MATRIX_GENERAL, 2, true);
   }
+  {
+    // device-resident matrix: y = A x against the host product, one and three vectors
+    std::printf("-- device matrix, y = A x: n = %lld\n", static_cast<long long>(n));
+    const Csr a = random_system(n, 21);
+    hpfem_gpu_matrix* matrix = nullptr;
+    check(hpfem_gpu_matrix_create(&matrix, a.n, a.nnz(), a.row_ptr.data(), a.col.data(),
+                                  as_doubles(a.val)) == HPFEM_GPU_OK,
+          "matrix create");
+    std::mt19937 gen(22);
+    std::uniform_real_distribution<double> dist(-1.0, 1.0);
+    std::vector<Complex> x(static_cast<size_t>(3 * a.n));
+    for (auto& v : x) v = Complex{dist(gen), dist(gen)};
+    const std::vector<Complex> reference = multiply(a, x, 3);
+    std::vector<Complex> y(x.size());
+    check(hpfem_gpu_matrix_apply(matrix, 3, as_doubles(x), as_doubles(y)) == HPFEM_GPU_OK,
+          std::string("matrix apply: ") + hpfem_gpu_matrix_last_error(matrix));
+    const double err = relative_error(y, reference);
+    std::printf("       relative difference to the host product %.2e\n", err);
+    check(err < 1e-14, "device product agrees with the host product");
+    std::vector<Complex> y1(static_cast<size_t>(a.n));
+    check(hpfem_gpu_matrix_apply(matrix, 1, as_doubles(x), as_doubles(y1)) == HPFEM_GPU_OK &&
+              relative_error(y1, std::vector<Complex>(reference.begin(), reference.begin() + a.n)) <
+                  1e-14,
+          "single vector");
+    check(hpfem_gpu_matrix_apply(matrix, 0, as_doubles(x), as_doubles(y1)) ==
+              HPFEM_GPU_ERR_INVALID_ARG,
+          "nrhs = 0 is refused");
+    hpfem_gpu_matrix_destroy(matrix);
+    hpfem_gpu_matrix_destroy(nullptr);
+  }
+  {
+    // Newmark stepper against the same recursion on the host (solves through the host API
+    // of the same factorisation): 1D "mass" M = h I, stiffness S = Helmholtz, no damping
+    const int64_t m = std::min<int64_t>(n, 5000);
+    std::printf("-- Newmark stepper on the device: n = %lld\n", static_cast<long long>(m));
+    const Csr s = helmholtz_1d(m);
+    const double h = 1.0 / static_cast<double>(m);
+    const double dt = 0.5 * h;
+    const double beta = 0.25, gamma = 0.5;
+    Csr k = s;  // K = h I + beta dt^2 S
+    for (int64_t i = 0; i < k.n; ++i) {
+      for (int64_t kk = k.row_ptr[i]; kk < k.row_ptr[i + 1]; ++kk) {
+        k.val[kk] *= beta * dt * dt;
+        if (k.col[kk] == i) k.val[kk] += h;
+      }
+    }
+    hpfem_gpu_solver* solver = nullptr;
+    check(hpfem_gpu_create(&solver) == HPFEM_GPU_OK, "stepper: create solver");
+    check(hpfem_gpu_factorize(solver, k.n, k.nnz(), k.row_ptr.data(), k.col.data(),
+                              as_doubles(k.val), HPFEM_GPU_MATRIX_GENERAL) == HPFEM_GPU_OK,
+          std::string("stepper: factorise K: ") + hpfem_gpu_last_error(solver));
+    hpfem_gpu_matrix* stiffness = nullptr;
+    check(hpfem_gpu_matrix_create(&stiffness, s.n, s.nnz(), s.row_ptr.data(), s.col.data(),
+                                  as_doubles(s.val)) == HPFEM_GPU_OK,
+          "stepper: upload S");
+    std::mt19937 gen(51);
+    std::uniform_real_distribution<double> dist(-1.0, 1.0);
+    std::vector<Complex> u(static_cast<size_t>(m)), v(static_cast<size_t>(m), 0.0),
+        a(static_cast<size_t>(m), 0.0), load(static_cast<size_t>(m));
+    for (auto& x : u) x = Complex{dist(gen), dist(gen)};
+    for (auto& x : load) x = Complex{dist(gen), dist(gen)};
+    hpfem_gpu_stepper* stepper = nullptr;
+    check(hpfem_gpu_stepper_create(&stepper, solver, nullptr, stiffness, m, as_doubles(load), dt,
+                                   beta, gamma) == HPFEM_GPU_OK,
+          "stepper: create");
+    check(hpfem_gpu_stepper_set_state(stepper, as_doubles(u), as_doubles(v), as_doubles(a)) ==
+              HPFEM_GPU_OK,
+          "stepper: set state");
+    // host reference with the host solve of the same factorisation
+    std::vector<Complex> hu = u, hv = v, ha = a, u_pred(u.size()), v_pred(u.size()), rhs(u.size()),
+                         a_new(u.size());
+    const int steps = 50;
+    auto t0 = std::chrono::steady_clock::now();
+    for (int step = 0; step < steps; ++step) {
+      const double scale = std::sin(0.3 * (step + 1));
+      for (size_t i = 0; i < u.size(); ++i) {
+        u_pred[i] = hu[i] + dt * hv[i] + (dt * dt * (0.5 - beta)) * ha[i];
+        v_pred[i] = hv[i] + (dt * (1.0 - gamma)) * ha[i];
+      }
+      const std::vector<Complex> su = multiply(s, u_pred, 1);
+      for (size_t i = 0; i < u.size(); ++i) rhs[i] = scale * load[i] - su[i];
+      check(hpfem_gpu_solve(solver, 1, as_doubles(rhs), as_doubles(a_new)) == HPFEM_GPU_OK,
+            "stepper reference: solve");
+      for (size_t i = 0; i < u.size(); ++i) {
+        hu[i] = u_pred[i] + (beta * dt * dt) * a_new[i];
+        hv[i] = v_pred[i] + (gamma * dt) * a_new[i];
+        ha[i] = a_new[i];
+      }
+    }
+    const double host_time =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    t0 = std::chrono::steady_clock::now();
+    for (int step = 0; step < steps; ++step) {
+      const double scale = std::sin(0.3 * (step + 1));
+      const hpfem_gpu_status st = hpfem_gpu_stepper_step(stepper, scale);
+      if (st != HPFEM_GPU_OK) {
+        check(false, std::string("stepper: step: ") + hpfem_gpu_stepper_last_error(stepper));
+        break;
+      }
+    }
+    std::vector<Complex> gu(u.size()), gv(u.size()), ga(u.size());
+    check(hpfem_gpu_stepper_get_state(stepper, as_doubles(gu), as_doubles(gv), as_doubles(ga)) ==
+              HPFEM_GPU_OK,
+          "stepper: get state");
+    const double device_time =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    std::printf(
+        "       %d steps: host loop %.3f s, device stepper %.3f s (state download "
+        "included); differences u %.2e, v %.2e, a %.2e\n",
+        steps, host_time, device_time, relative_error(gu, hu), relative_error(gv, hv),
+        relative_error(ga, ha));
+    check(relative_error(gu, hu) < 1e-12 && relative_error(gv, hv) < 1e-12 &&
+              relative_error(ga, ha) < 1e-12,
+          "device stepper matches the host recursion to 1e-12");
+    check(hpfem_gpu_stepper_set_state(stepper, nullptr, as_doubles(v), as_doubles(a)) ==
+              HPFEM_GPU_ERR_INVALID_ARG,
+          "set_state with a null array is refused");
+    hpfem_gpu_stepper_destroy(stepper);
+    hpfem_gpu_stepper_destroy(nullptr);
+    hpfem_gpu_matrix_destroy(stiffness);
+    hpfem_gpu_destroy(solver);
+  }
   run_error_paths();
 
   std::printf("%d failure(s)\n", failures);

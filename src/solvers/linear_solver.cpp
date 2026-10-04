@@ -18,6 +18,8 @@
 
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/solvers/device_matrix.hpp"
+#include "hpfem/solvers/device_stepper.hpp"
 
 namespace hpfem::solvers {
 
@@ -192,6 +194,40 @@ std::unique_ptr<LinearSolver> make_cudss(Symmetry /*symmetry*/) {
 std::string cudss_status() {
   return "not compiled in (configure with HPFEM_ENABLE_CUDA)";
 }
+
+struct DeviceMatrix::Impl {};
+bool DeviceMatrix::available() noexcept {
+  return false;
+}
+hpfem_gpu_matrix* DeviceMatrix::handle() const noexcept {
+  return nullptr;
+}
+DeviceMatrix::DeviceMatrix(const SparseMatrix& /*matrix*/) {
+  throw Error("DeviceMatrix needs the GPU backend (configure with HPFEM_ENABLE_CUDA)");
+}
+DeviceMatrix::~DeviceMatrix() = default;
+DeviceMatrix::DeviceMatrix(DeviceMatrix&&) noexcept = default;
+DeviceMatrix& DeviceMatrix::operator=(DeviceMatrix&&) noexcept = default;
+Vector DeviceMatrix::apply(const Vector& /*x*/) const {
+  throw Error("DeviceMatrix needs the GPU backend (configure with HPFEM_ENABLE_CUDA)");
+}
+Matrix DeviceMatrix::apply_many(const Matrix& /*x*/) const {
+  throw Error("DeviceMatrix needs the GPU backend (configure with HPFEM_ENABLE_CUDA)");
+}
+
+struct DeviceStepper::Impl {};
+bool DeviceStepper::available(const LinearSolver& /*newmark*/) noexcept {
+  return false;
+}
+DeviceStepper::DeviceStepper(LinearSolver& /*newmark*/, const SparseMatrix* /*damping*/,
+                             const SparseMatrix& /*stiffness*/, const Vector* /*load*/, Real /*dt*/,
+                             Real /*beta*/, Real /*gamma*/) {
+  throw Error("DeviceStepper needs the GPU backend (configure with HPFEM_ENABLE_CUDA)");
+}
+DeviceStepper::~DeviceStepper() = default;
+void DeviceStepper::set_state(const Vector& /*u*/, const Vector& /*v*/, const Vector& /*a*/) {}
+void DeviceStepper::step(Real /*load_scale*/) {}
+void DeviceStepper::get_state(Vector& /*u*/, Vector& /*v*/, Vector& /*a*/) const {}
 #endif
 
 bool available(DirectSolverBackend backend) noexcept {
@@ -280,6 +316,8 @@ class AutoSolver final : public LinearSolver {
   [[nodiscard]] std::string name() const override {
     return solver_ ? fmt::format("auto: {}", solver_->name()) : "auto";
   }
+  [[nodiscard]] std::string details() const override { return solver_ ? solver_->details() : ""; }
+  [[nodiscard]] const LinearSolver* backend() const noexcept override { return solver_.get(); }
 
  private:
   Symmetry symmetry_;

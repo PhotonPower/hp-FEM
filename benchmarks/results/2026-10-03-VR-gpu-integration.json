@@ -10,3 +10,7 @@
 {"host": "VR", "version": "0.2.0", "benchmark": "cavity", "n": 96, "p": 2, "dofs": 92544, "threads": 24, "solver": "SparseLU", "eigenvalues": 6, "iterations": 2, "total_s": 2.6258, "lambda_0": 9.869604}
 {"host": "VR", "version": "0.2.0", "benchmark": "cavity", "n": 96, "p": 2, "dofs": 92544, "threads": 24, "solver": "MUMPS", "eigenvalues": 6, "iterations": 2, "total_s": 3.0112, "lambda_0": 9.869604}
 {"host": "VR", "version": "0.2.0", "benchmark": "cavity", "n": 96, "p": 2, "dofs": 92544, "threads": 24, "solver": "cuDSS", "eigenvalues": 6, "iterations": 2, "total_s": 2.5807, "lambda_0": 9.869604}
+{"host": "VR", "version": "0.2.0", "benchmark": "time_domain", "n": 128, "p": 2, "dofs": 164352, "threads": 24, "solver": "SparseLU", "steps": 200, "setup_s": 10.6574, "step_s": 0.06040, "energy_drift": 1.88e-14, "device_loop": false}
+{"host": "VR", "version": "0.2.0", "benchmark": "time_domain", "n": 128, "p": 2, "dofs": 164352, "threads": 24, "solver": "MUMPS", "steps": 200, "setup_s": 2.3121, "step_s": 0.04302, "energy_drift": 2.33e-14, "device_loop": false}
+{"host": "VR", "version": "0.2.0", "benchmark": "time_domain", "n": 128, "p": 2, "dofs": 164352, "threads": 24, "solver": "cuDSS", "steps": 200, "setup_s": 1.9515, "step_s": 0.00827, "energy_drift": 1.96e-14, "device_loop": false}
+{"host": "VR", "version": "0.2.0", "benchmark": "time_domain", "n": 128, "p": 2, "dofs": 164352, "threads": 24, "solver": "cuDSS", "steps": 200, "setup_s": 1.6723, "step_s": 0.00350, "energy_drift": 8.46e-15, "device_loop": true}
