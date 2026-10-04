@@ -616,6 +616,29 @@ void bind_physics(py::module_& m) {
           py::arg("theta"), py::arg("order") = 8, Release(),
           "Near-to-far transform of the order-m field on a closed surface of revolution in the "
           "background medium, sampled at the polar angles theta");
+    py::enum_<physics::PlanePolarisation>(m, "PlanePolarisation",
+                                          "Polarisation relative to the plane of incidence")
+        .value("S", physics::PlanePolarisation::kS, "E along y")
+        .value("P", physics::PlanePolarisation::kP, "E in the x-z plane");
+    m.def("oblique_plane_wave", &physics::oblique_plane_wave, py::arg("amplitude"), py::arg("k"),
+          py::arg("theta_i"), py::arg("polarisation"), py::arg("m"),
+          "Order m of the plane wave at the angle theta_i to the axis (Jacobi-Anger expansion) "
+          "in the scaled components (E_r, v = -i r E_phi, E_z)");
+    py::class_<physics::AxisymmetricOrders>(m, "AxisymmetricOrders",
+                                            "Fields of several orders and their powers")
+        .def_readonly("orders", &physics::AxisymmetricOrders::orders)
+        .def_readonly("fields", &physics::AxisymmetricOrders::fields)
+        .def_readonly("power", &physics::AxisymmetricOrders::power)
+        .def("total_power", &physics::AxisymmetricOrders::total_power, "sum over the orders [W]");
+    m.def("scatter_orders", &physics::scatter_orders, py::arg("meridian"), py::arg("azimuthal"),
+          py::arg("setup"), py::arg("incident_of_order"), py::arg("max_order"), py::arg("surface"),
+          py::arg("tolerance") = 1e-6, Release(),
+          "Solves the orders m = 0, +-1, +-2, ... with the incident component incident_of_order(m) "
+          "until the pair +-m carries less than tolerance times the total power through the "
+          "surface (|m| >= 2) or max_order is reached");
+    m.def("superpose_far_field", &physics::superpose_far_field, py::arg("patterns"),
+          py::arg("orders"), py::arg("phi"),
+          "Far-field pattern sum_m F_m(theta) e^{i m phi} of the orders at the azimuth phi");
     m.def("axisymmetric_poynting_flux", &physics::axisymmetric_poynting_flux, py::arg("meridian"),
           py::arg("azimuthal"), py::arg("meridian_coefficients"), py::arg("azimuthal_coefficients"),
           py::arg("azimuthal_order"), py::arg("omega"), py::arg("materials"), py::arg("surface"),

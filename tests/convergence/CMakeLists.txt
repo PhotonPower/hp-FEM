@@ -49,6 +49,8 @@ hpfem_add_test(convergence_axisymmetric_sphere_resonance convergence
 
 hpfem_add_test(convergence_axisymmetric_mie_sphere convergence
   axisymmetric_mie_sphere.cpp)
+hpfem_add_test(convergence_axisymmetric_oblique_sphere convergence
+  axisymmetric_oblique_sphere.cpp)
 
 hpfem_add_test(convergence_axisymmetric_dipole convergence
   axisymmetric_dipole.cpp)

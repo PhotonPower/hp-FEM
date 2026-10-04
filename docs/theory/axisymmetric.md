@@ -255,11 +255,63 @@ the axis and conserves power likewise; for the sphere scattering the cross-secti
 far-field power agrees with the flux and converges to the Mie value (the convergence test
 prints both columns).
 
+## Oblique incidence (`oblique_plane_wave`, `scatter_orders`)
+
+A plane wave at the angle $\theta_i$ to the axis is not a single order: with the wave vector
+$k(\sin\theta_i, 0, \cos\theta_i)$ and the polarisation $\hat p$ ($\hat y$ for s, $(\cos\theta_i,
+0, -\sin\theta_i)$ for p, both relative to the plane of incidence $x$–$z$) the Jacobi–Anger
+expansion of the transverse phase,
+
+$$
+e^{ik_\perp\rho\cos\varphi} = \sum_{n=-\infty}^{\infty} i^n J_n(k_\perp\rho)\,e^{in\varphi},
+\qquad k_\perp = k\sin\theta_i,\quad a_n = i^n J_n(k_\perp\rho),
+$$
+
+spreads the field over all orders. The Cartesian polarisation enters the cylindrical components
+through $\cos\varphi$ and $\sin\varphi$, which shift the index by one:
+
+$$
+\begin{aligned}
+E_{\rho,m} &= \tfrac{p_x}{2}(a_{m-1} + a_{m+1}) + \tfrac{p_y}{2i}(a_{m-1} - a_{m+1}),\\
+E_{\varphi,m} &= -\tfrac{p_x}{2i}(a_{m-1} - a_{m+1}) + \tfrac{p_y}{2}(a_{m-1} + a_{m+1}),\\
+E_{z,m} &= p_z\,a_m,
+\end{aligned}
+\qquad\text{all times } E_0\,e^{ikz\cos\theta_i},
+$$
+
+returned in the scaled components $(E_r, v = -ir E_\varphi, E_z)$ by `oblique_plane_wave`. At
+$\theta_i = 0$ only $a_0 = 1$ survives and the orders $m = \pm 1$ of `axial_plane_wave` remain.
+The orders are *not* coupled by a body of revolution: the operator commutes with rotations
+about the axis, so every $m$ is solved separately with its own incident component and the
+response is the sum $\sum_m E_m e^{im\varphi}$. The series converges once $|m|$ exceeds
+$k_\perp R$ for the radius $R$ of the scatterer ($J_m(k_\perp\rho)$ decays super-exponentially
+beyond $m \approx k_\perp\rho$), and the orders are orthogonal in every power integral over a
+surface of revolution, so the total scattered power is $\sum_m P_m$.
+
+`scatter_orders` runs this loop: it solves $m = 0, \pm1, \pm2, \dots$ with the incident
+component supplied per order, measures the power of every order through a surface and stops
+when the pair $\pm m$ ($|m| \ge 2$) contributes less than a tolerance of the total so far, or
+at `max_order`. `superpose_far_field` sums the patterns $F_m(\theta)e^{im\varphi}$ at an azimuth
+so that the full three-dimensional pattern of the oblique problem is available from the
+one-dimensional patterns of the orders. The same loop serves any source that is not a single
+order (a tilted dipole, a focused beam): the user supplies its decomposition per $m$.
+
+**Verification** (`tests/unit/physics/test_axisymmetric_orders.cpp`,
+`tests/convergence/axisymmetric_oblique_sphere.cpp`): the orders summed over $|m| \le 25$
+restore the plane wave at a point to $10^{-12}$ for both polarisations, and at $\theta_i = 0$
+the p-polarised orders coincide with `axial_plane_wave`. The dielectric sphere ($n = 2$,
+$ka = 1.5$) at $\theta_i = 50^\circ$ scatters the same cross-section as on the axis, which the
+sum over the orders reproduces with $\pm m$ powers equal to $10^{-6}$, the far field of the
+superposed orders carrying the total power to $10^{-2}$, and the cross-section converging
+exponentially in $p$ (both polarisations, relative errors $3\cdot10^{-1}$, $8\cdot10^{-3}$,
+$1.5\cdot10^{-3}$, $8\cdot10^{-5}$ for $p = 1, \dots, 4$ with seven to nine orders).
+
 ## Roadmap
 
 The micropillar example (`examples/micropillar_qd`) exercises resonance, Purcell factor and
-β factor together. Still open: coupled orders for oblique incidence and
-adaptivity on the meridian plane with the $r$-weighted estimator. The Python bindings
+β factor together. Oblique incidence is covered by the sum over the orders
+(`scatter_orders`). Still open: adaptivity on the meridian plane with the $r$-weighted
+estimator. The Python bindings
 (`AxisymmetricCavity`, `AxisymmetricResonance`, `AxisymmetricScattering`, `axial_plane_wave`,
-`axisymmetric_gaussian_dipole`, `axisymmetric_poynting_flux`, `axisymmetric_far_field`) follow the
-C++ API one to one.
+`axisymmetric_gaussian_dipole`, `axisymmetric_poynting_flux`, `axisymmetric_far_field`,
+`oblique_plane_wave`, `scatter_orders`, `superpose_far_field`) follow the C++ API one to one.
