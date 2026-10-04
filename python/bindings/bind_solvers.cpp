@@ -168,6 +168,13 @@ void bind_solvers(py::module_& m) {
         py::arg("backend") = DirectSolverBackend::kAuto, Release(),
         "Eigenpairs of the complex pencil A x = lambda B x closest to the complex shift sigma "
         "(shift-invert Arnoldi; lossy media, PML, complex frequencies)");
+  m.def("complex_eigenpairs_near_gauged", &solvers::complex_eigenpairs_near_gauged, py::arg("a"),
+        py::arg("b"), py::arg("gradient"), py::arg("sigma"),
+        py::arg("options") = solvers::EigenOptions{},
+        py::arg("backend") = DirectSolverBackend::kAuto, Release(),
+        "As complex_eigenpairs_near with the kernel spanned by the columns of the gradient "
+        "projected out of every Arnoldi vector (B-orthogonal projection), so the gradient "
+        "eigenvalues at zero of a curl-curl pencil never appear");
 
   py::class_<solvers::ReducedBasis>(m, "ReducedBasis",
                                     "Orthonormal snapshot basis V with the Galerkin projections "

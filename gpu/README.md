@@ -83,7 +83,7 @@ complex-symmetric input), a random sparse system, one and several right-hand sid
 solves, and the error paths (inconsistent CSR, singular matrix, solve before factorisation,
 reuse after a failure). All solutions must agree with the reference to 1e-10.
 
-## Interface summary (`include/hpfem_gpu.h`, API version 3)
+## Interface summary (`include/hpfem_gpu.h`, API version 4)
 
 | Function | Purpose |
 |----------|---------|
@@ -98,6 +98,8 @@ reuse after a failure). All solutions must agree with the reference to 1e-10.
 | `hpfem_gpu_last_error(solver)` | message of the last failure on this object |
 | `hpfem_gpu_matrix_create / destroy / apply / last_error` | API 3: device-resident CSR matrix, y = A x for one or several host vectors (own warp-per-row kernel) |
 | `hpfem_gpu_stepper_create / destroy / set_state / get_state / step / last_error` | API 3: Newmark loop on the device with a factorised solver and device matrices; the state stays on the GPU, `step(load_scale)` needs no transfer |
+| `hpfem_gpu_matrix_create_rect(&m, rows, cols, nnz, row_ptr, col, values)` | API 4: rectangular device matrix (the gradient G and G^H of the gauge projection) |
+| `hpfem_gpu_arnoldi_create / destroy / set_start / iterate / restart / combine / last_error` | API 4: shift-invert Arnoldi with the Krylov basis on the device: `iterate(j)` computes w = P K⁻¹ B v_j (gauge projection P with a second factorised solver when G, G^H and K_g are given), orthogonalises twice against v_0..v_j and returns the Hessenberg column; `restart(m, c)` sets v_0 = V_m c / ‖V_m c‖, `combine(m, C)` returns V_m C (Ritz vectors) |
 
 Statuses: `OK`, `ERR_NO_DEVICE`, `ERR_INVALID_ARG`, `ERR_CUDA`, `ERR_CUDSS`,
 `ERR_OUT_OF_MEMORY`, `ERR_SINGULAR`, `ERR_NOT_FACTORIZED`. A solver object is not thread
