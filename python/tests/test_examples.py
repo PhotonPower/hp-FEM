@@ -120,3 +120,12 @@ def test_micropillar_qd_purcell_peaks_at_the_resonance(tmp_path, monkeypatch):
     assert purcell.max() > 2.0
     assert purcell.max() > 2.0 * purcell.min()
     assert all(0.0 < b < 1.0 for b in spec["beta_top"])
+    # the modal sum (Riesz projection on the resonance pencil) follows the sweep: same
+    # peak, the fundamental mode carries the peak, every contour converged
+    modal = result["modal"]
+    modal_purcell = np.array(modal["purcell"])
+    assert modal["convergence"] < 1e-4
+    assert abs(wavelengths[np.argmax(modal_purcell)] - peak) <= wavelengths[1] - wavelengths[0]
+    assert np.max(np.abs(modal_purcell - purcell) / purcell) < 0.15
+    mode = np.array(modal["purcell_mode"])
+    assert mode[np.argmax(modal_purcell)] > 0.7 * modal_purcell.max()
