@@ -19,6 +19,7 @@
 #include "hpfem/fespace/h1_basis.hpp"
 #include "hpfem/fespace/nedelec_basis.hpp"
 #include "hpfem/mesh/geometry.hpp"
+#include "hpfem/physics/riesz_projection.hpp"
 #include "hpfem/solvers/eigen_solver.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
 
@@ -290,6 +291,74 @@ std::vector<AxisymmetricResonantMode> AxisymmetricResonance::solve() const {
     modes.push_back(std::move(mode));
   }
   return modes;
+}
+
+namespace {
+
+/// The reduced order-m block pencil of a resonance problem for `RieszProjection`.
+class AxisymmetricPencil final : public RieszPencil {
+ public:
+  AxisymmetricPencil(SparseMatrix stiffness, SparseMatrix mass, AxisymmetricDofSets sets,
+                     Index n_block)
+      : stiffness_(std::move(stiffness)),
+        mass_(std::move(mass)),
+        sets_(std::move(sets)),
+        n_block_(n_block) {}
+
+  [[nodiscard]] const SparseMatrix& stiffness() const noexcept override { return stiffness_; }
+  [[nodiscard]] const SparseMatrix& mass() const noexcept override { return mass_; }
+  [[nodiscard]] Index num_full() const noexcept override { return n_block_; }
+  [[nodiscard]] Vector reduce(const Vector& full) const override {
+    if (full.size() != n_block_) {
+      throw InvalidArgument(fmt::format(
+          "axisymmetric_pencil: vector of {} entries for {} block DoFs", full.size(), n_block_));
+    }
+    Vector out(static_cast<Index>(sets_.free.size()));
+    for (Index j = 0; j < out.size(); ++j) out(j) = full(sets_.free[as_size(j)]);
+    if (sets_.constraints) return sets_.constraints->reduce_rhs(out);
+    return out;
+  }
+  [[nodiscard]] Vector expand(const Vector& reduced) const override {
+    return expand_to_full(reduced, sets_, n_block_);
+  }
+
+ private:
+  SparseMatrix stiffness_;
+  SparseMatrix mass_;
+  AxisymmetricDofSets sets_;
+  Index n_block_;
+};
+
+}  // namespace
+
+std::unique_ptr<RieszPencil> axisymmetric_pencil(const AxisymmetricResonance& problem) {
+  const auto& setup = problem.setup();
+  const auto& meridian = problem.meridian();
+  const auto& azimuthal = problem.azimuthal();
+  const int m = setup.azimuthal_order;
+  const auto system = assembly::assemble_axisymmetric(
+      meridian, azimuthal, m, [&problem](Index c) { return problem.form_of_cell(c); },
+      setup.extra_quadrature_order);
+  AxisymmetricDofSets sets =
+      axisymmetric_dof_sets(meridian, azimuthal, setup.pec_tags, setup.axis_tag, m);
+  const SparseMatrix gradient = assembly::axisymmetric_gradient(azimuthal, meridian, m);
+  ReducedPencil pencil = reduce_pencil(system.stiffness, system.mass, gradient, sets);
+  pencil.stiffness.makeCompressed();
+  pencil.mass.makeCompressed();
+  return std::make_unique<AxisymmetricPencil>(std::move(pencil.stiffness), std::move(pencil.mass),
+                                              std::move(sets),
+                                              meridian.num_dofs() + azimuthal.num_dofs());
+}
+
+Vector axisymmetric_current_load(const fespace::NedelecDofMap<2>& meridian,
+                                 const fespace::DofMap<2>& azimuthal, int m,
+                                 const AxisymmetricField& current, int extra_order) {
+  if (!current) throw InvalidArgument("axisymmetric_current_load: empty current");
+  assembly::AxisymmetricForm form;
+  form.source = current;
+  const auto system = assembly::assemble_axisymmetric(
+      meridian, azimuthal, m, [&form](Index) { return form; }, extra_order);
+  return system.rhs;
 }
 
 AxisymmetricField axial_plane_wave(Complex amplitude, Real k, int m) {

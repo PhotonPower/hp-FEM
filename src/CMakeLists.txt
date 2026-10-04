@@ -48,6 +48,7 @@ add_library(hpfem
   solvers/reduced_basis.cpp
   physics/sweep.cpp
   physics/resonance.cpp
+  physics/riesz_projection.cpp
   physics/thermal.cpp
   physics/thermo_optical.cpp
   physics/band_structure.cpp
