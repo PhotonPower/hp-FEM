@@ -118,3 +118,24 @@ TEST_CASE("dielectric rods lower the bands, path and setup errors", "[physics][b
   REQUIRE_THROWS_AS(BandStructure<2>(nd, h1, bad), hpfem::InvalidArgument);
   REQUIRE_THROWS_AS(crystal.path({Point<2>::Zero()}, 2), hpfem::InvalidArgument);
 }
+
+TEST_CASE("band structure on the GPU: the gauged Krylov basis on the device gives the host bands",
+          "[physics][bands][gpu]") {
+  using hpfem::solvers::DirectSolverBackend;
+  if (!hpfem::solvers::available(DirectSolverBackend::kCudss)) return;
+  const Mesh<2> mesh = rectangle(6, 6);
+  const NedelecDofMap<2> nd(mesh, 3);
+  const DofMap<2> h1(mesh, 3);
+  BandStructureSetup<2> host_setup = square_lattice(4);
+  host_setup.solver = DirectSolverBackend::kSparseLu;
+  BandStructureSetup<2> device_setup = host_setup;
+  device_setup.solver = DirectSolverBackend::kCudss;
+  const Point<2> k(0.7, 1.1);
+  const auto host = BandStructure<2>(nd, h1, host_setup).bands(k);
+  const auto device = BandStructure<2>(nd, h1, device_setup).bands(k);
+  REQUIRE(device.wavenumber.size() == host.wavenumber.size());
+  for (std::size_t i = 0; i < host.wavenumber.size(); ++i) {
+    REQUIRE(device.wavenumber[i] == Approx(host.wavenumber[i]).epsilon(1e-10));
+    REQUIRE(device.residual[i] < 1e-8);
+  }
+}

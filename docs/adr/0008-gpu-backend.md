@@ -83,6 +83,13 @@ decision:
 - `solvers::Symmetry::kComplexSymmetric` lets cuDSS (upper triangle, `CUDSS_MTYPE_SYMMETRIC`)
   and MUMPS (`SYM = 2`) factorise the complex-symmetric curl–curl systems as LDLᵀ; the caller
   guarantees the structure, SparseLU ignores the flag.
+- The shift-invert Arnoldi of the complex eigensolvers keeps its Krylov basis on the device
+  (`solvers::DeviceArnoldi`, API version 4: Gram–Schmidt as reduction and update kernels,
+  gauge projection with a second cuDSS factorisation, Ritz and restart vectors as $V_m c$)
+  whenever the shift is factorised by cuDSS and the memory estimate fits; otherwise the
+  host basis with device solves. Measured (`bench_device_arnoldi`): 20–35 % less time for
+  `Resonance`, 30–35 % for the gauged `BandStructure` at 92 k–369 k unknowns on top of the
+  cuDSS solves — the factorisation and the solves themselves dominate what remains.
 - Double precision stays the only precision; no mixed-precision shortcuts.
 - `kAuto` prefers cuDSS from `HPFEM_GPU_MIN_UNKNOWNS` unknowns on (default 10 000, decided in
   `factorize`; the GPU library is loaded only then). The value is where the GPU

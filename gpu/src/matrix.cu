@@ -60,9 +60,16 @@ extern "C" {
 hpfem_gpu_status hpfem_gpu_matrix_create(hpfem_gpu_matrix** out, int64_t n, int64_t nnz,
                                          const int64_t* row_ptr, const int64_t* col,
                                          const double* values) {
+  return hpfem_gpu_matrix_create_rect(out, n, n, nnz, row_ptr, col, values);
+}
+
+hpfem_gpu_status hpfem_gpu_matrix_create_rect(hpfem_gpu_matrix** out, int64_t rows, int64_t cols,
+                                              int64_t nnz, const int64_t* row_ptr,
+                                              const int64_t* col, const double* values) {
   if (out == nullptr) return HPFEM_GPU_ERR_INVALID_ARG;
   *out = nullptr;
-  if (n <= 0 || nnz < 0 || row_ptr == nullptr ||
+  const int64_t n = rows;
+  if (rows <= 0 || cols <= 0 || nnz < 0 || row_ptr == nullptr ||
       (nnz > 0 && (col == nullptr || values == nullptr)) || row_ptr[0] != 0 || row_ptr[n] != nnz) {
     return HPFEM_GPU_ERR_INVALID_ARG;
   }
@@ -74,6 +81,8 @@ hpfem_gpu_status hpfem_gpu_matrix_create(hpfem_gpu_matrix** out, int64_t n, int6
   hpfem_gpu_matrix* matrix = new (std::nothrow) hpfem_gpu_matrix();
   if (matrix == nullptr) return HPFEM_GPU_ERR_OUT_OF_MEMORY;
   matrix->n = n;
+  matrix->rows = rows;
+  matrix->cols = cols;
   matrix->nnz = nnz;
   const size_t n_size = static_cast<size_t>(n);
   const size_t nnz_size = static_cast<size_t>(nnz);
@@ -86,7 +95,7 @@ hpfem_gpu_status hpfem_gpu_matrix_create(hpfem_gpu_matrix** out, int64_t n, int6
     HPFEM_GPU_MATRIX_CUDA(matrix, "matrix: allocate values",
                           matrix->values.reserve(nnz_size * 2 * sizeof(double)));
     HPFEM_GPU_MATRIX_CUDA(matrix, "matrix: allocate vectors",
-                          matrix->x.reserve(n_size * 2 * sizeof(double)));
+                          matrix->x.reserve(static_cast<size_t>(cols) * 2 * sizeof(double)));
     HPFEM_GPU_MATRIX_CUDA(matrix, "matrix: allocate vectors",
                           matrix->y.reserve(n_size * 2 * sizeof(double)));
     HPFEM_GPU_MATRIX_CUDA(matrix, "matrix: upload row pointer",
@@ -123,18 +132,19 @@ hpfem_gpu_status hpfem_gpu_matrix_apply(hpfem_gpu_matrix* matrix, int64_t nrhs, 
   if (nrhs <= 0 || x == nullptr || y == nullptr) {
     return matrix->fail(HPFEM_GPU_ERR_INVALID_ARG, "apply: null array or nrhs <= 0");
   }
-  const size_t n_size = static_cast<size_t>(matrix->n);
-  const size_t count = n_size * static_cast<size_t>(nrhs);
+  const size_t in_count = static_cast<size_t>(matrix->cols) * static_cast<size_t>(nrhs);
+  const size_t count = static_cast<size_t>(matrix->rows) * static_cast<size_t>(nrhs);
   HPFEM_GPU_MATRIX_CUDA(matrix, "apply: allocate input",
-                        matrix->x.reserve(count * 2 * sizeof(double)));
+                        matrix->x.reserve(in_count * 2 * sizeof(double)));
   HPFEM_GPU_MATRIX_CUDA(matrix, "apply: allocate output",
                         matrix->y.reserve(count * 2 * sizeof(double)));
   HPFEM_GPU_MATRIX_CUDA(matrix, "apply: upload input",
-                        cudaMemcpyAsync(matrix->x.ptr, x, count * 2 * sizeof(double),
+                        cudaMemcpyAsync(matrix->x.ptr, x, in_count * 2 * sizeof(double),
                                         cudaMemcpyHostToDevice, matrix->stream));
   for (int64_t j = 0; j < nrhs; ++j) {
-    hpfem_gpu_matrix_apply_device(matrix, matrix->x.as<cuDoubleComplex>() + j * matrix->n,
-                                  matrix->y.as<cuDoubleComplex>() + j * matrix->n, matrix->stream);
+    hpfem_gpu_matrix_apply_device(matrix, matrix->x.as<cuDoubleComplex>() + j * matrix->cols,
+                                  matrix->y.as<cuDoubleComplex>() + j * matrix->rows,
+                                  matrix->stream);
   }
   HPFEM_GPU_MATRIX_CUDA(matrix, "apply: launch", cudaGetLastError());
   HPFEM_GPU_MATRIX_CUDA(matrix, "apply: download output",

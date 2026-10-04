@@ -106,10 +106,42 @@ def test_time_domain_on_cudss_matches_the_host_loop():
         setup.dt = 2 * np.pi / omega / 40
         setup.solver = backend
         problem = hpfem.TimeDomain2D(nd, setup)
-        state = problem.initialize(hpfem.interpolate(nd, te11), np.zeros(nd.num_dofs, dtype=complex))
+        state = problem.initialize(
+            hpfem.interpolate(nd, te11), np.zeros(nd.num_dofs, dtype=complex)
+        )
         e0 = problem.energy(state)
         problem.run(state, 30)
         assert abs(problem.energy(state) - e0) < 1e-10 * e0
         states[backend] = (state.u.copy(), state.v.copy(), state.a.copy())
-    for host, device in zip(states[hpfem.DirectSolverBackend.SPARSE_LU], states[hpfem.DirectSolverBackend.CUDSS]):
+    for host, device in zip(
+        states[hpfem.DirectSolverBackend.SPARSE_LU], states[hpfem.DirectSolverBackend.CUDSS]
+    ):
         assert np.linalg.norm(device - host) < 1e-10 * np.linalg.norm(host)
+
+
+@needs_gpu
+def test_complex_eigenpairs_on_the_gpu_match_the_host_basis():
+    # the gauged shift-invert Arnoldi (gradient kernel projected out) keeps its Krylov basis
+    # on the device with cuDSS; the eigenvalues must agree with the host basis (SparseLU)
+    mesh = hpfem.rectangle(8, 8)
+    nd = hpfem.NedelecDofMap2D(mesh, 3)
+    system = hpfem.assemble_maxwell(nd, hpfem.MaxwellForm2D())
+    s, m = system.stiffness.tocsr(), system.mass.tocsr()
+    # the constant H1 function spans the kernel of the gradient: drop one column so that the
+    # gauge matrix G^H M G is regular
+    g = hpfem.discrete_gradient(hpfem.DofMap2D(mesh, 3), nd).tocsr()[:, 1:]
+    sigma = (1.2 * np.pi) ** 2
+    options = hpfem.EigenOptions()
+    options.num_eigenvalues = 4
+    options.krylov_dimension = 20
+    host = hpfem.complex_eigenpairs_near_gauged(
+        s, m, g, sigma, options, hpfem.DirectSolverBackend.SPARSE_LU
+    )
+    device = hpfem.complex_eigenpairs_near_gauged(
+        s, m, g, sigma, options, hpfem.DirectSolverBackend.CUDSS
+    )
+    assert device.num_converged == host.num_converged == 4
+    assert np.allclose(device.eigenvalues, host.eigenvalues, rtol=1e-10, atol=0)
+    assert np.all(np.abs(device.eigenvalues) > 1.0)  # no gradient kernel at zero
+    x = device.eigenvectors[:, 0]
+    assert np.linalg.norm(s @ x - device.eigenvalues[0] * (m @ x)) < 1e-8 * np.linalg.norm(s @ x)

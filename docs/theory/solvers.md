@@ -200,6 +200,53 @@ DoFs, 200 steps, after the reduced-state loop of `TimeDomain::run`): 60 ms per s
 SparseLU, 43 ms on MUMPS, 8.3 ms with cuDSS and the host loop, 3.5 ms with the loop on the
 device — 12× faster than MUMPS; the energy drift stays at $10^{-14}$.
 
+### Arnoldi with the Krylov basis on the device (`solvers::DeviceArnoldi`)
+
+The complex shift-invert Arnoldi of `complex_eigenpairs_near` (resonances) and
+`complex_eigenpairs_near_gauged` (band structures, bodies of revolution) spends its time in
+the solve $K^{-1} B v_j$, the gauge projection $P w = w - G (G^H B G)^{-1} G^H B w$ and the
+orthogonalisation against the Krylov basis. With the basis on the host every iteration
+uploads a vector, downloads the solution and streams the whole basis ($n \times k$ complex
+numbers) through the host memory twice; measured at 92 k DoFs the Gram–Schmidt against 60
+vectors took 30–50 ms against 1.7 ms for the device solve. `solvers::DeviceArnoldi`
+therefore keeps $V = [v_0, \dots, v_k]$ on the device: one iteration computes
+$w = P K^{-1} B v_j$ there (cuDSS solve, the library's sparse products, the gauge solve by
+a second cuDSS factorisation), orthogonalises by classical Gram–Schmidt applied twice (a
+reduction kernel for $h_{0..j,j} = V_j^H w$, an update kernel for $w \gets w - V_j h$), and
+returns only the $j + 1$ Hessenberg entries and $h_{j+1,j} = \|w\|$ to the host. Restart
+vectors and Ritz vectors are combinations $V_m c$ formed on the device. The host keeps the
+control flow: Hessenberg eigenproblem, convergence test, restarts. Host and device run the
+same algorithm through one `KrylovBasis` interface in `complex_eigen_solver.cpp` (the host
+basis uses the same two-pass classical Gram–Schmidt as two GEMVs), so their Ritz values
+agree to round-off (self-test: $2 \cdot 10^{-15}$ in the Hessenberg columns; unit tests:
+$10^{-12}$ against the host recursion, eigenvalues of `Resonance` and `BandStructure`
+device against host to $10^{-10}$).
+
+The eigensolvers take the device basis whenever the shifted matrix is factorised by cuDSS
+(also through `kAuto` above the threshold); in the gauged variant the gauge matrix is then
+factorised by cuDSS as well, even though it is small. Before anything is uploaded the
+memory of the basis and the matrices ($16\,n\,(k + 4)$ bytes plus the CSR data) is checked
+against the free device memory; if it does not fit, or `HPFEM_GPU_ARNOLDI=0` is set, the
+basis stays on the host with a warning and the device solves are used as before. C
+interface: API version 4 (`hpfem_gpu_matrix_create_rect`, `hpfem_gpu_arnoldi_*`); older
+libraries still load without the object.
+
+Measured (`bench_device_arnoldi`, `benchmarks/results/2026-10-04-VR-device-arnoldi.json`,
+RTX 3090, p = 2, 6 eigenvalues, 24 Krylov vectors; factorisation included, assembly
+excluded):
+
+| Problem | DoFs | SparseLU, host basis | cuDSS, host basis | cuDSS, device basis |
+|---|---|---|---|---|
+| `Resonance`, closed PEC square | 92 k | 2.26 s | 0.80 s | 0.65 s |
+| | 369 k | 57.9 s | 5.48 s | 3.55 s |
+| `BandStructure`, empty lattice (gauged) | 92 k | 12.3 s | 2.37 s | 1.54 s |
+| | 369 k | 104 s | 9.15 s | 6.40 s |
+
+The device basis saves 20 % at 92 k and 35 % at 369 k unknowns for the ungauged problem,
+where the factorisation and the solves already dominate, and 30–35 % for the gauged one
+(the three host products and two transfers per projection disappear). The remaining time
+is the factorisation (about 0.3 s / 1.5 s) and the solves themselves.
+
 ### Where the backend is applied repeatedly
 
 Every problem class with a `solver` field passes it on, so `kCudss` can be selected where
@@ -229,6 +276,10 @@ Lanczos does not profit from a complexified GPU factorisation at this size.
 
 ### Verification
 
+`tests/unit/solvers/test_complex_eigen.cpp` compares `DeviceArnoldi` with the host
+recursion on the same factorisation (Hessenberg columns, basis, Ritz vectors, restart
+vector) and the eigenvalues of both bases with and without gauge; `test_resonance.cpp` and
+`test_band_structure.cpp` do the same through `Resonance` and `BandStructure`.
 `tests/unit/solvers/test_linear_solver.cpp` solves a random sparse complex system with
 every available backend to $10^{-10}$, reuses the factorisation for a second right-hand side,
 checks the one-shot interface, the error reporting (singular, non-square, wrong size,

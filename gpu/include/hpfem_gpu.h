@@ -26,10 +26,11 @@ extern "C" {
 #endif
 
 /* Bumped whenever the ABI changes. Version 2 adds hpfem_gpu_factor_info2() and the hybrid
- * memory mode, version 3 the device-resident matrices (hpfem_gpu_matrix_*); everything of
- * the earlier versions is unchanged, so an older library still works with a loader that
- * knows a newer version (without the newer functions). */
-#define HPFEM_GPU_API_VERSION 3
+ * memory mode, version 3 the device-resident matrices and the time stepper, version 4
+ * rectangular matrices and the Arnoldi object with the Krylov basis on the device;
+ * everything of the earlier versions is unchanged, so an older library still works with a
+ * loader that knows a newer version (without the newer functions). */
+#define HPFEM_GPU_API_VERSION 4
 
 #if defined(_WIN32)
 #if defined(HPFEM_GPU_BUILD)
@@ -129,6 +130,44 @@ HPFEM_GPU_API void hpfem_gpu_matrix_destroy(hpfem_gpu_matrix* matrix);
 HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_matrix_apply(hpfem_gpu_matrix* matrix, int64_t nrhs,
                                                       const double* x, double* y);
 HPFEM_GPU_API const char* hpfem_gpu_matrix_last_error(const hpfem_gpu_matrix* matrix);
+/* API version 4: a rectangular matrix (rows x cols); apply() then takes cols entries per
+ * vector and returns rows entries. */
+HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_matrix_create_rect(hpfem_gpu_matrix** out, int64_t rows,
+                                                            int64_t cols, int64_t nnz,
+                                                            const int64_t* row_ptr,
+                                                            const int64_t* col,
+                                                            const double* values);
+
+/* Shift-invert Arnoldi with the Krylov basis on the device (API version 4). The host keeps
+ * the control flow (restarts, Hessenberg eigenproblem, Ritz selection) of
+ * solvers::complex_eigenpairs_near; the object holds V (n x (ncv + 1)) and performs per
+ * column j:  w = P K^{-1} (B v_j), classical Gram-Schmidt twice against v_0 .. v_j,
+ * h_{j+1,j} = ||w||, v_{j+1} = w / h_{j+1,j}.  `shifted` is the factorised K = A - sigma B
+ * (n unknowns), `b` the matrix B; the gauge projection P w = w - G K_g^{-1} G^H B w is
+ * applied when `gradient` (n x m), `gradient_adjoint` (m x n) and the factorised `gauge`
+ * (m unknowns) are given (all three or none). set_start() projects and normalises the
+ * start vector into v_0; iterate(j) returns the j + 1 Hessenberg entries h_{0..j, j}
+ * (interleaved complex) and beta = h_{j+1, j}; restart(m, c) sets v_0 = V_m c / ||V_m c||
+ * (c: m interleaved complex); combine(m, count, C, out) returns V_m C (C: m x count,
+ * column major interleaved) in out (n x count). The objects must outlive the Arnoldi
+ * object; one stream, not thread safe. */
+typedef struct hpfem_gpu_arnoldi hpfem_gpu_arnoldi; /* opaque */
+
+HPFEM_GPU_API hpfem_gpu_status
+hpfem_gpu_arnoldi_create(hpfem_gpu_arnoldi** out, hpfem_gpu_solver* shifted, hpfem_gpu_matrix* b,
+                         hpfem_gpu_matrix* gradient, hpfem_gpu_matrix* gradient_adjoint,
+                         hpfem_gpu_solver* gauge, int64_t n, int64_t ncv);
+HPFEM_GPU_API void hpfem_gpu_arnoldi_destroy(hpfem_gpu_arnoldi* arnoldi);
+HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_arnoldi_set_start(hpfem_gpu_arnoldi* arnoldi,
+                                                           const double* start);
+HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_arnoldi_iterate(hpfem_gpu_arnoldi* arnoldi, int64_t j,
+                                                         double* h_column, double* beta);
+HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_arnoldi_restart(hpfem_gpu_arnoldi* arnoldi, int64_t m,
+                                                         const double* coefficients);
+HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_arnoldi_combine(hpfem_gpu_arnoldi* arnoldi, int64_t m,
+                                                         int64_t count, const double* coefficients,
+                                                         double* out);
+HPFEM_GPU_API const char* hpfem_gpu_arnoldi_last_error(const hpfem_gpu_arnoldi* arnoldi);
 
 /* Newmark time stepper on the device (API version 3): the state u, v, a stays on the GPU,
  * step() is two products, the solve with the factorised Newmark operator `newmark`
@@ -189,6 +228,22 @@ typedef hpfem_gpu_status (*hpfem_gpu_stepper_get_state_fn)(const hpfem_gpu_stepp
                                                            double*, double*);
 typedef hpfem_gpu_status (*hpfem_gpu_stepper_step_fn)(hpfem_gpu_stepper*, double);
 typedef const char* (*hpfem_gpu_stepper_last_error_fn)(const hpfem_gpu_stepper*);
+typedef hpfem_gpu_status (*hpfem_gpu_matrix_create_rect_fn)(hpfem_gpu_matrix**, int64_t, int64_t,
+                                                            int64_t, const int64_t*, const int64_t*,
+                                                            const double*);
+typedef hpfem_gpu_status (*hpfem_gpu_arnoldi_create_fn)(hpfem_gpu_arnoldi**, hpfem_gpu_solver*,
+                                                        hpfem_gpu_matrix*, hpfem_gpu_matrix*,
+                                                        hpfem_gpu_matrix*, hpfem_gpu_solver*,
+                                                        int64_t, int64_t);
+typedef void (*hpfem_gpu_arnoldi_destroy_fn)(hpfem_gpu_arnoldi*);
+typedef hpfem_gpu_status (*hpfem_gpu_arnoldi_set_start_fn)(hpfem_gpu_arnoldi*, const double*);
+typedef hpfem_gpu_status (*hpfem_gpu_arnoldi_iterate_fn)(hpfem_gpu_arnoldi*, int64_t, double*,
+                                                         double*);
+typedef hpfem_gpu_status (*hpfem_gpu_arnoldi_restart_fn)(hpfem_gpu_arnoldi*, int64_t,
+                                                         const double*);
+typedef hpfem_gpu_status (*hpfem_gpu_arnoldi_combine_fn)(hpfem_gpu_arnoldi*, int64_t, int64_t,
+                                                         const double*, double*);
+typedef const char* (*hpfem_gpu_arnoldi_last_error_fn)(const hpfem_gpu_arnoldi*);
 
 #ifdef __cplusplus
 }

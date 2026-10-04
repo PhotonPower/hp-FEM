@@ -13,6 +13,7 @@
 
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/solvers/device_arnoldi.hpp"
 #include "hpfem/solvers/device_matrix.hpp"
 #include "hpfem/solvers/device_stepper.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
@@ -102,9 +103,19 @@ struct GpuApi {
   hpfem_gpu_stepper_get_state_fn stepper_get_state = nullptr;
   hpfem_gpu_stepper_step_fn stepper_step = nullptr;
   hpfem_gpu_stepper_last_error_fn stepper_last_error = nullptr;
+  hpfem_gpu_matrix_create_rect_fn matrix_create_rect = nullptr;  // API version 4 only
+  hpfem_gpu_arnoldi_create_fn arnoldi_create = nullptr;          // API version 4 only
+  hpfem_gpu_arnoldi_destroy_fn arnoldi_destroy = nullptr;
+  hpfem_gpu_arnoldi_set_start_fn arnoldi_set_start = nullptr;
+  hpfem_gpu_arnoldi_iterate_fn arnoldi_iterate = nullptr;
+  hpfem_gpu_arnoldi_restart_fn arnoldi_restart = nullptr;
+  hpfem_gpu_arnoldi_combine_fn arnoldi_combine = nullptr;
+  hpfem_gpu_arnoldi_last_error_fn arnoldi_last_error = nullptr;
+  hpfem_gpu_device_info_fn device_info = nullptr;
   int api_version = 0;
 
   [[nodiscard]] bool has_matrices() const noexcept { return matrix_apply != nullptr; }
+  [[nodiscard]] bool has_arnoldi() const noexcept { return arnoldi_iterate != nullptr; }
 
   [[nodiscard]] bool usable() const noexcept { return failure.empty(); }
 };
@@ -168,6 +179,22 @@ GpuApi load_gpu_api() {
   api.stepper_last_error =
       api.library.symbol<hpfem_gpu_stepper_last_error_fn>("hpfem_gpu_stepper_last_error");
   api.last_error = api.library.symbol<hpfem_gpu_last_error_fn>("hpfem_gpu_last_error");
+  api.matrix_create_rect =
+      api.library.symbol<hpfem_gpu_matrix_create_rect_fn>("hpfem_gpu_matrix_create_rect");
+  api.arnoldi_create = api.library.symbol<hpfem_gpu_arnoldi_create_fn>("hpfem_gpu_arnoldi_create");
+  api.arnoldi_destroy =
+      api.library.symbol<hpfem_gpu_arnoldi_destroy_fn>("hpfem_gpu_arnoldi_destroy");
+  api.arnoldi_set_start =
+      api.library.symbol<hpfem_gpu_arnoldi_set_start_fn>("hpfem_gpu_arnoldi_set_start");
+  api.arnoldi_iterate =
+      api.library.symbol<hpfem_gpu_arnoldi_iterate_fn>("hpfem_gpu_arnoldi_iterate");
+  api.arnoldi_restart =
+      api.library.symbol<hpfem_gpu_arnoldi_restart_fn>("hpfem_gpu_arnoldi_restart");
+  api.arnoldi_combine =
+      api.library.symbol<hpfem_gpu_arnoldi_combine_fn>("hpfem_gpu_arnoldi_combine");
+  api.arnoldi_last_error =
+      api.library.symbol<hpfem_gpu_arnoldi_last_error_fn>("hpfem_gpu_arnoldi_last_error");
+  api.device_info = device_info;
   if (api_version == nullptr || version == nullptr || device_info == nullptr ||
       api.create == nullptr || api.destroy == nullptr || api.factorize == nullptr ||
       api.solve == nullptr || api.factor_info == nullptr || api.last_error == nullptr) {
@@ -207,6 +234,23 @@ GpuApi load_gpu_api() {
     api.failure = fmt::format(
         "{} claims API version {} but lacks the hpfem_gpu_matrix / hpfem_gpu_stepper functions",
         api.path, api.api_version);
+    return api;
+  }
+  if (api.api_version < 4) {
+    api.matrix_create_rect = nullptr;
+    api.arnoldi_create = nullptr;
+    api.arnoldi_destroy = nullptr;
+    api.arnoldi_set_start = nullptr;
+    api.arnoldi_iterate = nullptr;
+    api.arnoldi_restart = nullptr;
+    api.arnoldi_combine = nullptr;
+    api.arnoldi_last_error = nullptr;
+  } else if (api.matrix_create_rect == nullptr || api.arnoldi_create == nullptr ||
+             api.arnoldi_destroy == nullptr || api.arnoldi_set_start == nullptr ||
+             api.arnoldi_iterate == nullptr || api.arnoldi_restart == nullptr ||
+             api.arnoldi_combine == nullptr || api.arnoldi_last_error == nullptr) {
+    api.failure = fmt::format("{} claims API version {} but lacks the hpfem_gpu_arnoldi functions",
+                              api.path, api.api_version);
     return api;
   }
   api.version = version();
@@ -423,19 +467,25 @@ DeviceMatrix::DeviceMatrix(const SparseMatrix& matrix) : impl_(std::make_unique<
     compressed.makeCompressed();
     csr = &compressed;
   }
-  const hpfem_gpu_status status =
-      api.matrix_create(&impl_->matrix, csr->rows(), csr->nonZeros(),
-                        reinterpret_cast<const int64_t*>(csr->outerIndexPtr()),
-                        reinterpret_cast<const int64_t*>(csr->innerIndexPtr()),
-                        reinterpret_cast<const double*>(csr->valuePtr()));
-  if (status != HPFEM_GPU_OK || impl_->matrix == nullptr) {
-    throw Error(fmt::format("DeviceMatrix: uploading the {} x {} matrix failed (status {})",
-                            csr->rows(), csr->cols(), static_cast<int>(status)));
-  }
   rows_ = csr->rows();
   cols_ = csr->cols();
-  if (rows_ != cols_) {
-    throw InvalidArgument(fmt::format("DeviceMatrix: matrix is {} x {}, not square", rows_, cols_));
+  if (rows_ != cols_ && api.matrix_create_rect == nullptr) {
+    throw InvalidArgument(
+        fmt::format("DeviceMatrix: matrix is {} x {}, not square; rectangular matrices need "
+                    "an hpfem_gpu library with API version 4 ({} implements version {})",
+                    rows_, cols_, api.path, api.api_version));
+  }
+  const auto* row_ptr = reinterpret_cast<const int64_t*>(csr->outerIndexPtr());
+  const auto* col = reinterpret_cast<const int64_t*>(csr->innerIndexPtr());
+  const auto* values = reinterpret_cast<const double*>(csr->valuePtr());
+  const hpfem_gpu_status status =
+      rows_ == cols_
+          ? api.matrix_create(&impl_->matrix, rows_, csr->nonZeros(), row_ptr, col, values)
+          : api.matrix_create_rect(&impl_->matrix, rows_, cols_, csr->nonZeros(), row_ptr, col,
+                                   values);
+  if (status != HPFEM_GPU_OK || impl_->matrix == nullptr) {
+    throw Error(fmt::format("DeviceMatrix: uploading the {} x {} matrix failed (status {})", rows_,
+                            cols_, static_cast<int>(status)));
   }
 }
 
@@ -585,6 +635,186 @@ Matrix DeviceMatrix::apply_many(const Matrix& x) const {
                             impl_->api->matrix_last_error(impl_->matrix)));
   }
   return y;
+}
+
+// ---------------------------------------------------------------------------- DeviceArnoldi
+
+struct DeviceArnoldi::Impl {
+  const GpuApi* api = nullptr;
+  std::unique_ptr<DeviceMatrix> b;
+  std::unique_ptr<DeviceMatrix> gradient;
+  std::unique_ptr<DeviceMatrix> gradient_adjoint;
+  hpfem_gpu_arnoldi* arnoldi = nullptr;
+  ~Impl() {
+    if (arnoldi != nullptr) api->arnoldi_destroy(arnoldi);
+  }
+  [[nodiscard]] const char* error() const { return api->arnoldi_last_error(arnoldi); }
+};
+
+namespace {
+
+[[nodiscard]] bool arnoldi_enabled() noexcept {
+  const char* env = std::getenv("HPFEM_GPU_ARNOLDI");
+  return env == nullptr || *env != '0';
+}
+
+/// Device bytes of a CSR matrix with its two work vectors.
+[[nodiscard]] std::size_t matrix_bytes(const SparseMatrix& matrix) noexcept {
+  return 24 * static_cast<std::size_t>(matrix.nonZeros()) +
+         8 * static_cast<std::size_t>(matrix.rows() + 1) +
+         16 * static_cast<std::size_t>(matrix.rows() + matrix.cols());
+}
+
+}  // namespace
+
+bool DeviceArnoldi::available(const LinearSolver& shifted) noexcept {
+  try {
+    const GpuApi& api = gpu_api();
+    if (!api.usable() || !api.has_arnoldi() || !arnoldi_enabled()) return false;
+    const CudssSolver* backend = cudss_backend(shifted);
+    return backend != nullptr && backend->handle() != nullptr;
+  } catch (...) {
+    return false;
+  }
+}
+
+std::size_t DeviceArnoldi::basis_bytes(Index n, Index ncv) noexcept {
+  return 16 * static_cast<std::size_t>(n) * static_cast<std::size_t>(ncv + 4);
+}
+
+DeviceArnoldi::DeviceArnoldi(LinearSolver& shifted, const SparseMatrix& b,
+                             const SparseMatrix* gradient, LinearSolver* gauge, Index ncv)
+    : impl_(std::make_unique<Impl>()) {
+  if (!available(shifted)) {
+    throw Error(
+        "DeviceArnoldi: the shifted matrix is not factorised by the cuDSS backend of an "
+        "hpfem_gpu library with API version 4 or later (or HPFEM_GPU_ARNOLDI=0)");
+  }
+  const GpuApi& api = gpu_api();
+  impl_->api = &api;
+  const CudssSolver* backend = cudss_backend(shifted);
+  size_ = shifted.size();
+  ncv_ = ncv;
+  if (b.rows() != size_ || b.cols() != size_) {
+    throw InvalidArgument(fmt::format("DeviceArnoldi: B is {} x {}, the shift has {} unknowns",
+                                      b.rows(), b.cols(), size_));
+  }
+  if (ncv < 1 || ncv > size_) {
+    throw InvalidArgument(
+        fmt::format("DeviceArnoldi: {} Krylov vectors for {} unknowns", ncv, size_));
+  }
+  const CudssSolver* gauge_backend = nullptr;
+  if (gradient != nullptr) {
+    if (gradient->rows() != size_) {
+      throw InvalidArgument(
+          fmt::format("DeviceArnoldi: the gradient has {} rows, not {}", gradient->rows(), size_));
+    }
+    if (gauge == nullptr || !available(*gauge)) {
+      throw Error("DeviceArnoldi: the gauge matrix must be factorised by the cuDSS backend");
+    }
+    if (gauge->size() != gradient->cols()) {
+      throw InvalidArgument(
+          fmt::format("DeviceArnoldi: the gauge matrix has {} unknowns, the gradient {} columns",
+                      gauge->size(), gradient->cols()));
+    }
+    gauge_backend = cudss_backend(*gauge);
+  }
+  // memory estimate against the free device memory before anything is uploaded; the
+  // factors are already resident, so they are part of the used memory
+  std::size_t needed = basis_bytes(size_, ncv) + matrix_bytes(b);
+  if (gradient != nullptr) {
+    needed += 2 * matrix_bytes(*gradient) + 32 * static_cast<std::size_t>(gradient->cols());
+  }
+  char name[256] = "";
+  std::size_t free_bytes = 0;
+  std::size_t total_bytes = 0;
+  if (api.device_info(name, sizeof(name), &free_bytes, &total_bytes) != HPFEM_GPU_OK) {
+    throw Error("DeviceArnoldi: querying the device memory failed");
+  }
+  log().debug(
+      "DeviceArnoldi: {} Krylov vectors of {} unknowns need {:.3f} GB on the device, "
+      "{:.3f} GB free",
+      ncv + 1, size_, static_cast<double>(needed) / 1e9, static_cast<double>(free_bytes) / 1e9);
+  if (needed > free_bytes) {
+    throw Error(fmt::format(
+        "DeviceArnoldi: {} Krylov vectors of {} unknowns need {:.2f} GB on the device, {:.2f} "
+        "GB free",
+        ncv + 1, size_, static_cast<double>(needed) / 1e9, static_cast<double>(free_bytes) / 1e9));
+  }
+  impl_->b = std::make_unique<DeviceMatrix>(b);
+  if (gradient != nullptr) {
+    impl_->gradient = std::make_unique<DeviceMatrix>(*gradient);
+    SparseMatrix adjoint = gradient->adjoint();
+    adjoint.makeCompressed();
+    impl_->gradient_adjoint = std::make_unique<DeviceMatrix>(adjoint);
+  }
+  const hpfem_gpu_status status =
+      api.arnoldi_create(&impl_->arnoldi, backend->handle(), impl_->b->handle(),
+                         impl_->gradient ? impl_->gradient->handle() : nullptr,
+                         impl_->gradient_adjoint ? impl_->gradient_adjoint->handle() : nullptr,
+                         gauge_backend != nullptr ? gauge_backend->handle() : nullptr, size_, ncv);
+  if (status != HPFEM_GPU_OK || impl_->arnoldi == nullptr) {
+    throw Error(fmt::format("DeviceArnoldi: creating the device object failed (status {})",
+                            static_cast<int>(status)));
+  }
+}
+
+DeviceArnoldi::~DeviceArnoldi() = default;
+
+void DeviceArnoldi::set_start(const Vector& start) {
+  if (start.size() != size_) {
+    throw InvalidArgument(
+        fmt::format("DeviceArnoldi: the start vector must have {} entries", size_));
+  }
+  const hpfem_gpu_status status =
+      impl_->api->arnoldi_set_start(impl_->arnoldi, reinterpret_cast<const double*>(start.data()));
+  if (status != HPFEM_GPU_OK) {
+    throw Error(fmt::format("DeviceArnoldi: start vector failed: {}", impl_->error()));
+  }
+}
+
+Real DeviceArnoldi::iterate(Index j, Vector& h_column) {
+  if (j < 0 || j >= ncv_) {
+    throw InvalidArgument(fmt::format("DeviceArnoldi: column {} of {}", j, ncv_));
+  }
+  h_column.resize(j + 1);
+  Real beta = 0;
+  const hpfem_gpu_status status = impl_->api->arnoldi_iterate(
+      impl_->arnoldi, j, reinterpret_cast<double*>(h_column.data()), &beta);
+  if (status != HPFEM_GPU_OK) {
+    throw Error(fmt::format("DeviceArnoldi: iteration {} failed: {}", j, impl_->error()));
+  }
+  return beta;
+}
+
+void DeviceArnoldi::restart(Index m, const Vector& coefficients) {
+  if (m < 1 || m > ncv_ + 1 || coefficients.size() != m) {
+    throw InvalidArgument(fmt::format(
+        "DeviceArnoldi: restart from {} columns with {} coefficients (basis has {} columns)", m,
+        coefficients.size(), ncv_ + 1));
+  }
+  const hpfem_gpu_status status = impl_->api->arnoldi_restart(
+      impl_->arnoldi, m, reinterpret_cast<const double*>(coefficients.data()));
+  if (status != HPFEM_GPU_OK) {
+    throw Error(fmt::format("DeviceArnoldi: restart failed: {}", impl_->error()));
+  }
+}
+
+Matrix DeviceArnoldi::combine(Index m, const Matrix& coefficients) const {
+  if (m < 1 || m > ncv_ + 1 || coefficients.rows() != m) {
+    throw InvalidArgument(
+        fmt::format("DeviceArnoldi: combination of {} columns with {} x {} coefficients", m,
+                    coefficients.rows(), coefficients.cols()));
+  }
+  Matrix out(size_, coefficients.cols());
+  if (coefficients.cols() == 0) return out;
+  const hpfem_gpu_status status = impl_->api->arnoldi_combine(
+      impl_->arnoldi, m, coefficients.cols(), reinterpret_cast<const double*>(coefficients.data()),
+      reinterpret_cast<double*>(out.data()));
+  if (status != HPFEM_GPU_OK) {
+    throw Error(fmt::format("DeviceArnoldi: Ritz vectors failed: {}", impl_->error()));
+  }
+  return out;
 }
 
 }  // namespace hpfem::solvers

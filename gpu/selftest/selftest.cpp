@@ -431,6 +431,210 @@ int main(int argc, char** argv) {
     hpfem_gpu_matrix_destroy(stiffness);
     hpfem_gpu_destroy(solver);
   }
+  {
+    // Arnoldi object against the same recursion on the host (classical Gram-Schmidt twice,
+    // solves through the host API of the same factorisation): K = 1D Helmholtz, B diagonal
+    const int64_t m = std::min<int64_t>(n, 3000);
+    const int64_t ncv = 12;
+    std::printf("-- Arnoldi basis on the device: n = %lld, ncv = %lld\n", static_cast<long long>(m),
+                static_cast<long long>(ncv));
+    const Csr k = helmholtz_1d(m);
+    Csr b;
+    b.n = m;
+    b.row_ptr.push_back(0);
+    for (int64_t i = 0; i < m; ++i) {
+      b.col.push_back(i);
+      b.val.push_back(Complex{1.0 + 0.5 * std::sin(0.01 * static_cast<double>(i)), 0.0});
+      b.row_ptr.push_back(b.nnz());
+    }
+    hpfem_gpu_solver* solver = nullptr;
+    check(hpfem_gpu_create(&solver) == HPFEM_GPU_OK, "arnoldi: create solver");
+    check(hpfem_gpu_factorize(solver, k.n, k.nnz(), k.row_ptr.data(), k.col.data(),
+                              as_doubles(k.val), HPFEM_GPU_MATRIX_GENERAL) == HPFEM_GPU_OK,
+          std::string("arnoldi: factorise K: ") + hpfem_gpu_last_error(solver));
+    hpfem_gpu_matrix* mass = nullptr;
+    check(hpfem_gpu_matrix_create(&mass, b.n, b.nnz(), b.row_ptr.data(), b.col.data(),
+                                  as_doubles(b.val)) == HPFEM_GPU_OK,
+          "arnoldi: upload B");
+    hpfem_gpu_arnoldi* arnoldi = nullptr;
+    check(hpfem_gpu_arnoldi_create(&arnoldi, solver, mass, nullptr, nullptr, nullptr, m, ncv) ==
+              HPFEM_GPU_OK,
+          "arnoldi: create");
+    std::mt19937 gen(61);
+    std::uniform_real_distribution<double> dist(-1.0, 1.0);
+    std::vector<Complex> start(static_cast<size_t>(m));
+    for (auto& x : start) x = Complex{dist(gen), dist(gen)};
+    check(hpfem_gpu_arnoldi_set_start(arnoldi, as_doubles(start)) == HPFEM_GPU_OK,
+          std::string("arnoldi: start: ") + hpfem_gpu_arnoldi_last_error(arnoldi));
+    // host reference
+    std::vector<std::vector<Complex>> v(static_cast<size_t>(ncv + 1));
+    double norm0 = 0.0;
+    for (const auto& x : start) norm0 += std::norm(x);
+    norm0 = std::sqrt(norm0);
+    v[0] = start;
+    for (auto& x : v[0]) x /= norm0;
+    double worst_h = 0.0, worst_v = 0.0;
+    std::vector<Complex> h_device(static_cast<size_t>(ncv + 1));
+    auto t_device = 0.0, t_host = 0.0;
+    for (int64_t j = 0; j < ncv; ++j) {
+      double beta_device = 0.0;
+      auto t0 = std::chrono::steady_clock::now();
+      const hpfem_gpu_status st =
+          hpfem_gpu_arnoldi_iterate(arnoldi, j, as_doubles(h_device), &beta_device);
+      t_device += std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+      if (st != HPFEM_GPU_OK) {
+        check(false, std::string("arnoldi: iterate: ") + hpfem_gpu_arnoldi_last_error(arnoldi));
+        break;
+      }
+      t0 = std::chrono::steady_clock::now();
+      const std::vector<Complex> bv = multiply(b, v[static_cast<size_t>(j)], 1);
+      std::vector<Complex> w(static_cast<size_t>(m));
+      check(hpfem_gpu_solve(solver, 1, as_doubles(bv), as_doubles(w)) == HPFEM_GPU_OK,
+            "arnoldi reference: solve");
+      std::vector<Complex> h_host(static_cast<size_t>(j + 1), 0.0);
+      for (int pass = 0; pass < 2; ++pass) {
+        std::vector<Complex> c(static_cast<size_t>(j + 1), 0.0);
+        for (int64_t i = 0; i <= j; ++i) {
+          for (size_t r = 0; r < w.size(); ++r) c[i] += std::conj(v[i][r]) * w[r];
+        }
+        for (int64_t i = 0; i <= j; ++i) {
+          h_host[i] += c[i];
+          for (size_t r = 0; r < w.size(); ++r) w[r] -= c[i] * v[i][r];
+        }
+      }
+      double beta_host = 0.0;
+      for (const auto& x : w) beta_host += std::norm(x);
+      beta_host = std::sqrt(beta_host);
+      v[static_cast<size_t>(j + 1)] = w;
+      for (auto& x : v[static_cast<size_t>(j + 1)]) x /= beta_host;
+      t_host += std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+      double num = std::norm(beta_device - beta_host), den = beta_host * beta_host;
+      for (int64_t i = 0; i <= j; ++i) {
+        num += std::norm(h_device[i] - h_host[i]);
+        den += std::norm(h_host[i]);
+      }
+      worst_h = std::max(worst_h, std::sqrt(num / den));
+    }
+    // the basis through combine(identity) and a restart vector
+    std::vector<Complex> identity(static_cast<size_t>((ncv + 1) * (ncv + 1)), 0.0);
+    for (int64_t i = 0; i <= ncv; ++i) identity[static_cast<size_t>(i * (ncv + 1) + i)] = 1.0;
+    std::vector<Complex> basis(static_cast<size_t>(m * (ncv + 1)));
+    check(hpfem_gpu_arnoldi_combine(arnoldi, ncv + 1, ncv + 1, as_doubles(identity),
+                                    as_doubles(basis)) == HPFEM_GPU_OK,
+          "arnoldi: combine");
+    for (int64_t j = 0; j <= ncv; ++j) {
+      const std::vector<Complex> column(basis.begin() + j * m, basis.begin() + (j + 1) * m);
+      worst_v = std::max(worst_v, relative_error(column, v[static_cast<size_t>(j)]));
+    }
+    std::printf(
+        "       %lld iterations: device %.4f s, host reference %.4f s; largest "
+        "difference in the Hessenberg columns %.2e, in the basis %.2e\n",
+        static_cast<long long>(ncv), t_device, t_host, worst_h, worst_v);
+    check(worst_h < 1e-11 && worst_v < 1e-11, "device Arnoldi matches the host recursion to 1e-11");
+    std::vector<Complex> c(static_cast<size_t>(ncv), 0.0);
+    for (auto& x : c) x = Complex{dist(gen), dist(gen)};
+    check(hpfem_gpu_arnoldi_restart(arnoldi, ncv, as_doubles(c)) == HPFEM_GPU_OK,
+          "arnoldi: restart");
+    std::vector<Complex> expected(static_cast<size_t>(m), 0.0);
+    for (int64_t j = 0; j < ncv; ++j) {
+      for (int64_t r = 0; r < m; ++r) expected[r] += c[j] * v[static_cast<size_t>(j)][r];
+    }
+    double norm_e = 0.0;
+    for (const auto& x : expected) norm_e += std::norm(x);
+    for (auto& x : expected) x /= std::sqrt(norm_e);
+    std::vector<Complex> one(1, 1.0);
+    std::vector<Complex> v0(static_cast<size_t>(m));
+    check(
+        hpfem_gpu_arnoldi_combine(arnoldi, 1, 1, as_doubles(one), as_doubles(v0)) == HPFEM_GPU_OK &&
+            relative_error(v0, expected) < 1e-11,
+        "restart vector V_m c / ||V_m c||");
+    check(hpfem_gpu_arnoldi_iterate(arnoldi, ncv, as_doubles(h_device), nullptr) ==
+              HPFEM_GPU_ERR_INVALID_ARG,
+          "iterate beyond ncv is refused");
+    hpfem_gpu_arnoldi_destroy(arnoldi);
+    hpfem_gpu_arnoldi_destroy(nullptr);
+    // gauge projection with a rectangular gradient G (n x 8, G(i, i mod 8) = 1 + 0.1 i):
+    // every basis vector is B-orthogonal to range(G)
+    const int64_t mg = 8;
+    Csr g, gt, kg;
+    g.n = m;
+    g.row_ptr.push_back(0);
+    for (int64_t i = 0; i < m; ++i) {
+      g.col.push_back(i % mg);
+      g.val.push_back(Complex{1.0, 0.1 * static_cast<double>(i)});
+      g.row_ptr.push_back(g.nnz());
+    }
+    gt.n = mg;
+    gt.row_ptr.push_back(0);
+    kg.n = mg;
+    kg.row_ptr.push_back(0);
+    for (int64_t q = 0; q < mg; ++q) {
+      Complex diag = 0.0;
+      for (int64_t i = q; i < m; i += mg) {
+        gt.col.push_back(i);
+        gt.val.push_back(std::conj(g.val[static_cast<size_t>(i)]));
+        diag += std::conj(g.val[static_cast<size_t>(i)]) * b.val[static_cast<size_t>(i)] *
+                g.val[static_cast<size_t>(i)];
+      }
+      gt.row_ptr.push_back(gt.nnz());
+      kg.col.push_back(q);
+      kg.val.push_back(diag);
+      kg.row_ptr.push_back(kg.nnz());
+    }
+    hpfem_gpu_matrix* gradient = nullptr;
+    hpfem_gpu_matrix* gradient_adjoint = nullptr;
+    check(hpfem_gpu_matrix_create_rect(&gradient, m, mg, g.nnz(), g.row_ptr.data(), g.col.data(),
+                                       as_doubles(g.val)) == HPFEM_GPU_OK,
+          "arnoldi: upload G (n x 8)");
+    check(hpfem_gpu_matrix_create_rect(&gradient_adjoint, mg, m, gt.nnz(), gt.row_ptr.data(),
+                                       gt.col.data(), as_doubles(gt.val)) == HPFEM_GPU_OK,
+          "arnoldi: upload G^H (8 x n)");
+    std::vector<Complex> gx(static_cast<size_t>(m));
+    for (int64_t i = 0; i < mg; ++i) gx[static_cast<size_t>(i)] = Complex{1.0, 0.0};
+    std::vector<Complex> gy(static_cast<size_t>(m));
+    check(hpfem_gpu_matrix_apply(gradient, 1, as_doubles(gx), as_doubles(gy)) == HPFEM_GPU_OK &&
+              relative_error(gy, multiply(g, gx, 1)) < 1e-14,
+          "rectangular product G x");
+    hpfem_gpu_solver* gauge = nullptr;
+    check(hpfem_gpu_create(&gauge) == HPFEM_GPU_OK, "arnoldi: create gauge solver");
+    check(hpfem_gpu_factorize(gauge, kg.n, kg.nnz(), kg.row_ptr.data(), kg.col.data(),
+                              as_doubles(kg.val), HPFEM_GPU_MATRIX_GENERAL) == HPFEM_GPU_OK,
+          std::string("arnoldi: factorise G^H B G: ") + hpfem_gpu_last_error(gauge));
+    check(hpfem_gpu_arnoldi_create(&arnoldi, solver, mass, gradient, gradient_adjoint, gauge, m,
+                                   ncv) == HPFEM_GPU_OK,
+          "arnoldi: create gauged");
+    hpfem_gpu_arnoldi* refused = nullptr;
+    check(hpfem_gpu_arnoldi_create(&refused, solver, mass, gradient, nullptr, gauge, m, ncv) ==
+              HPFEM_GPU_ERR_INVALID_ARG,
+          "gauge without G^H is refused");
+    check(hpfem_gpu_arnoldi_set_start(arnoldi, as_doubles(start)) == HPFEM_GPU_OK,
+          std::string("gauged: start: ") + hpfem_gpu_arnoldi_last_error(arnoldi));
+    double worst_gauge = 0.0;
+    for (int64_t j = 0; j < 4; ++j) {
+      double beta = 0.0;
+      check(hpfem_gpu_arnoldi_iterate(arnoldi, j, as_doubles(h_device), &beta) == HPFEM_GPU_OK,
+            std::string("gauged: iterate: ") + hpfem_gpu_arnoldi_last_error(arnoldi));
+    }
+    check(hpfem_gpu_arnoldi_combine(arnoldi, 5, 5, as_doubles(identity), as_doubles(basis)) ==
+              HPFEM_GPU_OK,
+          std::string("gauged: combine: ") + hpfem_gpu_arnoldi_last_error(arnoldi));
+    for (int64_t j = 0; j < 5; ++j) {
+      const std::vector<Complex> column(basis.begin() + j * m, basis.begin() + (j + 1) * m);
+      const std::vector<Complex> r = multiply(gt, multiply(b, column, 1), 1);
+      double num = 0.0;
+      for (const auto& x : r) num += std::norm(x);
+      worst_gauge = std::max(worst_gauge, std::sqrt(num));
+    }
+    std::printf("       gauged: largest |G^H B v_j| over the first five columns %.2e\n",
+                worst_gauge);
+    check(worst_gauge < 1e-10, "projected basis vectors are B-orthogonal to range(G)");
+    hpfem_gpu_arnoldi_destroy(arnoldi);
+    hpfem_gpu_destroy(gauge);
+    hpfem_gpu_matrix_destroy(gradient_adjoint);
+    hpfem_gpu_matrix_destroy(gradient);
+    hpfem_gpu_matrix_destroy(mass);
+    hpfem_gpu_destroy(solver);
+  }
   run_error_paths();
 
   std::printf("%d failure(s)\n", failures);
