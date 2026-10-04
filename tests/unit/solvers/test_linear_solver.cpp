@@ -203,11 +203,14 @@ TEST_CASE("DeviceStepper: the Newmark recursion on the GPU matches the host loop
   SparseMatrix c = 0.1 * m;
   SparseMatrix k = m + (gamma * dt) * c + (beta * dt * dt) * s;
   k.makeCompressed();
-  auto newmark = make_direct_solver(DirectSolverBackend::kCudss);
   if (!available(DirectSolverBackend::kCudss)) {
     CHECK(!DeviceStepper::available(*make_direct_solver(DirectSolverBackend::kSparseLu)));
+    CHECK_THROWS_AS(DeviceStepper(*make_direct_solver(DirectSolverBackend::kSparseLu), nullptr, s,
+                                  nullptr, dt, beta, gamma),
+                    hpfem::Error);
     return;
   }
+  auto newmark = make_direct_solver(DirectSolverBackend::kCudss);
   newmark->factorize(k);
   REQUIRE(DeviceStepper::available(*newmark));
   CHECK(!DeviceStepper::available(*make_direct_solver(DirectSolverBackend::kSparseLu)));
