@@ -1,0 +1,28 @@
+# Re-runs CI jobs that were cancelled (runner shortage, superseded queue entries) so that
+# auto-merge is not left waiting on a run that would never turn green. Runs with a genuinely
+# failed job are left alone; at most three attempts per run.
+name: Rerun cancelled jobs
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+permissions:
+  actions: write
+jobs:
+  rerun:
+    if: github.event.workflow_run.conclusion == 'cancelled' || github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Re-run the cancelled jobs when nothing failed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        run: |
+          if [ "$ATTEMPT" -ge 4 ]; then echo "attempt $ATTEMPT: giving up"; exit 0; fi
+          jobs=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100")
+          failed=$(echo "$jobs" | jq '[.jobs[] | select(.conclusion == "failure" or .conclusion == "timed_out")] | length')
+          cancelled=$(echo "$jobs" | jq '[.jobs[] | select(.conclusion == "cancelled")] | length')
+          echo "run $RUN_ID attempt $ATTEMPT: $failed failed, $cancelled cancelled"
+          if [ "$failed" -ne 0 ] || [ "$cancelled" -eq 0 ]; then echo "nothing to re-run"; exit 0; fi
+          gh run rerun "$RUN_ID" --failed

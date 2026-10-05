@@ -241,6 +241,11 @@ CMake and Ninja (installed via winget), Git for Windows. **Not MSVC.**
   `test(mesh): verify edge orientation consistency`, `docs(adr): …`.
 - **Pull requests:** fill the template; CI must pass (build matrix, tests, format,
   clang-tidy, docs build). Link the roadmap item.
+  `main` is protected: the CI jobs are required checks (not strict, so a PR need not be
+  rebased before the merge; admins may still push directly). PRs are merged server-side by
+  GitHub **auto-merge** (enable it on the PR, merge commit); the workflow
+  `rerun-cancelled.yml` re-runs jobs that the runner queue cancelled, so a PR merges on its
+  own once its checks are green, without a local process polling for it.
 - **Definition of done** for any feature:
   1. unit tests in `tests/unit/`
   2. a convergence or regression test if numerics are involved
