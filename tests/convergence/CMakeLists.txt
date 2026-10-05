@@ -14,6 +14,9 @@ hpfem_add_test(convergence_pml_reflection convergence
 hpfem_add_test(convergence_flat_surface_fresnel convergence
   flat_surface_fresnel.cpp)
 
+hpfem_add_test(convergence_grating_postprocessing convergence
+  grating_postprocessing.cpp)
+
 hpfem_add_test(convergence_bloch_plane_wave convergence
   bloch_plane_wave.cpp)
 
