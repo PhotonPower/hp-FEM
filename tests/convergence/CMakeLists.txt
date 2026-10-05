@@ -67,6 +67,12 @@ hpfem_add_test(convergence_waveguide_port convergence
 hpfem_add_test(convergence_waveguide_port_3d convergence
   waveguide_port_3d.cpp)
 
+hpfem_add_test(convergence_conical_mie_cylinder_ez convergence
+  conical_mie_cylinder_ez.cpp)
+
+hpfem_add_test(convergence_conical_lamellar_grating_ez convergence
+  conical_lamellar_grating_ez.cpp)
+
 hpfem_add_test(convergence_axisymmetric_dipole convergence
   axisymmetric_dipole.cpp)
 

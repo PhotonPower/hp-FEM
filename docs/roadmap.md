@@ -229,6 +229,36 @@ Integrated photonics beyond the effective-index model and the tools around the s
   reused), then shape derivatives (Hadamard formula with the interface jumps, ADR on the
   geometry parametrisation); verification against finite differences
 
+## M13 — Conical incidence and the E_z polarisation (2.5D)
+From the user test report of 5 October 2026 (`spec-m12-ez-polarisation-2d.md`): the missing
+polarisation of the 2D solver and the longitudinal wavenumber for the microscope model.
+- [x] conical forms (`assembly::assemble_conical`: in-plane E in Nédélec, v = −i E_z in H1,
+  longitudinal wavenumber β, diagonal tensors, `conical_gradient`), `physics::ConicalScattering`
+  (PEC, Bloch on both spaces, PML tensors Λ = diag(s_y/s_x, s_x/s_y, s_x s_y), hanging nodes,
+  scattered- and total-field formulation, layered background with `layered_conical_wave`),
+  `conical_plane_wave` / `conical_polarisation`, `conical_poynting_flux`, `conical_fourier_coefficients`
+  (any line orientation) and `conical_diffraction_efficiencies` with complex vector amplitudes;
+  at β = 0 the solver is the E_z ("TE") polarisation. Unit tests (gradient kernel, decoupling,
+  manufactured solutions, flat interface under conical incidence vs the stack), convergence
+  tests `conical_mie_cylinder_ez` (series) and `conical_lamellar_grating_ez` (in-test TE RCWA,
+  layered background); theory section `docs/theory/maxwell.md#conical-incidence`
+- [ ] Python bindings (`ConicalScattering`, `layered_conical_wave`, orders), `hpfem.project` keys
+  `"polarisation": "Ez" | "Hz"` and `"azimuth"` (conical), example (Si ridge in E_z, R1 Ag case)
+- [ ] conical grating validation at β ≠ 0 against a vector RCWA (or the 3D solver on a thin
+  unit cell), the acceptance case R1 of the report (Ag lamellar grating, 50°, TE) as a
+  `validation-long` test with the user's reference data
+- [ ] later: hp-adaptivity for the conical solver (estimator of the mode equation), E_z
+  resonances and band structures, scalar `ScatteringEz` (H1 only) when the DoF count matters
+
+## M14 — Accuracy infrastructure for oblique incidence and gratings
+From the same report (`spec-m14a/b/c`); A and C by the gpu agent, B by dev.
+- [ ] M14-A PML for oblique incidence (`PmlProfile::for_angle`, `PmlBox::max_resolution` with a
+  warning, documentation of R0 at the angle θ; flat Si / Ag against Fresnel)
+- [ ] M14-B hp-adaptivity on a plasmonic grating (Bloch + layered background + PML): marking
+  symmetrised across periodic faces, estimator options, convergence test on the Ag grating
+- [ ] M14-C post-processing for gratings (`diffraction_orders` with any orientation and the
+  background subtracted, `power_balance`, `Surface::line`, `total_field` on stack interfaces)
+
 ## Backlog / ideas
 - [x] dual H-formulation for guaranteed error bounds (`adaptivity::dual_solution` on the
   H1 / Nédélec dual space, `hypercircle_estimate` with the Prager–Synge bound for the

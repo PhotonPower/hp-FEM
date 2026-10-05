@@ -3,6 +3,18 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Conical incidence and the E_z polarisation (M13, from the user test report): the 2.5D
+  solver `physics::ConicalScattering` for z-invariant structures with the longitudinal
+  wavenumber β (in-plane E in Nédélec, v = −i E_z in H1, `assembly::assemble_conical` with the
+  exact gradient kernel; PEC, Bloch on both spaces, PML tensors, hanging nodes, scattered- and
+  total-field formulation, layered background through `layered_conical_wave` from the 3D
+  stack solution), `conical_plane_wave` / `conical_polarisation`, the conical Poynting flux,
+  Fourier coefficients along any line and diffraction efficiencies with complex vector
+  amplitudes. At β = 0 it is the missing E_z ("TE") polarisation of 2D gratings. Unit tests,
+  the convergence tests `conical_mie_cylinder_ez` (series value to 4e-5 at p = 3) and
+  `conical_lamellar_grating_ez` (in-test TE RCWA, |ΔR| 2e-6 and |ΔT| 2e-5 at p = 4 with the
+  substrate as layered background), theory section with the caveat on E_z fluxes at
+  material interfaces.
 - Batched loads and Dirichlet data for sweeps: `assembly::assemble_maxwell_loads` assembles
   the loads of all incident fields in one pass over the cells (geometry, quadrature and
   basis functions once per cell, cell colouring instead of per-thread copies of the n x k

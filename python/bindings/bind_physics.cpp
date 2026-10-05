@@ -8,6 +8,7 @@
 #include "hpfem/adaptivity/residual_estimator.hpp"
 #include "hpfem/physics/axisymmetric.hpp"
 #include "hpfem/physics/band_structure.hpp"
+#include "hpfem/physics/conical_scattering.hpp"
 #include "hpfem/physics/propagating_mode.hpp"
 #include "hpfem/physics/resonance.hpp"
 #include "hpfem/physics/riesz_projection.hpp"
@@ -601,6 +602,127 @@ void bind_riesz_common(py::module_& m) {
 }  // namespace
 
 void bind_physics(py::module_& m) {
+  {
+    using physics::ConicalScattering;
+    using physics::ConicalScatteringSetup;
+    using physics::ConicalSolution;
+    using physics::ConicalVector;
+    using ND = fespace::NedelecDofMap<2>;
+    using H1 = fespace::DofMap<2>;
+    m.def("conical_plane_wave", &physics::conical_plane_wave, py::arg("amplitude"),
+          py::arg("wave_vector"),
+          "Scaled components (E0x, E0y, -i E0z) e^{i(kx x + ky y)} of the plane wave E0 e^{i k.x}; "
+          "beta = k_z is the setup's beta");
+    m.def("conical_polarisation", &physics::conical_polarisation, py::arg("wave_vector"),
+          py::arg("normal"), py::arg("polarisation"),
+          "Unit amplitude of the s (E perpendicular to the plane of incidence spanned by k and the "
+          "normal) or p polarisation");
+    m.def("conical_pml_form", &physics::conical_pml_form, py::arg("box"), py::arg("material"),
+          py::arg("quadrature_order") = std::optional<int>{},
+          "PML tensors Lambda = diag(s_y/s_x, s_x/s_y, s_x s_y) as a ConicalForm");
+    py::class_<physics::LayeredConicalWave>(
+        m, "LayeredConicalWave",
+        "Plane wave on a LayerStack2D (normal along y) for the conical solver: the stack field, "
+        "the downward incident wave alone, beta, kx, ky and the bare stack's R and T")
+        .def_readonly("field", &physics::LayeredConicalWave::field)
+        .def_readonly("incident", &physics::LayeredConicalWave::incident)
+        .def_readonly("beta", &physics::LayeredConicalWave::beta)
+        .def_readonly("kx", &physics::LayeredConicalWave::kx)
+        .def_readonly("ky", &physics::LayeredConicalWave::ky)
+        .def_readonly("reflectance", &physics::LayeredConicalWave::reflectance)
+        .def_readonly("transmittance", &physics::LayeredConicalWave::transmittance);
+    m.def(
+        "layered_conical_wave", &physics::layered_conical_wave, py::arg("stack"), py::arg("k0"),
+        py::arg("angle"), py::arg("azimuth"), py::arg("polarisation"), py::arg("amplitude") = 1.0,
+        "Stack wave at the angle from the normal and the azimuth about it; beta = k0 n sin(angle) "
+        "sin(azimuth), azimuth 0 is in-plane incidence (E_z polarisation for s)");
+    py::class_<ConicalScatteringSetup>(
+        m, "ConicalScatteringSetup",
+        "Conical scattering problem (2.5D): omega, beta, materials, PEC tags, PML, periodic pairs, "
+        "layered background, incident field (scaled components) or current")
+        .def(py::init<>())
+        .def_readwrite("omega", &ConicalScatteringSetup::omega)
+        .def_readwrite("beta", &ConicalScatteringSetup::beta, "longitudinal wavenumber k_z [1/m]")
+        .def_readwrite("materials", &ConicalScatteringSetup::materials)
+        .def_readwrite("pec_tags", &ConicalScatteringSetup::pec_tags)
+        .def_readwrite("pml", &ConicalScatteringSetup::pml)
+        .def_readwrite("periodic", &ConicalScatteringSetup::periodic)
+        .def_readwrite("background", &ConicalScatteringSetup::background,
+                       "LayerStack2D (normal along y) or None")
+        .def_readwrite("incident", &ConicalScatteringSetup::incident,
+                       "incident field x -> (E_x, E_y, -i E_z) (scattered-field formulation)")
+        .def_readwrite("current", &ConicalScatteringSetup::current,
+                       "f = i omega mu0 J as (f_x, f_y, -i f_z) (total-field formulation)")
+        .def_readwrite("solver", &ConicalScatteringSetup::solver)
+        .def_readwrite("extra_quadrature_order", &ConicalScatteringSetup::extra_quadrature_order)
+        .def_readwrite("pml_extra_quadrature_order",
+                       &ConicalScatteringSetup::pml_extra_quadrature_order);
+    py::class_<ConicalSolution>(m, "ConicalSolution", "Coefficients of the unknown conical field")
+        .def_readonly("beta", &ConicalSolution::beta)
+        .def_readonly("scattered", &ConicalSolution::scattered)
+        .def_readonly("transverse", &ConicalSolution::transverse)
+        .def_readonly("longitudinal", &ConicalSolution::longitudinal, "v = -i E_z coefficients");
+    py::class_<ConicalScattering>(m, "ConicalScattering",
+                                  "Assembles S(beta) - k0^2 M with the constraints and solves; at "
+                                  "beta = 0 with an E_z incident field this is the E_z (TE) solver")
+        .def(py::init<const ND&, const H1&, ConicalScatteringSetup>(), py::arg("transverse"),
+             py::arg("longitudinal"), py::arg("setup"), py::keep_alive<1, 2>(),
+             py::keep_alive<1, 3>(), Release())
+        .def_property_readonly("setup", &ConicalScattering::setup,
+                               py::return_value_policy::reference_internal)
+        .def_property_readonly("wavenumber", &ConicalScattering::wavenumber)
+        .def_property_readonly("beta", &ConicalScattering::beta)
+        .def("background_material", &ConicalScattering::background_material, py::arg("cell"))
+        .def("form_of_cell", &ConicalScattering::form_of_cell, py::arg("cell"))
+        .def_property_readonly("free_dofs",
+                               [](const ConicalScattering& p) { return to_array(p.free_dofs()); })
+        .def("solve", &ConicalScattering::solve, Release())
+        .def(
+            "field",
+            [](const ConicalScattering& p, const ConicalSolution& s, Index c, const Point<2>& xi) {
+              return p.field(s, c, xi);
+            },
+            py::arg("solution"), py::arg("cell"), py::arg("xi"), "(E_x, E_y, E_z) of the unknown")
+        .def(
+            "total_field",
+            [](const ConicalScattering& p, const ConicalSolution& s, const mesh::PointLocator<2>& l,
+               const Point<2>& x) { return p.total_field(s, l, x); },
+            py::arg("solution"), py::arg("locator"), py::arg("x"))
+        .def(
+            "scattered_field",
+            [](const ConicalScattering& p, const ConicalSolution& s, const mesh::PointLocator<2>& l,
+               const Point<2>& x) { return p.scattered_field(s, l, x); },
+            py::arg("solution"), py::arg("locator"), py::arg("x"))
+        .def("incident_field", &ConicalScattering::incident_field, py::arg("x"),
+             "(E_x, E_y, E_z) of the incident field");
+    m.def("conical_poynting_flux", &physics::conical_poynting_flux, py::arg("transverse"),
+          py::arg("longitudinal"), py::arg("e"), py::arg("v"), py::arg("beta"), py::arg("omega"),
+          py::arg("materials"), py::arg("surface"), py::arg("order") = 8, Release(),
+          "Power per unit length [W/m] through the surface (take it through homogeneous cells: the "
+          "normal derivative of E_z at a material interface converges one order slower)");
+    m.def(
+        "conical_fourier_coefficients",
+        [](const std::function<ConicalVector(const Point<2>&)>& field, const Point<2>& origin,
+           const Point<2>& tangent, Real period, Real kt0, int max_order, int num_points) {
+          return physics::conical_fourier_coefficients(field, origin, tangent, period, kt0,
+                                                       max_order, num_points);
+        },
+        py::arg("field"), py::arg("origin"), py::arg("tangent"), py::arg("period"), py::arg("kt0"),
+        py::arg("max_order"), py::arg("num_points"),
+        "A_m of a 3-vector field along the line origin + s tangent, m = -max_order..max_order");
+    py::class_<physics::ConicalDiffractionOrder>(m, "ConicalDiffractionOrder")
+        .def_readonly("order", &physics::ConicalDiffractionOrder::order)
+        .def_readonly("ky", &physics::ConicalDiffractionOrder::ky, "tangential wavenumber")
+        .def_readonly("kx", &physics::ConicalDiffractionOrder::kx, "normal wavenumber")
+        .def_readonly("propagating", &physics::ConicalDiffractionOrder::propagating)
+        .def_readonly("efficiency", &physics::ConicalDiffractionOrder::efficiency)
+        .def_readonly("amplitude", &physics::ConicalDiffractionOrder::amplitude);
+    m.def("conical_diffraction_efficiencies", &physics::conical_diffraction_efficiencies,
+          py::arg("coefficients"), py::arg("k0"), py::arg("index_line"), py::arg("period"),
+          py::arg("kt0"), py::arg("beta"), py::arg("kn_incident"), py::arg("incident_amplitude"),
+          "eta_m = Re(k_n,m) |A_m|^2 / (k_n^inc |E0|^2) with k_n,m = sqrt(k0^2 n^2 - k_t,m^2 - "
+          "beta^2)");
+  }
   py::class_<physics::WaveguidePort>(m, "WaveguidePort",
                                      "A modal port on boundary facets (2D: a straight line)")
       .def(py::init<>())
