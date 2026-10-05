@@ -532,6 +532,75 @@ def _scattering_outputs(project: Mapping, mesh, dofs, problem, solution, omega: 
                 {"order": o.order, "efficiency": o.efficiency, "propagating": o.propagating}
                 for o in efficiencies
             ]
+        if "line" in spec:
+            # orders on a line of any orientation (diffraction_orders): the total field with
+            # the incident wave subtracted (reflected orders) or the field alone
+            line_spec = spec["line"]
+            origin = _point(
+                _get(line_spec, "origin", required=True, where="outputs.diffraction.line"),
+                2,
+                scale,
+                "outputs.diffraction.line",
+            )
+            tangent = np.array(_get(line_spec, "tangent", [1.0, 0.0]), dtype=float)
+            normal = np.array(_get(line_spec, "normal", [0.0, 1.0]), dtype=float)
+            tangent /= np.linalg.norm(tangent)
+            normal /= np.linalg.norm(normal)
+            line = hpfem.OrderLine(origin, tangent, normal, period)
+            index = float(
+                _get(line_spec, "index", np.real(setup.materials.background.refractive_index))
+            )
+            k_tangential = float(np.dot(k_vector, tangent))
+            kn_incident = abs(float(np.dot(k_vector, normal)))
+            subtract = bool(_get(line_spec, "subtract_incident", True))
+            orders_on_line = hpfem.diffraction_orders(
+                lambda x: problem.total_field(solution, locator, x), line, k0, index,
+                k_tangential, kn_incident, problem.incident_wave if subtract else None, orders,
+                points, amplitude,
+            )  # fmt: skip
+            entry["line"] = [
+                {
+                    "order": o.order,
+                    "efficiency": o.efficiency,
+                    "propagating": o.propagating,
+                    "amplitude": [_complex(v) for v in o.amplitude],
+                }
+                for o in orders_on_line
+            ]
+        if "balance" in spec:
+            # flux-based energy balance: planes given by their coordinate along the normal axis
+            balance_spec = spec["balance"]
+            axis = int(_get(balance_spec, "axis", 1))
+            reflection = hpfem.Surface2D.plane(
+                mesh,
+                axis,
+                float(
+                    _get(
+                        balance_spec,
+                        "reflection",
+                        required=True,
+                        where="outputs.diffraction.balance",
+                    )
+                )
+                * scale,
+                +1,
+            )
+            transmission = None
+            if "transmission" in balance_spec:
+                transmission = hpfem.Surface2D.plane(
+                    mesh, axis, float(balance_spec["transmission"]) * scale, -1
+                )
+            balance = hpfem.power_balance(
+                problem, solution, reflection, period, abs(float(k_vector[axis])), amplitude,
+                transmission,
+            )  # fmt: skip
+            entry["balance"] = {
+                "incident": balance.incident,
+                "reflected": balance.reflected,
+                "transmitted": balance.transmitted,
+                "absorbed": balance.absorbed,
+                "relative_residual": balance.relative_residual(),
+            }
         result["diffraction"] = entry
     if "vtk" in outputs:
         spec = outputs["vtk"]

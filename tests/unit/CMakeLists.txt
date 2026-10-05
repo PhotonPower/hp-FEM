@@ -58,6 +58,7 @@ hpfem_add_test(test_physics unit
   physics/test_sources.cpp
   physics/test_scattering.cpp
   physics/test_postprocess.cpp
+  physics/test_grating_postprocessing.cpp
   physics/test_mie.cpp
   physics/test_layer_stack.cpp
 

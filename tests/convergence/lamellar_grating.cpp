@@ -1,11 +1,14 @@
 // Convergence test #6 (CLAUDE.md §8): diffraction efficiencies of a lamellar grating against
-// RCWA. The grating is periodic in y (period a), the light comes from +x through the
+// RCWA. The grating is periodic in x (period a), the light comes from +y through the
 // superstrate (n1), ridges of index n_g and thickness t sit on a substrate (n2). The FEM
-// solves the Bloch-periodic unit cell with PML in +-x in the scattered-field formulation; the
-// reflected orders come from the Fourier coefficients of the scattered field above the
-// grating, the transmitted ones from the total field below. The reference is a rigorous
-// coupled-wave analysis for the H_z polarisation (in-plane E) with Li's inverse rule,
-// implemented here and checked by energy conservation and truncation independence.
+// solves the Bloch-periodic unit cell with PML in +-y in the scattered-field formulation on
+// the layered background superstrate | substrate (ADR-0009): the scatterer is the ridge
+// alone, so no source reaches into the PML (with the substrate as scatterer the efficiencies
+// plateau at ~2e-3). The reflected orders are those of the total field minus the incident
+// wave on a line above the grating, the transmitted ones those of the total field below
+// (`diffraction_orders`). The reference is a rigorous coupled-wave analysis for the H_z
+// polarisation (in-plane E) with Li's inverse rule, implemented here and checked by energy
+// conservation and truncation independence.
 #include <cmath>
 #include <complex>
 #include <numbers>
@@ -24,6 +27,7 @@
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/mesh/point_location.hpp"
 #include "hpfem/physics/diffraction.hpp"
+#include "hpfem/physics/layer_stack.hpp"
 #include "hpfem/physics/scattering.hpp"
 #include "hpfem/physics/sources.hpp"
 #include "hpfem/pml/pml.hpp"
@@ -41,10 +45,10 @@ using hpfem::materials::Material;
 using hpfem::mesh::affine_map;
 using hpfem::mesh::Mesh;
 using hpfem::mesh::rectangle;
-using hpfem::physics::diffraction_efficiencies;
+using hpfem::physics::diffraction_orders;
 using hpfem::physics::Formulation;
-using hpfem::physics::fourier_coefficients;
-using hpfem::physics::plane_wave;
+using hpfem::physics::LayerStack;
+using hpfem::physics::OrderLine;
 using hpfem::physics::Scattering;
 using hpfem::physics::ScatteringSetup;
 using hpfem::pml::PmlBox;
@@ -61,7 +65,7 @@ constexpr Real kSuper = 1.0;       // n1
 constexpr Real kSubstrate = 1.5;   // n2
 constexpr Real kRidge = 2.0;       // n_g
 constexpr Real kWavelength = 0.8;  // lambda [m]
-constexpr Real kAngle = 0.0;       // incidence angle [rad], measured from -x
+constexpr Real kAngle = 0.0;       // incidence angle [rad], measured from -y
 constexpr int kOrders = 1;         // propagating orders |m| <= 1 above and below
 
 using CMatrix = Eigen::MatrixXcd;
@@ -148,7 +152,11 @@ std::pair<std::vector<Real>, std::vector<Real>> rcwa(int truncation) {
 
 // --- FEM ---------------------------------------------------------------------------------------
 constexpr Real kMargin = 1.0;  // homogeneous region between grating and PML on each side
-constexpr Real kPml = 1.0;
+// two units with a mild profile: the substrate layer (n = 1.5) is stretched with the box index
+// n = 1, so a steep profile is under-resolved there (the original 1 unit at R0 = 1e-10 left
+// 1e-3 in the transmitted orders and |ks|h = 9.4; Scattering still warns at p = 3, where the
+// 0.75 p rule asks for 2.25 against 3.5, but the efficiencies converge to 3e-4 regardless)
+constexpr Real kPml = 2.0;
 
 struct Efficiencies {
   Index dofs = 0;
@@ -158,56 +166,67 @@ struct Efficiencies {
 
 Efficiencies solve(Index cells_per_unit, int p) {
   const Real k0 = 2 * std::numbers::pi / kWavelength;
-  const Real x_bottom = -(kMargin + kPml);
-  const Real x_top = kThickness + kMargin + kPml;
-  const Index nx =
-      static_cast<Index>(std::lround((x_top - x_bottom) * static_cast<Real>(cells_per_unit)));
-  const Index ny = static_cast<Index>(std::lround(kPeriod * static_cast<Real>(cells_per_unit)));
-  Mesh<2> mesh = rectangle(nx, ny, Point<2>(x_bottom, 0.0), Point<2>(x_top, kPeriod));
+  const Real y_bottom = -(kMargin + kPml);
+  const Real y_top = kThickness + kMargin + kPml;
+  const Index nx = static_cast<Index>(std::lround(kPeriod * static_cast<Real>(cells_per_unit)));
+  const Index ny =
+      static_cast<Index>(std::lround((y_top - y_bottom) * static_cast<Real>(cells_per_unit)));
+  Mesh<2> mesh = rectangle(nx, ny, Point<2>(0.0, y_bottom), Point<2>(kPeriod, y_top));
   for (Index c = 0; c < mesh.num_cells(); ++c) {
     const Point<2> centroid = affine_map(mesh, c).centroid();
-    if (centroid(0) < 0) {
+    if (centroid(1) < 0) {
       mesh.set_cell_tag(c, 2);
-    } else if (centroid(0) < kThickness && centroid(1) < kFill * kPeriod) {
+    } else if (centroid(1) < kThickness && centroid(0) < kFill * kPeriod) {
       mesh.set_cell_tag(c, 3);
     }
   }
   const NedelecDofMap<2> dofs(mesh, p);
-  const Point<2> k(-k0 * kSuper * std::cos(kAngle), k0 * kSuper * std::sin(kAngle));
-  const ComplexVector<2> e0(Complex{std::sin(kAngle), 0.0}, Complex{std::cos(kAngle), 0.0});
+  // the layered background: superstrate above y = 0, substrate below; the ridge is the
+  // scatterer, the incident wave of the stack is what the reflected orders are taken against
+  const LayerStack<2> stack(Material::dielectric(kSuper), {}, Material::dielectric(kSubstrate));
+  const auto wave = stack.plane_wave(k0, kAngle);
+  const Point<2> k(k0 * kSuper * std::sin(kAngle), -k0 * kSuper * std::cos(kAngle));
   ScatteringSetup<2> setup;
   setup.omega = k0 * hpfem::constants::c0;
   setup.materials = hpfem::materials::MaterialMap(Material::dielectric(kSuper));
   setup.materials.set(2, Material::dielectric(kSubstrate)).set(3, Material::dielectric(kRidge));
-  setup.incident = plane_wave<2>(e0, k);
+  setup.background = stack;
+  setup.incident = wave.field;
+  setup.incident_wave = wave.incident_wave;
   setup.formulation = Formulation::kScatteredField;
-  PmlBox<2>::Thickness thickness{kPml, kPml, 0.0, 0.0};
-  setup.pml = PmlBox<2>(Point<2>(-kMargin, 0.0), Point<2>(kThickness + kMargin, kPeriod), thickness,
-                        k0, kSuper, PmlProfile{2, 1e-10});
-  setup.pec_tags = {box_tag::kXMin, box_tag::kXMax};
-  setup.periodic = {PeriodicPair<2>{box_tag::kYMin, box_tag::kYMax, Point<2>(0.0, kPeriod),
-                                    bloch_phase<2>(k, Point<2>(0.0, kPeriod))}};
+  PmlBox<2>::Thickness thickness{0.0, 0.0, kPml, kPml};
+  setup.pml = PmlBox<2>(Point<2>(0.0, -kMargin), Point<2>(kPeriod, kThickness + kMargin), thickness,
+                        k0, kSuper, PmlProfile{2, 1e-6});
+  setup.pec_tags = {box_tag::kYMin, box_tag::kYMax};
+  setup.periodic = {PeriodicPair<2>{box_tag::kXMin, box_tag::kXMax, Point<2>(kPeriod, 0.0),
+                                    bloch_phase<2>(k, Point<2>(kPeriod, 0.0))}};
   const Scattering<2> problem(dofs, setup);
   const auto solution = problem.solve();
   const hpfem::mesh::PointLocator<2> locator(mesh);
-  const int points = static_cast<int>(8 * ny);
-  // reflected: the scattered field in the superstrate; transmitted: the total field in the
-  // substrate (the incident wave continues into the scattered-field background there)
-  const auto scattered = fourier_coefficients(
-      [&](const Point<2>& x) { return *problem.scattered_field(solution, locator, x); },
-      kThickness + 0.5 * kMargin, 0.0, kPeriod, k(1), kOrders, points);
-  const auto total = fourier_coefficients(
-      [&](const Point<2>& x) { return *problem.total_field(solution, locator, x); }, -0.5 * kMargin,
-      0.0, kPeriod, k(1), kOrders, points);
-  const Real kx_incident = k0 * kSuper * std::cos(kAngle);
+  const int points = static_cast<int>(8 * nx);
+  const auto total_field = [&](const Point<2>& x) {
+    return *problem.total_field(solution, locator, x);
+  };
+  const Real kn_incident = k0 * kSuper * std::cos(kAngle);
+  // reflected: the total field minus the incident wave on a line in the superstrate;
+  // transmitted: the total field on a line in the substrate (normal pointing down)
+  OrderLine above;
+  above.origin = Point<2>(0.0, kThickness + 0.5 * kMargin);
+  above.tangent = Point<2>(1.0, 0.0);
+  above.normal = Point<2>(0.0, 1.0);
+  above.period = kPeriod;
+  OrderLine below = above;
+  below.origin = Point<2>(0.0, -0.5 * kMargin);
+  below.normal = Point<2>(0.0, -1.0);
   Efficiencies e;
   e.dofs = dofs.num_dofs();
-  for (const auto& o :
-       diffraction_efficiencies(scattered, k0, kSuper, kPeriod, k(1), kx_incident, 1.0)) {
+  for (const auto& o : diffraction_orders(
+           total_field, above, k0, kSuper, k(0), kn_incident,
+           [&](const Point<2>& x) { return problem.incident_wave(x); }, kOrders, points)) {
     e.reflected.push_back(o.efficiency);
   }
-  for (const auto& o :
-       diffraction_efficiencies(total, k0, kSubstrate, kPeriod, k(1), kx_incident, 1.0)) {
+  for (const auto& o : diffraction_orders(total_field, below, k0, kSubstrate, k(0), kn_incident, {},
+                                          kOrders, points)) {
     e.transmitted.push_back(o.efficiency);
   }
   return e;
@@ -256,7 +275,7 @@ TEST_CASE("Lamellar grating: diffraction efficiencies converge to RCWA", "[conve
     last = std::max(dr, dt);
     REQUIRE(last < previous);
     previous = last;
-    if (p == 3) REQUIRE(sum == Catch::Approx(1.0).epsilon(2e-3));
+    if (p == 3) REQUIRE(sum == Catch::Approx(1.0).epsilon(1e-3));
   }
-  REQUIRE(last < 2e-3);
+  REQUIRE(last < 1e-3);
 }

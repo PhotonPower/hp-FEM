@@ -80,6 +80,9 @@ void bind_physics_dim(py::module_& m) {
       .def_readwrite("omega", &ScatteringSetup<Dim>::omega)
       .def_readwrite("materials", &ScatteringSetup<Dim>::materials)
       .def_readwrite("incident", &ScatteringSetup<Dim>::incident)
+      .def_readwrite("incident_wave", &ScatteringSetup<Dim>::incident_wave,
+                     "the incident plane wave alone on a layered background "
+                     "(LayeredPlaneWave.incident_wave); empty means incident")
       .def_readwrite("background", &ScatteringSetup<Dim>::background,
                      "optional LayerStack: layered background of the scattered-field "
                      "formulation (ADR-0009); set incident to its plane_wave(...).field")
@@ -171,6 +174,8 @@ void bind_physics_dim(py::module_& m) {
              const IncidentField<Dim>& exact,
              const std::vector<Index>& cells) { return p.error(s, exact, cells); },
           py::arg("solution"), py::arg("exact"), py::arg("cells"), Release())
+      .def("incident_wave", &Scattering<Dim>::incident_wave, py::arg("x"),
+           "the incident wave at x: setup.incident_wave if given, else setup.incident")
       .def(
           "interior_cells", [](const Scattering<Dim>& p) { return to_array(p.interior_cells()); },
           "cells inside the PML box (all cells without PML)")

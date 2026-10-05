@@ -48,6 +48,10 @@ struct ScatteringSetup {
   Real omega = 0;                    ///< angular frequency [rad/s]
   materials::MaterialMap materials;  ///< by cell tag; the background for unlisted tags
   IncidentField<Dim> incident;       ///< analytic field in the background medium (optional)
+  /// The incident plane wave alone where `incident` is the field of a layered background
+  /// (`LayeredPlaneWave::incident_wave`); empty means `incident`. Reflected fields and orders
+  /// are measured against it (`incident_wave`, `power_balance`, `diffraction_orders`).
+  IncidentField<Dim> incident_wave;
   /// Layered background (ADR-0009): the incident field is then the stack's plane wave
   /// (`LayerStack::plane_wave(...).field`), the scattered-field source lives only where a
   /// cell's material deviates from the stack at the cell centroid, and cross-sections are
@@ -130,8 +134,13 @@ class Scattering {
   [[nodiscard]] std::vector<PortCoefficients> port_coefficients(
       const ScatteringSolution<Dim>& solution) const;
 
+  /// The incident wave at x: `setup.incident_wave` if given, else `setup.incident` (zero
+  /// without an incident field).
+  [[nodiscard]] assembly::ComplexVector<Dim> incident_wave(const Point<Dim>& x) const;
   /// Total / scattered field at reference point ξ of cell c (the incident field is added or
-  /// subtracted according to the formulation; without an incident field both coincide).
+  /// subtracted according to the formulation; without an incident field both coincide). On
+  /// a layered background the background field is evaluated with the region of the cell's
+  /// centroid, so a point on an interface takes the side of the cell it was located in.
   [[nodiscard]] assembly::ComplexVector<Dim> total_field(const ScatteringSolution<Dim>& solution,
                                                          Index cell, const Point<Dim>& xi) const;
   [[nodiscard]] assembly::ComplexVector<Dim> scattered_field(
@@ -166,6 +175,9 @@ class Scattering {
   void add_port_terms(SparseMatrix& matrix, Vector& rhs) const;
   std::vector<PortModes<Dim>> port_modes_;
   [[nodiscard]] std::vector<Index> facets(const std::vector<mesh::Tag>& tags) const;
+  /// The incident field at the physical point x on the side of `cell` (layered backgrounds).
+  [[nodiscard]] assembly::ComplexVector<Dim> incident_in_cell(Index cell,
+                                                              const Point<Dim>& x) const;
 
   const fespace::NedelecDofMap<Dim>* dofs_;
   ScatteringSetup<Dim> setup_;

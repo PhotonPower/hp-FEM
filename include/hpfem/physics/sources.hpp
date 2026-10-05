@@ -6,17 +6,23 @@
 /// @f$ \nabla\times\nabla\times E - k^2 E = 0 @f$ away from the source with the exp(−iωt)
 /// convention (outgoing waves). See docs/theory/maxwell.md#scattering-problems.
 
+#include <functional>
+
 #include "hpfem/assembly/maxwell_forms.hpp"
 #include "hpfem/core/constants.hpp"
 #include "hpfem/core/types.hpp"
 
 namespace hpfem::physics {
 
-/// An analytic field: value and curl at physical points.
+/// An analytic field: value and curl at physical points. A piecewise field on a layered
+/// background (`LayerStack::plane_wave`) also offers `value_in_region`, the value of the
+/// branch of the given region at a point, so that a point on an interface can be evaluated
+/// on the side of the cell it belongs to (`Scattering::total_field`).
 template <int Dim>
 struct IncidentField {
   assembly::ComplexVectorField<Dim> value;
   assembly::ComplexCurlField<Dim> curl;
+  std::function<assembly::ComplexVector<Dim>(const Point<Dim>&, int region)> value_in_region;
   [[nodiscard]] explicit operator bool() const noexcept { return static_cast<bool>(value); }
 };
 
