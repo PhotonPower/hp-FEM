@@ -12,6 +12,7 @@
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
 #include "hpfem/mesh/geometry.hpp"
+#include "hpfem/pml/pml.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
 
 namespace hpfem::physics {
@@ -36,6 +37,43 @@ Scattering<Dim>::Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringS
   }
   if (setup_.incident && !setup_.incident.curl) {
     throw InvalidArgument("Scattering: the incident field needs its curl");
+  }
+  if (setup_.pml) {
+    // the stretched field e^{iks xi} must be resolved on the PML cells: |k s| h with the
+    // index of the medium actually meshed inside the layer (a substrate continued into a
+    // layer designed for air is the usual offender)
+    const auto& mesh = dofs_->mesh();
+    Real worst = 0;
+    Index worst_cell = -1;
+    Real worst_limit = 0;
+    for (Index c = 0; c < mesh.num_cells(); ++c) {
+      if (!setup_.pml->in_layer(mesh::affine_map(mesh, c).centroid())) continue;
+      Real size = 0;
+      const auto& vertices = mesh.cell_vertices(c);
+      for (std::size_t i = 0; i < vertices.size(); ++i) {
+        for (std::size_t j = i + 1; j < vertices.size(); ++j) {
+          size = std::max(size, (mesh.vertex(vertices[i]) - mesh.vertex(vertices[j])).norm());
+        }
+      }
+      const Real index = std::sqrt(material(c).eps_r).real();
+      const Real resolution = setup_.pml->max_resolution(size, index);
+      const Real limit = pml::PmlBox<Dim>::resolution_limit(dofs_->cell_order(c));
+      if (resolution / limit > worst / std::max(worst_limit, 1e-300)) {
+        worst = resolution;
+        worst_cell = c;
+        worst_limit = limit;
+      }
+    }
+    if (worst_cell >= 0 && worst > worst_limit) {
+      log().warn(
+          "Scattering: the PML is under-resolved: |k s| h = {:.3g} on cell {} (index {:.3g}, "
+          "order {}, limit {:.3g}); a layer in a medium of higher index than its "
+          "background_index needs a thicker layer or a milder profile "
+          "(PmlBox::recommended_thickness with the profile), or use a layered background "
+          "with a PEC wall for a substrate",
+          worst, worst_cell, std::sqrt(material(worst_cell).eps_r).real(),
+          dofs_->cell_order(worst_cell), worst_limit);
+    }
   }
   if (setup_.background) {
     // every cell must lie inside one region of the stack (interfaces on facets)

@@ -22,10 +22,25 @@ namespace hpfem::pml {
 
 /// Polynomial absorption profile @f$ \hat\sigma(d) = \hat\sigma_{\max}(d/\text{thickness})^m @f$
 /// with @f$ \hat\sigma_{\max} = -\frac{(m+1)\ln R_0}{2\,k_0\,n\,\text{thickness}} @f$, so that a
-/// wave at normal incidence returns from the far end with amplitude ratio @f$ R_0 @f$.
+/// wave at normal incidence returns from the far end with amplitude ratio @f$ R_0 @f$. At the
+/// angle @f$ \theta @f$ against the layer normal the attenuation scales with @f$ \cos\theta @f$:
+/// the round trip leaves @f$ R_0^{\cos\theta} @f$ and the far wall receives the one-way field
+/// @f$ R_0^{\cos\theta/2} @f$, so a reflectance computed with the layer is wrong by up to
+/// @f$ 2|r|R_0^{\cos\theta/2} @f$ (@f$ r @f$ the reflection amplitude of the structure). Choose
+/// @f$ R_0 @f$ for the largest angle that occurs (`for_angle`); the thickness only sets how
+/// steep the profile is (docs/theory/pml.md, "Oblique incidence").
 struct PmlProfile {
   int order = 3;           ///< m
-  Real reflection = 1e-8;  ///< R_0, theoretical round-trip reflection at normal incidence
+  Real reflection = 1e-8;  ///< R_0, round-trip field reflection at normal incidence
+
+  /// @f$ R_0 @f$ such that the reflectance error of the layer stays below `target` up to the
+  /// incidence angle `theta_max` [rad] against the layer normal for a structure of reflection
+  /// amplitude `r_amplitude`: @f$ R_0 = (\text{target} / (2 r))^{2/\cos\theta_{\max}} @f$,
+  /// clamped to @f$ [10^{-300}, 1) @f$. Steep profiles need thick layers: check
+  /// `PmlBox::max_resolution` or use `PmlBox::recommended_thickness` with the profile.
+  /// @throws InvalidArgument for θ outside [0, π/2), target ≤ 0, r ≤ 0 or order < 1.
+  [[nodiscard]] static PmlProfile for_angle(Real theta_max, Real target, Real r_amplitude = 1.0,
+                                            int order = 2);
 };
 
 /// Per-axis complex stretch factors @f$ s_\xi @f$ or stretched coordinates.
@@ -52,6 +67,17 @@ class PmlBox {
   /// non-positive arguments.
   [[nodiscard]] static Real recommended_thickness(Real k0, Real background_index, Real cell_size,
                                                   Real wavelengths = 0.5);
+  /// The smallest thickness (whole cells of size `cell_size`) at which the profile stays
+  /// resolved for polynomial order `p`: @f$ |k s| h \le @f$ `resolution_limit(p)` at the far
+  /// end of the layer, where @f$ |s| = \sqrt{1 + \hat\sigma_{\max}^2} @f$ and
+  /// @f$ \hat\sigma_{\max} \propto 1 / \text{thickness} @f$. At least the thickness of the
+  /// half-wavelength rule. @throws InvalidArgument if even an unstretched layer is not
+  /// resolved (@f$ k_0 n h @f$ above the limit) or for non-positive arguments.
+  [[nodiscard]] static Real recommended_thickness(Real k0, Real background_index, Real cell_size,
+                                                  const PmlProfile& profile, int p);
+  /// Largest @f$ |k s| h @f$ the stretched field may have on cells of order `p`: 3 for
+  /// @f$ p \ge 4 @f$ (docs/theory/pml.md), @f$ 0.75\,p @f$ below.
+  [[nodiscard]] static Real resolution_limit(int p) noexcept;
   /// The same thickness on all sides.
   [[nodiscard]] static PmlBox uniform(const Point<Dim>& lower, const Point<Dim>& upper,
                                       Real thickness, Real k0, Real background_index = 1.0,
@@ -63,6 +89,14 @@ class PmlBox {
   [[nodiscard]] const PmlProfile& profile() const noexcept { return profile_; }
   /// @f$ \hat\sigma_{\max} @f$ of side k (0 for a side without layer).
   [[nodiscard]] Real sigma_max(std::size_t side) const noexcept { return sigma_max_[side]; }
+  /// Vacuum wavenumber the layers were designed for.
+  [[nodiscard]] Real k0() const noexcept { return k0_; }
+  /// Largest @f$ |k s| h @f$ over the layers for cells of size `cell_size` in a medium of real
+  /// index `index` (@f$ k = k_0 n @f$, @f$ s @f$ at the far end of each layer): the
+  /// resolution the stretched field @f$ e^{iks\xi} @f$ asks of the mesh, to be kept below
+  /// `resolution_limit(p)`. A layer meshed with a medium of higher index than the
+  /// `background_index` it was designed for (a substrate) is the usual offender.
+  [[nodiscard]] Real max_resolution(Real cell_size, Real index) const;
   /// Outer boundary of the layers: the box enlarged by the thicknesses.
   [[nodiscard]] Point<Dim> outer_lower() const;
   [[nodiscard]] Point<Dim> outer_upper() const;
@@ -94,6 +128,7 @@ class PmlBox {
   Point<Dim> upper_;
   Thickness thickness_{};
   PmlProfile profile_;
+  Real k0_ = 0;
   std::array<Real, kNumSides> sigma_max_{};
 };
 

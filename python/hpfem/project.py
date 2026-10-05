@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import json
 import time
+import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -287,6 +288,30 @@ def _plane_wave(project: Mapping, dim: int, omega: float, background_index: floa
     raise ProjectError(f"source: unknown type '{kind}'")
 
 
+def _angle_against_layers(project: Mapping, thickness) -> float:
+    """Largest angle (degrees) between the plane-wave direction and the normals of the sides
+    that carry a layer; 0 without a plane wave or with layers on every side (a box around a
+    scatterer sees every direction anyway)."""
+    spec = _get(project, "source", {})
+    if _get(spec, "type", "plane_wave") != "plane_wave" or not isinstance(thickness, Sequence):
+        return 0.0
+    angle = float(_get(spec, "angle", 0.0))
+    if _get(spec, "angle_unit", "deg") != "deg":
+        angle /= units.deg
+    normals = []
+    for side, t in enumerate(thickness):
+        if float(t) > 0:
+            normals.append(side // 2)  # axis of the side's normal
+    if not normals or len(set(normals)) == len(thickness) // 2:
+        return 0.0
+    direction = np.array([np.cos(angle * units.deg), np.sin(angle * units.deg)])
+    worst = 0.0
+    for axis in set(normals):
+        cosine = abs(direction[axis]) if axis < 2 else 0.0
+        worst = max(worst, float(np.degrees(np.arccos(min(1.0, cosine)))))
+    return worst
+
+
 def _pml(project: Mapping, dim: int, omega: float, background_index: float):
     spec = _get(project, "pml")
     if spec is None:
@@ -296,9 +321,28 @@ def _pml(project: Mapping, dim: int, omega: float, background_index: float):
     upper = _point(_get(spec, "upper", required=True, where="pml"), dim, scale, "pml")
     thickness = _get(spec, "thickness", required=True, where="pml")
     profile_spec = _get(spec, "profile", {})
-    profile = hpfem.PmlProfile(
-        int(_get(profile_spec, "order", 3)), float(_get(profile_spec, "reflection", 1e-8))
-    )
+    if "theta_max" in profile_spec:
+        # angle-aware design: R0 for the largest incidence angle (degrees) and the error target
+        profile = hpfem.PmlProfile.for_angle(
+            float(_get(profile_spec, "theta_max", required=True, where="pml.profile")),
+            float(_get(profile_spec, "target", 1e-4)),
+            float(_get(profile_spec, "r_amplitude", 1.0)),
+            int(_get(profile_spec, "order", 2)),
+        )
+    else:
+        profile = hpfem.PmlProfile(
+            int(_get(profile_spec, "order", 3)), float(_get(profile_spec, "reflection", 1e-8))
+        )
+        angle = _angle_against_layers(project, thickness)
+        if angle > 30.0 and profile.reflection > 1e-12:
+            warnings.warn(
+                f"pml.profile.reflection = {profile.reflection:g} is the round-trip reflection at "
+                f"normal incidence; at {angle:.0f} deg against the layer normal it leaves about "
+                f"{profile.reflection ** (np.cos(angle * units.deg) / 2):.1e} of the field at "
+                "the far wall. Give pml.profile.theta_max (degrees) and target instead "
+                "(PmlProfile.for_angle, docs/theory/pml.md).",
+                stacklevel=2,
+            )
     k0 = units.vacuum_wavenumber(omega)
     box = hpfem.PmlBox2D if dim == 2 else hpfem.PmlBox3D
     if isinstance(thickness, Sequence):

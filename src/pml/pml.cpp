@@ -10,10 +10,28 @@
 
 namespace hpfem::pml {
 
+PmlProfile PmlProfile::for_angle(Real theta_max, Real target, Real r_amplitude, int order) {
+  if (!(theta_max >= 0) || !(theta_max < std::numbers::pi / 2)) {
+    throw InvalidArgument(fmt::format(
+        "PmlProfile::for_angle: the angle {} must lie in [0, pi/2) (radians against the normal)",
+        theta_max));
+  }
+  if (!(target > 0) || !(r_amplitude > 0) || order < 1) {
+    throw InvalidArgument(
+        "PmlProfile::for_angle: target and r_amplitude must be positive, order >= 1");
+  }
+  // one-way field at the far wall R0^(cos theta / 2), reflectance error 2 r R0^(cos theta / 2)
+  const Real reflection = std::pow(target / (2.0 * r_amplitude), 2.0 / std::cos(theta_max));
+  PmlProfile profile;
+  profile.order = order;
+  profile.reflection = std::clamp(reflection, 1e-300, std::nextafter(1.0, 0.0));
+  return profile;
+}
+
 template <int Dim>
 PmlBox<Dim>::PmlBox(const Point<Dim>& lower, const Point<Dim>& upper, const Thickness& thickness,
                     Real k0, Real background_index, PmlProfile profile)
-    : lower_(lower), upper_(upper), thickness_(thickness), profile_(profile) {
+    : lower_(lower), upper_(upper), thickness_(thickness), profile_(profile), k0_(k0) {
   for (int d = 0; d < Dim; ++d) {
     if (!(upper(d) > lower(d))) {
       throw InvalidArgument(fmt::format("PmlBox: degenerate box along axis {}", d));
@@ -59,6 +77,51 @@ Real PmlBox<Dim>::recommended_thickness(Real k0, Real background_index, Real cel
   const Real wavelength = 2.0 * std::numbers::pi / (k0 * background_index);
   const Real cells = std::ceil(wavelengths * wavelength / cell_size - 1e-9);
   return std::max(cells, 1.0) * cell_size;
+}
+
+template <int Dim>
+Real PmlBox<Dim>::resolution_limit(int p) noexcept {
+  return p >= 4 ? 3.0 : 0.75 * static_cast<Real>(std::max(p, 1));
+}
+
+template <int Dim>
+Real PmlBox<Dim>::recommended_thickness(Real k0, Real background_index, Real cell_size,
+                                        const PmlProfile& profile, int p) {
+  if (!(k0 > 0) || !(background_index > 0) || !(cell_size > 0)) {
+    throw InvalidArgument("PmlBox::recommended_thickness: all arguments must be positive");
+  }
+  if (profile.order < 1 || !(profile.reflection > 0) || !(profile.reflection < 1)) {
+    throw InvalidArgument("PmlBox::recommended_thickness: unusable profile");
+  }
+  const Real limit = resolution_limit(p);
+  const Real kh = k0 * background_index * cell_size;
+  if (!(kh < limit)) {
+    throw InvalidArgument(fmt::format(
+        "PmlBox::recommended_thickness: k0 n h = {:.3g} exceeds the resolution limit {:.3g} of "
+        "order {} even without stretching; refine the mesh or raise the order",
+        kh, limit, p));
+  }
+  // |k s| h <= limit with |s| = sqrt(1 + sigma_max^2) and sigma_max = -(m+1) ln R0 / (2 k0 n d)
+  const Real sigma_limit = std::sqrt((limit / kh) * (limit / kh) - 1.0);
+  const Real exponent = -static_cast<Real>(profile.order + 1) * std::log(profile.reflection);
+  const Real thickness = exponent / (2.0 * k0 * background_index * sigma_limit);
+  const Real cells = std::ceil(thickness / cell_size - 1e-9);
+  return std::max(std::max(cells, 1.0) * cell_size,
+                  recommended_thickness(k0, background_index, cell_size));
+}
+
+template <int Dim>
+Real PmlBox<Dim>::max_resolution(Real cell_size, Real index) const {
+  if (!(cell_size > 0) || !(index > 0)) {
+    throw InvalidArgument("PmlBox::max_resolution: cell size and index must be positive");
+  }
+  Real worst = 0;
+  for (std::size_t k = 0; k < kNumSides; ++k) {
+    if (thickness_[k] <= 0) continue;
+    const Real s = std::sqrt(1.0 + sigma_max_[k] * sigma_max_[k]);
+    worst = std::max(worst, k0_ * index * s * cell_size);
+  }
+  return worst;
 }
 
 template <int Dim>

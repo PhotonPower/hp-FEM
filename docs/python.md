@@ -189,7 +189,9 @@ pencils (resonances; the Krylov basis lives on the GPU with the cuDSS backend), 
 (`RieszSetup`, `spectrum`, `expand`), `PropagatingMode` for waveguide cross-sections, `BandStructure2D` for
 Floquet–Bloch bands of a unit cell, `ScatteringOperator2D` /
 `plane_wave_sweep` / `ReducedBasis` for sweeps, `bloch_constraints` / `PeriodicPair2D` /
-`fourier_coefficients` / `diffraction_efficiencies` for gratings, `dwr_estimate` with
+`fourier_coefficients` / `diffraction_efficiencies` for gratings, `PmlProfile.for_angle(theta_max_deg, target)` /
+`PmlBox2D.max_resolution` / `recommended_thickness(..., profile, p)` for the PML at oblique
+incidence (project files: `pml.profile.theta_max` and `target`), `dwr_estimate` with
 `point_value_functional` or a Python functional for goal-oriented estimation, `VtkWriter2D`
 for meshes with data arrays. `help(hpfem.<name>)` shows the bound signature and docstring.
 

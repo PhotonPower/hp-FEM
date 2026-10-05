@@ -1,6 +1,7 @@
 """Project files and the command line: the example projects reproduce the C++ examples."""
 
 import json
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -92,3 +93,42 @@ def test_cli(tmp_path, capsys):
     bad.write_text('{"problem": "nonsense"}')
     assert cli.main(["validate", str(bad)]) == 1
     assert "error" in capsys.readouterr().err
+
+
+def test_pml_profile_from_the_incidence_angle(tmp_path):
+    spec = {
+        "problem": "scattering",
+        "dim": 2,
+        "length_unit": "nm",
+        "mesh": {"type": "square_with_disc", "n": 2, "radius": 50, "half_width": 200, "outer": 400},
+        "order": 2,
+        "wavelength": {"value": 500, "unit": "nm"},
+        "materials": {"background": "vacuum", "2": "Au"},
+        "source": {"type": "plane_wave", "angle": 60, "polarisation": "TE"},
+        "pml": {"lower": [-200, -200], "upper": [200, 200], "thickness": [0, 0, 200, 200],
+                "profile": {"theta_max": 60, "target": 1e-4}},
+        "boundaries": {"pec": ["x_min", "x_max", "y_min", "y_max"]},
+    }  # fmt: skip
+    omega = hpfem.units.angular_frequency(wavelength=500e-9)
+    setup = project.scattering_setup(spec, omega)
+    expected = hpfem.PmlProfile.for_angle(60.0, 1e-4).reflection
+    assert abs(setup.pml.profile.reflection / expected - 1) < 1e-12
+    assert setup.pml.profile.order == 2
+    # the plain reflection key with layers on the y sides and a wave at 60 deg from the x
+    # axis (20 deg against the layer normals): no warning; at 10 deg (80 deg against the
+    # normals) a warning; layers on every side never warn
+    steep = {
+        **spec,
+        "source": {"type": "plane_wave", "angle": 70, "polarisation": "TE"},
+        "pml": {**spec["pml"], "profile": {"order": 2, "reflection": 1e-8}},
+    }
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        setup = project.scattering_setup(steep, omega)
+    assert setup.pml.profile.reflection == 1e-8
+    grazing = {**steep, "source": {"type": "plane_wave", "angle": 10}}
+    with pytest.warns(UserWarning, match="theta_max"):
+        project.scattering_setup(grazing, omega)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        project.scattering_setup({**grazing, "pml": {**steep["pml"], "thickness": 200}}, omega)

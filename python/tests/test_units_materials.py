@@ -72,3 +72,29 @@ def test_models_and_core_material():
     assert isinstance(materials.plasma_frequency(5.9e28), float)
     with pytest.raises(ValueError):
         materials.Tabulated([800e-9, 400e-9], [1, 1], [0, 0])
+
+
+def test_pml_profile_for_angle_and_resolution():
+    # R0 = (target / (2 r))^(2 / cos theta): the values of the M14-A specification
+    profile = hpfem.PmlProfile.for_angle(50.0, 1e-4)
+    assert profile.order == 2
+    assert abs(profile.reflection / 4.1e-14 - 1) < 0.03
+    assert abs(hpfem.PmlProfile.for_angle(70.0, 1e-4, 0.31).reflection / 6.7e-23 - 1) < 0.03
+    assert hpfem.PmlProfile.for_angle(70.0, 1e-4).reflection < profile.reflection
+    with pytest.raises(ValueError):
+        hpfem.PmlProfile.for_angle(90.0, 1e-4)
+    # |k s| h at the far end of the layer, and the thickness that keeps it below the limit
+    k0 = 2 * np.pi / 405e-9
+    h = 37e-9
+    box = hpfem.PmlBox2D([0.0, 0.0], [400e-9, 400e-9], [0.0, 1215e-9, 0.0, 0.0], k0, 1.0,
+                         hpfem.PmlProfile(2, 1e-16))  # fmt: skip
+    assert box.k0 == k0
+    sigma = -3 * np.log(1e-16) / (2 * k0 * 1215e-9)
+    assert abs(box.max_resolution(h, 1.0) - k0 * np.sqrt(1 + sigma**2) * h) < 1e-12
+    assert box.max_resolution(h, 1.0) < hpfem.PmlBox2D.resolution_limit(5)
+    assert box.max_resolution(h, 5.44) > hpfem.PmlBox2D.resolution_limit(5)
+    thick = hpfem.PmlBox2D.recommended_thickness(k0, 1.0, h, hpfem.PmlProfile(2, 1e-16), 5)
+    assert thick >= hpfem.PmlBox2D.recommended_thickness(k0, 1.0, h)
+    resolved = hpfem.PmlBox2D([0.0, 0.0], [1e-6, 1e-6], [0.0, thick, 0.0, 0.0], k0, 1.0,
+                              hpfem.PmlProfile(2, 1e-16))  # fmt: skip
+    assert resolved.max_resolution(h, 1.0) <= hpfem.PmlBox2D.resolution_limit(5) * (1 + 1e-12)

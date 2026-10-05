@@ -66,7 +66,7 @@ def unit_cell(width: float, cells_per_period: int = 12, order: int = 3):
     setup.formulation = hpfem.Formulation.SCATTERED_FIELD
     setup.pml = hpfem.PmlBox2D(
         [-MARGIN, 0.0], [HEIGHT + MARGIN, PERIOD], [PML, PML, 0.0, 0.0], k0, 1.0,
-        hpfem.PmlProfile(2, 1e-10),
+        hpfem.PmlProfile(2, 1e-10),  # normal incidence; oblique: PmlProfile.for_angle
     )  # fmt: skip
     setup.pec_tags = [hpfem.box_tag.X_MIN, hpfem.box_tag.X_MAX]
     shift = np.array([0.0, PERIOD])
