@@ -112,17 +112,23 @@ std::vector<DiffractionOrderField> diffraction_orders(const FieldFunction& field
   const Real a = line.period;
   std::vector<assembly::ComplexVector<2>> coefficients(static_cast<std::size_t>(2 * max_order + 1),
                                                        assembly::ComplexVector<2>::Zero());
-  // trapezoidal rule on the periodic function (E - E_inc) e^{-i k_t t}: uniform samples,
-  // the end point excluded (it repeats the start up to the Bloch phase)
-  for (int j = 0; j < num_points; ++j) {
-    const Real t = a * static_cast<Real>(j) / static_cast<Real>(num_points);
-    const Point<2> x = line.origin + t * line.tangent;
-    assembly::ComplexVector<2> e = field(x);
-    if (incident) e -= incident(x);
-    for (int m = -max_order; m <= max_order; ++m) {
-      const Real kt = k_tangential + 2.0 * std::numbers::pi * m / a;
-      coefficients[static_cast<std::size_t>(m + max_order)] +=
-          std::exp(-kI * kt * t) * e / static_cast<Real>(num_points);
+  // composite Gauss-Legendre as in fourier_coefficients: num_points points in blocks of up to
+  // 8, exact for the piecewise polynomial FEM field when the blocks align with the cells
+  const int blocks = (num_points + 7) / 8;
+  const int per_block = (num_points + blocks - 1) / blocks;
+  const auto rule = assembly::gauss_legendre(per_block);
+  const Real block_length = a / blocks;
+  for (int b = 0; b < blocks; ++b) {
+    for (std::size_t q = 0; q < rule.size(); ++q) {
+      const Real t = (b + rule.points[q](0)) * block_length;
+      const Real w = rule.weights[q] * block_length / a;
+      const Point<2> x = line.origin + t * line.tangent;
+      assembly::ComplexVector<2> e = field(x);
+      if (incident) e -= incident(x);
+      for (int m = -max_order; m <= max_order; ++m) {
+        const Real kt = k_tangential + 2.0 * std::numbers::pi * m / a;
+        coefficients[static_cast<std::size_t>(m + max_order)] += w * std::exp(-kI * kt * t) * e;
+      }
     }
   }
   const Real k = k0 * index_line;

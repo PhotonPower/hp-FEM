@@ -75,9 +75,10 @@ using FieldFunction = std::function<assembly::ComplexVector<2>(const Point<2>&)>
 /// the incident wave `incident` given, e.g. `Scattering::incident_wave`), or of `field`
 /// itself when `incident` is empty (a scattered field above, the transmitted field below):
 /// @f$ A_m = \frac{1}{a}\int_0^a (E - E^{inc})(o + t\,\hat t)\,e^{-i k_{t,m} t}\,dt @f$ with
-/// @f$ k_{t,m} = k_t + 2\pi m / a @f$, by the trapezoidal rule on `num_points` uniform samples
-/// (spectrally accurate for the analytic quasi-periodic remainder; 0: 16 per order, at least
-/// 64). `k_tangential` is the Bloch wavenumber of the incident wave along the tangent,
+/// @f$ k_{t,m} = k_t + 2\pi m / a @f$, by composite Gauss-Legendre with `num_points` points in
+/// blocks of up to 8 (0: 16 per order, at least 64; exact for the piecewise polynomial FEM
+/// field when the blocks align with the cells, e.g. 8 points per cell on the line).
+/// `k_tangential` is the Bloch wavenumber of the incident wave along the tangent,
 /// `index_line` the real index of the medium on the line, `kn_incident` the normal
 /// wavenumber of the incident wave (> 0) in the incidence medium and `incident_amplitude`
 /// its |E0|. @throws InvalidArgument for a degenerate line, non-positive parameters or a

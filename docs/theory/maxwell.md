@@ -640,9 +640,12 @@ volume integral of the total field (energy balance).
   efficiency one, analytically and from the discrete solution) and by convergence test #6
   (`tests/convergence/lamellar_grating.cpp`): a lamellar grating (period 1, fill 0.5,
   thickness 0.5, ridge index 2 on a substrate of index 1.5, $\lambda = 0.8$, normal
-  incidence) in a Bloch-periodic unit cell with PML in $\pm x$, scattered-field
-  formulation; the reflected orders come from the scattered field above the grating and
-  the transmitted ones from the total field below. The reference is an RCWA for the
+  incidence) in a Bloch-periodic unit cell with PML in $\pm y$, scattered-field
+  formulation on the layered background superstrate | substrate (`LayerStack`, so that the
+  ridge alone is the scatterer and no source reaches into the PML — with the substrate as
+  scatterer the efficiencies plateau at $\sim 2\cdot10^{-3}$); the reflected orders are those
+  of the total field minus the incident wave above the grating and the transmitted ones
+  those of the total field below (`diffraction_orders`). The reference is an RCWA for the
   $H_z$ polarisation with Li's factorisation rules (Laurent's rule for $\varepsilon^{-1}
   \partial_x H$, the inverse rule for $\varepsilon^{-1}\partial_y H$), written in the test and
   checked by energy conservation ($\sum R + T = 1$ to $10^{-6}$) and truncation
@@ -652,8 +655,8 @@ volume integral of the total field (energy balance).
 
 - **Gratings on layered backgrounds** (M14-C, test report of 2026-10-05): `diffraction_orders`
   takes the orders on an `OrderLine` of any orientation (origin, tangent along the period,
-  normal away from the structure) by the trapezoidal rule on uniform samples — spectrally
-  accurate for the quasi-periodic remainder — and subtracts an incident wave, so the reflected
+  normal away from the structure) by composite Gauss–Legendre blocks (exact for the FEM
+  field when they align with the cells) and subtracts an incident wave, so the reflected
   orders of a total field on a `LayerStack` background follow directly from
   `Scattering::incident_wave` (the incident plane wave alone, which `LayeredPlaneWave` now
   carries next to its full field); the result holds the complex vector amplitude of every
