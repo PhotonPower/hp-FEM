@@ -212,6 +212,78 @@ def spectrum(wavelengths, top_pairs, bottom_pairs, radius, order=3, sigma=20 * u
     return Spectrum([lam / units.nm for lam in wavelengths], purcell, beta)
 
 
+@dataclass
+class ModalSpectrum:
+    """Purcell factor from the Riesz projection: the total (modal sum plus background), the
+    share of the fundamental mode and the background, at the same wavelengths."""
+
+    wavelength_nm: list[float]
+    purcell: list[float]
+    purcell_mode: list[float]
+    purcell_background: list[float]
+    num_poles: int
+    convergence: float  # largest half-rule difference over the contours
+
+
+def modal_spectrum(wavelengths, top_pairs, bottom_pairs, radius, order=3, sigma=20 * units.nm,
+                   margin=None, pml=None, points=(16, 48)) -> ModalSpectrum:  # fmt: skip
+    """Purcell factor as a sum over the quasi-normal modes: the resonance pencil (PML frozen
+    at the design wavelength) is expanded by Riesz projections around the modes found by
+    the resonance solver; the emitted power at every wavelength then costs no further solve.
+    The modal shares of the power add up to the total exactly (the power is linear in the
+    field for a fixed current); the difference to `spectrum` is the per-wavelength PML of the
+    sweep."""
+    margin = margin or 0.75 * LAMBDA_DESIGN
+    pml = pml or 1.5 * LAMBDA_DESIGN
+    mesh, centre, height, _, _ = pillar_mesh(top_pairs, bottom_pairs, radius, margin, pml)
+    nd = hpfem.NedelecDofMap2D(mesh, order)
+    h1 = hpfem.DofMap2D(mesh, order)
+    k_design = 2 * np.pi / LAMBDA_DESIGN
+    setup = hpfem.AxisymmetricResonanceSetup()
+    setup.target_omega = k_design * hpfem.constants.c0
+    setup.materials = materials()
+    setup.axis_tag = TAG_AXIS
+    setup.azimuthal_order = 1
+    setup.pml = pml_box(radius, margin, pml, height, k_design)
+    setup.num_modes = 8  # every pole inside the background contour must be listed
+    setup.krylov_dimension = 60
+    problem = hpfem.AxisymmetricResonance(nd, h1, setup)
+    modes = problem.solve()
+    window = [m for m in modes if abs(m.wavelength - LAMBDA_DESIGN) < 0.03 * LAMBDA_DESIGN]
+    fundamental = max(window or modes, key=lambda m: m.quality)
+    omegas = [units.angular_frequency(wavelength=lam) for lam in wavelengths]
+    riesz_setup = hpfem.RieszSetup()
+    riesz_setup.poles = [m.omega for m in modes]
+    riesz_setup.omega_min = min(omegas)
+    riesz_setup.omega_max = max(omegas)
+    riesz_setup.points_per_pole, riesz_setup.background_points = points
+    riesz_setup.background_aspect = 0.5  # keeps the heavily damped PML poles outside
+    riesz = hpfem.AxisymmetricRieszProjection(problem, riesz_setup)
+    # the current density J of the in-plane dipole: the Gaussian source f = i omega mu0 J at
+    # omega = 1 divided by i mu0 (the factor i omega mu0 is applied per contour point)
+    f = hpfem.axisymmetric_gaussian_dipole(centre, 1.0, hpfem.AxisDipole.TRANSVERSE, sigma, 1.0, 1)
+    source = riesz.add_current(lambda x: f(x) / (1j * hpfem.constants.mu0))
+    power = riesz.add_emitted_power(source)
+    riesz.run()
+    contours = riesz.contours
+    spectrum = riesz.spectrum(source, power, omegas)  # contours x wavelengths
+    mode_row = next(i for i, c in enumerate(contours) if fundamental.omega in c.poles)
+    purcell, purcell_mode, purcell_background = [], [], []
+    for j, (lam, omega) in enumerate(zip(wavelengths, omegas, strict=True)):
+        k0 = 2 * np.pi / lam
+        bulk = (
+            N_HIGH * hpfem.dipole_vacuum_power(1.0, omega) * np.exp(-((N_HIGH * k0 * sigma) ** 2))
+        )
+        # both orders m = +-1 radiate equally
+        purcell.append(2 * spectrum[:, j].sum().real / bulk)
+        purcell_mode.append(2 * spectrum[mode_row, j].real / bulk)
+        purcell_background.append(2 * spectrum[-1, j].real / bulk)
+    return ModalSpectrum(
+        [lam / units.nm for lam in wavelengths], purcell, purcell_mode, purcell_background,
+        len(contours[-1].poles), max(c.convergence for c in contours),
+    )  # fmt: skip
+
+
 def run(quick: bool = False) -> dict:
     top, bottom = (6, 10) if quick else (10, 16)
     radius = (0.75 if quick else 1.0) * units.um
@@ -222,9 +294,12 @@ def run(quick: bool = False) -> dict:
     count = 9 if quick else 25
     wavelengths = np.linspace(res.wavelength_nm - span, res.wavelength_nm + span, count) * units.nm
     spec = spectrum(wavelengths, top, bottom, radius, order=order)
+    modal = modal_spectrum(wavelengths, top, bottom, radius, order=order,
+                           points=(16, 40) if quick else (16, 48))  # fmt: skip
     return {
         "resonance": asdict(res),
         "spectrum": asdict(spec),
+        "modal": asdict(modal),
         "top_pairs": top,
         "bottom_pairs": bottom,
         "radius_um": radius / units.um,
@@ -243,9 +318,17 @@ def main(argv=None) -> int:
         f"{result['bottom_pairs']} bottom pairs, p = {result['order']}: fundamental mode "
         f"lambda = {res['wavelength_nm']:.3f} nm, Q = {res['quality']:.0f} ({res['num_dofs']} DoF)"
     )
-    print(f"{'lambda [nm]':>12} {'F_P':>8} {'beta_top':>9}")
-    for lam, f, b in zip(spec["wavelength_nm"], spec["purcell"], spec["beta_top"], strict=True):
-        print(f"{lam:>12.3f} {f:>8.2f} {b:>9.3f}")
+    modal = result["modal"]
+    print(
+        f"{'lambda [nm]':>12} {'F_P':>8} {'beta_top':>9} {'F_P modal':>10} {'mode':>8} "
+        f"{'backgr.':>8}   (Riesz projection: {modal['num_poles']} poles, half-rule "
+        f"difference {modal['convergence']:.1e})"
+    )
+    for lam, f, b, fm, fmode, fbg in zip(
+        spec["wavelength_nm"], spec["purcell"], spec["beta_top"], modal["purcell"],
+        modal["purcell_mode"], modal["purcell_background"], strict=True,
+    ):  # fmt: skip
+        print(f"{lam:>12.3f} {f:>8.2f} {b:>9.3f} {fm:>10.2f} {fmode:>8.2f} {fbg:>8.2f}")
     with open("micropillar_qd.json", "w", encoding="utf-8") as out:
         json.dump(result, out, indent=2)
     try:

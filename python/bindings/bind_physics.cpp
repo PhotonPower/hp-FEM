@@ -10,6 +10,7 @@
 #include "hpfem/physics/band_structure.hpp"
 #include "hpfem/physics/propagating_mode.hpp"
 #include "hpfem/physics/resonance.hpp"
+#include "hpfem/physics/riesz_projection.hpp"
 #include "hpfem/physics/scattering.hpp"
 #include "hpfem/physics/sources.hpp"
 #include "hpfem/physics/sweep.hpp"
@@ -425,6 +426,128 @@ void bind_physics_dim(py::module_& m) {
       .def_property_readonly("stiffness", &TimeDomain<Dim>::stiffness)
       .def_property_readonly("mass", &TimeDomain<Dim>::mass)
       .def_property_readonly("damping", &TimeDomain<Dim>::damping);
+
+  using physics::RieszProjection;
+  using physics::RieszProjectionBase;
+  using physics::RieszSetup;
+  py::class_<RieszProjection<Dim>, RieszProjectionBase>(
+      m, named("RieszProjection", Dim).c_str(),
+      "Modal expansion of a source problem on the pencil of a Resonance problem: pole terms "
+      "R_n / (omega - omega_n) of the listed quasi-normal modes plus a background integral "
+      "(Riesz projections, contour integrals by the trapezoidal rule)")
+      .def(py::init<const Resonance<Dim>&, RieszSetup>(), py::arg("resonance"), py::arg("setup"),
+           py::keep_alive<1, 2>(), Release())
+      .def(
+          "add_current",
+          [](RieszProjection<Dim>& self, const assembly::ComplexVectorField<Dim>& current,
+             int extra_order) { return self.add_current(current, extra_order); },
+          py::arg("current"), py::arg("extra_order") = 2, Release(),
+          "current density J(x) (A/m^Dim, without i omega mu0); returns the source index")
+      .def("add_point_value", &RieszProjection<Dim>::add_point_value, py::arg("x"),
+           py::arg("weight"), "Q(E) = E(x) . w (w not conjugated); returns the functional index")
+      .def_property_readonly("dofs", &RieszProjection<Dim>::dofs,
+                             py::return_value_policy::reference_internal);
+}
+
+/// The setup, contour and base class of the Riesz projections (shared by the dimensions).
+void bind_riesz_common(py::module_& m) {
+  using physics::RieszContour;
+  using physics::RieszProjectionBase;
+  using physics::RieszSetup;
+  py::class_<RieszSetup>(
+      m, "RieszSetup",
+      "Contours of a Riesz projection: the poles to expand around (every pole inside the "
+      "background contour must be listed), the frequency range, the points per pole circle "
+      "and on the background ellipse, radius and aspect factors, what to store")
+      .def(py::init<>())
+      .def_readwrite("poles", &RieszSetup::poles)
+      .def_readwrite("omega_min", &RieszSetup::omega_min)
+      .def_readwrite("omega_max", &RieszSetup::omega_max)
+      .def_readwrite("points_per_pole", &RieszSetup::points_per_pole)
+      .def_readwrite("background_points", &RieszSetup::background_points)
+      .def_readwrite("radius_factor", &RieszSetup::radius_factor)
+      .def_readwrite("max_radius", &RieszSetup::max_radius)
+      .def_readwrite("min_radius_factor", &RieszSetup::min_radius_factor)
+      .def_readwrite("background_margin", &RieszSetup::background_margin)
+      .def_readwrite("background_aspect", &RieszSetup::background_aspect)
+      .def_readwrite("convergence_warning", &RieszSetup::convergence_warning)
+      .def_readwrite("store_residues", &RieszSetup::store_residues)
+      .def_readwrite("store_fields", &RieszSetup::store_fields)
+      .def_readwrite("solver", &RieszSetup::solver);
+  py::class_<RieszContour> contour(m, "RieszContour",
+                                   "One integration contour: a pole circle, a group circle "
+                                   "or the background ellipse, with its points and samples");
+  py::enum_<RieszContour::Kind>(contour, "Kind")
+      .value("POLE", RieszContour::Kind::kPole)
+      .value("GROUP", RieszContour::Kind::kGroup)
+      .value("BACKGROUND", RieszContour::Kind::kBackground);
+  contour.def_readonly("kind", &RieszContour::kind)
+      .def_readonly("centre", &RieszContour::centre)
+      .def_readonly("radius", &RieszContour::radius, "real semi-axis")
+      .def_readonly("aspect", &RieszContour::aspect)
+      .def_readonly("poles", &RieszContour::poles)
+      .def_readonly("points", &RieszContour::points)
+      .def_readonly("weights", &RieszContour::weights)
+      .def_readonly("residue", &RieszContour::residue, "sources x functionals (pole contours)")
+      .def_readonly("convergence", &RieszContour::convergence,
+                    "relative difference between the N- and the N/2-point rule")
+      .def("encloses", &RieszContour::encloses, py::arg("omega"));
+  py::class_<RieszProjectionBase>(m, "RieszProjectionBase",
+                                  "Sources, functionals, contour solves and the expansion")
+      .def(
+          "add_load",
+          [](RieszProjectionBase& self, const Vector& load, std::function<Complex(Complex)> scale) {
+            return self.add_load(load, std::move(scale));
+          },
+          py::arg("load"), py::arg("scale") = py::none(),
+          "load b(omega) = scale(omega) b (full size; scale None means 1); returns the source "
+          "index")
+      .def(
+          "add_load_function",
+          [](RieszProjectionBase& self, std::function<Vector(Complex)> load) {
+            return self.add_load(std::move(load));
+          },
+          py::arg("load"), "load given as a function of omega (full size)")
+      .def(
+          "add_current_load",
+          [](RieszProjectionBase& self, const Vector& load) { return self.add_current(load); },
+          py::arg("current_load"), "current source from the assembled b_J (load i omega mu0 b_J)")
+      .def(
+          "add_functional",
+          [](RieszProjectionBase& self, const Vector& q) { return self.add_functional(q); },
+          py::arg("q"), "functional Q(x) = q^T x (full size); returns the functional index")
+      .def("add_emitted_power", &RieszProjectionBase::add_emitted_power, py::arg("source"),
+           py::arg("factor") = 1.0,
+           "Q(x) = -1/2 factor conj(b_J)^T x, the power the current emits (real part)")
+      .def("run", &RieszProjectionBase::run, Release(),
+           "chooses the contours and performs the contour solves")
+      .def_property_readonly("contours", &RieszProjectionBase::contours)
+      .def_property_readonly("background", &RieszProjectionBase::background,
+                             "index of the background contour")
+      .def_property_readonly("num_sources", &RieszProjectionBase::num_sources)
+      .def_property_readonly("num_functionals", &RieszProjectionBase::num_functionals)
+      .def_property_readonly("setup", &RieszProjectionBase::setup,
+                             py::return_value_policy::reference_internal)
+      .def("contribution", &RieszProjectionBase::contribution, py::arg("contour"),
+           py::arg("source"), py::arg("functional"), py::arg("omega"))
+      .def("total", &RieszProjectionBase::total, py::arg("source"), py::arg("functional"),
+           py::arg("omega"), "sum of all contributions")
+      .def(
+          "spectrum",
+          [](const RieszProjectionBase& self, Index source, Index functional,
+             const std::vector<Complex>& omegas) {
+            return self.spectrum(source, functional, omegas);
+          },
+          py::arg("source"), py::arg("functional"), py::arg("omegas"),
+          "contributions of every contour (rows, background last) at the frequencies (columns)")
+      .def("direct", &RieszProjectionBase::direct, py::arg("omega"), Release(),
+           "direct solve: Q_f(x_s(omega)) for all sources and functionals")
+      .def("field", &RieszProjectionBase::field, py::arg("contour"), py::arg("source"),
+           py::arg("omega"), "field contribution of a contour (full size)")
+      .def("expand", &RieszProjectionBase::expand, py::arg("source"), py::arg("omega"),
+           "the expanded field, sum of all contour fields (needs store_fields)")
+      .def("direct_field", &RieszProjectionBase::direct_field, py::arg("source"), py::arg("omega"),
+           Release());
 }
 
 }  // namespace
@@ -469,6 +592,7 @@ void bind_physics(py::module_& m) {
       .def_readonly("quality", &physics::ResonantMode::quality)
       .def_readonly("residual", &physics::ResonantMode::residual)
       .def_readonly("field", &physics::ResonantMode::field);
+  bind_riesz_common(m);
   bind_physics_dim<2>(m);
   bind_physics_dim<3>(m);
   // --- axisymmetric (2.5D) problems: meridian mesh, one problem per azimuthal order -------
@@ -700,6 +824,29 @@ void bind_physics(py::module_& m) {
       .def_property_readonly("max_index", &PropagatingMode<2>::max_index)
       .def("solve", &PropagatingMode<2>::solve, Release(),
            "guided modes with 0 < beta <= k0 n_max, largest beta first");
+
+  using physics::AxisymmetricRieszProjection;
+  py::class_<AxisymmetricRieszProjection, physics::RieszProjectionBase>(
+      m, "AxisymmetricRieszProjection",
+      "Modal expansion on the order-m block pencil of an AxisymmetricResonance problem; full "
+      "vectors are the block vectors (meridian, azimuthal), the emitted power carries the "
+      "azimuthal factor 2 pi")
+      .def(py::init<const physics::AxisymmetricResonance&, physics::RieszSetup>(),
+           py::arg("resonance"), py::arg("setup"), py::keep_alive<1, 2>(), Release())
+      .def(
+          "add_current",
+          [](AxisymmetricRieszProjection& self, const physics::AxisymmetricField& current,
+             int extra_order) { return self.add_current(current, extra_order); },
+          py::arg("current"), py::arg("extra_order") = 4, Release(),
+          "order-m current density (J_r, -i r J_phi, J_z) without i omega mu0, e.g. "
+          "axisymmetric_gaussian_dipole(...) / (1j * omega * mu0); returns the source index")
+      .def(
+          "add_emitted_power",
+          [](AxisymmetricRieszProjection& self, Index source) {
+            return self.add_emitted_power(source);
+          },
+          py::arg("source"), "the emitted power of the order with the azimuthal factor 2 pi")
+      .def_property_readonly("azimuthal_order", &AxisymmetricRieszProjection::azimuthal_order);
 }
 
 }  // namespace hpfem::python

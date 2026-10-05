@@ -82,7 +82,7 @@ struct SphereProblem {
 /// PML of thickness 3 on the outer sides; `cells_per_radius` cells per radius, order p,
 /// search centre at the size parameter `target_x`.
 inline SphereProblem sphere_problem(Real n, Index cells_per_radius, int p, Real target_x,
-                                    Index num_modes = 6) {
+                                    Index num_modes = 6, Index krylov_dimension = 40) {
   constexpr mesh::Tag kAxis = 77;
   constexpr mesh::Tag kSphere = 2;
   const mesh::Mesh<2> full = mesh::square_with_disc(cells_per_radius, 1.0, 2.0, 6.0, kSphere);
@@ -106,7 +106,7 @@ inline SphereProblem sphere_problem(Real n, Index cells_per_radius, int p, Real 
   setup.pml =
       pml::PmlBox<2>(Point<2>(0.0, -3.0), Point<2>(3.0, 3.0), {0.0, 3.0, 3.0, 3.0}, target_x);
   setup.num_modes = num_modes;
-  setup.krylov_dimension = 40;
+  setup.krylov_dimension = krylov_dimension;
   out.resonance = std::make_unique<AxisymmetricResonance>(*out.meridian, *out.azimuthal, setup);
   return out;
 }

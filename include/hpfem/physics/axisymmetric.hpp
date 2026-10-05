@@ -144,6 +144,8 @@ class AxisymmetricResonance {
   AxisymmetricResonance(const fespace::NedelecDofMap<2>& meridian,
                         const fespace::DofMap<2>& azimuthal, AxisymmetricResonanceSetup setup);
   [[nodiscard]] const AxisymmetricResonanceSetup& setup() const noexcept { return setup_; }
+  [[nodiscard]] const fespace::NedelecDofMap<2>& meridian() const noexcept { return *meridian_; }
+  [[nodiscard]] const fespace::DofMap<2>& azimuthal() const noexcept { return *azimuthal_; }
   /// Per-cell form: material tensors, stretched inside the PML.
   [[nodiscard]] assembly::AxisymmetricForm form_of_cell(Index cell) const;
   /// Modes ordered by the distance of ω to the target.
@@ -185,6 +187,16 @@ enum class AxisDipole { kAxial, kTransverse };
 [[nodiscard]] AxisymmetricField axisymmetric_gaussian_dipole(Real position, Complex moment,
                                                              AxisDipole orientation, Real sigma,
                                                              Real omega, int m);
+
+/// Load @f$ b_J @f$ of an order-m current density @f$ (J_r,\ -i r J_\varphi,\ J_z) @f$ in the
+/// scaled components on the block space (e, v), without the factor @f$ i\omega\mu_0 @f$ and
+/// without the azimuthal factor 2π (the convention of the block forms): the source of a
+/// `RieszProjection` built on `axisymmetric_pencil`. `axisymmetric_gaussian_dipole` divided
+/// by @f$ i\omega\mu_0 @f$ gives such a density.
+[[nodiscard]] Vector axisymmetric_current_load(const fespace::NedelecDofMap<2>& meridian,
+                                               const fespace::DofMap<2>& azimuthal, int m,
+                                               const AxisymmetricField& current,
+                                               int extra_order = 4);
 
 /// Radiated power of a point dipole of current moment p in vacuum,
 /// @f$ P_0 = Z_0 k_0^2 |p|^2 / (12\pi) @f$ [W].
