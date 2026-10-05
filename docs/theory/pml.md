@@ -56,7 +56,62 @@ leaving through a layer arrives at its far end with amplitude $\sqrt{R_0}$.
 (half a wavelength by default) rounded up to whole cells of a structured mesh. Keep the
 layer resolved: the stretched field varies like $e^{iks\xi}$, so $|k s| h$ must stay
 moderate ($\lesssim 3$ for $p \ge 4$), which favours thick layers with mild profiles over
-thin, strongly absorbing ones; see the verification section.
+thin, strongly absorbing ones; `PmlBox::max_resolution(h, n)` evaluates $|k s| h$ at the far
+end of the layers, `recommended_thickness(k0, n, h, profile, p)` returns the smallest
+whole-cell thickness that keeps a given profile below `resolution_limit(p)`, and
+`physics::Scattering` warns when a PML cell violates the limit (see "Oblique incidence").
+
+## Oblique incidence
+
+$R_0$ is the **round-trip field reflection at normal incidence**: the one-dimensional
+attenuation $e^{-2k_0 n\int\hat\sigma}$ equals $R_0$ for a wave travelling along the layer
+normal. A wave at the angle $\theta$ against the normal travels the layer with the normal
+wavenumber $k\cos\theta$, so its round trip leaves $R_0^{\cos\theta}$ and the far wall (PEC
+behind the layer) receives the one-way field $R_0^{\cos\theta/2}$, which it re-radiates into
+the interior. For a reflectance $R = |r|^2$ computed with such a layer the error is bounded by
+
+$$
+|\Delta R| \lesssim 2\,|r|\,R_0^{\cos\theta/2},
+$$
+
+and doubling the thickness changes only the phase of this error, not its size — the
+exponent is fixed by $R_0$, the thickness sets the steepness of the profile. The library
+default $R_0 = 10^{-8}$ (and the $10^{-10}$ of the examples, adequate at normal incidence)
+therefore leaves errors of $10^{-3}$ to $10^{-2}$ at 50° to 70°. Measured on a flat silicon
+surface ($\lambda = 405$ nm, in-plane $E$, $p = 5$, Fresnel reference; test report of
+2026-10-05):
+
+| material, $\theta$ | $R_0 = 10^{-10}$ | $10^{-16}$ | $10^{-24}$ | bound at $10^{-10}$ / $10^{-16}$ |
+|---|---|---|---|---|
+| Si, 0° | $5.6\cdot10^{-6}$ | – | – | $1.4\cdot10^{-5}$ / – |
+| Si, 20° | $8.6\cdot10^{-6}$ | – | – | $2.7\cdot10^{-5}$ / – |
+| Si, 35° | $4.8\cdot10^{-5}$ | – | – | $1.0\cdot10^{-4}$ / – |
+| Si, 50° | $2.8\cdot10^{-4}$ | $1.3\cdot10^{-6}$ | – | $6.8\cdot10^{-4}$ / $8\cdot10^{-6}$ |
+| Si, 60° | $2.6\cdot10^{-3}$ | $7.9\cdot10^{-5}$ | – | $3.0\cdot10^{-3}$ / $9.4\cdot10^{-5}$ |
+| Si, 70° | $3.6\cdot10^{-3}$ | $4.1\cdot10^{-4}$ | $1.7\cdot10^{-5}$ | $1.2\cdot10^{-2}$ / $1.1\cdot10^{-3}$ |
+
+`PmlProfile::for_angle(theta_max, target, r_amplitude = 1, order = 2)` inverts the bound:
+$R_0 = (\text{target}/2|r|)^{2/\cos\theta_{\max}}$ for the largest angle that occurs (for the
+target $10^{-4}$ and $|r| = 1$: $4\cdot10^{-14}$ at 50°, $6\cdot10^{-18}$ at 60°,
+$7\cdot10^{-26}$ at 70°, $1.5\cdot10^{-28}$ at 72°, the edge of a microscope pupil of NA 0.95).
+Such steep profiles must still be resolved: with $|s| = \sqrt{1+\hat\sigma_{\max}^2}$ at the
+far end, $|k s| h \le 3$ for $p \ge 4$ (`PmlBox::resolution_limit`, $0.75p$ below). A PML in
+air of three wavelengths (1215 to 1480 nm at 405 nm, cells of 37 nm) gives 1.5 to 2.8 for
+$R_0 = 10^{-16}$; the same layer meshed with silicon ($n = 5.4$) gives 12 to 38 and converges
+nowhere, which is what happens when a substrate of high index is continued into a layer
+designed with `background_index = 1`. `Scattering` warns about it; the recommended
+structure for a substrate is a `LayerStack` background with a PEC wall several attenuation
+lengths deep and no PML there (identical results for substrate depths of 1776 nm and
+2368 nm in the report), or `recommended_thickness(k0, n, h, profile, p)` for the layer.
+
+**Verification** (`tests/convergence/flat_surface_fresnel.cpp`): flat silicon at 50° and 70°
+and flat silver at 50° ($\lambda = 405$ nm, in-plane $E$, Bloch cell of 400 nm, substrate as
+scatterer down to a PEC wall, the specular order from the scattered field on a line in the
+air) against the Fresnel reflectances 0.31366825, 0.09595201 and 0.95156272 with the profile
+of `for_angle`: errors $4.6\cdot10^{-6}$ ($R_0 = 1.9\cdot10^{-16}$, $p = 5$),
+$2.6\cdot10^{-5}$ ($6.7\cdot10^{-23}$, three wavelengths of PML) and $2.1\cdot10^{-5}$
+($3.5\cdot10^{-17}$, $p = 4$), all with $|k s| h \le 2$; the library default $R_0 = 10^{-8}$
+at 70° gives $4.5\cdot10^{-3}$ on the same mesh.
 
 `physics::Scattering` takes an optional `PmlBox`; its per-cell forms then evaluate the
 stretched tensors pointwise (identity inside the box, so no cell tagging is needed, but

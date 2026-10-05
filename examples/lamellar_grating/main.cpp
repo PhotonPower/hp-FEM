@@ -70,7 +70,10 @@ int main() {
   setup.formulation = hpfem::physics::Formulation::kScatteredField;
   hpfem::pml::PmlBox<2>::Thickness layers{pml, pml, 0.0, 0.0};
   setup.pml = hpfem::pml::PmlBox<2>(Point<2>(-margin, 0.0), Point<2>(thickness + margin, period),
-                                    layers, k0, n_super, hpfem::pml::PmlProfile{2, 1e-10});
+                                    layers, k0, n_super,
+                                    // 1e-10 suits the 30 deg of this example; steeper angles
+                                    // need PmlProfile::for_angle (docs/theory/pml.md)
+                                    hpfem::pml::PmlProfile{2, 1e-10});
   setup.pec_tags = {box_tag::kXMin, box_tag::kXMax};
   setup.periodic = {
       hpfem::assembly::PeriodicPair<2>{box_tag::kYMin, box_tag::kYMax, Point<2>(0.0, period),

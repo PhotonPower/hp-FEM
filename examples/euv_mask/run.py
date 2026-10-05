@@ -243,7 +243,7 @@ def reflectivity(
         [0.0, 0.0, 0.0, 0.0, pml, pml],
         k0,
         1.0,
-        hpfem.PmlProfile(2, 1e-8),
+        hpfem.PmlProfile(2, 1e-8),  # near-normal incidence; oblique: PmlProfile.for_angle
     )
     setup.pec_tags = [hpfem.box_tag.Z_MIN, hpfem.box_tag.Z_MAX]
     shift_x, shift_y = np.array([pitch, 0.0, 0.0]), np.array([0.0, pitch, 0.0])

@@ -11,6 +11,9 @@ hpfem_add_test(convergence_maxwell_scattering convergence
 hpfem_add_test(convergence_pml_reflection convergence
   pml_reflection.cpp)
 
+hpfem_add_test(convergence_flat_surface_fresnel convergence
+  flat_surface_fresnel.cpp)
+
 hpfem_add_test(convergence_bloch_plane_wave convergence
   bloch_plane_wave.cpp)
 

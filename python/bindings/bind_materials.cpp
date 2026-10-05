@@ -41,9 +41,28 @@ void bind_pml_dim(py::module_& m) {
       .def_static("uniform", &Box::uniform, py::arg("lower"), py::arg("upper"),
                   py::arg("thickness"), py::arg("k0"), py::arg("background_index") = 1.0,
                   py::arg("profile") = pml::PmlProfile{}, "The same thickness on all sides")
-      .def_static("recommended_thickness", &Box::recommended_thickness, py::arg("k0"),
-                  py::arg("background_index"), py::arg("cell_size"), py::arg("wavelengths") = 0.5,
-                  "`wavelengths` local wavelengths rounded up to whole cells")
+      .def_static(
+          "recommended_thickness",
+          [](Real k0, Real background_index, Real cell_size, Real wavelengths) {
+            return Box::recommended_thickness(k0, background_index, cell_size, wavelengths);
+          },
+          py::arg("k0"), py::arg("background_index"), py::arg("cell_size"),
+          py::arg("wavelengths") = 0.5, "`wavelengths` local wavelengths rounded up to whole cells")
+      .def_static(
+          "recommended_thickness",
+          [](Real k0, Real background_index, Real cell_size, const pml::PmlProfile& profile,
+             int p) {
+            return Box::recommended_thickness(k0, background_index, cell_size, profile, p);
+          },
+          py::arg("k0"), py::arg("background_index"), py::arg("cell_size"), py::arg("profile"),
+          py::arg("p"),
+          "the smallest whole-cell thickness that keeps the profile resolved for order p "
+          "(|k s| h <= resolution_limit(p) at the far end)")
+      .def_static("resolution_limit", &Box::resolution_limit, py::arg("p"),
+                  "largest |k s| h for order p: 3 from p = 4, 0.75 p below")
+      .def("max_resolution", &Box::max_resolution, py::arg("cell_size"), py::arg("index"),
+           "largest |k s| h over the layers for cells of this size in a medium of this index")
+      .def_property_readonly("k0", &Box::k0)
       .def_property_readonly("lower", &Box::lower)
       .def_property_readonly("upper", &Box::upper)
       .def_property_readonly("thickness",
@@ -116,7 +135,18 @@ void bind_materials(py::module_& m) {
       .def(py::init([](int order, Real reflection) { return pml::PmlProfile{order, reflection}; }),
            py::arg("order") = 3, py::arg("reflection") = 1e-8)
       .def_readwrite("order", &pml::PmlProfile::order)
-      .def_readwrite("reflection", &pml::PmlProfile::reflection);
+      .def_readwrite("reflection", &pml::PmlProfile::reflection)
+      .def_static(
+          "for_angle",
+          [](Real theta_max_deg, Real target, Real r_amplitude, int order) {
+            return pml::PmlProfile::for_angle(theta_max_deg * 3.14159265358979323846 / 180.0,
+                                              target, r_amplitude, order);
+          },
+          py::arg("theta_max_deg"), py::arg("target"), py::arg("r_amplitude") = 1.0,
+          py::arg("order") = 2,
+          "R0 = (target / (2 r))^(2 / cos theta_max) so that the reflectance error of the layer "
+          "stays below `target` up to the incidence angle theta_max (degrees against the layer "
+          "normal) for a structure of reflection amplitude r");
   bind_pml_dim<2>(m);
   bind_pml_dim<3>(m);
 }
