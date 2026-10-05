@@ -47,11 +47,15 @@ struct WaveData {
   std::vector<Complex> eps, kz, down, up;  ///< per region 0..N+1
   Complex scale;                           ///< u amplitude giving |E_inc| = amplitude
 
-  /// E and curl E at x: sums the downward and the upward plane-wave component of the region.
+  /// E and curl E at x: sums the downward and the upward plane-wave component of the region
+  /// containing x, or of `region` when given (a point on an interface evaluated on the side
+  /// of the cell it belongs to); `downward_only` evaluates the incident wave of the region
+  /// alone.
   void evaluate(const Point<Dim>& x, assembly::ComplexVector<Dim>* value,
-                assembly::ComplexCurl<Dim>* curl) const {
+                assembly::ComplexCurl<Dim>* curl, int region = -1,
+                bool downward_only = false) const {
     const Real z = x(Dim - 1);
-    const int j = stack.region(z);
+    const int j = region >= 0 ? region : stack.region(z);
     const auto idx = static_cast<std::size_t>(j);
     const Real z_top = j == 0 ? stack.top() : stack.interface(j - 1);
     const Real z_bottom =
@@ -60,7 +64,9 @@ struct WaveData {
     for (int i = 0; i < Dim - 1; ++i) phase_parallel += k_parallel(i) * x(i);
     const Complex lateral = std::exp(kI * phase_parallel);
     const Complex u_down = scale * down[idx] * lateral * std::exp(-kI * kz[idx] * (z - z_top));
-    const Complex u_up = scale * up[idx] * lateral * std::exp(kI * kz[idx] * (z - z_bottom));
+    const Complex u_up = downward_only
+                             ? Complex{0.0, 0.0}
+                             : scale * up[idx] * lateral * std::exp(kI * kz[idx] * (z - z_bottom));
     assembly::ComplexVector<Dim> e = assembly::ComplexVector<Dim>::Zero();
     Eigen::Matrix<Complex, 3, 1> h3 = Eigen::Matrix<Complex, 3, 1>::Zero();
     for (const auto& [u, sign] : {std::pair{u_down, -1.0}, std::pair{u_up, 1.0}}) {
@@ -255,6 +261,22 @@ LayeredPlaneWave<Dim> LayerStack<Dim>::plane_wave(Real k0, Real angle, Polarisat
   result.field.curl = [data](const Point<Dim>& x) {
     assembly::ComplexCurl<Dim> c;
     data->evaluate(x, nullptr, &c);
+    return c;
+  };
+  result.field.value_in_region = [data](const Point<Dim>& x, int region) {
+    assembly::ComplexVector<Dim> e;
+    data->evaluate(x, &e, nullptr, region);
+    return e;
+  };
+  // the incident wave: the downward component of the incidence medium, continued everywhere
+  result.incident_wave.value = [data](const Point<Dim>& x) {
+    assembly::ComplexVector<Dim> e;
+    data->evaluate(x, &e, nullptr, 0, true);
+    return e;
+  };
+  result.incident_wave.curl = [data](const Point<Dim>& x) {
+    assembly::ComplexCurl<Dim> c;
+    data->evaluate(x, nullptr, &c, 0, true);
     return c;
   };
   return result;

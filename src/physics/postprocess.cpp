@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -91,6 +92,51 @@ Surface<Dim> Surface<Dim>::whole_boundary(const mesh::Mesh<Dim>& mesh) {
   Surface surface;
   for (const Index f : mesh.boundary_facets())
     surface.facets.push_back({f, mesh.facet_cells(f)[0]});
+  return surface;
+}
+
+template <int Dim>
+Surface<Dim> Surface<Dim>::plane(const mesh::Mesh<Dim>& mesh, int axis, Real coordinate,
+                                 int direction, Real tolerance) {
+  if (axis < 0 || axis >= Dim || (direction != 1 && direction != -1)) {
+    throw InvalidArgument("Surface::plane: axis out of range or direction not +-1");
+  }
+  Real lo = std::numeric_limits<Real>::infinity();
+  Real hi = -lo;
+  for (Index v = 0; v < mesh.num_vertices(); ++v) {
+    lo = std::min(lo, mesh.vertex(v)(axis));
+    hi = std::max(hi, mesh.vertex(v)(axis));
+  }
+  const Real eps = tolerance * std::max(hi - lo, 1e-300);
+  using Role = typename mesh::Mesh<Dim>::HangingRole;
+  Surface surface;
+  for (Index f = 0; f < mesh.num_facets(); ++f) {
+    if (mesh.facet_hanging_role(f) == Role::kParent) continue;
+    bool on_plane = true;
+    for (const Index v : mesh.facet_vertices(f)) {
+      on_plane = on_plane && std::abs(mesh.vertex(v)(axis) - coordinate) <= eps;
+    }
+    if (!on_plane) continue;
+    const auto& fc = mesh.facet_cells(f);
+    Index other = fc[1];
+    if (other == kInvalidIndex && mesh.facet_hanging_role(f) == Role::kChild) {
+      other = mesh.facet_cells(mesh.hanging_parent_facet(f))[0];
+    }
+    // the inside cell lies against the direction of the normal
+    for (const Index c : {fc[0], other}) {
+      if (c == kInvalidIndex) continue;
+      const Real side = mesh::affine_map(mesh, c).centroid()(axis) - coordinate;
+      if (side * direction < 0) {
+        surface.facets.push_back({f, c});
+        break;
+      }
+    }
+  }
+  if (surface.facets.empty()) {
+    throw InvalidArgument(fmt::format(
+        "Surface::plane: no facet lies on x_{} = {} (interfaces must coincide with facets)", axis,
+        coordinate));
+  }
   return surface;
 }
 
@@ -256,6 +302,74 @@ Real plane_wave_intensity(Real amplitude, const materials::Material& medium) {
 }
 
 template <int Dim>
+Real absorbed_power(const Scattering<Dim>& problem, const ScatteringSolution<Dim>& solution,
+                    int extra_order) {
+  const auto& dofs = problem.dofs();
+  const auto& mesh = dofs.mesh();
+  const Real omega = problem.setup().omega;
+  std::vector<Real> partial(as_size(num_threads()), 0.0);
+  parallel_for(mesh.num_cells(), [&](Index c, int thread) {
+    const Real loss = std::imag(problem.material(c).eps_r);
+    if (!(loss > 0)) return;
+    const auto rule = assembly::simplex_quadrature<Dim>(2 * dofs.cell_order(c) + extra_order);
+    const auto geometry = mesh::cell_geometry(mesh, c);
+    Real integral = 0;
+    for (std::size_t q = 0; q < rule.size(); ++q) {
+      const Real det = std::abs(geometry->evaluate(rule.points[q]).det);
+      integral +=
+          rule.weights[q] * det * problem.total_field(solution, c, rule.points[q]).squaredNorm();
+    }
+    partial[as_size(thread)] += 0.5 * omega * constants::eps0 * loss * integral;
+  });
+  Real total = 0;
+  for (const Real p : partial) total += p;
+  return total;
+}
+
+PowerBalance power_balance(const Scattering<2>& problem, const ScatteringSolution<2>& solution,
+                           const Surface<2>& reflection, Real period, Real kn_incident,
+                           Real incident_amplitude, const Surface<2>* transmission,
+                           int extra_order) {
+  if (!(period > 0) || !(kn_incident > 0) || !(incident_amplitude > 0)) {
+    throw InvalidArgument(
+        "power_balance: period, kn_incident and incident_amplitude must be positive");
+  }
+  const auto& setup = problem.setup();
+  const auto& dofs = problem.dofs();
+  const materials::Material& medium = problem.incidence_material();
+  const Real k = problem.wavenumber() * std::real(medium.refractive_index());
+  if (!(kn_incident <= k * (1 + 1e-9))) {
+    throw InvalidArgument(
+        "power_balance: kn_incident exceeds the wavenumber of the incidence medium");
+  }
+  PowerBalance balance;
+  balance.incident = plane_wave_intensity(incident_amplitude, medium) * (kn_incident / k) * period;
+  const bool scattered = solution.formulation == Formulation::kScatteredField;
+  const SurfaceField<2> unknown = discrete_field<2>(dofs, solution.unknown);
+  // the total field: the unknown plus the incident (background) field in the scattered
+  // formulation; the reflected field: the total minus the incident wave alone
+  SurfaceField<2> total = unknown;
+  if (scattered && setup.incident) {
+    total = combined_field<2>(unknown, analytic_field<2>(setup.incident), Complex{1.0, 0.0});
+  }
+  const IncidentField<2>& wave = setup.incident_wave ? setup.incident_wave : setup.incident;
+  SurfaceField<2> reflected = total;
+  if (wave) reflected = combined_field<2>(total, analytic_field<2>(wave), Complex{-1.0, 0.0});
+  int degree = 2 * extra_order;
+  for (const auto& facet : reflection.facets) {
+    degree = std::max(degree, 2 * dofs.cell_order(facet.inside_cell) + extra_order);
+  }
+  balance.reflected =
+      poynting_flux<2>(dofs.mesh(), reflection, reflected, setup.omega, setup.materials, degree);
+  if (transmission != nullptr) {
+    balance.transmitted =
+        poynting_flux<2>(dofs.mesh(), *transmission, total, setup.omega, setup.materials, degree);
+  }
+  balance.absorbed = absorbed_power<2>(problem, solution, extra_order);
+  return balance;
+}
+
+template <int Dim>
 CrossSections cross_sections(const Scattering<Dim>& problem,
                              const ScatteringSolution<Dim>& solution, const Surface<Dim>& surface,
                              Real incident_amplitude, int extra_order) {
@@ -285,6 +399,8 @@ CrossSections cross_sections(const Scattering<Dim>& problem,
 }
 
 template struct Surface<2>;
+template Real absorbed_power<2>(const Scattering<2>&, const ScatteringSolution<2>&, int);
+template Real absorbed_power<3>(const Scattering<3>&, const ScatteringSolution<3>&, int);
 template struct Surface<3>;
 template std::vector<SurfacePoint<2>> surface_quadrature<2>(const mesh::Mesh<2>&, const Surface<2>&,
                                                             int);

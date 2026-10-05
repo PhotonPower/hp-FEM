@@ -1,5 +1,6 @@
 #include "hpfem/physics/diffraction.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <numbers>
 
@@ -83,6 +84,61 @@ std::vector<DiffractionOrder> diffraction_efficiencies(
                              coefficients[static_cast<std::size_t>(m + max_order)].squaredNorm() /
                              (kx_incident * incident_amplitude * incident_amplitude)
                        : 0.0;
+    orders.push_back(o);
+  }
+  return orders;
+}
+
+std::vector<DiffractionOrderField> diffraction_orders(const FieldFunction& field,
+                                                      const OrderLine& line, Real k0,
+                                                      Real index_line, Real k_tangential,
+                                                      Real kn_incident,
+                                                      const FieldFunction& incident, int max_order,
+                                                      int num_points, Real incident_amplitude) {
+  if (!field) throw InvalidArgument("diffraction_orders: empty field function");
+  if (!(line.period > 0) || std::abs(line.tangent.norm() - 1.0) > 1e-9 ||
+      std::abs(line.normal.norm() - 1.0) > 1e-9 || std::abs(line.tangent.dot(line.normal)) > 1e-9) {
+    throw InvalidArgument(
+        "diffraction_orders: the line needs a positive period and orthonormal tangent and "
+        "normal vectors");
+  }
+  if (!(k0 > 0) || !(index_line > 0) || !(kn_incident > 0) || !(incident_amplitude > 0) ||
+      max_order < 0) {
+    throw InvalidArgument(
+        "diffraction_orders: k0, index_line, kn_incident and incident_amplitude must be "
+        "positive, max_order >= 0");
+  }
+  if (num_points <= 0) num_points = std::max(64, 16 * (2 * max_order + 1));
+  const Real a = line.period;
+  std::vector<assembly::ComplexVector<2>> coefficients(static_cast<std::size_t>(2 * max_order + 1),
+                                                       assembly::ComplexVector<2>::Zero());
+  // trapezoidal rule on the periodic function (E - E_inc) e^{-i k_t t}: uniform samples,
+  // the end point excluded (it repeats the start up to the Bloch phase)
+  for (int j = 0; j < num_points; ++j) {
+    const Real t = a * static_cast<Real>(j) / static_cast<Real>(num_points);
+    const Point<2> x = line.origin + t * line.tangent;
+    assembly::ComplexVector<2> e = field(x);
+    if (incident) e -= incident(x);
+    for (int m = -max_order; m <= max_order; ++m) {
+      const Real kt = k_tangential + 2.0 * std::numbers::pi * m / a;
+      coefficients[static_cast<std::size_t>(m + max_order)] +=
+          std::exp(-kI * kt * t) * e / static_cast<Real>(num_points);
+    }
+  }
+  const Real k = k0 * index_line;
+  std::vector<DiffractionOrderField> orders;
+  orders.reserve(coefficients.size());
+  for (int m = -max_order; m <= max_order; ++m) {
+    DiffractionOrderField o;
+    o.order = m;
+    o.k_tangential = k_tangential + 2.0 * std::numbers::pi * m / a;
+    const Real kn2 = k * k - o.k_tangential * o.k_tangential;
+    o.kn = kn2 >= 0 ? Complex{std::sqrt(kn2), 0.0} : Complex{0.0, std::sqrt(-kn2)};
+    o.propagating = kn2 > 0;
+    o.amplitude = coefficients[static_cast<std::size_t>(m + max_order)];
+    o.efficiency = o.propagating ? o.kn.real() * o.amplitude.squaredNorm() /
+                                       (kn_incident * incident_amplitude * incident_amplitude)
+                                 : 0.0;
     orders.push_back(o);
   }
   return orders;

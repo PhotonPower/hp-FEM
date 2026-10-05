@@ -37,6 +37,10 @@ struct Layer {
 template <int Dim>
 struct LayeredPlaneWave {
   IncidentField<Dim> field;
+  /// The incident plane wave alone (the downward wave of the incidence medium continued
+  /// analytically everywhere): what a reflected field is measured against
+  /// (`physics::diffraction_orders`, `power_balance`).
+  IncidentField<Dim> incident_wave;
   Complex reflection{0.0, 0.0};
   Complex transmission{0.0, 0.0};
   Real reflectance = 0;

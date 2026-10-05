@@ -42,6 +42,15 @@ struct Surface {
   [[nodiscard]] static Surface boundary(const mesh::Mesh<Dim>& mesh, mesh::Tag facet_tag);
   /// The whole domain boundary, normal out of the domain.
   [[nodiscard]] static Surface whole_boundary(const mesh::Mesh<Dim>& mesh);
+  /// The facets lying on the plane (2D: line) @f$ x_{\text{axis}} = @f$ `coordinate` (every
+  /// vertex within `tolerance` times the mesh extent along the axis), oriented so that the
+  /// normal points along `direction` (+1: towards larger coordinates, −1: smaller); the
+  /// inside cell is the one on the other side. Boundary facets whose only cell lies on the
+  /// wrong side are left out. Lines through hanging facets take the child facets. The plane
+  /// must coincide with facets, like a layer interface. @throws InvalidArgument if no facet
+  /// lies on the plane or `direction` is not ±1.
+  [[nodiscard]] static Surface plane(const mesh::Mesh<Dim>& mesh, int axis, Real coordinate,
+                                     int direction, Real tolerance = 1e-9);
 };
 
 /// A quadrature point on a surface: physical point, unit normal out of the inside cell,
@@ -126,8 +135,49 @@ template <int Dim>
                                            const Surface<Dim>& surface, Real incident_amplitude,
                                            int extra_order = 2);
 
+/// Energy balance of a periodic scattering problem in 2D: the incident power per period, the
+/// power of the reflected field (total minus incident wave) through a line in the incidence
+/// medium, the transmitted power through a line in a lossless substrate (0 without the
+/// line) and the power the TOTAL field (unknown plus incident or background field) absorbs
+/// in all lossy cells; `residual` must vanish for a converged solution, so the relative
+/// residual is a reference-free quality indicator of the efficiencies. [W/m].
+struct PowerBalance {
+  Real incident = 0;
+  Real reflected = 0;
+  Real transmitted = 0;
+  Real absorbed = 0;
+  [[nodiscard]] Real residual() const noexcept {
+    return incident - reflected - transmitted - absorbed;
+  }
+  [[nodiscard]] Real relative_residual() const noexcept {
+    return incident > 0 ? residual() / incident : 0.0;
+  }
+};
+
+/// The balance of a solution: `reflection` is a `Surface::plane` in the incidence medium
+/// with the normal away from the structure, `transmission` the same in the substrate or
+/// null; `period` the Bloch period along the surface, `kn_incident` the normal wavenumber
+/// (> 0) of the incident plane wave of amplitude `incident_amplitude` in the incidence medium
+/// (its intensity times cos θ times the period is the incident power). The absorbed power
+/// integrates the total field with rules of degree 2p + `extra_order`.
+[[nodiscard]] PowerBalance power_balance(const Scattering<2>& problem,
+                                         const ScatteringSolution<2>& solution,
+                                         const Surface<2>& reflection, Real period,
+                                         Real kn_incident, Real incident_amplitude = 1.0,
+                                         const Surface<2>* transmission = nullptr,
+                                         int extra_order = 2);
+
+/// Absorbed power of the total field of a scattering solution over all lossy cells (the
+/// unknown plus the incident or background field, so the absorption of a layered background
+/// is included). [W] in 3D, [W/m] in 2D.
+template <int Dim>
+[[nodiscard]] Real absorbed_power(const Scattering<Dim>& problem,
+                                  const ScatteringSolution<Dim>& solution, int extra_order = 2);
+
 extern template struct Surface<2>;
 extern template struct Surface<3>;
+extern template Real absorbed_power<2>(const Scattering<2>&, const ScatteringSolution<2>&, int);
+extern template Real absorbed_power<3>(const Scattering<3>&, const ScatteringSolution<3>&, int);
 extern template std::vector<SurfacePoint<2>> surface_quadrature<2>(const mesh::Mesh<2>&,
                                                                    const Surface<2>&, int);
 extern template std::vector<SurfacePoint<3>> surface_quadrature<3>(const mesh::Mesh<3>&,

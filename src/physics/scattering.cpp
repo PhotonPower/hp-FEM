@@ -312,11 +312,29 @@ ScatteringSolution<Dim> Scattering<Dim>::solve() const {
 }
 
 template <int Dim>
+assembly::ComplexVector<Dim> Scattering<Dim>::incident_wave(const Point<Dim>& x) const {
+  if (setup_.incident_wave) return setup_.incident_wave.value(x);
+  if (setup_.incident) return setup_.incident.value(x);
+  return assembly::ComplexVector<Dim>::Zero();
+}
+
+template <int Dim>
+assembly::ComplexVector<Dim> Scattering<Dim>::incident_in_cell(Index cell,
+                                                               const Point<Dim>& x) const {
+  if (setup_.background && setup_.incident.value_in_region) {
+    const int region =
+        setup_.background->region(mesh::affine_map(dofs_->mesh(), cell).centroid()(Dim - 1));
+    return setup_.incident.value_in_region(x, region);
+  }
+  return setup_.incident.value(x);
+}
+
+template <int Dim>
 assembly::ComplexVector<Dim> Scattering<Dim>::total_field(const ScatteringSolution<Dim>& solution,
                                                           Index cell, const Point<Dim>& xi) const {
   assembly::ComplexVector<Dim> e = assembly::evaluate_hcurl(*dofs_, solution.unknown, cell, xi);
   if (solution.formulation == Formulation::kScatteredField) {
-    e += setup_.incident.value(mesh::cell_geometry(dofs_->mesh(), cell)->evaluate(xi).x);
+    e += incident_in_cell(cell, mesh::cell_geometry(dofs_->mesh(), cell)->evaluate(xi).x);
   }
   return e;
 }
@@ -326,7 +344,7 @@ assembly::ComplexVector<Dim> Scattering<Dim>::scattered_field(
     const ScatteringSolution<Dim>& solution, Index cell, const Point<Dim>& xi) const {
   assembly::ComplexVector<Dim> e = assembly::evaluate_hcurl(*dofs_, solution.unknown, cell, xi);
   if (solution.formulation == Formulation::kTotalField && setup_.incident) {
-    e -= setup_.incident.value(mesh::cell_geometry(dofs_->mesh(), cell)->evaluate(xi).x);
+    e -= incident_in_cell(cell, mesh::cell_geometry(dofs_->mesh(), cell)->evaluate(xi).x);
   }
   return e;
 }
