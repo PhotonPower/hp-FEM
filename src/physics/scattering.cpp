@@ -60,6 +60,15 @@ Scattering<Dim>::Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringS
       }
     }
   }
+  if (!setup_.ports.empty()) {
+    if (scattered) {
+      throw InvalidArgument("Scattering: waveguide ports need the total-field formulation");
+    }
+    for (const WaveguidePort& port : setup_.ports) {
+      port_modes_.emplace_back(*dofs_, port.facet_tag, setup_.materials, setup_.omega,
+                               port.num_modes, setup_.extra_quadrature_order);
+    }
+  }
 }
 
 template <int Dim>
@@ -239,6 +248,7 @@ ScatteringSolution<Dim> Scattering<Dim>::solve() const {
   const auto recover = [&condensation](Vector x) {
     return condensation ? condensation->recover(x) : x;
   };
+  add_port_terms(system.matrix, system.rhs);
   log().info("Scattering<{}>: k0 = {:.6g} 1/m, {} DoFs ({} condensed), {} formulation", Dim, k0_,
              dofs_->num_dofs(), condensation ? condensation->num_interior() : 0,
              setup_.formulation == Formulation::kTotalField ? "total-field" : "scattered-field");
@@ -342,6 +352,89 @@ template struct ScatteringSetup<2>;
 template struct ScatteringSetup<3>;
 template struct ScatteringSolution<2>;
 template struct ScatteringSolution<3>;
+template <int Dim>
+void Scattering<Dim>::add_port_terms(SparseMatrix& matrix, Vector& rhs) const {
+  if (port_modes_.empty()) return;
+  std::vector<Eigen::Triplet<Complex, Index>> triplets;
+  for (std::size_t p = 0; p < port_modes_.size(); ++p) {
+    const PortModes<Dim>& port = port_modes_[p];
+    const auto& incident = setup_.ports[p].incident;
+    for (Index m = 0; m < port.num_modes(); ++m) {
+      const Vector& q = port.functional(m);
+      const Complex inverse_norm = 1.0 / port.normalisation(m);
+      for (const Index i : port.dofs()) {
+        if (q(i) == Complex{0.0, 0.0}) continue;
+        for (const Index j : port.dofs()) {
+          if (q(j) == Complex{0.0, 0.0}) continue;
+          triplets.emplace_back(i, j, q(i) * q(j) * inverse_norm);
+        }
+      }
+      if (as_size(m) < incident.size() && incident[as_size(m)] != Complex{0.0, 0.0}) {
+        rhs += (2.0 * incident[as_size(m)]) * q;
+      }
+    }
+  }
+  SparseMatrix block(matrix.rows(), matrix.cols());
+  block.setFromTriplets(triplets.begin(), triplets.end());
+  matrix = matrix + block;
+  matrix.makeCompressed();
+}
+
+template <int Dim>
+std::vector<PortCoefficients> Scattering<Dim>::port_coefficients(
+    const ScatteringSolution<Dim>& solution) const {
+  std::vector<PortCoefficients> out;
+  for (std::size_t p = 0; p < port_modes_.size(); ++p) {
+    const PortModes<Dim>& port = port_modes_[p];
+    PortCoefficients c;
+    c.incoming.assign(as_size(port.num_modes()), Complex{0.0, 0.0});
+    const auto& incident = setup_.ports[p].incident;
+    for (std::size_t m = 0; m < std::min(incident.size(), c.incoming.size()); ++m) {
+      c.incoming[m] = incident[m];
+    }
+    c.outgoing = port.coefficients(solution.unknown);
+    for (std::size_t m = 0; m < c.outgoing.size(); ++m) c.outgoing[m] -= c.incoming[m];
+    out.push_back(std::move(c));
+  }
+  return out;
+}
+
+template <int Dim>
+SParameters s_parameters(const fespace::NedelecDofMap<Dim>& dofs, ScatteringSetup<Dim> setup) {
+  if (setup.ports.empty()) throw InvalidArgument("s_parameters: the setup has no ports");
+  for (auto& port : setup.ports) port.incident.clear();
+  const Scattering<Dim> reference(dofs, setup);
+  SParameters out;
+  for (Index p = 0; p < static_cast<Index>(setup.ports.size()); ++p) {
+    const auto& modes = reference.port_modes(p).modes();
+    for (Index m = 0; m < static_cast<Index>(modes.size()); ++m) {
+      if (!modes[as_size(m)].propagating) continue;
+      out.channels.push_back({p, m, modes[as_size(m)].beta, modes[as_size(m)].power});
+    }
+  }
+  const Index n = static_cast<Index>(out.channels.size());
+  out.s = Matrix::Zero(n, n);
+  for (Index j = 0; j < n; ++j) {
+    const PortChannel& source = out.channels[as_size(j)];
+    ScatteringSetup<Dim> excited = setup;
+    auto& amplitudes = excited.ports[as_size(source.port)].incident;
+    amplitudes.assign(as_size(source.mode + 1), Complex{0.0, 0.0});
+    amplitudes[as_size(source.mode)] = Complex{1.0, 0.0};
+    const Scattering<Dim> problem(dofs, excited);
+    const auto coefficients = problem.port_coefficients(problem.solve());
+    for (Index i = 0; i < n; ++i) {
+      const PortChannel& channel = out.channels[as_size(i)];
+      out.s(i, j) = coefficients[as_size(channel.port)].outgoing[as_size(channel.mode)] *
+                    std::sqrt(channel.power / source.power);
+    }
+  }
+  log().info("s_parameters<{}>: {} channels, {} solves", Dim, n, n);
+  return out;
+}
+
+template SParameters s_parameters<2>(const fespace::NedelecDofMap<2>&, ScatteringSetup<2>);
+template SParameters s_parameters<3>(const fespace::NedelecDofMap<3>&, ScatteringSetup<3>);
+
 template class Scattering<2>;
 template class Scattering<3>;
 

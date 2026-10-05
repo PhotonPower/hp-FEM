@@ -206,6 +206,24 @@ Bodies of revolution on the meridian mesh, one 2D problem per azimuthal order m.
   hanging-node constraints in the three problem classes, `AxisymmetricScattering::estimate` /
   `error`); convergence test at a re-entrant PEC edge, exponential in N^(1/3)
 
+## M12 — Ports, modal expansion, sensitivities
+Integrated photonics beyond the effective-index model and the tools around the solvers.
+- [x] waveguide ports with modal excitation and S-parameters in 2D
+  (`physics::WaveguidePort`, `PortModes<2>`: TM slab modes on the port edges by a 1D p-FEM,
+  low-rank modal boundary term in `Scattering`, `port_coefficients`, `s_parameters`);
+  convergence test `waveguide_port` (slab section: S21 and |S11| exponential in p),
+  Python `WaveguidePort` / `PortModes2D` / `s_parameters`
+- [ ] 3D ports: cross-section modes from `PropagatingMode` on the extracted port mesh,
+  vector traces, the same expansion; the ring resonator with ports in 3D (SOI cross-section)
+  as the example, S-parameters of a directional coupler against coupled-mode theory
+- [ ] modal expansion by Riesz projection on the resonance solver (`physics::RieszProjection`,
+  `AxisymmetricRieszProjection`: residues of the resolvent on circles around the
+  quasi-normal modes plus a background contour, spectra of linear observables as sums over
+  modes; verification against the direct solution and the micropillar Purcell spectrum)
+- [ ] sensitivities: material derivatives of observables by the adjoint solve (`dwr` adjoint
+  reused), then shape derivatives (Hadamard formula with the interface jumps, ADR on the
+  geometry parametrisation); verification against finite differences
+
 ## Backlog / ideas
 - [x] dual H-formulation for guaranteed error bounds (`adaptivity::dual_solution` on the
   H1 / Nédélec dual space, `hypercircle_estimate` with the Prager–Synge bound for the

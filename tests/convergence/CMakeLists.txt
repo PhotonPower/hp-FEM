@@ -55,6 +55,9 @@ hpfem_add_test(convergence_axisymmetric_oblique_sphere convergence
 hpfem_add_test(convergence_axisymmetric_hp_corner convergence
   axisymmetric_hp_corner.cpp)
 
+hpfem_add_test(convergence_waveguide_port convergence
+  waveguide_port.cpp)
+
 hpfem_add_test(convergence_axisymmetric_dipole convergence
   axisymmetric_dipole.cpp)
 

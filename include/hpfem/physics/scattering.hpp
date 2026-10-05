@@ -31,6 +31,7 @@
 #include "hpfem/mesh/point_location.hpp"
 #include "hpfem/physics/layer_stack.hpp"
 #include "hpfem/physics/sources.hpp"
+#include "hpfem/physics/waveguide_port.hpp"
 #include "hpfem/pml/pml.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
 
@@ -58,6 +59,9 @@ struct ScatteringSetup {
   assembly::ComplexVectorField<Dim> current;  ///< f = iωμ0 J, total-field formulation only
   std::optional<pml::PmlBox<Dim>> pml;        ///< absorbing layers (stretched material tensors)
   std::vector<assembly::PeriodicPair<Dim>> periodic;  ///< Bloch-periodic directions
+  /// Waveguide ports (modal absorption and excitation on boundary facets, total-field
+  /// formulation; 2D only so far)
+  std::vector<WaveguidePort> ports;
   solvers::DirectSolverBackend solver = solvers::DirectSolverBackend::kAuto;  ///< direct solver
   bool condense = true;                ///< static condensation of the interior DoFs in `solve`
   int extra_quadrature_order = 4;      ///< added to 2p for the non-polynomial incident field
@@ -117,6 +121,14 @@ class Scattering {
   /// Dirichlet data, reduces by the constraints and solves with the chosen direct solver;
   /// the returned coefficients are complete (interior DoFs recovered).
   [[nodiscard]] ScatteringSolution<Dim> solve() const;
+  /// Modes of port p of the setup (built in the constructor).
+  [[nodiscard]] const PortModes<Dim>& port_modes(Index port) const {
+    return port_modes_[as_size(port)];
+  }
+  /// Incoming and outgoing modal amplitudes of a solution on every port
+  /// (@f$ b_m = q_m^\top e / N_m - a_m @f$).
+  [[nodiscard]] std::vector<PortCoefficients> port_coefficients(
+      const ScatteringSolution<Dim>& solution) const;
 
   /// Total / scattered field at reference point ξ of cell c (the incident field is added or
   /// subtracted according to the formulation; without an incident field both coincide).
@@ -149,6 +161,10 @@ class Scattering {
       const adaptivity::EstimatorOptions& options = {}) const;
 
  private:
+  /// Adds the modal port terms @f$ \sum_m q_mq_m^\top/N_m @f$ and the excitation
+  /// @f$ 2\sum_m a_mq_m @f$ of every port to the assembled operator and load.
+  void add_port_terms(SparseMatrix& matrix, Vector& rhs) const;
+  std::vector<PortModes<Dim>> port_modes_;
   [[nodiscard]] std::vector<Index> facets(const std::vector<mesh::Tag>& tags) const;
 
   const fespace::NedelecDofMap<Dim>* dofs_;
@@ -160,6 +176,32 @@ extern template struct ScatteringSetup<2>;
 extern template struct ScatteringSetup<3>;
 extern template struct ScatteringSolution<2>;
 extern template struct ScatteringSolution<3>;
+/// One propagating (port, mode) channel of an S-matrix.
+struct PortChannel {
+  Index port = 0;
+  Index mode = 0;
+  Complex beta;
+  Real power = 0;  ///< power of the unit-amplitude mode
+};
+
+/// Power-normalised scattering matrix @f$ S_{ij} = b_i\sqrt{P_i} / (a_j\sqrt{P_j}) @f$ over
+/// the propagating channels of all ports.
+struct SParameters {
+  std::vector<PortChannel> channels;
+  Matrix s;  ///< channels × channels, column j: excitation of channel j with unit amplitude
+};
+
+/// Solves the problem once per propagating channel (unit incoming amplitude on that channel,
+/// none elsewhere; the setup's own amplitudes are ignored) and collects the outgoing
+/// amplitudes. Lossless, reciprocal structures give a symmetric unitary S.
+/// @throws InvalidArgument if the setup has no ports.
+template <int Dim>
+[[nodiscard]] SParameters s_parameters(const fespace::NedelecDofMap<Dim>& dofs,
+                                       ScatteringSetup<Dim> setup);
+
+extern template SParameters s_parameters<2>(const fespace::NedelecDofMap<2>&, ScatteringSetup<2>);
+extern template SParameters s_parameters<3>(const fespace::NedelecDofMap<3>&, ScatteringSetup<3>);
+
 extern template class Scattering<2>;
 extern template class Scattering<3>;
 

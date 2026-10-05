@@ -16,6 +16,7 @@ add_library(hpfem
   pml/pml.cpp
   physics/sources.cpp
   physics/scattering.cpp
+  physics/waveguide_port.cpp
   physics/postprocess.cpp
   physics/mie.cpp
   physics/layer_stack.cpp
