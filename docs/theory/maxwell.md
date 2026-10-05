@@ -650,4 +650,30 @@ volume integral of the total field (energy balance).
   deviation $1.1\cdot10^{-1}$, $3.1\cdot10^{-2}$, $2.0\cdot10^{-3}$ for $p = 1, 2, 3$ on eight
   cells per unit length, energy sum $1.002$ at $p = 3$).
 
+- **Gratings on layered backgrounds** (M14-C, test report of 2026-10-05): `diffraction_orders`
+  takes the orders on an `OrderLine` of any orientation (origin, tangent along the period,
+  normal away from the structure) by the trapezoidal rule on uniform samples — spectrally
+  accurate for the quasi-periodic remainder — and subtracts an incident wave, so the reflected
+  orders of a total field on a `LayerStack` background follow directly from
+  `Scattering::incident_wave` (the incident plane wave alone, which `LayeredPlaneWave` now
+  carries next to its full field); the result holds the complex vector amplitude of every
+  order with the line origin as phase reference. `Surface::plane` makes a flux surface of the
+  facets on a coordinate plane, and `power_balance` gives the energy balance of a periodic
+  problem: incident power per period, the reflected flux of total minus incident wave, the
+  transmitted flux and the absorbed power of the *total* field over the lossy cells
+  (`absorbed_power(problem, solution)`, background included); its relative residual is a
+  reference-free quality indicator of the efficiencies. `total_field` on an interface of the
+  background evaluates the background branch of the side of the located cell, so the two
+  one-sided limits are obtained from cells above and below. Verified
+  (`tests/unit/physics/test_grating_postprocessing.cpp`,
+  `tests/convergence/grating_postprocessing.cpp`): analytic quasi-periodic fields in four
+  orientations to $10^{-12}$; the silicon lamellar grating of the report (400 nm period,
+  200 × 148 nm ridge, 405 nm, 50°, in-plane $E$) with the stack background gives
+  $R_0 = 0.143380$, $R_{-1} = 0.142383$ at $p = 5$ against the RCWA 0.143381 / 0.142382 —
+  the report's own extraction had stalled at $+1.2\cdot10^{-4}$ in $R_{-1}$ — with a balance
+  residual of $1.7\cdot10^{-6}$; the same grating in glass closes $R + T = 1$ to
+  $2\cdot10^{-6}$ once the PML is designed for the steepest *propagating order* on its side
+  (order $-2$ at 57° in the glass, not the 50° of the incident wave: designed for 50° the
+  layer reflected $2.5\cdot10^{-5}$ of it and the balance stalled at $1.7\cdot10^{-5}$).
+
 Planned: Purcell factor $F_P = P_{\mathrm{emitted}}/P_{\mathrm{bulk}}$ for a point dipole.

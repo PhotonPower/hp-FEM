@@ -50,6 +50,10 @@ void bind_postprocess_dim(py::module_& m) {
       .def_static("boundary", &Surface<Dim>::boundary, py::arg("mesh"), py::arg("facet_tag"),
                   "boundary facets carrying the tag, normal out of the domain")
       .def_static("whole_boundary", &Surface<Dim>::whole_boundary, py::arg("mesh"))
+      .def_static("plane", &Surface<Dim>::plane, py::arg("mesh"), py::arg("axis"),
+                  py::arg("coordinate"), py::arg("direction"), py::arg("tolerance") = 1e-9,
+                  "the facets on the plane x_axis = coordinate with the normal along "
+                  "direction (+1 / -1); the plane must coincide with facets")
       .def("__len__", [](const Surface<Dim>& s) { return s.facets.size(); });
 
   py::class_<SurfacePoint<Dim>>(m, named("SurfacePoint", Dim).c_str(),
@@ -134,9 +138,22 @@ void bind_postprocess_dim(py::module_& m) {
       py::arg("dofs"), py::arg("e"), py::arg("omega"), py::arg("materials"),
       py::arg("extra_order") = 2, Release(),
       "absorbed power of every cell [W, W/m in 2D] (0 in lossless cells)");
-  m.def("absorbed_power", &physics::absorbed_power<Dim>, py::arg("dofs"), py::arg("e"),
-        py::arg("omega"), py::arg("materials"), py::arg("extra_order") = 2, Release(),
-        "omega eps0 / 2 * integral Im(eps_r) |E|^2 over the lossy cells");
+  m.def(
+      "absorbed_power",
+      [](const ND& dofs, const Vector& e, Real omega, const materials::MaterialMap& mats,
+         int extra_order) {
+        return physics::absorbed_power<Dim>(dofs, e, omega, mats, extra_order);
+      },
+      py::arg("dofs"), py::arg("e"), py::arg("omega"), py::arg("materials"),
+      py::arg("extra_order") = 2, Release(),
+      "omega eps0 / 2 * integral Im(eps_r) |E|^2 over the lossy cells");
+  m.def(
+      "absorbed_power",
+      [](const physics::Scattering<Dim>& problem, const physics::ScatteringSolution<Dim>& solution,
+         int extra_order) { return physics::absorbed_power<Dim>(problem, solution, extra_order); },
+      py::arg("problem"), py::arg("solution"), py::arg("extra_order") = 2, Release(),
+      "absorbed power of the TOTAL field of a scattering solution (unknown plus incident or "
+      "background field) over the lossy cells");
   m.def("cross_sections", &physics::cross_sections<Dim>, py::arg("problem"), py::arg("solution"),
         py::arg("surface"), py::arg("incident_amplitude"), py::arg("extra_order") = 2, Release(),
         "Scattering, absorption and extinction cross-sections from the fluxes through a closed "
@@ -204,6 +221,68 @@ void bind_postprocess(py::module_& m) {
         py::arg("kx_incident"), py::arg("incident_amplitude"),
         "Efficiencies of the orders of the Fourier coefficients in a medium of real index "
         "index_line for an incident plane wave of the given amplitude and normal wavenumber");
+  py::class_<physics::OrderLine>(m, "OrderLine",
+                                 "Where the orders are taken: a point of the line (phase "
+                                 "reference), the unit tangent along the period, the unit "
+                                 "normal pointing away from the structure, the period")
+      .def(py::init([](const Point<2>& origin, const Point<2>& tangent, const Point<2>& normal,
+                       Real period) {
+             physics::OrderLine line;
+             line.origin = origin;
+             line.tangent = tangent;
+             line.normal = normal;
+             line.period = period;
+             return line;
+           }),
+           py::arg("origin"), py::arg("tangent"), py::arg("normal"), py::arg("period"))
+      .def_readwrite("origin", &physics::OrderLine::origin)
+      .def_readwrite("tangent", &physics::OrderLine::tangent)
+      .def_readwrite("normal", &physics::OrderLine::normal)
+      .def_readwrite("period", &physics::OrderLine::period);
+  py::class_<physics::DiffractionOrderField>(m, "DiffractionOrderField",
+                                             "One order with its complex vector amplitude")
+      .def_readonly("order", &physics::DiffractionOrderField::order)
+      .def_readonly("k_tangential", &physics::DiffractionOrderField::k_tangential)
+      .def_readonly("kn", &physics::DiffractionOrderField::kn)
+      .def_readonly("propagating", &physics::DiffractionOrderField::propagating)
+      .def_readonly("amplitude", &physics::DiffractionOrderField::amplitude)
+      .def_readonly("efficiency", &physics::DiffractionOrderField::efficiency);
+  m.def(
+      "diffraction_orders",
+      [](const physics::FieldFunction& field, const physics::OrderLine& line, Real k0,
+         Real index_line, Real k_tangential, Real kn_incident, physics::FieldFunction incident,
+         int max_order, int num_points, Real incident_amplitude) {
+        return physics::diffraction_orders(field, line, k0, index_line, k_tangential, kn_incident,
+                                           incident, max_order, num_points, incident_amplitude);
+      },
+      py::arg("field"), py::arg("line"), py::arg("k0"), py::arg("index_line"),
+      py::arg("k_tangential"), py::arg("kn_incident"), py::arg("incident") = py::none(),
+      py::arg("max_order") = 3, py::arg("num_points") = 0, py::arg("incident_amplitude") = 1.0,
+      "Orders of field - incident on the line (field itself without incident): complex vector "
+      "amplitudes with the line origin as phase reference and the efficiencies; the field is "
+      "any callable of the point, e.g. lambda x: problem.total_field(solution, locator, x)");
+  py::class_<physics::PowerBalance>(m, "PowerBalance",
+                                    "Energy balance of a periodic scattering problem [W/m]")
+      .def_readonly("incident", &physics::PowerBalance::incident)
+      .def_readonly("reflected", &physics::PowerBalance::reflected)
+      .def_readonly("transmitted", &physics::PowerBalance::transmitted)
+      .def_readonly("absorbed", &physics::PowerBalance::absorbed)
+      .def("residual", &physics::PowerBalance::residual)
+      .def("relative_residual", &physics::PowerBalance::relative_residual);
+  m.def(
+      "power_balance",
+      [](const physics::Scattering<2>& problem, const physics::ScatteringSolution<2>& solution,
+         const physics::Surface<2>& reflection, Real period, Real kn_incident,
+         Real incident_amplitude, const physics::Surface<2>* transmission, int extra_order) {
+        return physics::power_balance(problem, solution, reflection, period, kn_incident,
+                                      incident_amplitude, transmission, extra_order);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("reflection"), py::arg("period"),
+      py::arg("kn_incident"), py::arg("incident_amplitude") = 1.0,
+      py::arg("transmission") = py::none(), py::arg("extra_order") = 2, Release(),
+      "incident power per period, reflected flux of (total - incident wave) through the "
+      "reflection plane, transmitted flux, absorbed power of the total field; the relative "
+      "residual is a reference-free quality indicator");
   m.def("mie_cylinder_coefficients", &physics::mie_cylinder_coefficients, py::arg("k"),
         py::arg("radius"), py::arg("refractive_index"), py::arg("max_order"),
         "Mie coefficients c_n, n = 0..max_order, of a lossless dielectric cylinder (H_z "

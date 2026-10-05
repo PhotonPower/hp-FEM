@@ -21,6 +21,8 @@ void bind_layered_dim(py::module_& m) {
       "the per-region vertical wavenumbers and amplitudes (down at the top, up at the bottom "
       "interface of each region)")
       .def_readonly("field", &LayeredPlaneWave<Dim>::field)
+      .def_readonly("incident_wave", &LayeredPlaneWave<Dim>::incident_wave,
+                    "the incident plane wave alone (downward wave of the incidence medium)")
       .def_readonly("reflection", &LayeredPlaneWave<Dim>::reflection)
       .def_readonly("transmission", &LayeredPlaneWave<Dim>::transmission)
       .def_readonly("reflectance", &LayeredPlaneWave<Dim>::reflectance)

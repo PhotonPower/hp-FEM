@@ -41,6 +41,29 @@ def test_grating_project_conserves_energy():
     assert [o["order"] for o in diffraction["above"]] == [-1, 0, 1]
 
 
+def test_grating_project_orders_on_a_line_and_power_balance():
+    # the same grating: the orders on a line of explicit orientation with the incident wave
+    # subtracted agree with the scattered-field orders above, and the flux balance closes
+    spec = project.load(EXAMPLES / "lamellar_grating" / "project.json")
+    spec["outputs"]["diffraction"]["line"] = {
+        "origin": [1.0, 0.0],
+        "tangent": [0.0, 1.0],
+        "normal": [1.0, 0.0],
+    }
+    spec["outputs"]["diffraction"]["balance"] = {"axis": 0, "reflection": 1.0, "transmission": -0.5}
+    diffraction = project.run(spec)["results"][0]["diffraction"]
+    line = diffraction["line"]
+    assert [o["order"] for o in line] == [-1, 0, 1]
+    for on_line, above in zip(line, diffraction["above"], strict=True):
+        assert abs(on_line["efficiency"] - above["efficiency"]) < 2e-3
+        assert len(on_line["amplitude"]) == 2
+    balance = diffraction["balance"]
+    assert balance["absorbed"] == 0.0
+    assert abs(balance["relative_residual"]) < 2e-2
+    reflected = sum(o["efficiency"] for o in line)
+    assert abs(balance["reflected"] / balance["incident"] - reflected) < 2e-3
+
+
 def test_waveguide_and_cavity_projects():
     modes = project.run(project.load(EXAMPLES / "slab_waveguide" / "project.json"))
     n_eff = modes["results"][0]["effective_index"]

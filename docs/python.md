@@ -113,7 +113,13 @@ name, `{"n": 1.5}`, `{"eps_r": [re, im]}`), `source` (`plane_wave` with `angle` 
 `direction` + `polarisation` in 3D, `dipole`), `pml`, `boundaries.pec` / `incident` (side
 names `x_min` … `z_max` or tags), `periodic` (Bloch phase from the source), `solver`,
 `outputs` (`cross_sections`, `far_field`, `points`, `flux`, `diffraction`, `estimate`,
-`vtk`). The results are JSON with one entry per spectral point; from Python,
+`vtk`). `outputs.diffraction` takes, besides the `x_above` / `x_below` lines, a `line` of any
+orientation (`origin`, `tangent`, `normal`, optional `index` and `subtract_incident`) whose
+orders are those of the total field with the incident wave subtracted, and a `balance`
+(`axis`, `reflection` and optional `transmission` plane coordinates) that writes the
+flux-based energy balance with its relative residual (`hpfem.diffraction_orders`,
+`hpfem.power_balance`; on a layered background set `setup.incident_wave` to the stack's
+`incident_wave`). The results are JSON with one entry per spectral point; from Python,
 `hpfem.project.run(spec)` takes the same mapping.
 
 ## Notebooks
