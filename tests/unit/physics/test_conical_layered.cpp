@@ -119,7 +119,7 @@ TEST_CASE("conical conventions: s and p amplitudes and the phase of the layered 
   // th sin phi)
   const Real k0 = 2 * std::numbers::pi;
   const LayerStack<2> stack(Material::dielectric(1.0), {}, Material::dielectric(1.5), 0.0);
-  for (const auto [theta_deg, phi_deg] :
+  for (const auto& [theta_deg, phi_deg] :
        {std::pair{35.0, 50.0}, std::pair{50.0, 0.0}, std::pair{0.0, 0.0}, std::pair{30.0, 90.0},
         std::pair{60.0, 200.0}}) {
     const Real th = theta_deg * std::numbers::pi / 180.0;
