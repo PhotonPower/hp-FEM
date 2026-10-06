@@ -917,4 +917,23 @@ volume integral of the total field (energy balance).
   per-cell and per-point sums against the total, two lossy tags of a grating; the Si grating
   of `grating_postprocessing.cpp` closes $\sum_{\text{tags}} = 1 - R_0 - R_{-1}$ to $10^{-4}$.
 
+- **Magnetic field and Poynting vector** (M15 F12): `ConicalScattering::h_field` returns
+  $H = \nabla\times E/(i\omega\mu_0\mu_r)$ of the total field with the conical curl
+  $(\partial_yE_z - i\beta E_y,\ i\beta E_x - \partial_xE_z,\ \partial_xE_y - \partial_yE_x)$
+  of the unknown (`curl_field`) plus the curl of the incident field, and `poynting` the
+  time-averaged $S = \tfrac12\mathrm{Re}(E\times\bar H)$ for energy-flow maps. The incident
+  curl is analytic for the built-in waves — `conical_plane_wave_curl`, and
+  `LayeredConicalWave::field_curl` / `incident_curl` from the 3D stack curl (the conical plane
+  $(x, y, z) = (X, Z, Y)$ is a reflection of the stack's frame, so the pseudo-vector changes
+  sign) — through `ConicalScatteringSetup::incident_curl`; without it `incident_curl` falls
+  back to central differences of the incident field (relative accuracy about $10^{-8}$).
+  `sample_field` / `triangulate_field` take a `SampledQuantity` (E, H or S) for both solvers
+  (`Scattering<2>`: $H_z$ alone and the in-plane $S$; `Scattering<3>` and the conical solver:
+  three components), so the GUI's maps of $|H|$ and of the energy flow come from the same
+  vectorised path. Verified (`test_conical_h_field.cpp`): a plane wave in a homogeneous cell
+  against $H = k\times E_0\,e^{ik\cdot x}/(\omega\mu_0)$ and $S = |E_0|^2\hat k/(2Z_0)$ to
+  $10^{-9}$, the analytic curls against central differences, and on a lossy film stack the
+  normal energy flow of the exact stack wave, $-(1 - R)\,I\cos\theta$ above and
+  $-T\,I\cos\theta$ below, to $10^{-9}$ in s and p.
+
 Planned: Purcell factor $F_P = P_{\mathrm{emitted}}/P_{\mathrm{bulk}}$ for a point dipole.

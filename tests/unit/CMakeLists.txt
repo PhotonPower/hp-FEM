@@ -82,9 +82,14 @@ hpfem_add_test(test_physics unit
   physics/test_axisymmetric_adaptive.cpp
   physics/test_waveguide_port.cpp
   physics/test_conical_scattering.cpp
+  physics/test_conical_layered.cpp)
+
+# the M15 post-processing tests in their own binary: test_physics with them inside exceeds
+# what MinGW ld links (a 460 MB executable with debug info fails without a message)
+hpfem_add_test(test_physics_postprocessing unit
   physics/test_field_sampling.cpp
   physics/test_absorption.cpp
-  physics/test_conical_layered.cpp)
+  physics/test_conical_h_field.cpp)
 
 hpfem_add_test(test_hanging unit
   assembly/test_interpolation.cpp

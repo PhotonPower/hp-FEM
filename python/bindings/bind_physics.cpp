@@ -26,11 +26,21 @@ namespace {
 
 /// Sampling options from keyword arguments.
 [[nodiscard]] inline physics::SamplingOptions sampling_options(bool scattered, bool bloch_wrap,
-                                                               int interface_side) {
+                                                               int interface_side,
+                                                               const std::string& quantity) {
   physics::SamplingOptions o;
   o.scattered = scattered;
   o.bloch_wrap = bloch_wrap;
   o.interface_side = interface_side;
+  if (quantity == "E") {
+    o.quantity = physics::SampledQuantity::kElectric;
+  } else if (quantity == "H") {
+    o.quantity = physics::SampledQuantity::kMagnetic;
+  } else if (quantity == "S") {
+    o.quantity = physics::SampledQuantity::kPoynting;
+  } else {
+    throw InvalidArgument("quantity must be 'E', 'H' or 'S'");
+  }
   return o;
 }
 
@@ -223,18 +233,18 @@ void bind_physics_dim(py::module_& m) {
           "sample",
           [](const Scattering<Dim>& p, const ScatteringSolution<Dim>& s,
              const mesh::PointLocator<Dim>& locator, const RealArray& points, bool scattered,
-             bool bloch_wrap, int interface_side) {
+             bool bloch_wrap, int interface_side, const std::string& quantity) {
             const auto pts = array_to_points<Dim>(points);
+            const auto options = sampling_options(scattered, bloch_wrap, interface_side, quantity);
             physics::SampledField field;
             {
               py::gil_scoped_release release;
-              field = physics::sample_field<Dim>(
-                  p, s, locator, pts, sampling_options(scattered, bloch_wrap, interface_side));
+              field = physics::sample_field<Dim>(p, s, locator, pts, options);
             }
             return sampled_to_python(field);
           },
           py::arg("solution"), py::arg("locator"), py::arg("points"), py::arg("scattered") = false,
-          py::arg("bloch_wrap") = true, py::arg("interface_side") = 0,
+          py::arg("bloch_wrap") = true, py::arg("interface_side") = 0, py::arg("quantity") = "E",
           "total (or scattered) field at points (n, dim) in parallel: (values (n, dim) complex, "
           "cells (n,)); points outside a Bloch-periodic direction are wrapped back with the "
           "Bloch phase, points outside the mesh give NaN and cell -1; interface_side +1 / -1 "
@@ -242,10 +252,12 @@ void bind_physics_dim(py::module_& m) {
       .def(
           "triangulate",
           [](const Scattering<Dim>& p, const ScatteringSolution<Dim>& s, int subdivisions,
-             bool scattered) {
-            return physics::triangulate_field<Dim>(p, s, subdivisions, scattered);
+             bool scattered, const std::string& quantity) {
+            return physics::triangulate_field<Dim>(p, s, subdivisions,
+                                                   sampling_options(scattered, true, 0, quantity));
           },
-          py::arg("solution"), py::arg("subdivisions") = 2, py::arg("scattered") = false, Release(),
+          py::arg("solution"), py::arg("subdivisions") = 2, py::arg("scattered") = false,
+          py::arg("quantity") = "E", Release(),
           "the field on the subdivisions-fold subdivided mesh as a TriangulatedField")
       .def(
           "error",
@@ -697,6 +709,9 @@ void bind_physics(py::module_& m) {
           py::arg("wave_vector"),
           "Scaled components (E0x, E0y, -i E0z) e^{i(kx x + ky y)} of the plane wave E0 e^{i k.x}; "
           "beta = k_z is the setup's beta");
+    m.def("conical_plane_wave_curl", &physics::conical_plane_wave_curl, py::arg("amplitude"),
+          py::arg("wave_vector"),
+          "Physical curl i k x E0 e^{i(kx x + ky y)} of the same plane wave (setup.incident_curl)");
     m.def("conical_polarisation", &physics::conical_polarisation, py::arg("wave_vector"),
           py::arg("normal"), py::arg("polarisation"),
           "Unit amplitude of the s (E perpendicular to the plane of incidence spanned by k and the "
@@ -710,6 +725,10 @@ void bind_physics(py::module_& m) {
         "the downward incident wave alone, beta, kx, ky and the bare stack's R and T")
         .def_readonly("field", &physics::LayeredConicalWave::field)
         .def_readonly("incident", &physics::LayeredConicalWave::incident)
+        .def_readonly("field_curl", &physics::LayeredConicalWave::field_curl,
+                      "physical curl of field (for setup.incident_curl)")
+        .def_readonly("incident_curl", &physics::LayeredConicalWave::incident_curl,
+                      "physical curl of incident")
         .def_readonly("beta", &physics::LayeredConicalWave::beta)
         .def_readonly("kx", &physics::LayeredConicalWave::kx)
         .def_readonly("ky", &physics::LayeredConicalWave::ky)
@@ -733,6 +752,10 @@ void bind_physics(py::module_& m) {
         .def_readwrite("periodic", &ConicalScatteringSetup::periodic)
         .def_readwrite("background", &ConicalScatteringSetup::background,
                        "LayerStack2D (normal along y) or None")
+        .def_readwrite("incident_curl", &ConicalScatteringSetup::incident_curl,
+                       "physical curl of the incident field for h_field / poynting "
+                       "(conical_plane_wave_curl, LayeredConicalWave.field_curl); empty: central "
+                       "differences")
         .def_readwrite("incident", &ConicalScatteringSetup::incident,
                        "incident field x -> (E_x, E_y, -i E_z) (scattered-field formulation)")
         .def_readwrite("current", &ConicalScatteringSetup::current,
@@ -783,30 +806,67 @@ void bind_physics(py::module_& m) {
             "sample",
             [](const ConicalScattering& p, const ConicalSolution& s,
                const mesh::PointLocator<2>& locator, const RealArray& points, bool scattered,
-               bool bloch_wrap, int interface_side) {
+               bool bloch_wrap, int interface_side, const std::string& quantity) {
               const auto pts = array_to_points<2>(points);
+              const auto options =
+                  sampling_options(scattered, bloch_wrap, interface_side, quantity);
               physics::SampledField field;
               {
                 py::gil_scoped_release release;
-                field = physics::sample_field(
-                    p, s, locator, pts, sampling_options(scattered, bloch_wrap, interface_side));
+                field = physics::sample_field(p, s, locator, pts, options);
               }
               return sampled_to_python(field);
             },
             py::arg("solution"), py::arg("locator"), py::arg("points"),
             py::arg("scattered") = false, py::arg("bloch_wrap") = true,
-            py::arg("interface_side") = 0,
+            py::arg("interface_side") = 0, py::arg("quantity") = "E",
             "total (or scattered) physical field (E_x, E_y, E_z) at points (n, 2) in parallel: "
             "(values (n, 3) complex, cells (n,)); Bloch wrapping, NaN outside, interface_side "
             "as Scattering2D.sample")
         .def(
             "triangulate",
             [](const ConicalScattering& p, const ConicalSolution& s, int subdivisions,
-               bool scattered) {
-              return physics::triangulate_field(p, s, subdivisions, scattered);
+               bool scattered, const std::string& quantity) {
+              return physics::triangulate_field(p, s, subdivisions,
+                                                sampling_options(scattered, true, 0, quantity));
             },
             py::arg("solution"), py::arg("subdivisions") = 2, py::arg("scattered") = false,
-            Release(), "the field on the subdivided mesh as a TriangulatedField2D");
+            py::arg("quantity") = "E", Release(),
+            "the field on the subdivided mesh as a TriangulatedField2D")
+        .def("incident_curl", &ConicalScattering::incident_curl, py::arg("x"),
+             "physical curl of the incident field (setup.incident_curl or central differences)")
+        .def("incident_h_field", &ConicalScattering::incident_h_field, py::arg("x"),
+             "H of the incident wave in the background medium [A/m]")
+        .def(
+            "curl_field",
+            [](const ConicalScattering& p, const ConicalSolution& s, Index c, const Point<2>& xi) {
+              return p.curl_field(s, c, xi);
+            },
+            py::arg("solution"), py::arg("cell"), py::arg("xi"), "physical curl of the unknown")
+        .def(
+            "h_field",
+            [](const ConicalScattering& p, const ConicalSolution& s, Index c, const Point<2>& xi) {
+              return p.h_field(s, c, xi);
+            },
+            py::arg("solution"), py::arg("cell"), py::arg("xi"),
+            "H = curl E / (i omega mu0 mu_r) [A/m] of the total field")
+        .def(
+            "h_field",
+            [](const ConicalScattering& p, const ConicalSolution& s, const mesh::PointLocator<2>& l,
+               const Point<2>& x) { return p.h_field(s, l, x); },
+            py::arg("solution"), py::arg("locator"), py::arg("x"), "None outside the mesh")
+        .def(
+            "poynting",
+            [](const ConicalScattering& p, const ConicalSolution& s, Index c, const Point<2>& xi) {
+              return p.poynting(s, c, xi);
+            },
+            py::arg("solution"), py::arg("cell"), py::arg("xi"),
+            "time-averaged Poynting vector Re(E x conj(H)) / 2 [W/m^2] of the total field")
+        .def(
+            "poynting",
+            [](const ConicalScattering& p, const ConicalSolution& s, const mesh::PointLocator<2>& l,
+               const Point<2>& x) { return p.poynting(s, l, x); },
+            py::arg("solution"), py::arg("locator"), py::arg("x"), "None outside the mesh");
     m.def("conical_poynting_flux", &physics::conical_poynting_flux, py::arg("transverse"),
           py::arg("longitudinal"), py::arg("e"), py::arg("v"), py::arg("beta"), py::arg("omega"),
           py::arg("materials"), py::arg("surface"), py::arg("order") = 8, Release(),

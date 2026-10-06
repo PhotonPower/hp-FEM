@@ -20,8 +20,15 @@
 
 namespace hpfem::physics {
 
+/// What is sampled: the electric field, the magnetic field @f$ H = \nabla\times E/(i\omega
+/// \mu_0\mu_r) @f$ or the time-averaged Poynting vector @f$ \tfrac12\mathrm{Re}(E\times\bar H)
+/// @f$ (real, stored as complex). Components per row: `Scattering<2>` E 2 / H 1 (H_z) / S 2,
+/// `Scattering<3>` 3 / 3 / 3, `ConicalScattering` 3 / 3 / 3.
+enum class SampledQuantity { kElectric, kMagnetic, kPoynting };
+
 /// How points are sampled.
 struct SamplingOptions {
+  SampledQuantity quantity = SampledQuantity::kElectric;
   bool scattered = false;  ///< the scattered instead of the total field
   /// Points outside the mesh along a Bloch-periodic direction of the setup are mapped back
   /// into the cell, @f$ E(x) = E(x - n a)\,e^{i n k\cdot a} @f$ with the phase of the pair.
@@ -70,17 +77,20 @@ template <int Dim>
                                         std::span<const Point<2>> points,
                                         const SamplingOptions& options = {});
 
-/// Total (or scattered) field on the `subdivisions`-fold subdivided mesh.
+/// Total (or scattered) field on the `subdivisions`-fold subdivided mesh (`options.bloch_wrap`
+/// and `interface_side` do not apply: every sub-vertex belongs to its parent cell).
 /// @throws InvalidArgument if `subdivisions` < 1.
 template <int Dim>
 [[nodiscard]] TriangulatedField<Dim> triangulate_field(const Scattering<Dim>& problem,
                                                        const ScatteringSolution<Dim>& solution,
-                                                       int subdivisions, bool scattered = false);
+                                                       int subdivisions,
+                                                       const SamplingOptions& options = {});
 
 /// The same for the conical solver.
 [[nodiscard]] TriangulatedField<2> triangulate_field(const ConicalScattering& problem,
                                                      const ConicalSolution& solution,
-                                                     int subdivisions, bool scattered = false);
+                                                     int subdivisions,
+                                                     const SamplingOptions& options = {});
 
 extern template struct TriangulatedField<2>;
 extern template struct TriangulatedField<3>;
@@ -91,8 +101,10 @@ extern template SampledField sample_field<3>(const Scattering<3>&, const Scatter
                                              const mesh::PointLocator<3>&,
                                              std::span<const Point<3>>, const SamplingOptions&);
 extern template TriangulatedField<2> triangulate_field<2>(const Scattering<2>&,
-                                                          const ScatteringSolution<2>&, int, bool);
+                                                          const ScatteringSolution<2>&, int,
+                                                          const SamplingOptions&);
 extern template TriangulatedField<3> triangulate_field<3>(const Scattering<3>&,
-                                                          const ScatteringSolution<3>&, int, bool);
+                                                          const ScatteringSolution<3>&, int,
+                                                          const SamplingOptions&);
 
 }  // namespace hpfem::physics
