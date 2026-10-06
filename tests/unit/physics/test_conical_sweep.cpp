@@ -122,6 +122,7 @@ TEST_CASE("ConicalSweep reproduces the per-point solves along a frequency and an
     }
   }
   REQUIRE(sweep.timings().points == points);
+  REQUIRE(sweep.cached());  // the points after the first ran through the pattern cache
   REQUIRE(sweep.timings().setup > 0);
   REQUIRE(sweep.timings().factorize > 0);
   REQUIRE(sweep.timings().total() > sweep.timings().setup);

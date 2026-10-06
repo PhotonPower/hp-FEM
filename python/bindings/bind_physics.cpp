@@ -901,6 +901,8 @@ void bind_physics(py::module_& m) {
         .def("solve", &physics::ConicalSweep::solve, py::arg("setup"), Release(),
              "the solution at a point of the sweep")
         .def_property_readonly("timings", &physics::ConicalSweep::timings)
+        .def_property_readonly("cached", &physics::ConicalSweep::cached,
+                               "whether the points run through the pattern cache")
         .def_property_readonly("num_groups", &physics::ConicalSweep::num_groups)
         .def_property_readonly("num_pml_cells", &physics::ConicalSweep::num_pml_cells)
         .def_property_readonly("num_source_cells", &physics::ConicalSweep::num_source_cells)

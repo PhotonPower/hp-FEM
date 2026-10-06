@@ -397,9 +397,12 @@ The system of `ConicalScattering` is $A(\omega, \beta) = S(\beta) - k_0^2 M(\var
 $S(\beta) = S_0 + \beta S_1 + \beta^2 S_2$ — the gradient kernel of the conical forms is
 quadratic in $\beta$ — and $M = \sum_g \varepsilon_g M_g$ over the groups of cells that share
 a material. `ConicalSweep` assembles $S_0$, $S_1$, $S_2$ (from $S(0)$ and $S(\pm k_0)$) and
-the unit-permittivity masses $M_g$ of the cells outside the PML once; a point of the sweep
-then costs the sparse combination, the assembly of the PML cells (their stretch depends on
-$\omega$) and of the source cells (the load), the constraint reduction and a
+the unit-permittivity masses $M_g$ of the cells outside the PML once, as value arrays over
+one fixed union pattern; a point of the sweep then costs a few vector operations for the
+combination, the assembly of the PML cells (their stretch depends on $\omega$) and of the
+source cells (the load), a value-only constraint reduction through a scatter map onto the
+fixed pattern of $P^H A_{ff} P$ (built at the first point; a point whose PML structure differs
+falls back to the generic path and rebuilds the map) and a
 *refactorisation*: `LinearSolver::refactorize(matrix)` factorises a matrix with the pattern
 of the previous one reusing its symbolic analysis — MUMPS runs its numerical phase only
 (job 2), SparseLU keeps the column permutation, cuDSS runs `CUDSS_PHASE_REFACTORIZATION`
