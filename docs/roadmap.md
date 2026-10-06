@@ -259,6 +259,52 @@ From the same report (`spec-m14a/b/c`); A and C by the gpu agent, B by dev.
 - [ ] M14-C post-processing for gratings (`diffraction_orders` with any orientation and the
   background subtracted, `power_balance`, `Surface::line`, `total_field` on stack interfaces)
 
+## M15 — Features requested by the GUI work (FEM model builder)
+From the user's GUI work of 6 October 2026 (details, API proposals, acceptance data and the measurements
+behind them in [`gui-support-features.md`](gui-support-features.md); IDs F0–F16 as there). The GUI builds
+a periodic unit cell, meshes it with Gmsh and runs `ConicalScattering` / `Scattering2D`; every item
+removes glue code or a workaround on its side. Priorities P1 > P2 > P3. Overlaps: F1 contains the
+unchecked "hp-adaptivity for the conical solver" of M13, F16 the "marking symmetrised across periodic
+faces" of M14-B.
+- [ ] F0 (P1) document and test the conventions of the conical API: sign and phase of the s / p
+  amplitude of `layered_conical_wave`, physical `(E_x, E_y, E_z)` of `total_field` against the scaled
+  `(E_x, E_y, −iE_z)` of the incident functions, solver frame (x periodic, y normal, z invariant)
+  against the literature frame, the name clash `wave.ky`
+- [ ] F16 (P1) periodic boundaries without identical meshes on both sides: stage 1 symmetric
+  refinement across a Bloch pair in the adaptive mesh (`set_periodic`), stage 2 non-matching
+  (mortar-type) Bloch coupling for the Nédélec and H1 traces with different levels and orders, and
+  periodic facets in the residual estimator. Observed: `bloch_constraints: 14 master facets but 16
+  slave facets` after a closure refinement on an unstructured Gmsh mesh
+- [ ] F1 (P1) hp-adaptivity for `ConicalScattering`: residual estimator of the coupled system,
+  goal-oriented estimator for the diffraction orders (`GoalEstimate`), corner pre-refinement,
+  generator `adaptive_solve` that streams steps; acceptance on the Ag grating (TM, 50°), TE and
+  conical cases
+- [ ] F2 (P1) one-call periodic scattering API (`hpfem.grating.solve`: stack interfaces snapped to
+  mesh lines, PML from the largest order angle, orders in cover and substrate, power balance)
+- [ ] F3 (P1) vectorised field sampling and triangulated field export as NumPy
+  (`solution.sample(points)`, `solution.triangulate(subdivisions)`), for both solvers
+- [ ] F4 (P1) exact absorbed power per material tag and per cell (`absorbed_power`,
+  `absorption_density`) by volume quadrature
+- [ ] F5 (P1) job runner / CLI with a stable JSON schema and JSON-lines events
+  (`python -m hpfem.run job.json`), `hpfem.version_info()`
+- [ ] F6 (P1) mesh module: unit-cell mesher (`hpfem.meshing`), `mesh.report()`,
+  `mesh.check_periodic`, `read_gmsh` reading `$Periodic`
+- [ ] F7 (P1) structured diagnostics (`problem.validate()`): interface off the mesh lines, untagged
+  cells, missing periodic partner, under-resolved or thin PML, too few elements per wavelength,
+  material outside its data range, lossy incidence medium, PEC wall too close in a lossy substrate
+- [ ] F8 (P2) sweep acceleration: `LinearSolver.refactorize` reusing the symbolic analysis, affine
+  assembly per material tag, `solve_sweep` with processes
+- [ ] F9 (P2) progress callback, cancellation, timing breakdown, `estimate_memory`
+- [ ] F10 (P2) conical equivalents of `diffraction_orders` / `power_balance` (flux based, complex
+  vector amplitudes)
+- [ ] F11 (P2) isolated scatterers for the conical solver: cross sections, far field, automatic
+  closed measurement contour
+- [ ] F12 (P2) H field and Poynting vector of the conical solution
+- [ ] F13 (P2) dispersive materials directly in the setup (`setup.set_frequency`), explicit
+  out-of-range policy, Drude–Lorentz fit helper
+- [ ] F14 (P3) high-level eigenproblems on the periodic-cell front end (resonances, bands)
+- [ ] F15 (P3) distribution: Windows/Linux wheels, `pip install hpfem[gui]`, `hpfem-gui` entry point
+
 ## Backlog / ideas
 - [x] dual H-formulation for guaranteed error bounds (`adaptivity::dual_solution` on the
   H1 / Nédélec dual space, `hypercircle_estimate` with the Prager–Synge bound for the
