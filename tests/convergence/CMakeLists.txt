@@ -73,6 +73,9 @@ hpfem_add_test(convergence_conical_mie_cylinder_ez convergence
 hpfem_add_test(convergence_conical_lamellar_grating_ez convergence
   conical_lamellar_grating_ez.cpp)
 
+hpfem_add_test(convergence_conical_grating_validation convergence
+  conical_grating_validation.cpp)
+
 hpfem_add_test(convergence_axisymmetric_dipole convergence
   axisymmetric_dipole.cpp)
 

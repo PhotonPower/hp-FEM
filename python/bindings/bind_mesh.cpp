@@ -264,7 +264,18 @@ void bind_mesh_dim(py::module_& m) {
           },
           py::arg("marked"), Release(),
           "refines the marked leaf cells plus the one-irregular closure; returns the step")
-      .def("refine_all", &mesh::AdaptiveMesh<Dim>::refine_all, Release());
+      .def("refine_all", &mesh::AdaptiveMesh<Dim>::refine_all, Release())
+      .def(
+          "set_periodic",
+          [](mesh::AdaptiveMesh<Dim>& am,
+             const std::vector<std::tuple<mesh::Tag, mesh::Tag, Point<Dim>>>& faces) {
+            std::vector<mesh::PeriodicFace<Dim>> out;
+            for (const auto& [master, slave, shift] : faces) out.push_back({master, slave, shift});
+            am.set_periodic(std::move(out));
+          },
+          py::arg("faces"),
+          "declare Bloch face pairs [(master_tag, slave_tag, shift), ...]: refinement is mirrored "
+          "across them so that both faces keep identical facets");
 
   // --- point location -----------------------------------------------------------------
   py::class_<mesh::LocatedPoint<Dim>>(m, named("LocatedPoint", Dim).c_str(),
