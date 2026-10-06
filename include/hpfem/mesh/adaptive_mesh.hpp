@@ -53,6 +53,15 @@ struct RefinementStep {
 /// returned step records the chain of child numbers per new cell. Children inherit the cell tag;
 /// facet tags of the root transfer to the leaf facets lying on tagged root facets; curved roots
 /// place new vertices and edge nodes with the root cell maps.
+/// A pair of periodic faces of the root mesh: the facets tagged `slave` are the facets tagged
+/// `master` translated by `shift` (the lattice vector), as in `assembly::PeriodicPair`.
+template <int Dim>
+struct PeriodicFace {
+  Tag master = kNoTag;
+  Tag slave = kNoTag;
+  Point<Dim> shift = Point<Dim>::Zero();
+};
+
 template <int Dim>
 class AdaptiveMesh {
  public:
@@ -77,6 +86,15 @@ class AdaptiveMesh {
   RefinementStep refine(std::span<const Index> marked);
   /// Refines every leaf cell (the result equals `refine_uniform` of the leaf mesh).
   RefinementStep refine_all();
+  /// Declares periodic face pairs. Every refinement (the marked cells and the closure) is
+  /// then mirrored onto the partner face until the leaf facets on both faces of a pair are
+  /// identical up to the shift, which `assembly::bloch_constraints` requires; the mirrored
+  /// cells count as refined by the closure (children inherit the order in `hp_refine`).
+  /// @throws InvalidArgument if a tag has no facets on the root mesh.
+  void set_periodic(std::vector<PeriodicFace<Dim>> faces);
+  [[nodiscard]] const std::vector<PeriodicFace<Dim>>& periodic() const noexcept {
+    return periodic_;
+  }
 
  private:
   struct TreeCell {
@@ -100,6 +118,9 @@ class AdaptiveMesh {
   /// The parent facet a facet is a child of (through the midpoint vertices), if any.
   [[nodiscard]] bool parent_facet(const FacetKey& facet, FacetKey& parent) const;
   void rebuild_leaf_mesh();
+  /// Refines the coarser side of every periodic pair until the leaf facets match; returns the
+  /// number of cells refined for it.
+  Index mirror_periodic();
 
   Mesh<Dim> root_;
   Mesh<Dim> leaf_mesh_;
@@ -111,6 +132,7 @@ class AdaptiveMesh {
   std::vector<std::vector<Index>> vertex_leaves_;        ///< vertex → leaf tree ids
   std::map<FacetKey, std::vector<Index>> facet_leaves_;  ///< facet → leaf tree ids
   int max_level_ = 0;
+  std::vector<PeriodicFace<Dim>> periodic_;
 };
 
 extern template class AdaptiveMesh<2>;

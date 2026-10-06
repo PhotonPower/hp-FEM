@@ -111,3 +111,45 @@ TEST_CASE("conical flat interface: the stack wave is the solution, orders give R
     CHECK(r[0].efficiency + r[2].efficiency < 1e-10);
   }
 }
+
+TEST_CASE("conical conventions: s and p amplitudes and the phase of the layered wave",
+          "[physics][conical][layered]") {
+  // s = k x y_hat / |.| = (-sin phi, 0, cos phi), p = k_hat x s = (-cos th cos phi, -sin th, -cos
+  // th sin phi), phase 1 at the origin on the top interface; k = k0 n (sin th cos phi, -cos th, sin
+  // th sin phi)
+  const Real k0 = 2 * std::numbers::pi;
+  const LayerStack<2> stack(Material::dielectric(1.0), {}, Material::dielectric(1.5), 0.0);
+  for (const auto& [theta_deg, phi_deg] :
+       {std::pair{35.0, 50.0}, std::pair{50.0, 0.0}, std::pair{0.0, 0.0}, std::pair{30.0, 90.0},
+        std::pair{60.0, 200.0}}) {
+    const Real th = theta_deg * std::numbers::pi / 180.0;
+    const Real ph = phi_deg * std::numbers::pi / 180.0;
+    const Point<3> k(k0 * std::sin(th) * std::cos(ph), -k0 * std::cos(th),
+                     k0 * std::sin(th) * std::sin(ph));
+    const Point<3> s_expected(-std::sin(ph), 0.0, std::cos(ph));
+    const Point<3> p_expected(-std::cos(th) * std::cos(ph), -std::sin(th),
+                              -std::cos(th) * std::sin(ph));
+    for (const Polarisation pol : {Polarisation::kS, Polarisation::kP}) {
+      const auto wave = hpfem::physics::layered_conical_wave(stack, k0, th, ph, pol, 2.0);
+      REQUIRE(wave.kx == Approx(k(0)).margin(1e-12));
+      REQUIRE(wave.beta == Approx(k(2)).margin(1e-12));
+      REQUIRE(wave.ky == Approx(-k(1)).margin(1e-12));
+      const Point<3>& expected = pol == Polarisation::kS ? s_expected : p_expected;
+      // physical amplitude at the origin: 2 * expected, phase 1
+      const ConicalVector at_origin = wave.incident(Point<2>(0.0, 0.0));
+      const ConicalVector physical(at_origin(0), at_origin(1), kI * at_origin(2));
+      for (int c = 0; c < 3; ++c) REQUIRE(std::abs(physical(c) - 2.0 * expected(c)) < 1e-10);
+      // plane-wave phase elsewhere: e^{i(kx x + ky_normal (-1) y)} with the downward normal
+      // component
+      const Point<2> x(0.3, 0.7);
+      const ConicalVector there = wave.incident(x);
+      const Complex phase = std::exp(kI * (k(0) * x(0) + k(1) * x(1)));
+      for (int c = 0; c < 3; ++c) REQUIRE(std::abs(there(c) - at_origin(c) * phase) < 1e-10);
+      // conical_polarisation agrees with the stack convention for the same k and normal
+      const ConicalVector helper =
+          hpfem::physics::conical_polarisation(k, Point<3>(0.0, 1.0, 0.0), pol);
+      const Real sign = (helper.real().dot(expected) >= 0) ? 1.0 : -1.0;
+      for (int c = 0; c < 3; ++c) REQUIRE(std::abs(helper(c) - sign * expected(c)) < 1e-10);
+    }
+  }
+}

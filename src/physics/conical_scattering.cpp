@@ -129,11 +129,20 @@ ConicalScattering::ConicalScattering(const fespace::NedelecDofMap<2>& transverse
   k0_ = setup_.omega / constants::c0;
   if (setup_.background) {
     const LayerStack<2>& stack = *setup_.background;
+    Real y_min = std::numeric_limits<Real>::infinity();
+    Real y_max = -std::numeric_limits<Real>::infinity();
+    for (Index v = 0; v < mesh.num_vertices(); ++v) {
+      y_min = std::min(y_min, mesh.vertex(v)(1));
+      y_max = std::max(y_max, mesh.vertex(v)(1));
+    }
+    const Real extent = y_max - y_min;
     for (Index c = 0; c < mesh.num_cells(); ++c) {
       const int region = stack.region(mesh::affine_map(mesh, c).centroid()(1));
       for (const Index v : mesh.cell_vertices(c)) {
         const Real y = mesh.vertex(v)(1);
-        const Real tolerance = 1e-9 * (std::abs(stack.top() - stack.bottom()) + 1e-300);
+        // relative to the mesh extent along the normal (a stack without finite layers has
+        // top == bottom; mesh lines sit on the interfaces only up to rounding, defect D2)
+        const Real tolerance = 1e-9 * std::max(std::abs(stack.top() - stack.bottom()), extent);
         const Real above =
             region == 0 ? std::numeric_limits<Real>::infinity() : stack.interface(region - 1);
         const Real below = region == stack.num_layers() + 1 ? -std::numeric_limits<Real>::infinity()

@@ -233,6 +233,17 @@ struct LayeredConicalWave {
 /// and the azimuth `azimuth` about it, for the polarisation `pol` (s: E ⊥ plane of
 /// incidence). The downward wave alone is separated from the stack field by sampling it at
 /// two heights above the stack.
+/// **Conventions** (solver frame: x periodic, y the stack normal pointing into the incidence
+/// medium, z invariant): the incident wave vector is @f$ k = k_0n(\sin\theta\cos\varphi,
+/// -\cos\theta, \sin\theta\sin\varphi) @f$; the s amplitude is @f$ \hat s = k\times\hat y /
+/// |k\times\hat y| = (-\sin\varphi, 0, \cos\varphi) @f$ (at φ = 0 the invariant direction
+/// @f$ \hat z @f$, the E_z polarisation), the p amplitude @f$ \hat p = \hat k\times\hat s =
+/// (-\cos\theta\cos\varphi, -\sin\theta, -\cos\theta\sin\varphi) @f$; the downward wave has
+/// the phase 1 at the origin (x = 0 on the top interface), `incident` returns it in scaled
+/// components (physical amplitude times `amplitude`), `field` the stack field in the same
+/// components. The literature frame of gratings (x periodic, y invariant, z normal) is
+/// reached by swapping the last two components. `ky` is the normal wavenumber, not the
+/// literature's @f$ k_y = \beta @f$ (that is `beta`).
 /// @throws InvalidArgument as `LayerStack<3>::plane_wave`.
 [[nodiscard]] LayeredConicalWave layered_conical_wave(const LayerStack<2>& stack, Real k0,
                                                       Real angle, Real azimuth, Polarisation pol,
