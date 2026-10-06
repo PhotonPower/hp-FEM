@@ -268,7 +268,9 @@ current sources.
 - **Bloch-periodic** $\mathbf{E}(x+a) = e^{i\mathbf{k}\cdot\mathbf{a}}\mathbf{E}(x)$: slave-facet DoFs
   constrained to the master-facet DoFs with the Bloch phase, see
   [below](#bloch-periodic-constraints).
-- **Transparent**: PML, see [pml.md](pml.md).
+- **Transparent**: PML, see [pml.md](pml.md). A scattered-field source that extends into
+  the PML (a substrate modelled as a scatterer) leaves an error of the order of 1e-3 in
+  the efficiencies; model substrates as a [layered background](#layered-background-physicslayer_stackhpp-adr-0009).
 - **Waveguide port**: modal absorption and excitation on boundary facets, the low-rank
   term of the mode expansion, see [below](#waveguide-ports-and-s-parameters-physicswaveguide_porthpp).
 
@@ -460,6 +462,91 @@ mode field $\propto\hat y\sin(\pi x/a)$ with the same sign on both ports, and th
 length 2 transmits with $S_{21} = e^{i\beta L}$: on a fixed $4\times2\times4$ box the error of
 $S_{21}$ decays $4\cdot10^{-2}$, $3.7\cdot10^{-3}$, $6.8\cdot10^{-5}$ and $|S_{11}|$
 $4\cdot10^{-2}$, $3.6\cdot10^{-4}$, $1.7\cdot10^{-6}$ for $p = 1, 2, 3$.
+
+## Conical incidence and the E_z polarisation (`physics/conical_scattering.hpp`)
+
+A structure invariant in $z$ under a plane wave with the wave vector $(k_x, k_y, \beta)$ has a
+field of the form $E = (E_x, E_y, E_z)(x, y)\,e^{i\beta z}$ for every source with that
+$z$-dependence: the longitudinal wavenumber $\beta$ is conserved and the problem is
+two-dimensional (2.5D, M13). The in-plane components live in the Nédélec space and the
+scaled longitudinal component $v = -iE_z$ in the H1 space of the same order, exactly as in
+the axisymmetric solver with $\beta$ in place of the azimuthal order and without the
+$r$ weights (`assembly/conical_forms.hpp`). With the test functions carrying $e^{-i\beta z}$
+and $V_z = -iw$, the curl of the mode
+
+$$
+\nabla\times E = \big(\,i(\partial_y v - \beta E_y),\ -i(\partial_x v - \beta E_x),\
+\nabla_t\times E_t\,\big)
+$$
+
+gives real-structured forms with diagonal tensors in $(x, y, z)$,
+
+$$
+a(E, V) = \int \mu_x^{-1}(\partial_y v - \beta E_y)(\partial_y w - \beta V_y)
++ \mu_y^{-1}(\partial_x v - \beta E_x)(\partial_x w - \beta V_x)
++ \mu_z^{-1}(\nabla_t\times E_t)(\nabla_t\times V_t)\,dx\,dy ,
+\qquad
+b(E, V) = \int \varepsilon_xE_xV_x + \varepsilon_yE_yV_y + \varepsilon_z vw\,dx\,dy ,
+$$
+
+real symmetric for lossless media and complex symmetric otherwise; the gradient of a
+potential, $(\nabla_t\psi,\ v = \beta\psi)$, spans the kernel of $a$ exactly
+(`conical_gradient`). Sources are paired as $\int f_xV_x + f_yV_y + f_vw$ with the scaled
+$f_v = -if_z$. The 2D PML enters as the tensors $\Lambda = \mathrm{diag}(s_y/s_x, s_x/s_y,
+s_xs_y)$, $\tilde\varepsilon = \varepsilon\Lambda$, $\tilde\mu^{-1} = \mu^{-1}\Lambda^{-1}$
+(`conical_pml_form`), i.e. $\tilde\varepsilon_{zz} = \varepsilon s_xs_y$ and the in-plane
+$\tilde\mu_t^{-1} = \mu^{-1}\mathrm{diag}(s_x/s_y, s_y/s_x)$ for the longitudinal block.
+
+**The E_z polarisation.** At $\beta = 0$ the coupling terms vanish and the system splits
+into the in-plane block of `Scattering<2>` (the $H_z$ polarisation) and the scalar block
+$\int \mu_t^{-1}\nabla v\cdot\nabla w - k_0^2\varepsilon_z vw$ of $E = E_z\hat z$, the "TE"
+of the grating literature (E parallel to the lines): an incident field with only a
+$z$-component keeps the in-plane coefficients at exactly zero, so `ConicalScattering` with
+$\beta = 0$ is the E_z solver (the spec's `ScatteringEz`); the project files name the
+polarisations by the field component, `Ez` and `Hz`.
+
+**Problem class.** `ConicalScattering(transverse, longitudinal, setup)` takes ω, β, the
+materials, PEC facets (tangential in-plane DoFs and $E_z$ eliminated), Bloch-periodic pairs
+(constraints on both spaces), the PML box and either the incident field of the background
+(scattered-field formulation, source $k_0^2(\varepsilon - \varepsilon_{bg})E^{inc}$ in the cells
+whose permittivity deviates; μ must equal the background's) or a current
+$f = i\omega\mu_0J$ (total field); hanging nodes of locally refined meshes are constrained.
+`conical_plane_wave(E_0, k)` gives the scaled components of a plane wave ($E_0\perp k$),
+`conical_polarisation(k, n̂, s|p)` the unit amplitudes with respect to the plane of incidence
+spanned by $k$ and the structure normal, and `layered_conical_wave(stack, k_0, θ, φ, s|p)` the
+field of a plane wave on a `LayerStack<2>` (normal along $y$) at the azimuth φ about the
+normal, taken from the 3D stack solution with $\beta = k_0n\sin\theta\sin\varphi$, together
+with the downward incident wave alone (separated by sampling the stack field at two heights)
+for the extraction of reflected orders. Fields are evaluated as physical vectors
+$(E_x, E_y, E_z = iv)$; `conical_poynting_flux` integrates $\tfrac12\mathrm{Re}(E\times H^*)\cdot n$
+per unit length with the conical curl, `conical_fourier_coefficients` samples a 3-vector field
+along any line and `conical_diffraction_efficiencies` gives
+$\eta_m = \mathrm{Re}(k_{n,m})|A_m|^2/(k_n^{inc}|E_0|^2)$ with
+$k_{n,m} = \sqrt{k_0^2n^2 - k_{t,m}^2 - \beta^2}$ and the complex vector amplitudes $A_m$.
+
+**A caveat for E_z fluxes.** The Poynting flux of the longitudinal block needs the normal
+derivative of the H1 field, $H_t \propto \partial_nE_z$. On a material interface the
+discrete normal derivative is only weakly continuous and converges one order slower than
+the field; its error there is far larger than in the interior (on the E_z Mie cylinder below,
+3.6 % at $p = 3$ on the cylinder surface while the field is accurate to $5\cdot10^{-4}$ and the
+flux one cell away to $4\cdot10^{-5}$). Take flux surfaces through homogeneous cells, e.g.
+`Surface::around_cells` of a tagged region one cell away from the scatterer. The in-plane
+(Nédélec) block does not share this problem: its $H_z$ is the discrete curl.
+
+**Verification** (`tests/unit/physics/test_conical_scattering.cpp`,
+`test_conical_layered.cpp`, `tests/convergence/conical_mie_cylinder_ez.cpp`,
+`conical_lamellar_grating_ez.cpp`): the stiffness annihilates the gradient of every
+potential and the blocks decouple at $\beta = 0$; manufactured solutions ($E_z = \sin\pi x
+\sin\pi y$ with a current, and the curl-free mode $\nabla(\psi e^{i\beta z})$ at $\beta = 1.3$)
+converge in $p$; the PML tensors follow the stretch factors; a flat interface under conical
+incidence (θ = 35°, φ = 50°, s and p, Bloch cell with PML) has a vanishing scattered field
+and reflected / transmitted zeroth orders equal to the stack's R and T to $10^{-6}$. The E_z
+Mie cylinder ($n = 1.5$, $ka = 1.5$) reaches the series scattering width
+$Q_{sca} = (2/x)\sum_n|b_n|^2$ to $4\cdot10^{-5}$ at $p = 3$ (flux through a surface in the
+vacuum) with the in-plane block exactly zero, and the E_z lamellar grating (period 1, fill
+0.5, thickness 0.5, $n_g = 2$ on $n_2 = 1.5$, λ = 0.8, 20°) with the substrate as layered
+background converges to an RCWA written in the test (the Fourier modal method of the scalar
+equation, checked by energy conservation and truncation independence).
 
 ## Resonances (`physics/resonance.hpp`)
 

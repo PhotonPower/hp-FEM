@@ -1,0 +1,120 @@
+"""Conical incidence and the E_z polarisation: a flat interface under conical incidence with
+the layered background has a vanishing scattered field and the orders give the Fresnel R
+and T; the E_z Mie cylinder matches the series through the flux in the vacuum."""
+
+import numpy as np
+import scipy.special
+
+import hpfem
+
+c0 = hpfem.constants.c0
+
+
+def test_flat_interface_conical_orders_match_the_stack():
+    k0, n2, period = 2 * np.pi, 1.6, 0.7
+    angle, azimuth = np.radians(35.0), np.radians(50.0)
+    stack = hpfem.LayerStack2D(
+        hpfem.Material.dielectric(1.0), [], hpfem.Material.dielectric(n2), 0.0
+    )
+    mesh = hpfem.rectangle(4, 24, [0.0, -2.0], [period, 2.0])
+    for c in range(mesh.num_cells):
+        if mesh.cell_centroid(c)[1] < 0:
+            mesh.set_cell_tag(c, 2)
+    nd = hpfem.NedelecDofMap2D(mesh, 3)
+    h1 = hpfem.DofMap2D(mesh, 3)
+    for pol in (hpfem.Polarisation.S, hpfem.Polarisation.P):
+        wave = hpfem.layered_conical_wave(stack, k0, angle, azimuth, pol)
+        assert np.isclose(wave.beta, k0 * np.sin(angle) * np.sin(azimuth))
+        setup = hpfem.ConicalScatteringSetup()
+        setup.omega = k0 * c0
+        setup.beta = wave.beta
+        setup.materials.set(2, hpfem.Material.dielectric(n2))
+        setup.background = stack
+        setup.incident = wave.field
+        setup.pml = hpfem.PmlBox2D([0.0, -1.0], [period, 1.0], [0.0, 0.0, 1.0, 1.0], k0)
+        setup.pec_tags = [hpfem.box_tag.Y_MIN, hpfem.box_tag.Y_MAX]
+        setup.periodic = [
+            hpfem.PeriodicPair2D(
+                hpfem.box_tag.X_MIN,
+                hpfem.box_tag.X_MAX,
+                [period, 0.0],
+                hpfem.bloch_phase([wave.kx, 0.0], [period, 0.0]),
+            )
+        ]
+        problem = hpfem.ConicalScattering(nd, h1, setup)
+        solution = problem.solve()
+        assert np.linalg.norm(solution.transverse) < 1e-8
+        assert np.linalg.norm(solution.longitudinal) < 1e-8
+        locator = hpfem.PointLocator2D(mesh)
+
+        def reflected_field(x):
+            total = problem.total_field(solution, locator, x)
+            i = wave.incident(x)
+            return total - np.array([i[0], i[1], 1j * i[2]])
+
+        reflected = hpfem.conical_fourier_coefficients(
+            reflected_field, [0.0, 0.5], [1.0, 0.0], period, wave.kx, 1, 32
+        )
+        orders = hpfem.conical_diffraction_efficiencies(
+            reflected, k0, 1.0, period, wave.kx, wave.beta, wave.ky, 1.0
+        )
+        assert np.isclose(orders[1].efficiency, wave.reflectance, rtol=1e-5)
+        assert orders[1].propagating and orders[1].order == 0
+        transmitted = hpfem.conical_fourier_coefficients(
+            lambda x: problem.total_field(solution, locator, x), [0.0, -0.5], [1.0, 0.0], period,
+            wave.kx, 1, 32,
+        )
+        t = hpfem.conical_diffraction_efficiencies(
+            transmitted, k0, n2, period, wave.kx, wave.beta, wave.ky, 1.0
+        )
+        assert np.isclose(t[1].efficiency, wave.transmittance, rtol=1e-5)
+
+
+def test_ez_mie_cylinder_matches_the_series():
+    radius, index, k = 0.25, 1.5, 6.0
+    x, m = k * radius, index
+    jv, jvp = scipy.special.jv, scipy.special.jvp
+    h1v, h1vp = scipy.special.hankel1, scipy.special.h1vp
+    s = 0.0
+    for n in range(0, 40):
+        b = (jvp(n, x) * jv(n, m * x) - m * jvp(n, m * x) * jv(n, x)) / (
+            m * jvp(n, m * x) * h1v(n, x) - h1vp(n, x) * jv(n, m * x)
+        )
+        s += (1 if n == 0 else 2) * abs(b) ** 2
+    exact = 2 * radius * (2 / x) * s
+    mesh = hpfem.square_with_disc(4, radius, 1.0, 2.0, 2)
+    for c in range(mesh.num_cells):
+        if mesh.cell_tag(c) != 2 and np.linalg.norm(mesh.cell_centroid(c)) < 0.45:
+            mesh.set_cell_tag(c, 7)
+    nd = hpfem.NedelecDofMap2D(mesh, 3)
+    h1 = hpfem.DofMap2D(mesh, 3)
+    setup = hpfem.ConicalScatteringSetup()
+    setup.omega = k * c0
+    setup.beta = 0.0
+    setup.materials.set(2, hpfem.Material.dielectric(index))
+    amplitude = np.array([0.0, 0.0, 1.0], dtype=complex)
+    setup.incident = hpfem.conical_plane_wave(amplitude, [k, 0.0, 0.0])
+    setup.pml = hpfem.PmlBox2D.uniform(
+        [-1.0, -1.0], [1.0, 1.0], 1.0, k, 1.0, hpfem.PmlProfile(2, 1e-10)
+    )
+    setup.pec_tags = [
+        hpfem.box_tag.X_MIN,
+        hpfem.box_tag.X_MAX,
+        hpfem.box_tag.Y_MIN,
+        hpfem.box_tag.Y_MAX,
+    ]
+    problem = hpfem.ConicalScattering(nd, h1, setup)
+    solution = problem.solve()
+    assert np.linalg.norm(solution.transverse) < 1e-10 * np.linalg.norm(solution.longitudinal)
+    # the measurement surface: the outer boundary of the tagged vacuum region
+    inner = hpfem.Surface2D.around_cells(mesh, 7)
+    outer = hpfem.Surface2D()
+    outer.facets = [
+        f for f in inner.facets
+        if all(mesh.cell_tag(int(c)) != 2 for c in mesh.facet_cells(f.facet) if c >= 0)
+    ]
+    power = hpfem.conical_poynting_flux(
+        nd, h1, solution.transverse, solution.longitudinal, 0.0, setup.omega, setup.materials, outer
+    )
+    width = power / (1.0 / (2 * hpfem.constants.Z0))
+    assert np.isclose(width, exact, rtol=1e-3)

@@ -17,6 +17,7 @@ add_library(hpfem
   physics/sources.cpp
   physics/scattering.cpp
   physics/waveguide_port.cpp
+  physics/conical_scattering.cpp
   physics/postprocess.cpp
   physics/mie.cpp
   physics/layer_stack.cpp
@@ -43,6 +44,7 @@ add_library(hpfem
   assembly/discrete_gradient.cpp
   assembly/periodic.cpp
   assembly/axisymmetric_forms.cpp
+  assembly/conical_forms.cpp
   solvers/eigen_solver.cpp
   solvers/complex_eigen_solver.cpp
   solvers/linear_solver.cpp
