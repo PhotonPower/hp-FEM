@@ -10,6 +10,7 @@
 #include "hpfem/assembly/quadrature.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/core/parallel.hpp"
 #include "hpfem/fespace/h1_basis.hpp"
 #include "hpfem/fespace/nedelec_basis.hpp"
 #include "hpfem/mesh/geometry.hpp"
@@ -18,7 +19,8 @@ namespace hpfem::assembly {
 
 ConicalSystem assemble_conical(const fespace::NedelecDofMap<2>& nedelec,
                                const fespace::DofMap<2>& h1, Real beta,
-                               const ConicalFormFactory& form_of_cell, int extra_order) {
+                               const ConicalFormFactory& form_of_cell, int extra_order,
+                               std::span<const Index> cells) {
   if (&nedelec.mesh() != &h1.mesh()) {
     throw InvalidArgument("assemble_conical: the Nédélec and H1 maps must share the mesh");
   }
@@ -26,11 +28,28 @@ ConicalSystem assemble_conical(const fespace::NedelecDofMap<2>& nedelec,
   const Index n_e = nedelec.num_dofs();
   const Index n_h = h1.num_dofs();
   const Index n = n_e + n_h;
+  std::vector<Index> all;
+  if (cells.empty()) {
+    all.resize(as_size(mesh.num_cells()));
+    for (Index c = 0; c < mesh.num_cells(); ++c) all[as_size(c)] = c;
+    cells = all;
+  }
+  for (const Index c : cells) {
+    if (c < 0 || c >= mesh.num_cells()) {
+      throw InvalidArgument(fmt::format("assemble_conical: cell {} out of range", c));
+    }
+  }
 
-  Vector rhs = Vector::Zero(n);
-  std::vector<Eigen::Triplet<Complex, Index>> ts;
-  std::vector<Eigen::Triplet<Complex, Index>> tm;
-  for (Index c = 0; c < mesh.num_cells(); ++c) {
+  // per-thread buffers, merged afterwards
+  const auto threads = as_size(num_threads());
+  std::vector<Vector> rhs_of(threads, Vector::Zero(n));
+  std::vector<std::vector<Eigen::Triplet<Complex, Index>>> ts_of(threads);
+  std::vector<std::vector<Eigen::Triplet<Complex, Index>>> tm_of(threads);
+  parallel_for(static_cast<Index>(cells.size()), [&](Index k, int thread) {
+    const Index c = cells[as_size(k)];
+    auto& ts = ts_of[as_size(thread)];
+    auto& tm = tm_of[as_size(thread)];
+    Vector& rhs = rhs_of[as_size(thread)];
     const ConicalForm form = form_of_cell(c);
     const int p = std::max(nedelec.cell_order(c), h1.cell_order(c));
     const auto geometry = mesh::cell_geometry(mesh, c);
@@ -119,6 +138,14 @@ ConicalSystem assemble_conical(const fespace::NedelecDofMap<2>& nedelec,
         }
       }
     }
+  });
+  Vector rhs = Vector::Zero(n);
+  std::vector<Eigen::Triplet<Complex, Index>> ts;
+  std::vector<Eigen::Triplet<Complex, Index>> tm;
+  for (std::size_t t = 0; t < threads; ++t) {
+    rhs += rhs_of[t];
+    ts.insert(ts.end(), ts_of[t].begin(), ts_of[t].end());
+    tm.insert(tm.end(), tm_of[t].begin(), tm_of[t].end());
   }
   ConicalSystem out;
   out.rhs = std::move(rhs);
@@ -130,7 +157,7 @@ ConicalSystem assemble_conical(const fespace::NedelecDofMap<2>& nedelec,
   out.mass.setFromTriplets(tm.begin(), tm.end());
   out.stiffness.makeCompressed();
   out.mass.makeCompressed();
-  log().info("assemble_conical: beta = {:.6g}, {} cells, {} + {} DoFs", beta, mesh.num_cells(), n_e,
+  log().info("assemble_conical: beta = {:.6g}, {} cells, {} + {} DoFs", beta, cells.size(), n_e,
              n_h);
   return out;
 }

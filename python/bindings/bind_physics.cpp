@@ -9,6 +9,7 @@
 #include "hpfem/physics/axisymmetric.hpp"
 #include "hpfem/physics/band_structure.hpp"
 #include "hpfem/physics/conical_scattering.hpp"
+#include "hpfem/physics/conical_sweep.hpp"
 #include "hpfem/physics/field_sampling.hpp"
 #include "hpfem/physics/propagating_mode.hpp"
 #include "hpfem/physics/resonance.hpp"
@@ -867,6 +868,37 @@ void bind_physics(py::module_& m) {
             [](const ConicalScattering& p, const ConicalSolution& s, const mesh::PointLocator<2>& l,
                const Point<2>& x) { return p.poynting(s, l, x); },
             py::arg("solution"), py::arg("locator"), py::arg("x"), "None outside the mesh");
+    py::class_<physics::SweepTimings>(m, "SweepTimings",
+                                      "Accumulated seconds of the phases of a ConicalSweep")
+        .def_readonly("setup", &physics::SweepTimings::setup)
+        .def_readonly("combine", &physics::SweepTimings::combine)
+        .def_readonly("assemble", &physics::SweepTimings::assemble)
+        .def_readonly("reduce", &physics::SweepTimings::reduce)
+        .def_readonly("factorize", &physics::SweepTimings::factorize)
+        .def_readonly("solve", &physics::SweepTimings::solve)
+        .def_readonly("points", &physics::SweepTimings::points)
+        .def("total", &physics::SweepTimings::total);
+    py::class_<physics::ConicalSweep>(
+        m, "ConicalSweep",
+        "Frequency / angle sweep of the conical solver with an affine operator: S0 + beta S1 + "
+        "beta^2 S2 - k0^2 sum_g eps_g M_g assembled once for the cells outside the PML, PML "
+        "and source cells assembled per point, numerical refactorisation on the first "
+        "analysis; results agree with ConicalScattering.solve to rounding. Every point must "
+        "keep the mesh, orders, PEC tags, periodic pairs, PML box geometry, the cell-to-material "
+        "grouping and the formulation; omega, beta, the materials, the incident field and the "
+        "Bloch phases may change")
+        .def(py::init<const ND&, const H1&, const ConicalScatteringSetup&>(), py::arg("transverse"),
+             py::arg("longitudinal"), py::arg("base"), py::keep_alive<1, 2>(),
+             py::keep_alive<1, 3>(), Release())
+        .def("solve", &physics::ConicalSweep::solve, py::arg("setup"), Release(),
+             "the solution at a point of the sweep")
+        .def_property_readonly("timings", &physics::ConicalSweep::timings)
+        .def_property_readonly("num_groups", &physics::ConicalSweep::num_groups)
+        .def_property_readonly("num_pml_cells", &physics::ConicalSweep::num_pml_cells)
+        .def_property_readonly("num_source_cells", &physics::ConicalSweep::num_source_cells)
+        .def_property_readonly("solver", &physics::ConicalSweep::solver,
+                               py::return_value_policy::reference_internal,
+                               "the solver after the first point");
     m.def("conical_poynting_flux", &physics::conical_poynting_flux, py::arg("transverse"),
           py::arg("longitudinal"), py::arg("e"), py::arg("v"), py::arg("beta"), py::arg("omega"),
           py::arg("materials"), py::arg("surface"), py::arg("order") = 8, Release(),

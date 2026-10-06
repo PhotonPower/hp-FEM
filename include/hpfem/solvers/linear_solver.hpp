@@ -25,6 +25,13 @@ class LinearSolver {
 
   /// @throws Error if the matrix is singular or the factorisation fails.
   virtual void factorize(const SparseMatrix& matrix) = 0;
+  /// Factorises another matrix with the sparsity pattern of the last one, reusing the
+  /// symbolic analysis (ordering, elimination tree): MUMPS runs its numerical phase only,
+  /// SparseLU keeps its column permutation; cuDSS factorises anew. Falls back to `factorize`
+  /// when nothing was factorised yet or the pattern differs (same result, no reuse). Sweeps
+  /// that change values but not structure — frequency, materials, Bloch phases — call this
+  /// per point (`physics::ConicalSweep`).
+  virtual void refactorize(const SparseMatrix& matrix) { factorize(matrix); }
   /// @throws Error if `factorize` has not succeeded or the size does not match.
   [[nodiscard]] virtual Vector solve(const Vector& rhs) const = 0;
   /// Several right-hand sides at once (one per column); backends with a native multi-rhs
