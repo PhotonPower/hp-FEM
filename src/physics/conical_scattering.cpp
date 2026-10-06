@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <Eigen/Dense>
+#include <Eigen/Geometry>
 #include <fmt/format.h>
 
 #include "hpfem/assembly/dirichlet.hpp"
@@ -34,6 +35,16 @@ ConicalField conical_plane_wave(const ConicalVector& amplitude, const Point<3>& 
   const Real ky = wave_vector(1);
   return [scaled, kx, ky](const Point<2>& x) {
     return ConicalVector(scaled * std::exp(kI * (kx * x(0) + ky * x(1))));
+  };
+}
+
+ConicalField conical_plane_wave_curl(const ConicalVector& amplitude, const Point<3>& wave_vector) {
+  const ConicalVector k = wave_vector.cast<Complex>();
+  const ConicalVector curl0 = kI * k.cross(amplitude);
+  const Real kx = wave_vector(0);
+  const Real ky = wave_vector(1);
+  return [curl0, kx, ky](const Point<2>& x) {
+    return ConicalVector(curl0 * std::exp(kI * (kx * x(0) + ky * x(1))));
   };
 }
 
@@ -277,6 +288,68 @@ ConicalVector ConicalScattering::incident_field(const Point<2>& x) const {
   return ConicalVector(scaled(0), scaled(1), kI * scaled(2));
 }
 
+ConicalVector ConicalScattering::incident_curl(const Point<2>& x) const {
+  if (!setup_.incident) return ConicalVector::Zero();
+  if (setup_.incident_curl) return setup_.incident_curl(x);
+  // central differences of the physical field; the z derivative is i beta
+  const Real h = 1e-6 * 2 * constants::pi / k0_;
+  const ConicalVector dx =
+      (incident_field(x + Point<2>(h, 0.0)) - incident_field(x - Point<2>(h, 0.0))) / (2 * h);
+  const ConicalVector dy =
+      (incident_field(x + Point<2>(0.0, h)) - incident_field(x - Point<2>(0.0, h))) / (2 * h);
+  const ConicalVector e = incident_field(x);
+  const Complex ib = kI * setup_.beta;
+  return ConicalVector(dy(2) - ib * e(1), ib * e(0) - dx(2), dx(1) - dy(0));
+}
+
+ConicalVector ConicalScattering::incident_h_field(const Point<2>& x) const {
+  const Complex mu = setup_.background ? setup_.background->incidence_medium().mu_r
+                                       : setup_.materials.background().mu_r;
+  return incident_curl(x) / (kI * setup_.omega * constants::mu0 * mu);
+}
+
+ConicalVector ConicalScattering::curl_field(const ConicalSolution& solution, Index cell,
+                                            const Point<2>& xi) const {
+  ConicalVector curl;
+  [[maybe_unused]] const ConicalVector value =
+      conical_field_at(*transverse_, *longitudinal_, solution.transverse, solution.longitudinal,
+                       solution.beta, cell, xi, &curl);
+  return curl;
+}
+
+ConicalVector ConicalScattering::h_field(const ConicalSolution& solution, Index cell,
+                                         const Point<2>& xi) const {
+  ConicalVector curl = curl_field(solution, cell, xi);
+  if (solution.scattered) {
+    curl += incident_curl(mesh::cell_geometry(transverse_->mesh(), cell)->evaluate(xi).x);
+  }
+  const Complex mu = setup_.materials.of_cell(transverse_->mesh(), cell).mu_r;
+  return curl / (kI * setup_.omega * constants::mu0 * mu);
+}
+
+Point<3> ConicalScattering::poynting(const ConicalSolution& solution, Index cell,
+                                     const Point<2>& xi) const {
+  const ConicalVector e = total_field(solution, cell, xi);
+  const ConicalVector h = h_field(solution, cell, xi);
+  return 0.5 * e.cross(h.conjugate()).real();
+}
+
+std::optional<ConicalVector> ConicalScattering::h_field(const ConicalSolution& solution,
+                                                        const mesh::PointLocator<2>& locator,
+                                                        const Point<2>& x) const {
+  const auto located = locator.locate(x);
+  if (!located) return std::nullopt;
+  return h_field(solution, located->cell, located->xi);
+}
+
+std::optional<Point<3>> ConicalScattering::poynting(const ConicalSolution& solution,
+                                                    const mesh::PointLocator<2>& locator,
+                                                    const Point<2>& x) const {
+  const auto located = locator.locate(x);
+  if (!located) return std::nullopt;
+  return poynting(solution, located->cell, located->xi);
+}
+
 ConicalVector ConicalScattering::total_field(const ConicalSolution& solution, Index cell,
                                              const Point<2>& xi) const {
   ConicalVector e = field(solution, cell, xi);
@@ -414,6 +487,20 @@ LayeredConicalWave layered_conical_wave(const LayerStack<2>& stack, Real k0, Rea
   const Real kx = out.kx;
   out.incident = [d, kx, ky](const Point<2>& x) {
     return ConicalVector(d * std::exp(kI * (kx * x(0) - ky * x(1))));
+  };
+  // physical curls: the 3D stack has its normal along Z and the invariant direction along
+  // Y, the conical plane (x, y, z) = (X, Z, Y) is a reflection of it, so the curl (a
+  // pseudo-vector) changes sign under the permutation
+  const auto curl3 = wave.field.curl;
+  out.field_curl = [curl3](const Point<2>& x) {
+    const auto c = curl3(Point<3>(x(0), 0.0, x(1)));
+    return ConicalVector(-c(0), -c(2), -c(1));
+  };
+  const ConicalVector d_physical(d(0), d(1), kI * d(2));
+  const ConicalVector k_incident(Complex{kx, 0.0}, Complex{-ky, 0.0}, Complex{out.beta, 0.0});
+  const ConicalVector curl_d = kI * k_incident.cross(d_physical);
+  out.incident_curl = [curl_d, kx, ky](const Point<2>& x) {
+    return ConicalVector(curl_d * std::exp(kI * (kx * x(0) - ky * x(1))));
   };
   return out;
 }

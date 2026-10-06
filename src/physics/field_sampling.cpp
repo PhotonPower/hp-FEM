@@ -8,6 +8,9 @@
 #include <optional>
 #include <utility>
 
+#include <Eigen/Geometry>
+
+#include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/parallel.hpp"
 #include "hpfem/fespace/h1_basis.hpp"
@@ -94,56 +97,105 @@ class H1CellEvaluator {
   Vector coefficients_;
 };
 
-/// Per-cell evaluator of the requested field (total or scattered) of `Scattering<Dim>`:
-/// the unknown plus or minus the incident field as the formulation requires.
+/// Per-cell evaluator of the requested quantity (total or scattered) of `Scattering<Dim>`:
+/// the unknown plus or minus the incident field as the formulation requires; H and S need
+/// the curl of the unknown (`evaluate_hcurl_curl`) and of the incident field
+/// (`IncidentField::curl`).
 template <int Dim>
 class ScatteringCellField {
  public:
-  using Value = assembly::ComplexVector<Dim>;
-  static constexpr Index kComponents = Dim;
+  using Value = Eigen::Matrix<Complex, Eigen::Dynamic, 1>;
+
+  [[nodiscard]] static Index components(SampledQuantity quantity) noexcept {
+    switch (quantity) {
+      case SampledQuantity::kMagnetic:
+        return Dim == 2 ? 1 : 3;
+      default:
+        return Dim;
+    }
+  }
 
   ScatteringCellField(const Scattering<Dim>& problem, const ScatteringSolution<Dim>& solution,
-                      bool scattered, Index cell)
-      : problem_(problem), cell_(cell), unknown_(problem.dofs(), solution.unknown, cell) {
+                      const SamplingOptions& options, Index cell)
+      : problem_(problem),
+        solution_(solution),
+        quantity_(options.quantity),
+        cell_(cell),
+        unknown_(problem.dofs(), solution.unknown, cell) {
     const bool formulation_scattered = solution.formulation == Formulation::kScatteredField;
     if (problem.setup().incident) {
-      if (formulation_scattered && !scattered) sign_ = 1.0;
-      if (!formulation_scattered && scattered) sign_ = -1.0;
+      if (formulation_scattered && !options.scattered) sign_ = 1.0;
+      if (!formulation_scattered && options.scattered) sign_ = -1.0;
+    }
+    if (quantity_ != SampledQuantity::kElectric) {
+      const Complex mu = problem.material(cell).mu_r;
+      inverse_i_omega_mu_ = 1.0 / (kI * problem.setup().omega * constants::mu0 * mu);
     }
   }
 
   [[nodiscard]] Value operator()(const Point<Dim>& xi) {
     const auto& g = unknown_.geometry(xi);
-    Value e = unknown_(xi, g);
+    assembly::ComplexVector<Dim> e = unknown_(xi, g);
     if (sign_ != 0.0) e += sign_ * problem_.incident_in_cell(cell_, g.x);
-    return e;
+    if (quantity_ == SampledQuantity::kElectric) return e;
+    assembly::ComplexCurl<Dim> curl =
+        assembly::evaluate_hcurl_curl<Dim>(problem_.dofs(), solution_.unknown, cell_, xi);
+    if (sign_ != 0.0) curl += sign_ * problem_.setup().incident.curl(g.x);
+    const assembly::ComplexCurl<Dim> h = inverse_i_omega_mu_ * curl;
+    if (quantity_ == SampledQuantity::kMagnetic) return h;
+    // S = Re(E x conj(H)) / 2: in 2D H = H_z only, S = (Re(E_y conj(H_z)), -Re(E_x conj(H_z))) / 2
+    Value s(Dim);
+    if constexpr (Dim == 2) {
+      s(0) = 0.5 * std::real(e(1) * std::conj(h(0)));
+      s(1) = -0.5 * std::real(e(0) * std::conj(h(0)));
+    } else {
+      s = (0.5 * e.cross(h.conjugate()).real()).template cast<Complex>();
+    }
+    return s;
   }
 
  private:
   const Scattering<Dim>& problem_;
+  const ScatteringSolution<Dim>& solution_;
+  SampledQuantity quantity_;
   Index cell_;
   NedelecCellEvaluator<Dim> unknown_;
   Real sign_ = 0.0;
+  Complex inverse_i_omega_mu_;
 };
 
-/// The same for the conical solver: physical (E_x, E_y, E_z = i v).
+/// The same for the conical solver: physical (E_x, E_y, E_z = i v); H and S through the
+/// problem's per-point methods (they need the H1 gradient as well).
 class ConicalCellField {
  public:
   using Value = ConicalVector;
-  static constexpr Index kComponents = 3;
+
+  [[nodiscard]] static Index components(SampledQuantity) noexcept { return 3; }
 
   ConicalCellField(const ConicalScattering& problem, const ConicalSolution& solution,
-                   bool scattered, Index cell)
+                   const SamplingOptions& options, Index cell)
       : problem_(problem),
+        solution_(solution),
+        quantity_(options.quantity),
+        cell_(cell),
         transverse_(problem.transverse_dofs(), solution.transverse, cell),
         longitudinal_(problem.longitudinal_dofs(), solution.longitudinal, cell) {
     if (problem.setup().incident) {
-      if (solution.scattered && !scattered) sign_ = 1.0;
-      if (!solution.scattered && scattered) sign_ = -1.0;
+      if (solution.scattered && !options.scattered) sign_ = 1.0;
+      if (!solution.scattered && options.scattered) sign_ = -1.0;
+    }
+    if (quantity_ != SampledQuantity::kElectric && options.scattered) {
+      throw InvalidArgument(
+          "sample_field: H and the Poynting vector of the conical solver are those of the "
+          "total field");
     }
   }
 
   [[nodiscard]] Value operator()(const Point<2>& xi) {
+    if (quantity_ == SampledQuantity::kMagnetic) return problem_.h_field(solution_, cell_, xi);
+    if (quantity_ == SampledQuantity::kPoynting) {
+      return problem_.poynting(solution_, cell_, xi).cast<Complex>();
+    }
     const auto& g = transverse_.geometry(xi);
     const assembly::ComplexVector<2> t = transverse_(xi, g);
     Value e(t(0), t(1), kI * longitudinal_(xi));
@@ -153,6 +205,9 @@ class ConicalCellField {
 
  private:
   const ConicalScattering& problem_;
+  const ConicalSolution& solution_;
+  SampledQuantity quantity_;
+  Index cell_;
   NedelecCellEvaluator<2> transverse_;
   H1CellEvaluator<2> longitudinal_;
   Real sign_ = 0.0;
@@ -244,7 +299,7 @@ struct Sampler {
   [[nodiscard]] SampledField run(std::span<const Point<Dim>> points, const Args&... args) const {
     const Index n = static_cast<Index>(points.size());
     SampledField result;
-    result.values.resize(n, CellField::kComponents);
+    result.values.resize(n, CellField::components(options.quantity));
     result.cells.assign(points.size(), kInvalidIndex);
     std::vector<Point<Dim>> xi(points.size());
     std::vector<Complex> factor(points.size());
@@ -285,7 +340,7 @@ struct Sampler {
     // stage 3: evaluate cell by cell
     parallel_for(static_cast<Index>(occupied.size()), [&](Index k, int) {
       const Index c = occupied[as_size(k)];
-      CellField field(args..., c);
+      CellField field(args..., options, c);
       for (Index j = offsets[as_size(c)]; j < offsets[as_size(c) + 1]; ++j) {
         const Index i = order[as_size(j)];
         result.values.row(i) = factor[as_size(i)] * field(xi[as_size(i)]);
@@ -298,7 +353,7 @@ struct Sampler {
 /// The field on the subdivided mesh for a `CellField`, cell by cell.
 template <int Dim, class CellField, class... Args>
 TriangulatedField<Dim> triangulate(const mesh::Mesh<Dim>& mesh, int subdivisions,
-                                   const Args&... args) {
+                                   const SamplingOptions& options, const Args&... args) {
   if (subdivisions < 1) {
     throw InvalidArgument("triangulate_field: subdivisions must be at least 1");
   }
@@ -307,10 +362,10 @@ TriangulatedField<Dim> triangulate(const mesh::Mesh<Dim>& mesh, int subdivisions
   const Index num_points = sub.mesh.num_vertices();
   result.points.resize(as_size(num_points));
   for (Index v = 0; v < num_points; ++v) result.points[as_size(v)] = sub.mesh.vertex(v);
-  result.values.resize(num_points, CellField::kComponents);
+  result.values.resize(num_points, CellField::components(options.quantity));
   const Index per_cell = mesh::Subdivided<Dim>::vertices_per_cell(subdivisions);
   parallel_for(mesh.num_cells(), [&](Index c, int) {
-    CellField field(args..., c);
+    CellField field(args..., options, c);
     for (Index v = c * per_cell; v < (c + 1) * per_cell; ++v) {
       HPFEM_ASSERT(sub.vertex_parent[as_size(v)] == c, "subdivision vertex order");
       result.values.row(v) = field(sub.vertex_xi[as_size(v)]);
@@ -340,8 +395,7 @@ SampledField sample_field(const Scattering<Dim>& problem, const ScatteringSoluti
                           const mesh::PointLocator<Dim>& locator,
                           std::span<const Point<Dim>> points, const SamplingOptions& options) {
   const Sampler<Dim> sampler(problem.dofs().mesh(), locator, problem.setup().periodic, options);
-  return sampler.template run<ScatteringCellField<Dim>>(points, problem, solution,
-                                                        options.scattered);
+  return sampler.template run<ScatteringCellField<Dim>>(points, problem, solution);
 }
 
 SampledField sample_field(const ConicalScattering& problem, const ConicalSolution& solution,
@@ -349,22 +403,22 @@ SampledField sample_field(const ConicalScattering& problem, const ConicalSolutio
                           const SamplingOptions& options) {
   const Sampler<2> sampler(problem.transverse_dofs().mesh(), locator, problem.setup().periodic,
                            options);
-  return sampler.run<ConicalCellField>(points, problem, solution, options.scattered);
+  return sampler.run<ConicalCellField>(points, problem, solution);
 }
 
 template <int Dim>
 TriangulatedField<Dim> triangulate_field(const Scattering<Dim>& problem,
                                          const ScatteringSolution<Dim>& solution, int subdivisions,
-                                         bool scattered) {
-  return triangulate<Dim, ScatteringCellField<Dim>>(problem.dofs().mesh(), subdivisions, problem,
-                                                    solution, scattered);
+                                         const SamplingOptions& options) {
+  return triangulate<Dim, ScatteringCellField<Dim>>(problem.dofs().mesh(), subdivisions, options,
+                                                    problem, solution);
 }
 
 TriangulatedField<2> triangulate_field(const ConicalScattering& problem,
                                        const ConicalSolution& solution, int subdivisions,
-                                       bool scattered) {
-  return triangulate<2, ConicalCellField>(problem.transverse_dofs().mesh(), subdivisions, problem,
-                                          solution, scattered);
+                                       const SamplingOptions& options) {
+  return triangulate<2, ConicalCellField>(problem.transverse_dofs().mesh(), subdivisions, options,
+                                          problem, solution);
 }
 
 template struct TriangulatedField<2>;
@@ -376,8 +430,10 @@ template SampledField sample_field<3>(const Scattering<3>&, const ScatteringSolu
                                       const mesh::PointLocator<3>&, std::span<const Point<3>>,
                                       const SamplingOptions&);
 template TriangulatedField<2> triangulate_field<2>(const Scattering<2>&,
-                                                   const ScatteringSolution<2>&, int, bool);
+                                                   const ScatteringSolution<2>&, int,
+                                                   const SamplingOptions&);
 template TriangulatedField<3> triangulate_field<3>(const Scattering<3>&,
-                                                   const ScatteringSolution<3>&, int, bool);
+                                                   const ScatteringSolution<3>&, int,
+                                                   const SamplingOptions&);
 
 }  // namespace hpfem::physics

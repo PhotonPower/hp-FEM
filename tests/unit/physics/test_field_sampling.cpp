@@ -207,7 +207,9 @@ TEST_CASE("triangulate_field: the subdivided mesh with values, parent cells and 
     }
   }
   REQUIRE(tri.tag.front() == 2);  // the first cells lie below y = 0
-  const auto scat = triangulate_field<2>(problem, solution, 1, true);
+  SamplingOptions scattered_only;
+  scattered_only.scattered = true;
+  const auto scat = triangulate_field<2>(problem, solution, 1, scattered_only);
   REQUIRE(scat.values.rows() == 3 * pb.mesh.num_cells());
   for (Index v = 0; v < scat.values.rows(); ++v) {
     const ComplexVector<2> expected = problem.scattered_field(

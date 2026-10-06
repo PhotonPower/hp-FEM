@@ -51,6 +51,11 @@ using ConicalField = std::function<ConicalVector(const Point<2>&)>;
 [[nodiscard]] ConicalField conical_plane_wave(const ConicalVector& amplitude,
                                               const Point<3>& wave_vector);
 
+/// Physical curl @f$ i k \times E_0\,e^{i(k_xx + k_yy)} @f$ of the same plane wave (physical
+/// components, for `ConicalScatteringSetup::incident_curl`).
+[[nodiscard]] ConicalField conical_plane_wave_curl(const ConicalVector& amplitude,
+                                                   const Point<3>& wave_vector);
+
 /// Unit polarisation vectors of a plane wave with wave vector k incident on a structure with
 /// the (in-plane) normal n̂: s has E perpendicular to the plane of incidence spanned by k and
 /// n̂ (for k ∥ n̂ it is the invariant direction ẑ), p has E in that plane and ⊥ k.
@@ -81,6 +86,12 @@ struct ConicalScatteringSetup {
   /// Incident field of the background medium in scaled components (scattered-field
   /// formulation) ...
   ConicalField incident;
+  /// Physical curl of the physical incident field, @f$ (\partial_yE_z - i\beta E_y,\ i\beta E_x
+  /// - \partial_xE_z,\ \partial_xE_y - \partial_yE_x) @f$, used by `h_field` and `poynting` of
+  /// the total field: `conical_plane_wave_curl` or `LayeredConicalWave::field_curl`. If empty,
+  /// `incident_curl` falls back to central differences of `incident` (relative accuracy of
+  /// about 1e-8).
+  ConicalField incident_curl;
   /// ... or the volume source f = iωμ0 J in scaled components (total-field formulation);
   /// exactly one of the two.
   ConicalField current;
@@ -146,6 +157,31 @@ class ConicalScattering {
                                                              const Point<2>& x) const;
   /// Physical incident field (E_x, E_y, E_z) at x (zero without an incident field).
   [[nodiscard]] ConicalVector incident_field(const Point<2>& x) const;
+  /// Physical curl of the incident field at x: `setup.incident_curl`, or central differences
+  /// of `incident_field` (zero without an incident field).
+  [[nodiscard]] ConicalVector incident_curl(const Point<2>& x) const;
+  /// Magnetic field of the incident wave in the background medium of the setup,
+  /// @f$ H = \nabla\times E/(i\omega\mu_0\mu_r) @f$ [A/m].
+  [[nodiscard]] ConicalVector incident_h_field(const Point<2>& x) const;
+  /// Physical curl of the unknown field at reference point ξ of cell c.
+  [[nodiscard]] ConicalVector curl_field(const ConicalSolution& solution, Index cell,
+                                         const Point<2>& xi) const;
+  /// Magnetic field @f$ H = \nabla\times E/(i\omega\mu_0\mu_r) @f$ [A/m] of the total field
+  /// (unknown plus incident field as the formulation requires) with the permeability of the
+  /// cell's material; convention exp(-iωt).
+  [[nodiscard]] ConicalVector h_field(const ConicalSolution& solution, Index cell,
+                                      const Point<2>& xi) const;
+  /// Time-averaged Poynting vector @f$ S = \tfrac12\mathrm{Re}(E\times\bar H) @f$ [W/m^2] of
+  /// the total field (energy-flow maps; its z component is the power flow along the lines).
+  [[nodiscard]] Point<3> poynting(const ConicalSolution& solution, Index cell,
+                                  const Point<2>& xi) const;
+  /// The same at a physical point located with `locator`, or nothing outside the mesh.
+  [[nodiscard]] std::optional<ConicalVector> h_field(const ConicalSolution& solution,
+                                                     const mesh::PointLocator<2>& locator,
+                                                     const Point<2>& x) const;
+  [[nodiscard]] std::optional<Point<3>> poynting(const ConicalSolution& solution,
+                                                 const mesh::PointLocator<2>& locator,
+                                                 const Point<2>& x) const;
 
  private:
   const fespace::NedelecDofMap<2>* transverse_;
@@ -183,11 +219,13 @@ struct LayeredConicalWave {
   ConicalField
       field;  ///< the full stack field (scaled components), `ConicalScatteringSetup::incident`
   ConicalField
-      incident;          ///< the downward wave of the incidence medium alone (for reflected orders)
-  Real beta = 0;         ///< longitudinal wavenumber k_z [1/m]
-  Real kx = 0;           ///< in-plane wavenumber along x [1/m] (the Bloch wavenumber)
-  Real ky = 0;           ///< normal wavenumber in the incidence medium [1/m] (> 0)
-  Real reflectance = 0;  ///< of the bare stack
+      incident;  ///< the downward wave of the incidence medium alone (for reflected orders)
+  ConicalField field_curl;  ///< physical curl of `field` (`ConicalScatteringSetup::incident_curl`)
+  ConicalField incident_curl;  ///< physical curl of `incident`
+  Real beta = 0;               ///< longitudinal wavenumber k_z [1/m]
+  Real kx = 0;                 ///< in-plane wavenumber along x [1/m] (the Bloch wavenumber)
+  Real ky = 0;                 ///< normal wavenumber in the incidence medium [1/m] (> 0)
+  Real reflectance = 0;        ///< of the bare stack
   Real transmittance = 0;
 };
 
