@@ -160,6 +160,9 @@ far = hpfem.FarField2D(mesh, surface, hpfem.discrete_field(dofs, solution.unknow
 pattern = far.pattern([1.0, 0.0])
 locator = hpfem.PointLocator2D(mesh)
 E = problem.total_field(solution, locator, [0.5, 0.1])      # None outside the mesh
+values, cells = problem.sample(solution, locator, points)   # (n, 2) complex, (n,) cells; NaN / -1 outside
+tri = problem.triangulate(solution, subdivisions=3)         # points, simplices, values, cell, tag
+# matplotlib.tri.Triangulation(tri.points[:, 0], tri.points[:, 1], tri.simplices)
 hpfem.FieldExporter2D(mesh, 3).hcurl("E", dofs, solution.unknown).write("mie.vtu")
 
 # adaptivity: estimate, mark, refine (h or p), transfer

@@ -137,6 +137,12 @@ class Scattering {
   /// The incident wave at x: `setup.incident_wave` if given, else `setup.incident` (zero
   /// without an incident field).
   [[nodiscard]] assembly::ComplexVector<Dim> incident_wave(const Point<Dim>& x) const;
+  /// The incident field of the setup at the physical point x evaluated on the side of
+  /// `cell`: on a layered background the branch of the region of the cell's centroid, so a
+  /// point on an interface gets the value of the side it was located on (zero without an
+  /// incident field).
+  [[nodiscard]] assembly::ComplexVector<Dim> incident_in_cell(Index cell,
+                                                              const Point<Dim>& x) const;
   /// Total / scattered field at reference point ξ of cell c (the incident field is added or
   /// subtracted according to the formulation; without an incident field both coincide). On
   /// a layered background the background field is evaluated with the region of the cell's
@@ -175,9 +181,6 @@ class Scattering {
   void add_port_terms(SparseMatrix& matrix, Vector& rhs) const;
   std::vector<PortModes<Dim>> port_modes_;
   [[nodiscard]] std::vector<Index> facets(const std::vector<mesh::Tag>& tags) const;
-  /// The incident field at the physical point x on the side of `cell` (layered backgrounds).
-  [[nodiscard]] assembly::ComplexVector<Dim> incident_in_cell(Index cell,
-                                                              const Point<Dim>& x) const;
 
   const fespace::NedelecDofMap<Dim>* dofs_;
   ScatteringSetup<Dim> setup_;

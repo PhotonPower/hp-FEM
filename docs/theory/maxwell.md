@@ -876,4 +876,28 @@ volume integral of the total field (energy balance).
   (order $-2$ at 57° in the glass, not the 50° of the incident wave: designed for 50° the
   layer reflected $2.5\cdot10^{-5}$ of it and the balance stalled at $1.7\cdot10^{-5}$).
 
+- **Field sampling and triangulated export** (`physics/field_sampling.hpp`, M15 F3): maps and
+  line scans no longer need one call per point. `sample_field(problem, solution, locator,
+  points, options)` evaluates the total or scattered field of a `Scattering<Dim>` or
+  `ConicalScattering` solution at many points in parallel: the points are located first (in
+  blocks), grouped by cell, and every cell evaluates its points with basis, geometry and
+  coefficients set up once (affine cells reuse their Jacobian). Points outside the mesh along
+  a Bloch-periodic direction of the setup are mapped back into the unit cell and the value
+  carries the Bloch phase $e^{i n k\cdot a}$; points outside the mesh otherwise give NaN and
+  no cell; `interface_side` resolves a point on a facet to the cell above or below along the
+  last coordinate (the stack normal), so both one-sided limits of a discontinuous normal
+  component are reachable. `triangulate_field(problem, solution, n)` returns the field on the
+  $n$-fold subdivided mesh (`mesh::subdivide`, curved cells included): points, simplices,
+  values per point, parent cell and tag per simplex, with points not shared between parent
+  cells so that discontinuities across facets are preserved — the input of
+  `matplotlib.tri.Triangulation` or of any viewer. The basis kernels
+  (`fespace/detail/kernels.hpp`) keep their Legendre data in fixed-capacity arrays since this
+  work, so a basis evaluation allocates nothing; this halved the cost of every point
+  evaluation and quadrature loop. Measured on the maintainer's machine (16 threads, 2D,
+  $p = 2$ and $4$): 50–60 ns per point against 2.5–5 µs for the Python loop over
+  `total_field`, 50–80× faster; single-threaded 250–350 ns, 8–14×. Unit tests
+  (`test_field_sampling.cpp`): values identical to the point-wise evaluation to $10^{-14}$,
+  Bloch wrapping against the phase, NaN outside, interface side, the subdivision against
+  `mesh::subdivide`, both solvers.
+
 Planned: Purcell factor $F_P = P_{\mathrm{emitted}}/P_{\mathrm{bulk}}$ for a point dipole.

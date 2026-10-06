@@ -9,6 +9,7 @@
 #include "hpfem/physics/axisymmetric.hpp"
 #include "hpfem/physics/band_structure.hpp"
 #include "hpfem/physics/conical_scattering.hpp"
+#include "hpfem/physics/field_sampling.hpp"
 #include "hpfem/physics/propagating_mode.hpp"
 #include "hpfem/physics/resonance.hpp"
 #include "hpfem/physics/riesz_projection.hpp"
@@ -22,6 +23,61 @@
 namespace hpfem::python {
 
 namespace {
+
+/// Sampling options from keyword arguments.
+[[nodiscard]] inline physics::SamplingOptions sampling_options(bool scattered, bool bloch_wrap,
+                                                               int interface_side) {
+  physics::SamplingOptions o;
+  o.scattered = scattered;
+  o.bloch_wrap = bloch_wrap;
+  o.interface_side = interface_side;
+  return o;
+}
+
+/// (values (n, c) complex, cells (n,) int64) of a sampled field.
+[[nodiscard]] inline py::tuple sampled_to_python(const physics::SampledField& field) {
+  const auto rows = static_cast<py::ssize_t>(field.values.rows());
+  const auto cols = static_cast<py::ssize_t>(field.values.cols());
+  py::array_t<Complex> values({rows, cols});
+  auto r = values.mutable_unchecked<2>();
+  for (py::ssize_t i = 0; i < rows; ++i) {
+    for (py::ssize_t j = 0; j < cols; ++j) r(i, j) = field.values(i, j);
+  }
+  return py::make_tuple(values, to_array(field.cells));
+}
+
+template <int Dim>
+void bind_triangulated_field(py::module_& m) {
+  using T = physics::TriangulatedField<Dim>;
+  py::class_<T>(m, named("TriangulatedField", Dim).c_str(),
+                "A field on the subdivided mesh: points (n, dim), simplices (m, dim + 1) by "
+                "point index, values (n, components) complex, cell and tag (m,) per simplex; "
+                "points are not shared between parent cells, so discontinuities are kept. "
+                "2D: matplotlib.tri.Triangulation(points[:, 0], points[:, 1], simplices)")
+      .def_property_readonly(
+          "points",
+          [](const T& t) { return points_to_array<Dim>(std::span<const Point<Dim>>(t.points)); })
+      .def_property_readonly(
+          "simplices",
+          [](const T& t) {
+            return tuples_to_array<Index, static_cast<std::size_t>(Dim + 1)>(
+                std::span<const std::array<Index, static_cast<std::size_t>(Dim + 1)>>(t.simplices));
+          })
+      .def_property_readonly("values",
+                             [](const T& t) {
+                               const auto rows = static_cast<py::ssize_t>(t.values.rows());
+                               const auto cols = static_cast<py::ssize_t>(t.values.cols());
+                               py::array_t<Complex> values({rows, cols});
+                               auto r = values.mutable_unchecked<2>();
+                               for (py::ssize_t i = 0; i < rows; ++i) {
+                                 for (py::ssize_t j = 0; j < cols; ++j) r(i, j) = t.values(i, j);
+                               }
+                               return values;
+                             })
+      .def_property_readonly("cell", [](const T& t) { return to_array(t.cell); })
+      .def_property_readonly("tag", [](const T& t) { return to_array(t.tag); })
+      .def("__len__", [](const T& t) { return t.simplices.size(); });
+}
 
 template <int Dim>
 void bind_physics_dim(py::module_& m) {
@@ -163,6 +219,34 @@ void bind_physics_dim(py::module_& m) {
              const mesh::PointLocator<Dim>& locator,
              const Point<Dim>& x) { return p.scattered_field(s, locator, x); },
           py::arg("solution"), py::arg("locator"), py::arg("x"), "None outside the mesh")
+      .def(
+          "sample",
+          [](const Scattering<Dim>& p, const ScatteringSolution<Dim>& s,
+             const mesh::PointLocator<Dim>& locator, const RealArray& points, bool scattered,
+             bool bloch_wrap, int interface_side) {
+            const auto pts = array_to_points<Dim>(points);
+            physics::SampledField field;
+            {
+              py::gil_scoped_release release;
+              field = physics::sample_field<Dim>(
+                  p, s, locator, pts, sampling_options(scattered, bloch_wrap, interface_side));
+            }
+            return sampled_to_python(field);
+          },
+          py::arg("solution"), py::arg("locator"), py::arg("points"), py::arg("scattered") = false,
+          py::arg("bloch_wrap") = true, py::arg("interface_side") = 0,
+          "total (or scattered) field at points (n, dim) in parallel: (values (n, dim) complex, "
+          "cells (n,)); points outside a Bloch-periodic direction are wrapped back with the "
+          "Bloch phase, points outside the mesh give NaN and cell -1; interface_side +1 / -1 "
+          "evaluates a point on a facet in the cell above / below (last coordinate)")
+      .def(
+          "triangulate",
+          [](const Scattering<Dim>& p, const ScatteringSolution<Dim>& s, int subdivisions,
+             bool scattered) {
+            return physics::triangulate_field<Dim>(p, s, subdivisions, scattered);
+          },
+          py::arg("solution"), py::arg("subdivisions") = 2, py::arg("scattered") = false, Release(),
+          "the field on the subdivisions-fold subdivided mesh as a TriangulatedField")
       .def(
           "error",
           [](const Scattering<Dim>& p, const ScatteringSolution<Dim>& s,
@@ -694,7 +778,35 @@ void bind_physics(py::module_& m) {
                const Point<2>& x) { return p.scattered_field(s, l, x); },
             py::arg("solution"), py::arg("locator"), py::arg("x"))
         .def("incident_field", &ConicalScattering::incident_field, py::arg("x"),
-             "(E_x, E_y, E_z) of the incident field");
+             "(E_x, E_y, E_z) of the incident field")
+        .def(
+            "sample",
+            [](const ConicalScattering& p, const ConicalSolution& s,
+               const mesh::PointLocator<2>& locator, const RealArray& points, bool scattered,
+               bool bloch_wrap, int interface_side) {
+              const auto pts = array_to_points<2>(points);
+              physics::SampledField field;
+              {
+                py::gil_scoped_release release;
+                field = physics::sample_field(
+                    p, s, locator, pts, sampling_options(scattered, bloch_wrap, interface_side));
+              }
+              return sampled_to_python(field);
+            },
+            py::arg("solution"), py::arg("locator"), py::arg("points"),
+            py::arg("scattered") = false, py::arg("bloch_wrap") = true,
+            py::arg("interface_side") = 0,
+            "total (or scattered) physical field (E_x, E_y, E_z) at points (n, 2) in parallel: "
+            "(values (n, 3) complex, cells (n,)); Bloch wrapping, NaN outside, interface_side "
+            "as Scattering2D.sample")
+        .def(
+            "triangulate",
+            [](const ConicalScattering& p, const ConicalSolution& s, int subdivisions,
+               bool scattered) {
+              return physics::triangulate_field(p, s, subdivisions, scattered);
+            },
+            py::arg("solution"), py::arg("subdivisions") = 2, py::arg("scattered") = false,
+            Release(), "the field on the subdivided mesh as a TriangulatedField2D");
     m.def("conical_poynting_flux", &physics::conical_poynting_flux, py::arg("transverse"),
           py::arg("longitudinal"), py::arg("e"), py::arg("v"), py::arg("beta"), py::arg("omega"),
           py::arg("materials"), py::arg("surface"), py::arg("order") = 8, Release(),
@@ -793,6 +905,8 @@ void bind_physics(py::module_& m) {
       .def_readonly("residual", &physics::ResonantMode::residual)
       .def_readonly("field", &physics::ResonantMode::field);
   bind_riesz_common(m);
+  bind_triangulated_field<2>(m);
+  bind_triangulated_field<3>(m);
   bind_physics_dim<2>(m);
   bind_physics_dim<3>(m);
   // --- axisymmetric (2.5D) problems: meridian mesh, one problem per azimuthal order -------
