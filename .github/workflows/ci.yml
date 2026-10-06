@@ -6,7 +6,7 @@ on:
 # letting it finish or fail (cancelled runs do not count as failures)
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   format:
     runs-on: ubuntu-24.04
