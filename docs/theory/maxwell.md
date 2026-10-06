@@ -900,4 +900,21 @@ volume integral of the total field (energy balance).
   Bloch wrapping against the phase, NaN outside, interface side, the subdivision against
   `mesh::subdivide`, both solvers.
 
+- **Absorbed power per tag, cell and quadrature point** (`physics/absorption.hpp`, M15 F4):
+  `absorbed_power_by_tag(problem, solution)` integrates the Joule heating
+  $Q = \tfrac{\omega\varepsilon_0}{2}\,\mathrm{Im}(\varepsilon_r)\,|E|^2$ of the *total* field
+  (incident or background field included) over every lossy cell with rules of degree
+  $2p + 2$ and returns the total, the power of every material tag and the power of every
+  cell; `absorption_density` returns $Q$ at the quadrature points with their weights for
+  maps and carrier-generation profiles. Both exist for `Scattering<Dim>` and
+  `ConicalScattering` ($|E|^2 = |E_x|^2 + |E_y|^2 + |E_z|^2$ of the physical field). The
+  volumetric quadrature replaces the raster integration of a field map, which is wrong by
+  about a pixel at every material boundary (4–8 % in the GUI), and avoids the interface
+  caveat of the E$_z$ Poynting flux. Divide by the incident power per period,
+  `plane_wave_intensity(|E_0|, medium) cos θ · a`, for the absorptance. Verified
+  (`test_absorption.cpp`): the absorptance of a flat lossy film on a layered background from
+  the exact stack field to $10^{-6}$ (both solvers, the conical one at β ≠ 0 in s and p), the
+  per-cell and per-point sums against the total, two lossy tags of a grating; the Si grating
+  of `grating_postprocessing.cpp` closes $\sum_{\text{tags}} = 1 - R_0 - R_{-1}$ to $10^{-4}$.
+
 Planned: Purcell factor $F_P = P_{\mathrm{emitted}}/P_{\mathrm{bulk}}$ for a point dipole.

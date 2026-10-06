@@ -83,6 +83,7 @@ hpfem_add_test(test_physics unit
   physics/test_waveguide_port.cpp
   physics/test_conical_scattering.cpp
   physics/test_field_sampling.cpp
+  physics/test_absorption.cpp
   physics/test_conical_layered.cpp)
 
 hpfem_add_test(test_hanging unit

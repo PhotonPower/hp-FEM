@@ -162,6 +162,8 @@ locator = hpfem.PointLocator2D(mesh)
 E = problem.total_field(solution, locator, [0.5, 0.1])      # None outside the mesh
 values, cells = problem.sample(solution, locator, points)   # (n, 2) complex, (n,) cells; NaN / -1 outside
 tri = problem.triangulate(solution, subdivisions=3)         # points, simplices, values, cell, tag
+absorbed = hpfem.absorbed_power_by_tag(problem, solution)   # .total, .by_tag {tag: W/m}, .per_cell
+density = hpfem.absorption_density(problem, solution)       # Joule heating at the quadrature points
 # matplotlib.tri.Triangulation(tri.points[:, 0], tri.points[:, 1], tri.simplices)
 hpfem.FieldExporter2D(mesh, 3).hcurl("E", dofs, solution.unknown).write("mie.vtu")
 
