@@ -252,12 +252,19 @@ polarisation of the 2D solver and the longitudinal wavenumber for the microscope
 
 ## M14 — Accuracy infrastructure for oblique incidence and gratings
 From the same report (`spec-m14a/b/c`); A and C by the gpu agent, B by dev.
-- [ ] M14-A PML for oblique incidence (`PmlProfile::for_angle`, `PmlBox::max_resolution` with a
-  warning, documentation of R0 at the angle θ; flat Si / Ag against Fresnel)
+- [x] M14-A PML for oblique incidence (`PmlProfile::for_angle`, `PmlBox::max_resolution` /
+  `resolution_limit` / `recommended_thickness(profile, p)`, under-resolution warning in
+  `Scattering`, R0^(cos θ / 2) documented in `docs/theory/pml.md`; convergence test
+  `flat_surface_fresnel`: Si and Ag half spaces at 10-70° against Fresnel; Python / project
+  keys `theta_max` / `target`)
 - [ ] M14-B hp-adaptivity on a plasmonic grating (Bloch + layered background + PML): marking
   symmetrised across periodic faces, estimator options, convergence test on the Ag grating
-- [ ] M14-C post-processing for gratings (`diffraction_orders` with any orientation and the
-  background subtracted, `power_balance`, `Surface::line`, `total_field` on stack interfaces)
+- [x] M14-C post-processing for gratings (`diffraction_orders` on an `OrderLine` of any
+  orientation with the incident wave subtracted, complex vector amplitudes; `power_balance` /
+  `absorbed_power(problem, solution)` of the total field; `Surface::plane`; `total_field` on
+  stack interfaces by the cell side; `incident_wave` on the stack wave, setup and problem;
+  convergence test `grating_postprocessing`: the report's Si grating to 1e-6 of the RCWA,
+  lossless balance 2e-6; convergence test #6 moved to the layered background)
 
 ## M15 — Features requested by the GUI work (FEM model builder)
 From the user's GUI work of 6 October 2026 (details, API proposals, acceptance data and the measurements

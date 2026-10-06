@@ -15,6 +15,45 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `conical_lamellar_grating_ez` (in-test TE RCWA, |ΔR| 2e-6 and |ΔT| 2e-5 at p = 4 with the
   substrate as layered background), theory section with the caveat on E_z fluxes at
   material interfaces.
+- Grating post-processing (M14-C, from the user test report): `physics::diffraction_orders`
+  takes the orders on an `OrderLine` of any orientation (origin as phase reference, tangent
+  along the period, normal away from the structure) by composite Gauss-Legendre blocks and
+  subtracts an incident wave, so the reflected orders of a total field on a `LayerStack`
+  background follow from the new `Scattering::incident_wave` (`LayeredPlaneWave::incident_wave`,
+  `ScatteringSetup::incident_wave`); the result carries the complex vector amplitude of every
+  order. `Surface::plane` builds flux surfaces on coordinate planes, `power_balance` gives
+  the energy balance of a periodic problem (incident power per period, reflected flux of
+  total minus incident wave, transmitted flux, absorbed power of the total field by
+  `absorbed_power(problem, solution)`) with the relative residual as reference-free quality
+  indicator, and `total_field` on an interface of the layered background evaluates the side
+  of the located cell. The silicon lamellar grating of the report gives R0 = 0.143380 and
+  R-1 = 0.142383 at p = 5 against the RCWA 0.143381 / 0.142382 (the report's +1.2e-4 was its
+  extraction), balance residual 1.7e-6; the lossless grating closes R + T = 1 to 2e-6 once
+  the PML is designed for the steepest propagating order on its side. Convergence test #6
+  now runs on the layered background with the orders from `diffraction_orders` (its
+  substrate PML was under-resolved, |ks|h = 9.4: two units at R0 = 1e-6 bring the
+  transmitted orders from 1e-3 to 2.6e-4 at p = 3). Python bindings, project keys
+  `outputs.diffraction.line` / `balance`, theory section in `docs/theory/maxwell.md`.
+- Angle-aware PML design (M14-A, from the user test report): `PmlProfile::for_angle(theta_max,
+  target, r_amplitude)` chooses the normal-incidence round-trip reflection R0 so that the
+  field reflected by the far wall at the angle theta, R0^(cos theta / 2), stays below the
+  target for a structure of amplitude reflection r; `PmlBox::max_resolution(h, n)` reports
+  the largest |k s| h of the layers, `PmlBox::resolution_limit(p)` the rule of thumb (3 for
+  p >= 4, 0.75 p below) and `recommended_thickness(k0, n, h, profile, p)` the thickness that
+  keeps a profile resolved; `Scattering` warns when a PML is under-resolved with the index
+  meshed in the layer. Convergence test `flat_surface_fresnel` (silicon and silver half
+  spaces at 10-70 degrees against Fresnel), `docs/theory/pml.md` section on oblique
+  incidence, Python `PmlProfile.for_angle` in degrees and the project keys
+  `pml.profile.theta_max` / `target` with a warning for steep angles on a plain reflection.
+- Modal expansion by Riesz projection (`physics::RieszProjection<Dim>`,
+  `AxisymmetricRieszProjection`, engine `RieszProjectionBase` on a `RieszPencil`): the
+  residues of the frozen-PML resonance pencil from trapezoidal circles around the listed
+  poles, group contours, and an ellipse background whose integrand has the modal parts
+  subtracted (otherwise the enclosed poles cap the convergence rate), each with a half-rule
+  convergence check; `spectrum()` / `expand()` / `direct()` reconstruct a solution from the
+  modal and background parts. Tests: strip identity to 1e-8 at 20 frequencies, 0.4^N
+  convergence, sphere in 2.5D; Python bindings; the micropillar example's `modal_spectrum()`
+  gives a Purcell factor of 5.03 against 5.14 of the sweep (2 % from the frozen PML).
 - Batched loads and Dirichlet data for sweeps: `assembly::assemble_maxwell_loads` assembles
   the loads of all incident fields in one pass over the cells (geometry, quadrature and
   basis functions once per cell, cell colouring instead of per-thread copies of the n x k
