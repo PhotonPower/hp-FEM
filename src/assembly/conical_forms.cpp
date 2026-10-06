@@ -1,5 +1,11 @@
 #include "hpfem/assembly/conical_forms.hpp"
 
+#if defined(__GNUC__) && !defined(__clang__)
+// GCC 13 reports a potential null dereference inside std::function when the form factory
+// is called from the parallel loop (false positive, as in complex_eigen_solver.cpp)
+#pragma GCC diagnostic ignored "-Wnull-dereference"
+#endif
+
 #include <algorithm>
 #include <vector>
 

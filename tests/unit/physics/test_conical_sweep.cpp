@@ -105,7 +105,7 @@ TEST_CASE("ConicalSweep reproduces the per-point solves along a frequency and an
   REQUIRE(sweep.num_source_cells() < g.mesh.num_cells());
   int points = 0;
   for (const Real wavelength : {0.6 * kUm, 0.55 * kUm, 0.7 * kUm}) {
-    for (const auto [angle, azimuth] : {std::pair{0.4, 0.3}, std::pair{0.7, 1.1}}) {
+    for (const auto& [angle, azimuth] : {std::pair{0.4, 0.3}, std::pair{0.7, 1.1}}) {
       const auto setup = g.setup(wavelength, angle, azimuth);
       const auto direct = ConicalScattering(g.nd, g.h1, setup).solve();
       const auto swept = sweep.solve(setup);
