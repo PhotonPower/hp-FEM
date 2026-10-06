@@ -876,4 +876,45 @@ volume integral of the total field (energy balance).
   (order $-2$ at 57° in the glass, not the 50° of the incident wave: designed for 50° the
   layer reflected $2.5\cdot10^{-5}$ of it and the balance stalled at $1.7\cdot10^{-5}$).
 
+- **Field sampling and triangulated export** (`physics/field_sampling.hpp`, M15 F3): maps and
+  line scans no longer need one call per point. `sample_field(problem, solution, locator,
+  points, options)` evaluates the total or scattered field of a `Scattering<Dim>` or
+  `ConicalScattering` solution at many points in parallel: the points are located first (in
+  blocks), grouped by cell, and every cell evaluates its points with basis, geometry and
+  coefficients set up once (affine cells reuse their Jacobian). Points outside the mesh along
+  a Bloch-periodic direction of the setup are mapped back into the unit cell and the value
+  carries the Bloch phase $e^{i n k\cdot a}$; points outside the mesh otherwise give NaN and
+  no cell; `interface_side` resolves a point on a facet to the cell above or below along the
+  last coordinate (the stack normal), so both one-sided limits of a discontinuous normal
+  component are reachable. `triangulate_field(problem, solution, n)` returns the field on the
+  $n$-fold subdivided mesh (`mesh::subdivide`, curved cells included): points, simplices,
+  values per point, parent cell and tag per simplex, with points not shared between parent
+  cells so that discontinuities across facets are preserved — the input of
+  `matplotlib.tri.Triangulation` or of any viewer. The basis kernels
+  (`fespace/detail/kernels.hpp`) keep their Legendre data in fixed-capacity arrays since this
+  work, so a basis evaluation allocates nothing; this halved the cost of every point
+  evaluation and quadrature loop. Measured on the maintainer's machine (16 threads, 2D,
+  $p = 2$ and $4$): 50–60 ns per point against 2.5–5 µs for the Python loop over
+  `total_field`, 50–80× faster; single-threaded 250–350 ns, 8–14×. Unit tests
+  (`test_field_sampling.cpp`): values identical to the point-wise evaluation to $10^{-14}$,
+  Bloch wrapping against the phase, NaN outside, interface side, the subdivision against
+  `mesh::subdivide`, both solvers.
+
+- **Absorbed power per tag, cell and quadrature point** (`physics/absorption.hpp`, M15 F4):
+  `absorbed_power_by_tag(problem, solution)` integrates the Joule heating
+  $Q = \tfrac{\omega\varepsilon_0}{2}\,\mathrm{Im}(\varepsilon_r)\,|E|^2$ of the *total* field
+  (incident or background field included) over every lossy cell with rules of degree
+  $2p + 2$ and returns the total, the power of every material tag and the power of every
+  cell; `absorption_density` returns $Q$ at the quadrature points with their weights for
+  maps and carrier-generation profiles. Both exist for `Scattering<Dim>` and
+  `ConicalScattering` ($|E|^2 = |E_x|^2 + |E_y|^2 + |E_z|^2$ of the physical field). The
+  volumetric quadrature replaces the raster integration of a field map, which is wrong by
+  about a pixel at every material boundary (4–8 % in the GUI), and avoids the interface
+  caveat of the E$_z$ Poynting flux. Divide by the incident power per period,
+  `plane_wave_intensity(|E_0|, medium) cos θ · a`, for the absorptance. Verified
+  (`test_absorption.cpp`): the absorptance of a flat lossy film on a layered background from
+  the exact stack field to $10^{-6}$ (both solvers, the conical one at β ≠ 0 in s and p), the
+  per-cell and per-point sums against the total, two lossy tags of a grating; the Si grating
+  of `grating_postprocessing.cpp` closes $\sum_{\text{tags}} = 1 - R_0 - R_{-1}$ to $10^{-4}$.
+
 Planned: Purcell factor $F_P = P_{\mathrm{emitted}}/P_{\mathrm{bulk}}$ for a point dipole.

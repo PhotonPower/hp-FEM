@@ -6,6 +6,8 @@
 #include <vector>
 
 #include "common.hpp"
+#include "hpfem/physics/absorption.hpp"
+#include "hpfem/physics/conical_scattering.hpp"
 #include "hpfem/physics/diffraction.hpp"
 #include "hpfem/physics/farfield.hpp"
 #include "hpfem/physics/mie.hpp"
@@ -147,6 +149,40 @@ void bind_postprocess_dim(py::module_& m) {
       py::arg("dofs"), py::arg("e"), py::arg("omega"), py::arg("materials"),
       py::arg("extra_order") = 2, Release(),
       "omega eps0 / 2 * integral Im(eps_r) |E|^2 over the lossy cells");
+  py::class_<physics::AbsorptionDensity<Dim>>(
+      m, named("AbsorptionDensity", Dim).c_str(),
+      "Joule heating at the quadrature points of the lossy cells: points (n, dim), weights "
+      "(n,) with the Jacobian, density (n,) [W/m^3, W/m^2 in 2D], cell (n,); total() is the "
+      "absorbed power")
+      .def_property_readonly("points",
+                             [](const physics::AbsorptionDensity<Dim>& d) {
+                               return points_to_array<Dim>(std::span<const Point<Dim>>(d.points));
+                             })
+      .def_property_readonly(
+          "weights", [](const physics::AbsorptionDensity<Dim>& d) { return to_array(d.weights); })
+      .def_property_readonly(
+          "density", [](const physics::AbsorptionDensity<Dim>& d) { return to_array(d.density); })
+      .def_property_readonly(
+          "cell", [](const physics::AbsorptionDensity<Dim>& d) { return to_array(d.cell); })
+      .def("total", &physics::AbsorptionDensity<Dim>::total)
+      .def("__len__", [](const physics::AbsorptionDensity<Dim>& d) { return d.weights.size(); });
+  m.def(
+      "absorbed_power_by_tag",
+      [](const physics::Scattering<Dim>& problem, const physics::ScatteringSolution<Dim>& solution,
+         int extra_order) {
+        return physics::absorbed_power_by_tag<Dim>(problem, solution, extra_order);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("extra_order") = 2, Release(),
+      "absorbed power of the total field by volumetric quadrature: AbsorbedPower with total, "
+      "by_tag {tag: W (W/m in 2D)} and per_cell");
+  m.def(
+      "absorption_density",
+      [](const physics::Scattering<Dim>& problem, const physics::ScatteringSolution<Dim>& solution,
+         int extra_order) {
+        return physics::absorption_density<Dim>(problem, solution, extra_order);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("extra_order") = 2, Release(),
+      "Joule heating at the quadrature points of the lossy cells");
   m.def(
       "absorbed_power",
       [](const physics::Scattering<Dim>& problem, const physics::ScatteringSolution<Dim>& solution,
@@ -221,6 +257,33 @@ void bind_postprocess(py::module_& m) {
         py::arg("kx_incident"), py::arg("incident_amplitude"),
         "Efficiencies of the orders of the Fourier coefficients in a medium of real index "
         "index_line for an incident plane wave of the given amplitude and normal wavenumber");
+  py::class_<physics::AbsorbedPower>(m, "AbsorbedPower",
+                                     "Absorbed power [W, W/m in 2D]: total, by_tag (dict tag -> "
+                                     "power, lossy tags only), per_cell (0 in lossless cells)")
+      .def_readonly("total", &physics::AbsorbedPower::total)
+      .def_property_readonly("by_tag",
+                             [](const physics::AbsorbedPower& a) {
+                               py::dict d;
+                               for (const auto& [tag, power] : a.by_tag) d[py::int_(tag)] = power;
+                               return d;
+                             })
+      .def_property_readonly("per_cell",
+                             [](const physics::AbsorbedPower& a) { return to_array(a.per_cell); })
+      .def("of_tag", &physics::AbsorbedPower::of_tag, py::arg("tag"));
+  m.def(
+      "absorbed_power_by_tag",
+      [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,
+         int extra_order) {
+        return physics::absorbed_power_by_tag(problem, solution, extra_order);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("extra_order") = 2, Release(),
+      "the same for the conical solver (|E_x|^2 + |E_y|^2 + |E_z|^2 of the physical field)");
+  m.def(
+      "absorption_density",
+      [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,
+         int extra_order) { return physics::absorption_density(problem, solution, extra_order); },
+      py::arg("problem"), py::arg("solution"), py::arg("extra_order") = 2, Release(),
+      "the same for the conical solver");
   py::class_<physics::OrderLine>(m, "OrderLine",
                                  "Where the orders are taken: a point of the line (phase "
                                  "reference), the unit tangent along the period, the unit "

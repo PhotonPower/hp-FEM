@@ -11,6 +11,7 @@
 #include <numbers>
 #include <vector>
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/format.h>
 
@@ -22,6 +23,7 @@
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/mesh/mesh.hpp"
 #include "hpfem/mesh/point_location.hpp"
+#include "hpfem/physics/absorption.hpp"
 #include "hpfem/physics/diffraction.hpp"
 #include "hpfem/physics/layer_stack.hpp"
 #include "hpfem/physics/postprocess.hpp"
@@ -75,6 +77,7 @@ struct Geometry {
 struct Result {
   Real r0 = 0, r_m1 = 0;
   hpfem::physics::PowerBalance balance;
+  Real absorbed_by_tag = 0;  ///< sum over the material tags (F4), relative to the incident power
   Index dofs = 0;
   Real resolution = 0;
 };
@@ -152,6 +155,8 @@ Result solve(const Geometry& g, Real spacing, int p) {
                             g.pml_below > 0 ? &transmission : nullptr);
   r.dofs = dofs.num_dofs();
   r.resolution = setup.pml->max_resolution(spacing * kNano, 1.0);
+  const auto by_tag = hpfem::physics::absorbed_power_by_tag<2>(problem, solution);
+  for (const auto& [tag, power] : by_tag.by_tag) r.absorbed_by_tag += power / r.balance.incident;
   return r;
 }
 
@@ -184,6 +189,11 @@ TEST_CASE(
   // the flux through the line carries the reflected orders: it equals their sum
   CHECK(std::abs(last.balance.reflected / last.balance.incident - (last.r0 + last.r_m1)) < 2e-4);
   CHECK(std::abs(last.balance.relative_residual()) < 1e-3);
+  // F4 acceptance: the absorbed power summed over the material tags closes the balance with
+  // the reflected orders (PEC wall below: no transmission)
+  CHECK(std::abs(last.absorbed_by_tag - (1.0 - last.r0 - last.r_m1)) < 1e-4);
+  CHECK(last.absorbed_by_tag ==
+        Catch::Approx(last.balance.absorbed / last.balance.incident).epsilon(1e-12));
 }
 
 TEST_CASE("Lossless lamellar grating: the power balance closes, R + T = 1",
