@@ -470,3 +470,62 @@ Burger's value):
 | grading_3_50 | 3000 | 2000 / 4 | 1000 / 1200 | 3 / 50 | 1,146,552 | 2.19885683 | +1.4e-05 |
 
 **Assessment.** With the layered background the slit–groove problem converges in $p$ to $S/S_0 = 2.198857$ for $\varepsilon_\text{sub} = 2.25$ and $2.200986$ for $2.1025$; from $p = 4$ on the discretisation changes the result by less than $10^{-5}$ and the finest mesh (spacing 50 nm, $1.1\cdot 10^6$ unknowns) agrees with the default one to $5\cdot 10^{-6}$. Against Burger et al. the converged value lies $1.4\cdot 10^{-5}$ high, against the mean of the two best methods of Besbes et al. $1.8\cdot 10^{-5}$ high; the CI tolerances ($10^{-4}$ and $2\cdot 10^{-4}$) hold with a wide margin at $p = 4$ in about 35 s for the four solves. The $10^{-6}$ target of the long run against Burger is **not** reached: the remaining $10^{-5}$ is the truncation of the surface plasmons on the silver, as the domain study shows (lateral extent 2–4 µm, PML 2–3 µm and 1–1.4 µm of air above the film each move the result by $1$–$2\cdot 10^{-5}$, the mesh does not). A thinner PML or less air above the film costs an order of magnitude (the 1 µm PML of order 3 that the other benchmarks use leaves $4\cdot 10^{-4}$). Burger et al. reach $10^{-9}$ with adaptive PML / pole condition techniques that this code does not have; closing the last $10^{-5}$ needs a plasmon-aware termination, not more unknowns. The hypothesis about the two sources is confirmed: our two substrates give the ratio $2.200986 / 2.198857 = 1.000968$, the published values $2.200946 / 2.198826 = 1.000964$, so the 0.1 % difference between Besbes et al. and Burger et al. is the substrate permittivity to within $4\cdot 10^{-6}$. No parameter was adjusted.
+
+## E. hp-adaptive silver grating with the conical solver (M15 F1)
+
+**Source.** The acceptance case of `docs/gui-support-features.md` (F1, section 3): lamellar
+silver grating, period 400 nm, ridge 200 nm wide and 148 nm high on a silver substrate
+($\varepsilon_\text{Ag} = -4.6631 + 0.2160i$), air above, $\lambda = 405$ nm, TM (in-plane $E$)
+at $\theta = 50^\circ$, $\varphi = 0$. Reference $R_0 = 0.77960 \pm 6\cdot 10^{-5}$,
+$R_{-1} = 0.07795 \pm 2\cdot 10^{-5}$ from the in-plane hp run of the GUI work and a conical
+RCWA (Li factorisation, 1/N extrapolated); the two methods differ by $2.3\cdot 10^{-4}$ in $R_0$.
+Uniform meshes of the in-plane solver stagnate at $\Delta R_0 = -3.4\ldots -5.0\cdot 10^{-3}$ and
+$\Delta R_{-1} = +6.1\ldots +8.7\cdot 10^{-3}$ for 65–130 k DoFs (the corner singularities).
+
+**Discretisation** (`tests/convergence/conical_grating_hp.cpp`). `physics::ConicalScattering`
+at $\beta = 0$ with the layered background (air over silver), the ridge as the only source
+region, PML above and below (profile 2, $R = 10^{-16}$, 407 nm), Bloch faces mirrored by
+`AdaptiveMesh::set_periodic` and equal orders on the paired face cells; structured root mesh of
+8 × 38 quads (37 nm) split into triangles; SOLVE – ESTIMATE (`conical_residual_estimate`) –
+MARK (Dörfler 0.5) – DECIDE (error prediction) – REFINE. Reflected orders from the Fourier
+coefficients of the scattered field on a line 199 nm above the ridges (256 points; the line
+height is no facet line of any refinement level, so the one-sided $E_y$ values on facets do not
+enter).
+
+**Results** (long run `convergence_conical_grating_hp "[validation-long]"`, results in
+`benchmarks/results/2026-10-06-validation-conical-grating-hp.json`). From $p = 4$ everywhere the
+loop reaches $\Delta R_{-1} = -4\cdot 10^{-6}$ and $\Delta R_0 = -2.2\cdot 10^{-4}$ at 86 k DoFs
+($p \le 8$ at the corners, h-refinement to level 5 there), both inside the F1 tolerances
+($5\cdot 10^{-5}$ and $5\cdot 10^{-4}$ at $\le 100$ k DoFs), and the result no longer changes with
+the line height (two lines 148 nm apart agree to $10^{-6}$) or the DoF count.
+
+**Assessment and what was learnt.** The conical solver is consistent with the in-plane solver:
+the same loop with `Scattering<2>` on the same mesh gives the same $R_0$, $R_{-1}$ to the
+$10^{-4}$ level at every step. The energy-norm estimator drives the corners (the $R_{-1}$
+accuracy) but its Dörfler marking is saturated by the corner indicators, so cells it never
+marks stay at their initial order; the specular order then reports the discretisation error
+of those cells: from $p = 1$ the air region leaves a dispersion error of $\sim 10^{-3}$ in $R_0$
+that varies with the height of the measurement line (and neither a gentler PML profile,
+$R = 10^{-8}$, nor a doubled PML thickness nor 1024 Fourier points change it); from $p = 3$ the
+PML and substrate cells leave a line-independent offset of $-5.5\cdot 10^{-4}$; from $p = 4$ the
+result is within the reference uncertainty. The remaining $-2.2\cdot 10^{-4}$ is of the size of
+the disagreement between the two reference methods. A goal-oriented estimator for the orders
+(F1 stage 2) would weight the PML and air cells by their influence on $R_0$ and remove the
+hand-chosen initial order.
+
+A second finding concerns the estimator itself, and applies to `residual_estimate` and the
+axisymmetric variant as well: in SI units the Gauss-law terms $(h/p)^2\|\nabla\cdot d\|^2$ and
+$h/(2p)\|[n\cdot d]\|^2$ exceed the curl–curl residual $(h/p)^2\|R_K\|^2$ by a factor
+$\sim 1/(kh)^2$ (here $10^{15}$ against $10^{-2}$), because $\nabla\cdot d \sim k^2|E|/h$ carries one
+more inverse length than $R_K \sim k^2|E|$; the published form of the estimator is dimensionally
+consistent only for lengths of order one. The marking is then driven by the Gauss-law residual
+of the corner cells (which still localises the singularities, as the $R_{-1}$ convergence
+shows), but $\eta$ is not a usable error measure: it jumps by an order of magnitude when a
+sub-nanometre corner cell is created while $R_0$, $R_{-1}$ stay fixed to $10^{-6}$. The rate
+checks of `conical_grating_hp` therefore use $|\Delta R_{-1}|$ ($b = 0.65$ in the short variant),
+and the estimator can be run with `divergence_terms = false` (then $\eta$ decays monotonically,
+$0.37 \to 5.7\cdot 10^{-3}$ at 49 k DoFs, and the PML cells get marked too, at the price of a
+slower $R$ convergence per DoF: $\Delta R_0 = -1.0\cdot 10^{-3}$, $\Delta R_{-1} = +5.8\cdot 10^{-4}$ at
+49 k DoFs). The remedy, a factor $1/k^2$ on the Gauss-law terms of all three estimators (the
+$H(\mathrm{curl})$ norm with the wavelength as the length scale), is a follow-up that changes
+the $\eta$ values of every SI-scale test and is tracked under M15 F1 stage 2.

@@ -73,6 +73,28 @@ The same estimator for the equation of one azimuthal order on the meridian mesh,
 cylindrical curl and divergence and the weight $r$ in every integral; formulas and
 verification in [axisymmetric.md](axisymmetric.md#hp-adaptivity-on-the-meridian-plane).
 
+### Conical incidence (`adaptivity::conical_residual_estimate`)
+
+The estimator of the 2.5D problem of [maxwell.md](maxwell.md#conical-incidence-and-the-e_z-polarisation),
+$E(x, y)e^{i\beta z}$ with the in-plane field on the Nédélec map and $v = -iE_z$ on the H1 map.
+It is the residual of the three-dimensional equation with $\partial_z = i\beta$, in Cartesian
+components: $w = \mu^{-1}\nabla\times E_{hp}$ with
+$\nabla\times E = \big(i(\partial_yv - \beta E_y),\ -i(\partial_xv - \beta E_x),\ \partial_xE_y - \partial_yE_x\big)$,
+$d = f + k_0^2\varepsilon E_{hp}$, $R_K = d - \nabla\times w$ with
+$(\nabla\times w)_x = \partial_yw_z - i\beta w_y$, $(\nabla\times w)_y = i\beta w_x - \partial_xw_z$,
+$\nabla\cdot d = \partial_xd_x + \partial_yd_y + i\beta d_z$, and on a facet with the in-plane normal
+$n$ the jumps $|[n\times w]|^2 = |[w_z]|^2 + |[n_xw_y - n_yw_x]|^2$ and $[n\cdot d]$. The
+$z$-component of the tangential jump is the jump of the in-plane curl (the $H_z$ polarisation),
+the in-plane components contain $\partial_n v$ (the normal derivative of $E_z$) and the
+$\beta E_t$ coupling; the normal-flux jump is that of $\varepsilon E_t$. No $r$ weights, the same
+$h/p$ factors as `residual_estimate`, PEC and Bloch facets carry no term. At $\beta = 0$ the
+indicators are those of the in-plane and the $E_z$ block side by side, so the same marking and
+hp decision apply to all three polarisations. Verified in `tests/unit/adaptivity/test_conical_estimator.cpp`
+(zero for an exact gradient mode on conforming and one-irregular meshes, localisation) and by
+the convergence test `conical_hp_corner` (re-entrant PEC corner at $\beta = 1.3$: effectivity
+3.3–5.2, error $\sim \exp(-0.26\,N^{1/3})$, algebraic slope $-2.0$, the corner h-refined);
+`physics::ConicalScattering::estimate` and `error` wrap it with the problem's forms.
+
 ## Goal-oriented estimation (dual-weighted residual)
 
 Scatterometry and metasurface design need accuracy in a *functional* $Q(E)$ (a Fourier

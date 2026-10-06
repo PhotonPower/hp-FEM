@@ -3,6 +3,14 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- hp-adaptivity for the conical solver (M15 F1 stage 1): `adaptivity::conical_residual_estimate`,
+  the residual estimator of the coupled 2.5D system (Cartesian curl with ∂_z = iβ, tangential
+  and normal-flux jumps including the E_z / εE_z interface conditions, hanging facets),
+  `ConicalScattering::estimate` / `error` with Python bindings (`ConicalError`); convergence
+  tests `conical_hp_corner` (manufactured gradient mode at a re-entrant PEC corner, β = 1.3,
+  effectivity 3.3–5.2, exponential in N^{1/3}) and `conical_grating_hp` (Ag lamellar grating,
+  TM 50°, against the F1 references: ΔR−1 = −4e-6 and ΔR0 = −2.2e-4 at 86 k DoFs in the long
+  variant, uniform meshes stagnate at 5e-3); the hp loop from Python in `test_conical.py`.
 - `mesh::AdaptiveMesh::set_periodic` (M15 F16 stage 1): refinement is mirrored across declared
   Bloch face pairs after the closure, so the leaf facets of both faces stay identical and the
   Bloch constraints can be rebuilt after every adaptive step (the GUI's workaround

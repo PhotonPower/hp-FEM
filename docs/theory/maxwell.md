@@ -523,6 +523,9 @@ per unit length with the conical curl, `conical_fourier_coefficients` samples a 
 along any line and `conical_diffraction_efficiencies` gives
 $\eta_m = \mathrm{Re}(k_{n,m})|A_m|^2/(k_n^{inc}|E_0|^2)$ with
 $k_{n,m} = \sqrt{k_0^2n^2 - k_{t,m}^2 - \beta^2}$ and the complex vector amplitudes $A_m$.
+`estimate` and `error` make the solver part of the hp loop
+([hp-adaptivity.md](hp-adaptivity.md#conical-incidence), estimator in
+[error-estimation.md](error-estimation.md#conical-incidence-adaptivityconical_residual_estimate)).
 
 **A caveat for E_z fluxes.** The Poynting flux of the longitudinal block needs the normal
 derivative of the H1 field, $H_t \propto \partial_nE_z$. On a material interface the
