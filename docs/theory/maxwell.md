@@ -415,8 +415,32 @@ independently of the port's orientation: the tangential electric field of the mo
 direction from the lexicographically smaller end point of the port to the larger one is
 positive at the port midpoint (positive slope for a mode vanishing there), so that parallel
 ports of a straight guide carry identical mode fields and $S_{21} = e^{i\beta L}$. Ports
-require the total-field formulation and lossless materials on the port; 3D ports (modes of
-the 2D cross-section from `PropagatingMode`) are a later item of M12.
+require the total-field formulation and lossless materials on the port.
+
+**3D port modes.** The port facets form a planar cross-section. It is extracted as a 2D
+mesh in the frame $(t_1, t_2, n)$ ($n$ the outward normal, $t_1$ the global axis least
+aligned with $n$ projected onto the plane, $t_2 = n\times t_1$, so $t_1\times t_2 = n$ and
+the cross-section's $z$ is the outward direction), with the cell tags and orders of the
+inside cells and a PEC rim, and its guided modes $(E_t + \hat n E_z)e^{i\beta\xi}$ come from
+`PropagatingMode` (propagating modes only; the solver drops the gradient kernel at
+$\beta^2 = 0$ by a relative threshold). The transverse curl of such a mode is
+$(\nabla\times E)_t = (\nabla_tE_z - i\beta E_t)\times\hat n$, hence
+
+$$
+\hat w_m = \hat n\times\mu_r^{-1}\nabla\times E = \frac{\nabla_tE_z - i\beta_m E_t}{\mu_r},\qquad
+h_t = \frac{(\nabla\times E)_t}{i\omega\mu_0\mu_r},\qquad
+P_m = \tfrac12\,\mathrm{Re}\int_\Gamma(\hat e_m\times h_t^*)\cdot\hat n\,dS ,
+$$
+
+and $q_{m,i} = \int_\Gamma\phi_i\cdot\hat w_m\,dS$, $N_m = \int_\Gamma\hat e_m\cdot\hat w_m\,dS$
+are integrated with the surface quadrature of the port facets (3D Nédélec basis of the
+inside cell at the quadrature point, mode fields of the section at its frame coordinates).
+The 2D relation $\hat w = i\omega\mu_0 h$ is the special case of this formula (with the mode
+equation $h'' = (\beta^2 - k_0^2\varepsilon_r\mu_r)h$). The sign of a 3D mode is fixed by the
+largest Cartesian component of its mean transverse field $\int E_t\,dS$ (of the first moment
+about the port centre for modes with vanishing mean), again independent of the port
+orientation. The modes' unit amplitude is the unit 2-norm of the `PropagatingMode`
+coefficients; the S-parameters are power-normalised and do not depend on it.
 
 **Verification** (`tests/unit/physics/test_waveguide_port.cpp`,
 `tests/convergence/waveguide_port.cpp`): the port modes of the PEC parallel plate are
@@ -429,7 +453,13 @@ symmetric and unitary; the slab section transmits its guided mode with $e^{i\bet
 convergence test refines the order on a fixed mesh of the slab section: both the error of
 $S_{21}$ against $e^{ik_0n_{\mathrm{eff}}L}$ with the analytic $n_{\mathrm{eff}}$ and the
 residual reflection $|S_{11}|$ decay exponentially in $p$ (the 1D port modes converge with
-the same order as the 2D field).
+the same order as the 2D field). In 3D (`tests/convergence/waveguide_port_3d.cpp`) the PEC
+rectangular waveguide $2\times1$ at $k_0 = 2.5$ (TE$_{10}$ only) has the port mode with
+$\beta = \sqrt{k_0^2 - (\pi/a)^2}$ ($2\cdot10^{-3}$ at $p = 2$ on the coarse section), the
+mode field $\propto\hat y\sin(\pi x/a)$ with the same sign on both ports, and the section of
+length 2 transmits with $S_{21} = e^{i\beta L}$: on a fixed $4\times2\times4$ box the error of
+$S_{21}$ decays $4\cdot10^{-2}$, $3.7\cdot10^{-3}$, $6.8\cdot10^{-5}$ and $|S_{11}|$
+$4\cdot10^{-2}$, $3.6\cdot10^{-4}$, $1.7\cdot10^{-6}$ for $p = 1, 2, 3$.
 
 ## Resonances (`physics/resonance.hpp`)
 

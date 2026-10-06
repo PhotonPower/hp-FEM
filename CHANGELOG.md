@@ -50,6 +50,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   unitary S), the convergence test `waveguide_port` (S21 error 1e-2 → 2e-11 and |S11| 6e-3 →
   2e-12 for p = 1…5), Python bindings and test, theory section
   `docs/theory/maxwell.md#waveguide-ports-and-s-parameters`.
+- 3D waveguide ports (M12): `PortModes<3>` extracts the planar port cross-section as a 2D
+  mesh in the port frame (tags, orders, PEC rim), takes its guided modes from
+  `PropagatingMode` and builds the modal boundary term from
+  n × (μ⁻¹ curl E) = (∇ₜE_z − iβEₜ)/μᵣ with the surface quadrature of the port facets;
+  `Scattering<3>` with ports and `s_parameters<3>`. `PropagatingMode` drops the numerically
+  zero eigenvalue of the gradient kernel by a relative threshold (it slipped through as a
+  "guided" mode with β ≈ 1e-6). Unit tests (rectangular waveguide TE10: β, mode field and
+  sign on both ports, S21 = e^{iβL}), the convergence test `waveguide_port_3d`, Python
+  bindings (`PortModes3D`, `transverse_field`) and test, theory section.
 
 ## [0.3.0] — 2026-10-04
 Third release: the backlog of 0.2.0 and two new milestones. Highlights: the axisymmetric

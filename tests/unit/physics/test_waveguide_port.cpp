@@ -232,11 +232,72 @@ TEST_CASE("waveguide ports reject what they cannot do", "[physics][port]") {
   setup.incident = hpfem::physics::plane_wave<2>(
       hpfem::assembly::ComplexVector<2>(Complex{0.0, 0.0}, Complex{1.0, 0.0}), Point<2>(1.0, 0.0));
   REQUIRE_THROWS_AS(Scattering<2>(dofs, setup), hpfem::InvalidArgument);
-  // 3D ports are not implemented yet
-  const Mesh<3> box = hpfem::mesh::box(1, 1, 1);
+  // 3D: the port facets must lie on one plane
+  Mesh<3> box = hpfem::mesh::box(2, 2, 2);
+  for (const hpfem::mesh::Tag tag : {box_tag::kXMin, box_tag::kYMin}) {
+    for (const Index f : box.facets_with_tag(tag)) box.set_facet_tag(f, 7);
+  }
   const NedelecDofMap<3> dofs3(box, 1);
-  REQUIRE_THROWS_AS(PortModes<3>(dofs3, box_tag::kXMin, materials, 1.0, 1), hpfem::InvalidArgument);
+  REQUIRE_THROWS_AS(PortModes<3>(dofs3, 7, materials, 1.0, 1), hpfem::InvalidArgument);
   ScatteringSetup<2> none = strip_setup(1.0, 1);
   none.ports.clear();
   REQUIRE_THROWS_AS(s_parameters<2>(dofs, none), hpfem::InvalidArgument);
+}
+
+TEST_CASE("3D port modes of the rectangular waveguide: TE10 with the analytic beta",
+          "[physics][port][3d]") {
+  // a = 2 (x), b = 1 (y), propagation along z; k0 = 2.5: TE10 propagates, TE01/TE20 do not
+  const Real a = 2.0;
+  const Real b = 1.0;
+  const Real k0 = 2.5;
+  const Mesh<3> mesh = hpfem::mesh::box(6, 3, 6, Point<3>(0.0, 0.0, 0.0), Point<3>(a, b, 2.0));
+  const NedelecDofMap<3> dofs(mesh, 2);
+  hpfem::materials::MaterialMap materials;
+  const PortModes<3> port(dofs, box_tag::kZMin, materials, k0 * hpfem::constants::c0, 2);
+  REQUIRE(port.num_modes() == 1);  // one guided mode
+  REQUIRE(port.normal()(2) == Approx(-1.0));
+  REQUIRE(port.section() != nullptr);
+  REQUIRE(port.section()->num_cells() == 2 * 6 * 3);
+  const Real beta = std::sqrt(k0 * k0 - (std::numbers::pi / a) * (std::numbers::pi / a));
+  const auto& mode = port.modes()[0];
+  REQUIRE(mode.propagating);
+  REQUIRE(mode.beta.real() == Approx(beta).epsilon(2e-3));
+  REQUIRE(mode.power > 0.0);
+  // E = e_y sin(pi x / a): the sign convention makes the mean field point along +y
+  const auto centre = port.transverse_field(0, Point<3>(a / 2, b / 2, 0.0));
+  REQUIRE(centre(1).real() > 0.0);
+  REQUIRE(std::abs(centre(0)) < 2e-2 * std::abs(centre(1)));  // discrete mode, p = 2
+  REQUIRE(std::abs(centre(2)) < 1e-12 * std::abs(centre(1)));
+  const auto quarter = port.transverse_field(0, Point<3>(a / 4, b / 2, 0.0));
+  REQUIRE(quarter(1).real() ==
+          Approx(centre(1).real() * std::sin(std::numbers::pi / 4)).epsilon(2e-2));
+  // the opposite port carries the same physical field
+  const PortModes<3> other(dofs, box_tag::kZMax, materials, k0 * hpfem::constants::c0, 2);
+  REQUIRE(other.normal()(2) == Approx(1.0));
+  const auto far = other.transverse_field(0, Point<3>(a / 2, b / 2, 2.0));
+  REQUIRE(far(1).real() == Approx(centre(1).real()).epsilon(2e-2));
+  REQUIRE_THROWS_AS(port.profile(0, 0.5), hpfem::InvalidArgument);
+}
+
+TEST_CASE("3D straight rectangular waveguide: S21 = e^{i beta L}, no reflection",
+          "[physics][port][3d]") {
+  const Real a = 2.0;
+  const Real b = 1.0;
+  const Real length = 2.0;
+  const Real k0 = 2.5;
+  const Mesh<3> mesh = hpfem::mesh::box(6, 3, 6, Point<3>(0.0, 0.0, 0.0), Point<3>(a, b, length));
+  const NedelecDofMap<3> dofs(mesh, 2);
+  ScatteringSetup<3> setup;
+  setup.omega = k0 * hpfem::constants::c0;
+  setup.pec_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin, box_tag::kYMax};
+  setup.ports = {WaveguidePort{box_tag::kZMin, 1, {}}, WaveguidePort{box_tag::kZMax, 1, {}}};
+  const auto s = s_parameters<3>(dofs, setup);
+  REQUIRE(s.channels.size() == 2);
+  const Real beta = s.channels[0].beta.real();
+  const Complex expected = std::exp(Complex{0.0, 1.0} * beta * length);
+  INFO("S = " << s.s(1, 0) << ", expected " << expected);
+  CHECK(std::abs(s.s(1, 0) - expected) < 2e-2);
+  CHECK(std::abs(s.s(0, 0)) < 2e-2);
+  CHECK(std::abs(s.s(0, 1) - s.s(1, 0)) < 1e-6);
+  CHECK(std::abs(std::norm(s.s(1, 0)) + std::norm(s.s(0, 0)) - 1.0) < 2e-2);
 }
