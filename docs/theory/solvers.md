@@ -419,8 +419,12 @@ and `fespace::Constraints::reduce` computes $P^H A P$ in one scatter pass over t
 instead of two sparse products (on a 100 k-DoF Bloch-periodic system the products cost more
 than the factorisation). `hpfem.sweep.solve_sweep(task, values, processes)` spreads the
 points of any sweep over worker processes with one hpfem thread each, for solvers that scale
-poorly with threads. Measured: `benchmarks/conical_sweep.cpp` and the entries of
-`benchmarks/results/`.
+poorly with threads. Measured (`benchmarks/conical_sweep.cpp`,
+`benchmarks/results/2026-10-06-VR-conical-sweep.json`: a dispersive grating on glass with
+layered background, PML and Bloch phases, 197 k block DoFs, cuDSS): 2.93 s per point for
+the naive loop against 1.37 s for the sweep over 50 points, 2.13×, solutions equal to
+$2\cdot10^{-12}$; the parallel assembler and the scatter reduction alone had made the naive
+loop 1.4× faster than before.
 
 ## Measured (`benchmarks/results/2026-10-02-VR.json`)
 
