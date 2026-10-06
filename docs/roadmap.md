@@ -244,9 +244,12 @@ polarisation of the 2D solver and the longitudinal wavenumber for the microscope
   layered background); theory section `docs/theory/maxwell.md#conical-incidence`
 - [ ] Python bindings (`ConicalScattering`, `layered_conical_wave`, orders), `hpfem.project` keys
   `"polarisation": "Ez" | "Hz"` and `"azimuth"` (conical), example (Si ridge in E_z, R1 Ag case)
-- [ ] conical grating validation at β ≠ 0 against a vector RCWA (or the 3D solver on a thin
-  unit cell), the acceptance case R1 of the report (Ag lamellar grating, 50°, TE) as a
-  `validation-long` test with the user's reference data
+- [x] conical grating validation at β ≠ 0 against the conical RCWA of the GUI work
+  (`conical_grating_validation`: glass lamellar grating, s at θ = 40°, φ = 30° and p at
+  θ = 50°, φ = 30° with the order m = −2 evanescent in air; 3.5e-5 and 4e-6 at p = 4,
+  energy balance 1e-6)
+- [ ] the acceptance case R1 of the report (Ag lamellar grating, 50°, TE, and the conical
+  Ag / Si cases of `gui-support-features.md` section 3) as a `validation-long` test
 - [ ] later: hp-adaptivity for the conical solver (estimator of the mode equation), E_z
   resonances and band structures, scalar `ScatteringEz` (H1 only) when the DoF count matters
 
@@ -266,15 +269,17 @@ a periodic unit cell, meshes it with Gmsh and runs `ConicalScattering` / `Scatte
 removes glue code or a workaround on its side. Priorities P1 > P2 > P3. Overlaps: F1 contains the
 unchecked "hp-adaptivity for the conical solver" of M13, F16 the "marking symmetrised across periodic
 faces" of M14-B.
-- [ ] F0 (P1) document and test the conventions of the conical API: sign and phase of the s / p
-  amplitude of `layered_conical_wave`, physical `(E_x, E_y, E_z)` of `total_field` against the scaled
-  `(E_x, E_y, −iE_z)` of the incident functions, solver frame (x periodic, y normal, z invariant)
-  against the literature frame, the name clash `wave.ky`
-- [ ] F16 (P1) periodic boundaries without identical meshes on both sides: stage 1 symmetric
-  refinement across a Bloch pair in the adaptive mesh (`set_periodic`), stage 2 non-matching
-  (mortar-type) Bloch coupling for the Nédélec and H1 traces with different levels and orders, and
-  periodic facets in the residual estimator. Observed: `bloch_constraints: 14 master facets but 16
-  slave facets` after a closure refinement on an unstructured Gmsh mesh
+- [x] F0 (P1) conventions of the conical API documented in `layered_conical_wave` (s = k × ŷ / |·|
+  = (−sin φ, 0, cos φ), p = k̂ × s, phase 1 at the origin on the top interface, scaled against
+  physical components, solver frame against the literature frame, `ky` is the normal
+  wavenumber) and tested at five (θ, φ) pairs to 1e-10
+- [x] F16 stage 1 (P1): symmetric refinement across a Bloch pair in the adaptive mesh
+  (`AdaptiveMesh::set_periodic`, mirrored after the closure in `refine` / `hp_refine`; 2D
+  and 3D unit tests, Python `set_periodic`)
+- [ ] F16 stage 2 (P1): non-matching (mortar-type) Bloch coupling for the Nédélec and H1 traces
+  with different levels and orders on the two faces, and the periodic facets in the residual
+  estimator. Observed before stage 1: `bloch_constraints: 14 master facets but 16 slave
+  facets` after a closure refinement on an unstructured Gmsh mesh
 - [ ] F1 (P1) hp-adaptivity for `ConicalScattering`: residual estimator of the coupled system,
   goal-oriented estimator for the diffraction orders (`GoalEstimate`), corner pre-refinement,
   generator `adaptive_solve` that streams steps; acceptance on the Ag grating (TM, 50°), TE and

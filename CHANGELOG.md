@@ -3,6 +3,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `mesh::AdaptiveMesh::set_periodic` (M15 F16 stage 1): refinement is mirrored across declared
+  Bloch face pairs after the closure, so the leaf facets of both faces stay identical and the
+  Bloch constraints can be rebuilt after every adaptive step (the GUI's workaround
+  `symmetrise_periodic` becomes unnecessary); unit tests in 2D and 3D, Python binding.
+- Conical validation and conventions (M13, M15 F0): `conical_grating_validation` checks the
+  conical solver at β ≠ 0 against the conical RCWA references of `docs/gui-support-features.md`
+  (glass lamellar grating: s at 40°/30° to 3.5e-5, p at 50°/30° to 4e-6 including the order that
+  is evanescent in air but propagates in glass; energy balance 1e-6); the s / p amplitude,
+  phase and frame conventions of `layered_conical_wave` are documented and tested.
 - Conical incidence and the E_z polarisation (M13, from the user test report): the 2.5D
   solver `physics::ConicalScattering` for z-invariant structures with the longitudinal
   wavenumber β (in-plane E in Nédélec, v = −i E_z in H1, `assembly::assemble_conical` with the
@@ -71,6 +80,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   "guided" mode with β ≈ 1e-6). Unit tests (rectangular waveguide TE10: β, mode field and
   sign on both ports, S21 = e^{iβL}), the convergence test `waveguide_port_3d`, Python
   bindings (`PortModes3D`, `transverse_field`) and test, theory section.
+
+### Fixed
+- A layered background rejected meshes whose lines sit on the interface only up to rounding
+  (defect D2 of the user report): the interface tolerance of `Scattering` and
+  `ConicalScattering` was relative to the stack thickness, which is zero for a bare substrate;
+  it is now relative to the mesh extent along the normal.
 
 ## [0.3.0] — 2026-10-04
 Third release: the backlog of 0.2.0 and two new milestones. Highlights: the axisymmetric
