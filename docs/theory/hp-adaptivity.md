@@ -213,6 +213,24 @@ is the r-weighted residual estimator of the mode equation. See
 [axisymmetric.md](axisymmetric.md#hp-adaptivity-on-the-meridian-plane) for the formulas and
 the convergence test at a re-entrant PEC edge (exponential in $N^{1/3}$, $b = 0.27$).
 
+## Conical incidence
+
+The conical solver takes part in the same loop: `ConicalScattering::estimate` returns the
+indicators of `adaptivity::conical_residual_estimate`
+([error-estimation.md](error-estimation.md#conical-incidence-adaptivityconical_residual_estimate)),
+`ConicalScattering::error` the L2 errors of the field and the conical curl against an exact
+field, and `hp_refine` raises the orders of both maps together (the two spaces share the
+per-cell order). With `AdaptiveMesh::set_periodic` the h-refinement stays mirrored across
+the Bloch faces of a grating; the orders of the paired face cells must agree until the
+non-matching coupling of M15 F16 stage 2 exists (the grating test equalises them after every
+step). The convergence tests are `conical_hp_corner` (manufactured gradient mode at a
+re-entrant PEC corner, $\beta = 1.3$: exponential with $b = 0.26$, the corner cells h-refined)
+and `conical_grating_hp` (the Ag lamellar grating of M15 F1 under TM at 50° with the layered
+background, Bloch faces and PML: $\Delta R_{-1} = -4\cdot 10^{-6}$, $\Delta R_0 = -2.2\cdot 10^{-4}$
+at 86 k DoFs where uniform meshes stagnate at $5\cdot 10^{-3}$; the loop starts at $p = 4$ because
+the energy-norm marking never touches the PML and air cells, see
+[validation.md](../validation.md#e-hp-adaptive-silver-grating-with-the-conical-solver-m15-f1)).
+
 ## Data-structure consequences (why M1/M2 must prepare this)
 
 - DoF numbering is **entity-based** (vertex → edge → face → cell) with a per-entity order,

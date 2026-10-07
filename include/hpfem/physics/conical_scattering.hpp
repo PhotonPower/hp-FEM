@@ -23,6 +23,7 @@
 
 #include <Eigen/Core>
 
+#include "hpfem/adaptivity/residual_estimator.hpp"
 #include "hpfem/assembly/conical_forms.hpp"
 #include "hpfem/assembly/periodic.hpp"
 #include "hpfem/core/types.hpp"
@@ -100,6 +101,13 @@ struct ConicalScatteringSetup {
   int pml_extra_quadrature_order = 6;  ///< added to 2p in PML cells
 };
 
+/// Error of a conical field against an exact one: @f$ \|e\|^2 = \int |e_x|^2 + |e_y|^2 + |e_z|^2
+/// @f$ and the same for the conical curl.
+struct ConicalError {
+  Real l2 = 0;
+  Real curl = 0;
+};
+
 /// Coefficients of the unknown field: the scattered field with an incident field, the total
 /// field with a current.
 struct ConicalSolution {
@@ -142,6 +150,16 @@ class ConicalScattering {
   }
   /// @throws Error if the factorisation fails.
   [[nodiscard]] ConicalSolution solve() const;
+  /// Element indicators of a solution (`adaptivity::conical_residual_estimate` with the
+  /// per-cell forms of this problem, β and k0²).
+  [[nodiscard]] adaptivity::Estimate estimate(
+      const ConicalSolution& solution, const adaptivity::EstimatorOptions& options = {}) const;
+  /// L2 errors of the unknown field and its conical curl against an exact physical field
+  /// (E_x, E_y, E_z) and curl given as functions of the point (empty curl: zero).
+  [[nodiscard]] ConicalError error(
+      const ConicalSolution& solution, const std::function<ConicalVector(const Point<2>&)>& exact,
+      const std::function<ConicalVector(const Point<2>&)>& exact_curl = {},
+      int extra_order = 4) const;
 
   /// Physical field (E_x, E_y, E_z) of the unknown at reference point ξ of cell c.
   [[nodiscard]] ConicalVector field(const ConicalSolution& solution, Index cell,

@@ -176,7 +176,10 @@ estimate = problem.estimate(solution)
 marked = hpfem.dorfler_marking(estimate.indicators, 0.5)
 ```
 
-The hp loop (`tests/convergence/adaptive_hp_refinement.cpp`) reads the same in Python:
+The hp loop (`tests/convergence/adaptive_hp_refinement.cpp`) reads the same in Python, and
+with `ConicalScattering` in place of `Scattering2D` (its `estimate` / `error` take the
+`ConicalSolution`, both DoF maps get the same `orders`; `AdaptiveMesh2D.set_periodic` keeps
+the Bloch faces of a grating mirrored):
 
 ```python
 adaptive = hpfem.AdaptiveMesh2D(root_mesh)
