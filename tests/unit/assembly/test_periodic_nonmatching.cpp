@@ -153,7 +153,7 @@ TEST_CASE("non-matching Bloch: different orders on the two sides (2D, H1 and Ned
   const Complex phase = bloch_phase<2>(k, Point<2>(1.0, 0.0));
   const std::vector<PeriodicPair<2>> pairs{
       PeriodicPair<2>{box_tag::kXMin, box_tag::kXMax, Point<2>(1.0, 0.0), phase}};
-  for (const auto [left, right] : std::vector<std::pair<int, int>>{{2, 4}, {4, 2}, {3, 3}}) {
+  for (const auto& [left, right] : std::vector<std::pair<int, int>>{{2, 4}, {4, 2}, {3, 3}}) {
     const std::vector<int> orders = split_orders(mesh, left, right);
     const DofMap<2> h1(mesh, orders);
     const Constraints c = bloch_constraints<2>(h1, pairs);

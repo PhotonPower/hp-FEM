@@ -118,7 +118,7 @@ void run(bool ez, Real exact) {
       "{:.8f}\n{:>3} {:>3} {:>8} {:>12} {:>12} {:>12} {:>12}\n",
       ez ? "E_z" : "in-plane E", exact, "n", "p", "DoF", "flux", "err", "far field", "err");
   std::vector<Real> errors;
-  for (const auto [n, p] : std::vector<std::pair<Index, int>>{{2, 2}, {3, 3}, {4, 3}, {4, 4}}) {
+  for (const auto& [n, p] : std::vector<std::pair<Index, int>>{{2, 2}, {3, 3}, {4, 3}, {4, 4}}) {
     const Row r = solve(n, p, ez);
     const Real e_flux = std::abs(r.flux - exact) / exact;
     const Real e_far = std::abs(r.far - exact) / exact;
