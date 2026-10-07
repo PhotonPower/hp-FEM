@@ -12,6 +12,16 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- Goal-oriented hp-adaptivity for the conical solver (M15 F1 stage 2):
+  `physics::conical_dwr_estimate` (DWR with the adjoint of the enriched coupled system, Bloch
+  and hanging constraints, PEC) with `conical_point_functional` and `conical_order_functional`
+  (vector amplitude of a diffraction order along a polarisation vector, the linearised
+  efficiency), `adaptivity::conical_weighted_residual` (identity Σ r_K(W) = ℓ(W) − a(E_h, W)
+  verified), an H1 `assembly::point_functional`, pre-refinement `adaptivity::refine_at_points`,
+  the Python generator `hpfem.adaptive_solve` (streams DoFs, η, observables, goal error; stops on
+  a tolerance; keeps paired Bloch cells at equal orders) and the bindings; convergence test
+  `conical_goal_oriented` (goal error 35× below the energy-driven loop at 8 k DoFs); the
+  acceptance cases (b) TE Ag 50° and (c) conical TM Si 50°/40° in `conical_grating_hp`.
 - hp-adaptivity for the conical solver (M15 F1 stage 1): `adaptivity::conical_residual_estimate`,
   the residual estimator of the coupled 2.5D system (Cartesian curl with ∂_z = iβ, tangential
   and normal-flux jumps including the E_z / εE_z interface conditions, hanging facets),

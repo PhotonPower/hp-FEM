@@ -5,6 +5,7 @@
 #include <fmt/format.h>
 
 #include "hpfem/core/error.hpp"
+#include "hpfem/fespace/h1_basis.hpp"
 #include "hpfem/fespace/nedelec_basis.hpp"
 #include "hpfem/mesh/geometry.hpp"
 
@@ -56,6 +57,37 @@ Vector point_functional(const fespace::NedelecDofMap<Dim>& dofs,
   return q;
 }
 
+template <int Dim>
+Vector point_functional(const fespace::DofMap<Dim>& dofs, const mesh::PointLocator<Dim>& locator,
+                        std::span<const Point<Dim>> points, std::span<const Complex> weights) {
+  if (weights.size() != points.size()) {
+    throw InvalidArgument(
+        fmt::format("point_functional: {} points, {} weights", points.size(), weights.size()));
+  }
+  Vector q = Vector::Zero(dofs.num_dofs());
+  std::vector<Real> values;
+  std::vector<Point<Dim>> grads;
+  for (std::size_t j = 0; j < points.size(); ++j) {
+    const auto located = locator.locate(points[j]);
+    if (!located) {
+      throw InvalidArgument(fmt::format("point_functional: point {} ({}, {}) lies outside the mesh",
+                                        j, points[j](0), points[j](1)));
+    }
+    const Index c = located->cell;
+    const fespace::H1Basis<Dim> basis(dofs.cell_layout(c));
+    values.resize(as_size(basis.size()));
+    grads.resize(as_size(basis.size()));
+    basis.evaluate(located->xi, values, grads);
+    const auto ids = dofs.cell_dofs(c);
+    for (Index i = 0; i < basis.size(); ++i) q(ids[as_size(i)]) += weights[j] * values[as_size(i)];
+  }
+  return q;
+}
+
+template Vector point_functional<2>(const fespace::DofMap<2>&, const mesh::PointLocator<2>&,
+                                    std::span<const Point<2>>, std::span<const Complex>);
+template Vector point_functional<3>(const fespace::DofMap<3>&, const mesh::PointLocator<3>&,
+                                    std::span<const Point<3>>, std::span<const Complex>);
 template Vector point_functional<2>(const fespace::NedelecDofMap<2>&, const mesh::PointLocator<2>&,
                                     std::span<const Point<2>>, std::span<const ComplexVector<2>>,
                                     std::span<const ComplexCurl<2>>);

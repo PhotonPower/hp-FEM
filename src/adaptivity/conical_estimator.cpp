@@ -139,6 +139,43 @@ void derivatives(CellSampler& sample, const Sample& at, const Point<2>& xi, Real
   div_d = dd(0, 0) + dd(1, 1) + ib * at.d(2);
 }
 
+/// The physical test vector W = (W_x, W_y, -i w) of a weight on the two maps of one cell.
+class WeightSampler {
+ public:
+  WeightSampler(const fespace::NedelecDofMap<2>& nedelec, const fespace::DofMap<2>& h1,
+                const Vector& we, const Vector& wv, Index c)
+      : nd_basis_(nedelec.cell_layout(c)),
+        h1_basis_(h1.cell_layout(c)),
+        geometry_(mesh::cell_geometry(nedelec.mesh(), c)),
+        e_(assembly::gather(we, nedelec.cell_dofs(c))),
+        v_(assembly::gather(wv, h1.cell_dofs(c))),
+        ref_values_(as_size(nd_basis_.size())),
+        psi_(as_size(h1_basis_.size())) {}
+
+  [[nodiscard]] Vec3 operator()(const Point<2>& xi) {
+    const auto g = geometry_->evaluate(xi);
+    nd_basis_.evaluate(xi, ref_values_, {});
+    h1_basis_.evaluate(xi, psi_, {});
+    Vec3 value = Vec3::Zero();
+    for (Index i = 0; i < nd_basis_.size(); ++i) {
+      const Point<2> phi = g.inverse_transpose * ref_values_[as_size(i)];
+      value(0) += e_(i) * phi(0);
+      value(1) += e_(i) * phi(1);
+    }
+    for (Index j = 0; j < h1_basis_.size(); ++j) value(2) += -kI * v_(j) * psi_[as_size(j)];
+    return value;
+  }
+
+ private:
+  fespace::NedelecBasis<2> nd_basis_;
+  fespace::H1Basis<2> h1_basis_;
+  std::unique_ptr<mesh::CellGeometry<2>> geometry_;
+  Vector e_;
+  Vector v_;
+  std::vector<Point<2>> ref_values_;
+  std::vector<Real> psi_;
+};
+
 class RuleCache {
  public:
   explicit RuleCache(int threads) : cells_(as_size(threads)), facets_(as_size(threads)) {}
@@ -312,6 +349,110 @@ Estimate conical_residual_estimate(const fespace::NedelecDofMap<2>& transverse,
   log().info("conical_residual_estimate: beta = {:.4g}, {} cells, eta = {:.4e}, max eta_K = {:.4e}",
              beta, num_cells, out.total(),
              num_cells > 0 ? out.indicators[as_size(out.argmax())] : 0.0);
+  return out;
+}
+
+std::vector<Complex> conical_weighted_residual(const fespace::NedelecDofMap<2>& transverse,
+                                               const fespace::DofMap<2>& longitudinal,
+                                               const Vector& e, const Vector& v, Real beta,
+                                               Real k_squared,
+                                               const assembly::ConicalFormFactory& form_of_cell,
+                                               const fespace::NedelecDofMap<2>& weight_transverse,
+                                               const fespace::DofMap<2>& weight_longitudinal,
+                                               const Vector& weight_e, const Vector& weight_v,
+                                               const EstimatorOptions& options) {
+  if (&transverse.mesh() != &longitudinal.mesh() ||
+      &weight_transverse.mesh() != &transverse.mesh() ||
+      &weight_longitudinal.mesh() != &transverse.mesh()) {
+    throw InvalidArgument("conical_weighted_residual: all maps must share the mesh");
+  }
+  if (e.size() != transverse.num_dofs() || v.size() != longitudinal.num_dofs() ||
+      weight_e.size() != weight_transverse.num_dofs() ||
+      weight_v.size() != weight_longitudinal.num_dofs()) {
+    throw InvalidArgument("conical_weighted_residual: coefficient vectors do not match the maps");
+  }
+  if (!(options.difference_step > 0)) {
+    throw InvalidArgument("conical_weighted_residual: the difference step must be positive");
+  }
+  const auto& mesh = transverse.mesh();
+  const Index num_cells = mesh.num_cells();
+  std::vector<Complex> out(as_size(num_cells), Complex{0.0, 0.0});
+  RuleCache rules(num_threads());
+  const auto make_sampler = [&](Index c) {
+    return CellSampler(transverse, longitudinal, e, v, c, form_of_cell(c), beta, k_squared);
+  };
+  const auto order_of = [&](Index c) {
+    return std::max({transverse.cell_order(c), longitudinal.cell_order(c),
+                     weight_transverse.cell_order(c), weight_longitudinal.cell_order(c)});
+  };
+  const auto quadrature_order = [&](const CellSampler& s, int p) {
+    return s.form().quadrature_order
+               ? *s.form().quadrature_order + 2
+               : 2 * p + options.extra_order + (s.geometry().is_affine() ? 0 : 2);
+  };
+
+  parallel_for(num_cells, [&](Index c, int thread) {
+    CellSampler sample = make_sampler(c);
+    WeightSampler w(weight_transverse, weight_longitudinal, weight_e, weight_v, c);
+    const auto& rule = rules.cell(thread, quadrature_order(sample, order_of(c)));
+    Complex sum = 0;
+    for (std::size_t q = 0; q < rule.size(); ++q) {
+      const Point<2>& xi = rule.points[q];
+      const Sample s = sample(xi);
+      Vec3 curl_w;
+      Complex div_d;
+      derivatives(sample, s, xi, options.difference_step, beta, curl_w, div_d);
+      const Real dx = rule.weights[q] * std::abs(sample.geometry().evaluate(xi).det);
+      const Vec3 residual = s.d - curl_w;
+      sum += dx * (residual.transpose() * w(xi))(0);
+    }
+    out[as_size(c)] = sum;
+  });
+
+  const Index num_facets = mesh.num_facets();
+  std::vector<Complex> facet_sum(as_size(num_facets), Complex{0.0, 0.0});
+  std::vector<FacetSides> sides(as_size(num_facets));
+  parallel_for(num_facets, [&](Index f, int thread) {
+    sides[as_size(f)] = facet_sides(mesh, f);
+    const FacetSides& side = sides[as_size(f)];
+    if (side.skip) return;
+    const Index c0 = side.c0;
+    const Index c1 = side.boundary ? c0 : side.c1;  // boundary: one-sided natural term
+    const LocalIndex k0 = mesh.facet_local_indices(f)[0];
+    CellSampler sample0 = make_sampler(c0);
+    CellSampler sample1 = make_sampler(c1);
+    WeightSampler w0(weight_transverse, weight_longitudinal, weight_e, weight_v, c0);
+    const int p_f = std::max(order_of(c0), order_of(c1));
+    const auto& rule = rules.facet(
+        thread, 2 * p_f + options.extra_order + (sample0.geometry().is_affine() ? 0 : 2));
+    const Point<2> centroid0 = mesh::affine_map(mesh, c0).centroid();
+    Complex sum = 0;
+    for (std::size_t q = 0; q < rule.size(); ++q) {
+      Point<2> xi0;
+      Point<2> n;
+      Real measure = 0;
+      facet_point(sample0.geometry(), k0, centroid0, rule, q, xi0, n, measure);
+      const Sample s0 = sample0(xi0);
+      const Real ds = rule.weights[q] * measure;
+      const Vec3 jump =
+          side.boundary ? s0.w : Vec3(s0.w - sample1(sample1.geometry().to_reference(s0.x)).w);
+      const Vec3 wv = w0(xi0);
+      // n x [w] with the in-plane normal n = (n_x, n_y, 0)
+      const Vec3 n_cross(n(1) * jump(2), -n(0) * jump(2), n(0) * jump(1) - n(1) * jump(0));
+      sum += ds * (n_cross.transpose() * wv)(0);
+    }
+    facet_sum[as_size(f)] = sum;
+  });
+  for (Index f = 0; f < num_facets; ++f) {
+    const FacetSides& side = sides[as_size(f)];
+    if (side.skip) continue;
+    if (side.boundary) {
+      out[as_size(side.c0)] += facet_sum[as_size(f)];
+    } else {
+      out[as_size(side.c0)] += 0.5 * facet_sum[as_size(f)];
+      out[as_size(side.c1)] += 0.5 * facet_sum[as_size(f)];
+    }
+  }
   return out;
 }
 
