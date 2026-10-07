@@ -494,7 +494,7 @@ enter).
 
 **Results** (long run `convergence_conical_grating_hp "[validation-long]"`, results in
 `benchmarks/results/2026-10-06-validation-conical-grating-hp.json`). From $p = 4$ everywhere the
-loop reaches $\Delta R_{-1} = -4\cdot 10^{-6}$ and $\Delta R_0 = -2.2\cdot 10^{-4}$ at 86 k DoFs
+loop reaches $\Delta R_{-1} = -5\cdot 10^{-6}$ and $\Delta R_0 = -2.2\cdot 10^{-4}$ at 88 k DoFs
 ($p \le 8$ at the corners, h-refinement to level 5 there), both inside the F1 tolerances
 ($5\cdot 10^{-5}$ and $5\cdot 10^{-4}$ at $\le 100$ k DoFs), and the result no longer changes with
 the line height (two lines 148 nm apart agree to $10^{-6}$) or the DoF count.
@@ -526,6 +526,13 @@ checks of `conical_grating_hp` therefore use $|\Delta R_{-1}|$ ($b = 0.65$ in th
 and the estimator can be run with `divergence_terms = false` (then $\eta$ decays monotonically,
 $0.37 \to 5.7\cdot 10^{-3}$ at 49 k DoFs, and the PML cells get marked too, at the price of a
 slower $R$ convergence per DoF: $\Delta R_0 = -1.0\cdot 10^{-3}$, $\Delta R_{-1} = +5.8\cdot 10^{-4}$ at
-49 k DoFs). The remedy, a factor $1/k^2$ on the Gauss-law terms of all three estimators (the
-$H(\mathrm{curl})$ norm with the wavelength as the length scale), is a follow-up that changes
-the $\eta$ values of every SI-scale test and is tracked under M15 F1 stage 2.
+49 k DoFs). The remedy is the length scale $\ell = 1/k$ on the Gauss-law terms of all three
+estimators (`EstimatorOptions::length_scale`, the $H(\mathrm{curl})$ norm with the wavelength
+as its length scale; see [error-estimation.md](theory/error-estimation.md)). With it $\eta$ is
+of order one ($2.1 \to 0.42$ from 31 k to 46 k DoFs) instead of $10^7$, problems with $k = 1$ are
+unchanged, and on the grating the marking and therefore every $R_0$, $R_{-1}$ of the table above
+stay exactly the same: the Gauss-law residual of the corner cells still exceeds their curl–curl
+residual by a factor $\sim 400$, which is now a genuine statement about the discrete
+divergence of the singular field (the gradient part of the error), not a unit artefact. The
+$\eta$ jumps at freshly created sub-nanometre cells remain, so the rate checks keep using
+$|\Delta R_{-1}|$.

@@ -7,14 +7,23 @@ Hoppe & Wohlmuth 2000; Schöberl 2008 for the $hp$ setting), the element indicat
 
 $$
 \eta_K^2 = \frac{h_K^2}{p_K^2}\,\big\| f - \nabla\times(\mu^{-1}\nabla\times E_{hp}) + \omega^2\varepsilon E_{hp} \big\|^2_{L^2(K)}
-+ \frac{h_K^2}{p_K^2}\,\big\| \nabla\cdot(f + \omega^2\varepsilon E_{hp}) \big\|^2_{L^2(K)}
++ \frac{h_K^2}{p_K^2}\,\ell^2\big\| \nabla\cdot(f + \omega^2\varepsilon E_{hp}) \big\|^2_{L^2(K)}
 + \sum_{F\subset\partial K}\frac{h_F}{2p_F}\Big( \big\| [\![\mathbf n\times\mu^{-1}\nabla\times E_{hp}]\!] \big\|^2_{L^2(F)}
-+ \big\| [\![\mathbf n\cdot(f+\omega^2\varepsilon E_{hp})]\!] \big\|^2_{L^2(F)} \Big).
++ \ell^2\big\| [\![\mathbf n\cdot(f+\omega^2\varepsilon E_{hp})]\!] \big\|^2_{L^2(F)} \Big).
 $$
 
 Terms: (1) element residual, (2) divergence residual (Gauss law, captures the gradient
 part of the error), (3) jump of the tangential magnetic field across faces, (4) jump of
-the normal displacement flux. The estimator is **reliable**
+the normal displacement flux. The length scale $\ell$ of the Gauss-law terms is not in the
+cited papers, which work with lengths of order one: $\nabla\cdot d$ carries one inverse length
+more than the element residual, so in SI units (cells of nanometres, $k \sim 10^7$/m) the
+unscaled terms (2) and (4) exceed (1) and (3) by $1/(kh)^2 \sim 10^{15}$ and $\eta$ measures only
+the Gauss-law residual of the smallest cells (observed on the silver grating of
+[validation.md](../validation.md#e-hp-adaptive-silver-grating-with-the-conical-solver-m15-f1)).
+With $\ell = 1/k$ (the default, `EstimatorOptions::length_scale = 0`) the four terms are
+measured in the same units, the wavelength being the length scale of the $H(\mathrm{curl})$
+norm; problems with $k = 1$ are unchanged. Pass $\ell = c_0/\omega$ when the mass coefficient is
+$\omega^2$ with SI tensors. The estimator is **reliable**
 $\|E-E_{hp}\|_{H(\mathrm{curl})} \le C\,(\sum_K \eta_K^2)^{1/2}$ up to data oscillation
 and higher-order terms (the Helmholtz-type problem is indefinite: reliability holds once
 the mesh resolves the wavelength). In $hp$ the constants depend on $p$; this is accepted.

@@ -6,17 +6,20 @@
 /// Per cell K with diameter h_K and order p_K,
 /// @f[
 ///   \eta_K^2 = \frac{h_K^2}{p_K^2}\,\|R_K\|^2_{L^2(K)}
-///            + \frac{h_K^2}{p_K^2}\,\|\nabla\cdot d\|^2_{L^2(K)}
+///            + \frac{h_K^2}{p_K^2}\,\ell^2\|\nabla\cdot d\|^2_{L^2(K)}
 ///            + \sum_{F\subset\partial K}\frac{h_F}{2p_F}\Big(\|[\![n\times w]\!]\|^2_{L^2(F)}
-///            + \|[\![n\cdot d]\!]\|^2_{L^2(F)}\Big),
+///            + \ell^2\|[\![n\cdot d]\!]\|^2_{L^2(F)}\Big),
 /// @f]
-/// with @f$ w = \mu^{-1}\nabla\times E_{hp} - g @f$, @f$ d = f + k^2\varepsilon E_{hp} @f$ and the
-/// element residual @f$ R_K = d - \nabla\times w @f$. Interior facets only (hanging child
-/// facets against the cell of their parent): PEC facets carry no residual, natural (PMC)
-/// and periodic facets are not yet accounted for. Complex
-/// coefficients and PML cells enter through the per-cell form, so the estimator measures
-/// the residual of the equation actually solved. Convention exp(-iωt) as everywhere.
-/// See docs/theory/error-estimation.md.
+/// with @f$ w = \mu^{-1}\nabla\times E_{hp} - g @f$, @f$ d = f + k^2\varepsilon E_{hp} @f$, the
+/// element residual @f$ R_K = d - \nabla\times w @f$ and the length scale @f$ \ell = 1/k @f$ of the
+/// Gauss-law terms (`EstimatorOptions::length_scale`): @f$ \nabla\cdot d @f$ carries one inverse
+/// length more than @f$ R_K @f$, so without @f$ \ell @f$ the published form holds only for lengths
+/// of order one and the Gauss-law terms dominate SI-scale problems by @f$ 1/(kh)^2 @f$. Interior
+/// facets only (hanging child facets against the cell of their parent): PEC facets carry no
+/// residual, natural (PMC) and periodic facets are not yet accounted for. Complex coefficients and
+/// PML cells enter through the per-cell form, so the estimator measures the residual of the
+/// equation actually solved. Convention exp(-iωt) as everywhere. See
+/// docs/theory/error-estimation.md.
 
 #include <type_traits>
 #include <vector>
@@ -32,6 +35,11 @@ struct EstimatorOptions {
   int extra_order = 2;
   /// Include the Gauss-law terms (divergence residual and normal-flux jumps).
   bool divergence_terms = true;
+  /// Length scale ℓ [m] multiplying the Gauss-law terms (squared), which makes them
+  /// dimensionally consistent with the curl–curl residual. 0 (default): ℓ = 1/k from the
+  /// `k_squared` argument, the wavelength scale (ℓ = 1 if k_squared is 0); set ℓ = c0/ω when
+  /// `k_squared` is ω² with SI tensors.
+  Real length_scale = 0;
   /// Step of the central differences, in reference coordinates, that supply the
   /// derivatives of @f$ w @f$ and @f$ d @f$ inside a cell (both are polynomial in ξ on
   /// affine cells with constant coefficients, so the differences are exact up to rounding).

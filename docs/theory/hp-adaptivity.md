@@ -226,8 +226,8 @@ non-matching coupling of M15 F16 stage 2 exists (the grating test equalises them
 step). The convergence tests are `conical_hp_corner` (manufactured gradient mode at a
 re-entrant PEC corner, $\beta = 1.3$: exponential with $b = 0.26$, the corner cells h-refined)
 and `conical_grating_hp` (the Ag lamellar grating of M15 F1 under TM at 50° with the layered
-background, Bloch faces and PML: $\Delta R_{-1} = -4\cdot 10^{-6}$, $\Delta R_0 = -2.2\cdot 10^{-4}$
-at 86 k DoFs where uniform meshes stagnate at $5\cdot 10^{-3}$; the loop starts at $p = 4$ because
+background, Bloch faces and PML: $\Delta R_{-1} = -5\cdot 10^{-6}$, $\Delta R_0 = -2.2\cdot 10^{-4}$
+at 88 k DoFs where uniform meshes stagnate at $5\cdot 10^{-3}$; the loop starts at $p = 4$ because
 the energy-norm marking never touches the PML and air cells, see
 [validation.md](../validation.md#e-hp-adaptive-silver-grating-with-the-conical-solver-m15-f1)).
 

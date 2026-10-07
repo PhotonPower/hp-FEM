@@ -128,14 +128,17 @@ void bind_adaptivity_dim(py::module_& m) {
 void bind_adaptivity_options(py::module_& m) {
   using adaptivity::EstimatorOptions;
   py::class_<EstimatorOptions>(m, "EstimatorOptions")
-      .def(py::init([](int extra_order, bool divergence_terms, Real difference_step) {
-             return EstimatorOptions{extra_order, divergence_terms, difference_step};
+      .def(py::init([](int extra_order, bool divergence_terms, Real difference_step,
+                       Real length_scale) {
+             return EstimatorOptions{extra_order, divergence_terms, difference_step, length_scale};
            }),
            py::arg("extra_order") = 2, py::arg("divergence_terms") = true,
-           py::arg("difference_step") = 1e-4)
+           py::arg("difference_step") = 1e-4, py::arg("length_scale") = 0.0)
       .def_readwrite("extra_order", &EstimatorOptions::extra_order)
       .def_readwrite("divergence_terms", &EstimatorOptions::divergence_terms)
-      .def_readwrite("difference_step", &EstimatorOptions::difference_step);
+      .def_readwrite("difference_step", &EstimatorOptions::difference_step)
+      .def_readwrite("length_scale", &EstimatorOptions::length_scale,
+                     "length scale of the Gauss-law terms, 0 = 1/k");
 }
 
 void bind_adaptivity(py::module_& m) {

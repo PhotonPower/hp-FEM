@@ -2,6 +2,15 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+### Changed
+- The Gauss-law terms of the three residual estimators (`residual_estimate`,
+  `axisymmetric_residual_estimate`, `conical_residual_estimate`) are multiplied by the
+  squared length scale ℓ² = 1/k² (`EstimatorOptions::length_scale`, 0 = 1/k from `k_squared`):
+  the divergence residual carries one inverse length more than the curl–curl residual, so in
+  SI units the unscaled terms dominated η by 1/(kh)² ≈ 1e15 (docs/validation.md E). Problems
+  with k = 1 (the L-shape tests) are unchanged; η of SI-scale problems is now a usable error
+  measure and the marking weighs the Maxwell and Gauss residuals alike.
+
 ### Added
 - hp-adaptivity for the conical solver (M15 F1 stage 1): `adaptivity::conical_residual_estimate`,
   the residual estimator of the coupled 2.5D system (Cartesian curl with ∂_z = iβ, tangential
@@ -9,7 +18,7 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `ConicalScattering::estimate` / `error` with Python bindings (`ConicalError`); convergence
   tests `conical_hp_corner` (manufactured gradient mode at a re-entrant PEC corner, β = 1.3,
   effectivity 3.3–5.2, exponential in N^{1/3}) and `conical_grating_hp` (Ag lamellar grating,
-  TM 50°, against the F1 references: ΔR−1 = −4e-6 and ΔR0 = −2.2e-4 at 86 k DoFs in the long
+  TM 50°, against the F1 references: ΔR−1 = −5e-6 and ΔR0 = −2.2e-4 at 88 k DoFs in the long
   variant, uniform meshes stagnate at 5e-3); the hp loop from Python in `test_conical.py`.
 - `mesh::AdaptiveMesh::set_periodic` (M15 F16 stage 1): refinement is mirrored across declared
   Bloch face pairs after the closure, so the leaf facets of both faces stay identical and the

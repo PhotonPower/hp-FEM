@@ -333,10 +333,12 @@ every cell and facet integral of the meridian mesh carries the weight $r$ of the
 element $r\,dr\,dz$ (the factor $2\pi$ dropped as in the forms),
 
 $$
-\eta_K^2 = \frac{h_K^2}{p_K^2}\int_K\big(|R_K|^2 + |\nabla\cdot d|^2\big)\,r\,dr\,dz
+\eta_K^2 = \frac{h_K^2}{p_K^2}\int_K\big(|R_K|^2 + \ell^2|\nabla\cdot d|^2\big)\,r\,dr\,dz
          + \sum_{F\subset\partial K}\frac{h_F}{2p_F}\int_F\big(|[\![n\times w]\!]|^2
-         + |[\![n\cdot d]\!]|^2\big)\,r\,ds ,
+         + \ell^2|[\![n\cdot d]\!]|^2\big)\,r\,ds ,
 $$
+
+($\ell = 1/k_0$ the length scale of the Gauss-law terms, see [error-estimation.md](error-estimation.md))
 
 with $w = \mu^{-1}\nabla\times E_{hp}$, $d = f + k^2\varepsilon E_{hp}$ and
 $R_K = d - \nabla\times w$ in cylindrical components. For the scaled unknowns the curl of the
