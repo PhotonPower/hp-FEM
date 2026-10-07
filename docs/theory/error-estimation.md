@@ -115,6 +115,32 @@ $$
 Q(E) - Q(E_{hp}) \approx \sum_K \big( R_K(E_{hp}), z - z_{hp} \big)_K + \ldots
 $$
 
+### Conical solver (`physics::conical_dwr_estimate`)
+
+The same construction for the coupled system of
+[maxwell.md](maxwell.md#conical-incidence-and-the-e_z-polarisation): a functional is a pair
+$(q_e, q_v)$ on the two DoF maps, $Q(E_h) = q_e^\top e + q_v^\top v$, returned by a
+`ConicalFunctional` for any pair of maps of the mesh (`conical_point_functional` for
+$E(x)\cdot w$ of the physical field, `conical_order_functional` for the vector amplitude
+$A_m\cdot e$ of a diffraction order along a polarisation vector $e$, the same Gauss–Legendre
+line rule as `conical_fourier_coefficients`; both carry the factor $i$ of $E_z = iv$ in $q_v$).
+The adjoint of the enriched conical system (orders $+1$ on both maps, the PEC facets and the
+hanging / Bloch constraints of the primal problem, conjugated prolongation for the test space)
+gives the weight $z - I_pz$ block by block, and `adaptivity::conical_weighted_residual`
+pairs the Cartesian residual with the physical test vector $W = (W_x, W_y, -i\,w)$ of the
+scaled test function (the pairing of the conical forms, no conjugation):
+$r_K(W) = \int_K R_K\cdot W + \tfrac12\sum_F\int_F (n\times[\![w_h]\!])\cdot W$ with the in-plane
+normal, boundary facets contributing their one-sided term, so that
+$\sum_K r_K(W) = \ell(W) - a(E_h, W)$ for every tangentially continuous $W$ (checked to
+$10^{-8}$ in `test_conical_goal.cpp` on an enriched space with random coefficients). For the
+efficiency $R_m = c\,|A_m|^2$ of an order the linearised goal is $Q(E) = A_m(E)\cdot
+\overline{A_{m,h}}/|A_{m,h}|$, so that $\Delta R_m \approx 2R_m\,\mathrm{Re}(\Delta Q)/|A_{m,h}|$;
+the Python generator `hpfem.adaptive_solve` re-evaluates the direction every step. The
+convergence test `conical_goal_oriented` (point value of the singular gradient mode of the
+conical corner, h-refinement at $p = 2$) finds effectivities 0.6–1.0 in the resolved regime
+(below 3 k DoFs the signed goal error crosses zero on some meshes) and a goal error 35 times
+smaller than the energy-driven loop at 8 k DoFs.
+
 ### Implementation (`physics::dwr_estimate`)
 
 - **Functionals** are vectors $q$ on a DoF map with $Q(E_h) = q^\top e_h$ (no

@@ -200,3 +200,86 @@ def test_hp_loop_with_the_conical_estimator():
     assert all(1.0 < e < 10.0 for e in effectivity)
     assert adaptive.max_level >= 2  # the corner is h-refined
     assert orders.max() >= 2  # smooth cells are p-refined
+
+
+def test_adaptive_solve_streams_steps_and_stops_on_tolerance():
+    """hpfem.adaptive_solve on the conical corner problem of the hp-loop test with a point
+    goal (conical_dwr_estimate): the steps stream DoFs, eta, observables and the goal error,
+    the goal error falls, and the loop stops when the observable settles."""
+    beta = 1.3
+    boundary = 9
+    nu = 2.0 / 3.0
+
+    def l_shape(n):
+        square = hpfem.rectangle(2 * n, 2 * n, [-1.0, -1.0], [1.0, 1.0])
+        mesh = hpfem.extract(square, lambda x: not (x[0] > 0 and x[1] < 0))
+        for f in mesh.boundary_facets:
+            mesh.set_facet_tag(f, boundary)
+        return mesh
+
+    def potential(x):
+        r = np.hypot(x[0], x[1])
+        if r == 0:
+            return 0.0, 0.0, 0.0
+        theta = np.arctan2(x[1], x[0])
+        theta = theta + 2 * np.pi if theta < 0 else theta
+        dr = nu * r ** (nu - 1) * np.sin(nu * theta)
+        dt = nu * r ** (nu - 1) * np.cos(nu * theta)
+        s, s_x, s_y = (
+            r**nu * np.sin(nu * theta),
+            np.cos(theta) * dr - np.sin(theta) * dt,
+            np.sin(theta) * dr + np.cos(theta) * dt,
+        )
+        a = (1 - x[0] ** 2) * (1 - x[1] ** 2)
+        a_x = -2 * x[0] * (1 - x[1] ** 2)
+        a_y = -2 * x[1] * (1 - x[0] ** 2)
+        return a * s, a_x * s + a * s_x, a_y * s + a * s_y
+
+    def current(x):
+        psi, dx, dy = potential(x)
+        return -np.array([dx, dy, beta * psi], dtype=complex)
+
+    point = np.array([-0.55, 0.45])
+    weight = np.array([1.0, 0.5, -0.7j])
+    psi, dx, dy = potential(point)
+    exact_goal = np.array([dx, dy, 1j * beta * psi]) @ weight
+    functional = hpfem.conical_point_functional(point, weight)
+
+    def factory(mesh, orders):
+        nd = hpfem.NedelecDofMap2D(mesh, orders.tolist())
+        h1 = hpfem.DofMap2D(mesh, orders.tolist())
+        setup = hpfem.ConicalScatteringSetup()
+        setup.omega = hpfem.constants.c0
+        setup.beta = beta
+        setup.pec_tags = [boundary]
+        setup.current = current
+        problem = hpfem.ConicalScattering(nd, h1, setup)
+        return problem, problem.solve()
+
+    def goal(problem, solution):
+        return hpfem.conical_dwr_estimate(problem, solution, functional)
+
+    adaptive = hpfem.AdaptiveMesh2D(l_shape(2))
+    hpfem.refine_at_points(adaptive, [np.zeros(2)], 2)  # corner pre-refinement
+    assert adaptive.max_level == 2
+    steps = list(
+        hpfem.adaptive_solve(
+            adaptive,
+            factory,
+            observe=lambda p, s: {"q_re": float(goal(p, s).value.real)},
+            goal=goal,
+            tolerance=2e-3,
+            max_dofs=4000,
+            max_steps=25,
+        )
+    )
+    assert len(steps) >= 3
+    assert steps[-1].dofs > steps[0].dofs
+    assert all(isinstance(s, hpfem.AdaptiveStep) for s in steps)
+    assert steps[1].change["q_re"] >= 0.0
+    goal_errors = [abs(s.goal_value - exact_goal) for s in steps]
+    assert goal_errors[-1] < 0.2 * goal_errors[0]
+    assert steps[-1].converged or steps[-1].dofs > 4000
+    if steps[-1].converged:
+        assert steps[-1].goal_error < 2e-3
+        assert all(c < 2e-3 for c in steps[-1].change.values())

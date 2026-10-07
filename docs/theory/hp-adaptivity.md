@@ -231,6 +231,19 @@ at 88 k DoFs where uniform meshes stagnate at $5\cdot 10^{-3}$; the loop starts 
 the energy-norm marking never touches the PML and air cells, see
 [validation.md](../validation.md#e-hp-adaptive-silver-grating-with-the-conical-solver-m15-f1)).
 
+**Goal-driven loop, pre-refinement and the generator.** `physics::conical_dwr_estimate`
+([error-estimation.md](error-estimation.md#conical-solver-physicsconical_dwr_estimate))
+supplies goal indicators for the same marking and hp decision;
+`adaptivity::refine_at_points(adaptive, points, levels)` pre-refines the cells at known
+singular points (material corners) before the loop, so the first steps do not spend their
+budget on finding them. From Python, `hpfem.adaptive_solve(adaptive, factory, observe=…,
+goal=…, tolerance=…, max_dofs=…)` is a generator of the whole loop: the factory builds and
+solves the problem on the current mesh and orders, every step yields DoFs, $\eta$, the
+observables (reflectances, fluxes) and their change since the previous step, the goal value
+and the estimated goal error, and the loop stops when all changes and the goal error are
+below the tolerance (`AdaptiveStep.converged`), the "stop at tolerance" mode of the GUI
+([python.md](../python.md)).
+
 ## Data-structure consequences (why M1/M2 must prepare this)
 
 - DoF numbering is **entity-based** (vertex → edge → face → cell) with a per-entity order,

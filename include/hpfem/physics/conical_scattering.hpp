@@ -128,6 +128,10 @@ class ConicalScattering {
                     const fespace::DofMap<2>& longitudinal, ConicalScatteringSetup setup);
 
   [[nodiscard]] const ConicalScatteringSetup& setup() const noexcept { return setup_; }
+  [[nodiscard]] const fespace::NedelecDofMap<2>& transverse() const noexcept {
+    return *transverse_;
+  }
+  [[nodiscard]] const fespace::DofMap<2>& longitudinal() const noexcept { return *longitudinal_; }
   [[nodiscard]] Real wavenumber() const noexcept { return k0_; }
   [[nodiscard]] Real beta() const noexcept { return setup_.beta; }
   [[nodiscard]] const fespace::NedelecDofMap<2>& transverse_dofs() const noexcept {

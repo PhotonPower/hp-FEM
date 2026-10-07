@@ -44,6 +44,22 @@ template <int Dim>
 /// The step relating a mesh to itself (pure p-refinement), for `assembly::prolongate`.
 [[nodiscard]] mesh::RefinementStep identity_step(Index num_cells);
 
+/// Pre-refinement at known singular points (material corners, re-entrant edges): `levels`
+/// times, every leaf cell that contains one of the points or has a vertex within
+/// `tolerance` × its diameter of one is refined (with the usual closure and periodic
+/// mirroring of the adaptive mesh). Call it before the orders are assigned, or map them with
+/// the returned steps (`HpStep`-style, children inherit). Returns the steps, one per level.
+template <int Dim>
+std::vector<mesh::RefinementStep> refine_at_points(mesh::AdaptiveMesh<Dim>& mesh,
+                                                   std::span<const Point<Dim>> points, int levels,
+                                                   Real tolerance = 1e-9);
+
+extern template std::vector<mesh::RefinementStep> refine_at_points<2>(mesh::AdaptiveMesh<2>&,
+                                                                      std::span<const Point<2>>,
+                                                                      int, Real);
+extern template std::vector<mesh::RefinementStep> refine_at_points<3>(mesh::AdaptiveMesh<3>&,
+                                                                      std::span<const Point<3>>,
+                                                                      int, Real);
 extern template HpStep hp_refine<2>(mesh::AdaptiveMesh<2>&, std::span<const int>,
                                     std::span<const Index>, std::span<const Index>, int, int, bool);
 extern template HpStep hp_refine<3>(mesh::AdaptiveMesh<3>&, std::span<const int>,

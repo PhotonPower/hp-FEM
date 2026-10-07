@@ -24,6 +24,8 @@
 /// are those of the in-plane and the E_z block side by side. Convention exp(-iωt). See
 /// docs/theory/maxwell.md#conical-incidence-and-the-e_z-polarisation.
 
+#include <vector>
+
 #include "hpfem/adaptivity/residual_estimator.hpp"
 #include "hpfem/assembly/conical_forms.hpp"
 #include "hpfem/core/types.hpp"
@@ -46,5 +48,22 @@ namespace hpfem::adaptivity {
                                                  Real k_squared,
                                                  const assembly::ConicalFormFactory& form_of_cell,
                                                  const EstimatorOptions& options = {});
+
+/// Weighted residual of the conical system for goal-oriented estimation: the cell
+/// contributions @f$ r_K(W) = \int_K R_K\cdot W + \tfrac12\sum_{F\subset\partial K}\int_F
+/// (n\times[\![w_h]\!])\cdot W @f$ (no conjugation) of a weight given as coefficients
+/// (`weight_e` on `weight_transverse`, `weight_v` on `weight_longitudinal`, both on the same
+/// mesh, e.g. the orders raised by one), with the physical test vector
+/// @f$ W = (W_x, W_y, -i\,w) @f$ of the scaled test function w (the pairing of the conical forms);
+/// boundary facets contribute their one-sided term to their cell, so that
+/// @f$ \sum_K r_K(W) = \ell(W) - a(E_h, W) @f$ for every tangentially continuous W.
+/// @throws InvalidArgument for mismatched maps or vectors.
+[[nodiscard]] std::vector<Complex> conical_weighted_residual(
+    const fespace::NedelecDofMap<2>& transverse, const fespace::DofMap<2>& longitudinal,
+    const Vector& e, const Vector& v, Real beta, Real k_squared,
+    const assembly::ConicalFormFactory& form_of_cell,
+    const fespace::NedelecDofMap<2>& weight_transverse,
+    const fespace::DofMap<2>& weight_longitudinal, const Vector& weight_e, const Vector& weight_v,
+    const EstimatorOptions& options = {});
 
 }  // namespace hpfem::adaptivity
