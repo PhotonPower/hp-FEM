@@ -181,7 +181,9 @@ std::vector<Component> periodic_components(const mesh::Mesh<Dim>& mesh,
     if (groups.contains(root)) groups[root].masters.push_back(masters[j]);
   }
   std::vector<Component> out;
-  for (auto& [root, c] : groups) {
+  for (auto& group : groups) {
+    Component& c = group.second;  // no structured binding: clang's OpenMP mode cannot
+                                  // capture one in the lambdas below
     if (c.slaves.size() == 1 && c.masters.size() == 1 &&
         facets_coincide(mesh, c.slaves[0], to_master, c.masters[0], tol)) {
       c.kind = Kind::kMatched;
