@@ -493,8 +493,8 @@ height is no facet line of any refinement level, so the one-sided $E_y$ values o
 enter).
 
 **Results** (long run `convergence_conical_grating_hp "[validation-long]"`, results in
-`benchmarks/results/2026-10-06-validation-conical-grating-hp.json`). From $p = 4$ everywhere the
-loop reaches $\Delta R_{-1} = -4\cdot 10^{-6}$ and $\Delta R_0 = -2.2\cdot 10^{-4}$ at 86 k DoFs
+`benchmarks/results/2026-10-07-validation-conical-grating-hp.json`). From $p = 4$ everywhere the
+loop reaches $\Delta R_{-1} = -5\cdot 10^{-6}$ and $\Delta R_0 = -2.2\cdot 10^{-4}$ at 88 k DoFs
 ($p \le 8$ at the corners, h-refinement to level 5 there), both inside the F1 tolerances
 ($5\cdot 10^{-5}$ and $5\cdot 10^{-4}$ at $\le 100$ k DoFs), and the result no longer changes with
 the line height (two lines 148 nm apart agree to $10^{-6}$) or the DoF count.
@@ -526,6 +526,29 @@ checks of `conical_grating_hp` therefore use $|\Delta R_{-1}|$ ($b = 0.65$ in th
 and the estimator can be run with `divergence_terms = false` (then $\eta$ decays monotonically,
 $0.37 \to 5.7\cdot 10^{-3}$ at 49 k DoFs, and the PML cells get marked too, at the price of a
 slower $R$ convergence per DoF: $\Delta R_0 = -1.0\cdot 10^{-3}$, $\Delta R_{-1} = +5.8\cdot 10^{-4}$ at
-49 k DoFs). The remedy, a factor $1/k^2$ on the Gauss-law terms of all three estimators (the
-$H(\mathrm{curl})$ norm with the wavelength as the length scale), is a follow-up that changes
-the $\eta$ values of every SI-scale test and is tracked under M15 F1 stage 2.
+49 k DoFs). The remedy is the length scale $\ell = 1/k$ on the Gauss-law terms of all three
+estimators (`EstimatorOptions::length_scale`, the $H(\mathrm{curl})$ norm with the wavelength
+as its length scale; see [error-estimation.md](theory/error-estimation.md)). With it $\eta$ is
+of order one ($2.1 \to 0.42$ from 31 k to 46 k DoFs) instead of $10^7$, problems with $k = 1$ are
+unchanged, and on the grating the marking and therefore every $R_0$, $R_{-1}$ of the table above
+stay exactly the same: the Gauss-law residual of the corner cells still exceeds their curl–curl
+residual by a factor $\sim 400$, which is now a genuine statement about the discrete
+divergence of the singular field (the gradient part of the error), not a unit artefact. The
+$\eta$ jumps at freshly created sub-nanometre cells remain, so the rate checks keep using
+$|\Delta R_{-1}|$.
+
+**Acceptance cases (b) and (c)** (same loop, long variant, record as above). (b) TE on silver,
+$\theta = 50^\circ$: the $E_z$ polarisation has no field singularity at the metal corners, and
+the loop reproduces the RCWA reference $R_0 = 0.319215$, $R_{-1} = 0.643575$ to $4\cdot 10^{-7}$ /
+$2\cdot 10^{-7}$ from the first step (18 k DoFs, $p = 4$) on; the energy estimate still falls
+from $8\cdot 10^{-2}$ to $2\cdot 10^{-4}$ up to 100 k DoFs. (c) Conical TM on silicon
+($\varepsilon = 29.63 + 2.77i$), $\theta = 50^\circ$, $\varphi = 40^\circ$, $\beta = 7.6\cdot 10^6$/m,
+all three field components coupled: $\Delta R_0 = -1.9\cdot 10^{-5}$, $\Delta R_{-1} = +1.0\cdot 10^{-5}$
+at 106 k DoFs (reference "converged in N", tolerance $10^{-4}$), starting from $-4.5\cdot 10^{-4}$ /
+$+6.6\cdot 10^{-4}$; the decay is slower than on silver, $b = 0.17$ over the last ten steps
+above $5\cdot 10^{-5}$, because the high-index ridges carry the singularity into the dielectric
+with a weaker exponent. The goal-oriented loop (`conical_dwr_estimate`, section
+[error-estimation](theory/error-estimation.md#conical-solver-physicsconical_dwr_estimate)) and
+the generator `hpfem.adaptive_solve` are verified on the manufactured conical corner, not on
+the gratings: with the references good to $10^{-4}$ at best, a goal error below that cannot be
+checked there.

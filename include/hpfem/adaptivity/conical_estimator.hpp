@@ -6,10 +6,11 @@
 /// @f$ E(x, y)e^{i\beta z} @f$, so that @f$ \partial_z = i\beta @f$. Per cell K of the 2D mesh with
 /// diameter h_K and order p_K,
 /// @f[
-///   \eta_K^2 = \frac{h_K^2}{p_K^2}\int_K\big(|R_K|^2 + |\nabla\cdot d|^2\big)\,dx\,dy
+///   \eta_K^2 = \frac{h_K^2}{p_K^2}\int_K\big(|R_K|^2 + \ell^2|\nabla\cdot d|^2\big)\,dx\,dy
 ///            + \sum_{F\subset\partial K}\frac{h_F}{2p_F}\int_F\big(|[\![n\times w]\!]|^2
-///            + |[\![n\cdot d]\!]|^2\big)\,ds,
+///            + \ell^2|[\![n\cdot d]\!]|^2\big)\,ds,
 /// @f]
+/// (@f$ \ell = 1/k @f$ the length scale of the Gauss-law terms, `EstimatorOptions::length_scale`)
 /// with @f$ w = \mu^{-1}\nabla\times E_{hp} @f$, @f$ d = f + k^2\varepsilon E_{hp} @f$ and
 /// @f$ R_K = d - \nabla\times w @f$ in Cartesian components: for the scaled unknowns
 /// @f$ (E_x, E_y, v = -iE_z) @f$ the curl of the mode is @f$ \nabla\times E = (i(\partial_yv -
@@ -22,6 +23,8 @@
 /// cell of their parent); PEC and Bloch-periodic facets carry no term. At β = 0 the indicators
 /// are those of the in-plane and the E_z block side by side. Convention exp(-iωt). See
 /// docs/theory/maxwell.md#conical-incidence-and-the-e_z-polarisation.
+
+#include <vector>
 
 #include "hpfem/adaptivity/residual_estimator.hpp"
 #include "hpfem/assembly/conical_forms.hpp"
@@ -45,5 +48,22 @@ namespace hpfem::adaptivity {
                                                  Real k_squared,
                                                  const assembly::ConicalFormFactory& form_of_cell,
                                                  const EstimatorOptions& options = {});
+
+/// Weighted residual of the conical system for goal-oriented estimation: the cell
+/// contributions @f$ r_K(W) = \int_K R_K\cdot W + \tfrac12\sum_{F\subset\partial K}\int_F
+/// (n\times[\![w_h]\!])\cdot W @f$ (no conjugation) of a weight given as coefficients
+/// (`weight_e` on `weight_transverse`, `weight_v` on `weight_longitudinal`, both on the same
+/// mesh, e.g. the orders raised by one), with the physical test vector
+/// @f$ W = (W_x, W_y, -i\,w) @f$ of the scaled test function w (the pairing of the conical forms);
+/// boundary facets contribute their one-sided term to their cell, so that
+/// @f$ \sum_K r_K(W) = \ell(W) - a(E_h, W) @f$ for every tangentially continuous W.
+/// @throws InvalidArgument for mismatched maps or vectors.
+[[nodiscard]] std::vector<Complex> conical_weighted_residual(
+    const fespace::NedelecDofMap<2>& transverse, const fespace::DofMap<2>& longitudinal,
+    const Vector& e, const Vector& v, Real beta, Real k_squared,
+    const assembly::ConicalFormFactory& form_of_cell,
+    const fespace::NedelecDofMap<2>& weight_transverse,
+    const fespace::DofMap<2>& weight_longitudinal, const Vector& weight_e, const Vector& weight_v,
+    const EstimatorOptions& options = {});
 
 }  // namespace hpfem::adaptivity

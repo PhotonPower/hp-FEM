@@ -291,14 +291,17 @@ faces" of M14-B.
   (residual of the coupled system with the β terms, PML tensors and the E_z / εE_z interface
   conditions), `ConicalScattering::estimate` / `error`, Python bindings and hp loop; convergence
   tests `conical_hp_corner` (re-entrant PEC corner at β = 1.3, exponential, b = 0.26) and
-  `conical_grating_hp` (acceptance (a) and (d): Ag grating TM 50° from p = 4, ΔR−1 = −4e-6,
-  ΔR0 = −2.2e-4 at 86 k DoFs, `validation-long`; docs/validation.md E)
-- [ ] F1 stage 2 (P1): goal-oriented estimator for the diffraction orders (`GoalEstimate` with the
-  conical vector amplitudes; the energy-norm loop leaves unmarked cells at their initial order,
-  so the PML / air order has to be chosen by hand today), corner pre-refinement
-  (`refine_at_corners`), generator `hpfem.adaptive_solve` that streams steps, acceptance (b) TE
-  Ag 50° and (c) conical φ = 40°; dimensionally consistent Gauss-law terms (factor 1/k²) in the
-  three residual estimators (in SI units they dominate η by 1/(kh)², docs/validation.md E)
+  `conical_grating_hp` (acceptance (a) and (d): Ag grating TM 50° from p = 4, ΔR−1 = −5e-6,
+  ΔR0 = −2.2e-4 at 88 k DoFs, `validation-long`; docs/validation.md E)
+- [x] F1 stage 2 (P1): goal-oriented estimator for the conical solver
+  (`physics::conical_dwr_estimate`, `conical_point_functional`, `conical_order_functional`,
+  `adaptivity::conical_weighted_residual`; convergence test `conical_goal_oriented`), corner
+  pre-refinement `adaptivity::refine_at_points`, generator `hpfem.adaptive_solve` that streams
+  steps and stops on a tolerance, acceptance (b) TE Ag 50° and (c) conical TM Si 50°/40° in the
+  long variant of `conical_grating_hp` (docs/validation.md E)
+- [x] dimensionally consistent Gauss-law terms in the three residual estimators
+  (`EstimatorOptions::length_scale`, default ℓ = 1/k; in SI units the unscaled terms dominated η
+  by 1/(kh)², docs/validation.md E)
 - [ ] F2 (P1) one-call periodic scattering API (`hpfem.grating.solve`: stack interfaces snapped to
   mesh lines, PML from the largest order angle, orders in cover and substrate, power balance)
 - [ ] F3 (P1) vectorised field sampling and triangulated field export as NumPy

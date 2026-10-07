@@ -6,6 +6,8 @@
 
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/mesh/geometry.hpp"
+#include "hpfem/mesh/point_location.hpp"
 
 namespace hpfem::adaptivity {
 
@@ -98,6 +100,47 @@ HpStep hp_refine(mesh::AdaptiveMesh<Dim>& mesh, std::span<const int> orders,
   return out;
 }
 
+template <int Dim>
+std::vector<mesh::RefinementStep> refine_at_points(mesh::AdaptiveMesh<Dim>& mesh,
+                                                   std::span<const Point<Dim>> points, int levels,
+                                                   Real tolerance) {
+  if (levels < 0) throw InvalidArgument("refine_at_points: levels must be non-negative");
+  std::vector<mesh::RefinementStep> steps;
+  for (int level = 0; level < levels; ++level) {
+    const auto& leaves = mesh.mesh();
+    const mesh::PointLocator<Dim> locator(leaves);
+    std::vector<Index> marked;
+    for (Index c = 0; c < leaves.num_cells(); ++c) {
+      const Real tol = tolerance * mesh::affine_map(leaves, c).h;
+      bool touches = false;
+      for (const Point<Dim>& x : points) {
+        for (const Index v : leaves.cell_vertices(c)) {
+          if ((leaves.vertex(v) - x).norm() <= tol) touches = true;
+        }
+      }
+      if (touches) marked.push_back(c);
+    }
+    for (const Point<Dim>& x : points) {
+      if (const auto located = locator.locate(x)) marked.push_back(located->cell);
+    }
+    std::sort(marked.begin(), marked.end());
+    marked.erase(std::unique(marked.begin(), marked.end()), marked.end());
+    if (marked.empty()) {
+      throw InvalidArgument("refine_at_points: no cell touches any of the points");
+    }
+    steps.push_back(mesh.refine(marked));
+  }
+  log().info("refine_at_points: {} points, {} levels, {} cells now", points.size(), levels,
+             mesh.mesh().num_cells());
+  return steps;
+}
+
+template std::vector<mesh::RefinementStep> refine_at_points<2>(mesh::AdaptiveMesh<2>&,
+                                                               std::span<const Point<2>>, int,
+                                                               Real);
+template std::vector<mesh::RefinementStep> refine_at_points<3>(mesh::AdaptiveMesh<3>&,
+                                                               std::span<const Point<3>>, int,
+                                                               Real);
 template HpStep hp_refine<2>(mesh::AdaptiveMesh<2>&, std::span<const int>, std::span<const Index>,
                              std::span<const Index>, int, int, bool);
 template HpStep hp_refine<3>(mesh::AdaptiveMesh<3>&, std::span<const int>, std::span<const Index>,

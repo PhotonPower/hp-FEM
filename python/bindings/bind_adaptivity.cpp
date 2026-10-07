@@ -11,6 +11,7 @@
 #include "hpfem/adaptivity/refinement.hpp"
 #include "hpfem/adaptivity/residual_estimator.hpp"
 #include "hpfem/adaptivity/smoothness.hpp"
+#include "hpfem/physics/conical_goal.hpp"
 #include "hpfem/physics/goal_oriented.hpp"
 
 namespace hpfem::python {
@@ -128,14 +129,17 @@ void bind_adaptivity_dim(py::module_& m) {
 void bind_adaptivity_options(py::module_& m) {
   using adaptivity::EstimatorOptions;
   py::class_<EstimatorOptions>(m, "EstimatorOptions")
-      .def(py::init([](int extra_order, bool divergence_terms, Real difference_step) {
-             return EstimatorOptions{extra_order, divergence_terms, difference_step};
+      .def(py::init([](int extra_order, bool divergence_terms, Real difference_step,
+                       Real length_scale) {
+             return EstimatorOptions{extra_order, divergence_terms, difference_step, length_scale};
            }),
            py::arg("extra_order") = 2, py::arg("divergence_terms") = true,
-           py::arg("difference_step") = 1e-4)
+           py::arg("difference_step") = 1e-4, py::arg("length_scale") = 0.0)
       .def_readwrite("extra_order", &EstimatorOptions::extra_order)
       .def_readwrite("divergence_terms", &EstimatorOptions::divergence_terms)
-      .def_readwrite("difference_step", &EstimatorOptions::difference_step);
+      .def_readwrite("difference_step", &EstimatorOptions::difference_step)
+      .def_readwrite("length_scale", &EstimatorOptions::length_scale,
+                     "length scale of the Gauss-law terms, 0 = 1/k");
 }
 
 void bind_adaptivity(py::module_& m) {
@@ -250,6 +254,42 @@ void bind_adaptivity(py::module_& m) {
   m.def("fourier_coefficient_functional", &physics::fourier_coefficient_functional, py::arg("x0"),
         py::arg("y0"), py::arg("period"), py::arg("ky0"), py::arg("order"), py::arg("num_points"),
         py::arg("polarisation"), "Fourier coefficient of a diffraction order as a goal (2D)");
+  // conical goals: a functional is a callable (NedelecDofMap2D, DofMap2D) -> (q_e, q_v)
+  m.def(
+      "conical_dwr_estimate",
+      [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,
+         const physics::ConicalFunctional& functional,
+         const adaptivity::EstimatorOptions& options) {
+        return physics::conical_dwr_estimate(problem, solution, functional, options);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("functional"),
+      py::arg("options") = adaptivity::EstimatorOptions{}, Release(),
+      "DWR estimate of a goal of the conical solution (GoalEstimate); the functional maps "
+      "(transverse, longitudinal) maps to the coefficient vectors (q_e, q_v)");
+  m.def("conical_point_functional", &physics::conical_point_functional, py::arg("x"),
+        py::arg("weight"), "Q(E) = E(x) . w of the physical field (E_z = i v), w not conjugated");
+  m.def("conical_order_functional", &physics::conical_order_functional, py::arg("origin"),
+        py::arg("tangent"), py::arg("period"), py::arg("kt0"), py::arg("order"),
+        py::arg("num_points"), py::arg("polarisation"),
+        "vector amplitude of a diffraction order along the polarisation vector e (the Fourier "
+        "coefficient of conical_fourier_coefficients dotted with e); for the efficiency use "
+        "e = conj(A_m) / |A_m| of the current amplitude");
+  m.def(
+      "refine_at_points",
+      [](mesh::AdaptiveMesh<2>& adaptive, const std::vector<Point<2>>& points, int levels,
+         Real tolerance) {
+        return adaptivity::refine_at_points<2>(adaptive, points, levels, tolerance);
+      },
+      py::arg("adaptive"), py::arg("points"), py::arg("levels"), py::arg("tolerance") = 1e-9,
+      "pre-refinement: `levels` times, refine the leaf cells containing or touching the points "
+      "(corners); returns the refinement steps");
+  m.def(
+      "refine_at_points",
+      [](mesh::AdaptiveMesh<3>& adaptive, const std::vector<Point<3>>& points, int levels,
+         Real tolerance) {
+        return adaptivity::refine_at_points<3>(adaptive, points, levels, tolerance);
+      },
+      py::arg("adaptive"), py::arg("points"), py::arg("levels"), py::arg("tolerance") = 1e-9);
 
   bind_adaptivity_dim<2>(m);
   bind_adaptivity_dim<3>(m);

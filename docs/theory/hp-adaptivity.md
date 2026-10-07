@@ -226,10 +226,23 @@ non-matching coupling of M15 F16 stage 2 exists (the grating test equalises them
 step). The convergence tests are `conical_hp_corner` (manufactured gradient mode at a
 re-entrant PEC corner, $\beta = 1.3$: exponential with $b = 0.26$, the corner cells h-refined)
 and `conical_grating_hp` (the Ag lamellar grating of M15 F1 under TM at 50° with the layered
-background, Bloch faces and PML: $\Delta R_{-1} = -4\cdot 10^{-6}$, $\Delta R_0 = -2.2\cdot 10^{-4}$
-at 86 k DoFs where uniform meshes stagnate at $5\cdot 10^{-3}$; the loop starts at $p = 4$ because
+background, Bloch faces and PML: $\Delta R_{-1} = -5\cdot 10^{-6}$, $\Delta R_0 = -2.2\cdot 10^{-4}$
+at 88 k DoFs where uniform meshes stagnate at $5\cdot 10^{-3}$; the loop starts at $p = 4$ because
 the energy-norm marking never touches the PML and air cells, see
 [validation.md](../validation.md#e-hp-adaptive-silver-grating-with-the-conical-solver-m15-f1)).
+
+**Goal-driven loop, pre-refinement and the generator.** `physics::conical_dwr_estimate`
+([error-estimation.md](error-estimation.md#conical-solver-physicsconical_dwr_estimate))
+supplies goal indicators for the same marking and hp decision;
+`adaptivity::refine_at_points(adaptive, points, levels)` pre-refines the cells at known
+singular points (material corners) before the loop, so the first steps do not spend their
+budget on finding them. From Python, `hpfem.adaptive_solve(adaptive, factory, observe=…,
+goal=…, tolerance=…, max_dofs=…)` is a generator of the whole loop: the factory builds and
+solves the problem on the current mesh and orders, every step yields DoFs, $\eta$, the
+observables (reflectances, fluxes) and their change since the previous step, the goal value
+and the estimated goal error, and the loop stops when all changes and the goal error are
+below the tolerance (`AdaptiveStep.converged`), the "stop at tolerance" mode of the GUI
+([python.md](../python.md)).
 
 ## Data-structure consequences (why M1/M2 must prepare this)
 

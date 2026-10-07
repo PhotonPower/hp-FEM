@@ -8,9 +8,9 @@
 /// weight r of the volume element @f$ r\,dr\,dz @f$ (the factor 2π dropped as in the forms).
 /// Per cell K of the meridian mesh with diameter h_K and order p_K,
 /// @f[
-///   \eta_K^2 = \frac{h_K^2}{p_K^2}\int_K\big(|R_K|^2 + |\nabla\cdot d|^2\big)\,r\,dr\,dz
+///   \eta_K^2 = \frac{h_K^2}{p_K^2}\int_K\big(|R_K|^2 + \ell^2|\nabla\cdot d|^2\big)\,r\,dr\,dz
 ///            + \sum_{F\subset\partial K}\frac{h_F}{2p_F}\int_F\big(|[\![n\times w]\!]|^2
-///            + |[\![n\cdot d]\!]|^2\big)\,r\,ds,
+///            + \ell^2|[\![n\cdot d]\!]|^2\big)\,r\,ds,
 /// @f]
 /// with @f$ w = \mu^{-1}\nabla\times E_{hp} @f$, @f$ d = f + k^2\varepsilon E_{hp} @f$ and
 /// @f$ R_K = d - \nabla\times w @f$, all in cylindrical components: for the scaled unknowns

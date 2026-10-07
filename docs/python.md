@@ -176,6 +176,28 @@ estimate = problem.estimate(solution)
 marked = hpfem.dorfler_marking(estimate.indicators, 0.5)
 ```
 
+The loop is also available as a generator, `hpfem.adaptive_solve`, which streams one
+`AdaptiveStep` per iteration (DoFs, `eta`, observables and their change, goal value and
+estimated goal error) and stops on a tolerance:
+
+```python
+def factory(mesh, orders):
+    nd = hpfem.NedelecDofMap2D(mesh, orders.tolist())
+    h1 = hpfem.DofMap2D(mesh, orders.tolist())
+    problem = hpfem.ConicalScattering(nd, h1, setup)
+    return problem, problem.solve()
+
+goal = lambda p, s: hpfem.conical_dwr_estimate(p, s, functional)   # DWR of an order amplitude
+for step in hpfem.adaptive_solve(adaptive, factory, observe=orders_of, goal=goal,
+                                 tolerance=1e-4, max_dofs=100_000,
+                                 periodic_pairs=[(X_MIN, X_MAX, [period, 0.0])]):
+    print(step.dofs, step.eta, step.observables, step.goal_error, step.converged)
+```
+
+(`hpfem.refine_at_points(adaptive, corners, levels)` pre-refines material corners before the
+loop; `functional = hpfem.conical_order_functional(origin, tangent, period, kx, m, points, e)`
+with `e = conj(A_m) / |A_m|` of the current amplitude linearises the efficiency of order m.)
+
 The hp loop (`tests/convergence/adaptive_hp_refinement.cpp`) reads the same in Python, and
 with `ConicalScattering` in place of `Scattering2D` (its `estimate` / `error` take the
 `ConicalSolution`, both DoF maps get the same `orders`; `AdaptiveMesh2D.set_periodic` keeps

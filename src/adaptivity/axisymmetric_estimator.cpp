@@ -226,6 +226,8 @@ Estimate axisymmetric_residual_estimate(const fespace::NedelecDofMap<2>& nedelec
   }
   const auto& mesh = nedelec.mesh();
   const Index num_cells = mesh.num_cells();
+  const Real gauss_scale = options.length_scale > 0 ? options.length_scale * options.length_scale
+                                                    : (k_squared > 0 ? 1.0 / k_squared : 1.0);
   const Real mm = static_cast<Real>(m);
   std::vector<bool> touches_axis(as_size(num_cells), false);
   for (const Index c : assembly::axis_cells(mesh)) touches_axis[as_size(c)] = true;
@@ -266,7 +268,7 @@ Estimate axisymmetric_residual_estimate(const fespace::NedelecDofMap<2>& nedelec
     }
     auto& parts = out.parts[as_size(c)];
     parts.element = weight * element;
-    parts.divergence = options.divergence_terms ? weight * divergence : 0.0;
+    parts.divergence = options.divergence_terms ? gauss_scale * weight * divergence : 0.0;
   });
 
   // --- facet jumps (per facet, accumulated into the two cells afterwards) ---------------------
@@ -315,7 +317,7 @@ Estimate axisymmetric_residual_estimate(const fespace::NedelecDofMap<2>& nedelec
       auto& parts = out.parts[as_size(c)];
       parts.tangential_jump += weights[as_size(f)] * tangential[as_size(f)];
       if (options.divergence_terms) {
-        parts.normal_jump += weights[as_size(f)] * normal_flux[as_size(f)];
+        parts.normal_jump += gauss_scale * weights[as_size(f)] * normal_flux[as_size(f)];
       }
     }
   }

@@ -26,11 +26,24 @@ template <int Dim>
                                       std::span<const ComplexVector<Dim>> value_weights,
                                       std::span<const ComplexCurl<Dim>> curl_weights = {});
 
+/// The same on an H1 space: @f$ Q(u) = \sum_j u(x_j)\,w_j @f$ (the longitudinal unknown of the
+/// conical solver, `physics/conical_goal.hpp`).
+/// @throws InvalidArgument if a point lies outside the mesh or the spans differ in size.
+template <int Dim>
+[[nodiscard]] Vector point_functional(const fespace::DofMap<Dim>& dofs,
+                                      const mesh::PointLocator<Dim>& locator,
+                                      std::span<const Point<Dim>> points,
+                                      std::span<const Complex> weights);
+
 /// @f$ Q(E_h) = q^\top e_h @f$.
 [[nodiscard]] inline Complex evaluate_functional(const Vector& q, const Vector& e_h) {
   return (q.transpose() * e_h)(0);
 }
 
+extern template Vector point_functional<2>(const fespace::DofMap<2>&, const mesh::PointLocator<2>&,
+                                           std::span<const Point<2>>, std::span<const Complex>);
+extern template Vector point_functional<3>(const fespace::DofMap<3>&, const mesh::PointLocator<3>&,
+                                           std::span<const Point<3>>, std::span<const Complex>);
 extern template Vector point_functional<2>(const fespace::NedelecDofMap<2>&,
                                            const mesh::PointLocator<2>&, std::span<const Point<2>>,
                                            std::span<const ComplexVector<2>>,
