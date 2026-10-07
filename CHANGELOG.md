@@ -12,6 +12,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- Job runner (M15 F5): `python -m hpfem.run job.json` runs a grating job from a JSON document
+  (schema version 1: model, mesh (structured / gmsh / file), materials, stack, incidence, sweep,
+  solver, maps) with JSON-lines events (start, mesh, diagnostics, point, map, cancelled, error,
+  done), `results.json` and `maps_<i>_<j>.npz`, cooperative cancellation by SIGTERM / SIGINT or a
+  cancel file; `hpfem.run.run_job` with callbacks, `hpfem.version_info()`, and
+  `hpfem.meshing.structured_unit_cell` (a Gmsh-free structured mesher of a `UnitCell`).
 - Structured diagnostics (M15 F7): `hpfem.diagnostics` with `Diagnostic(code, severity, text,
   hint)` and the checks of the GUI wish list (invalid curved cells, poor angles, untagged cells,
   tags without material, stack interfaces off the mesh lines, missing periodic partners and

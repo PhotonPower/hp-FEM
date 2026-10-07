@@ -329,6 +329,53 @@ __all__ = [
     "UnitCell",
     "element_sizes",
     "report",
+    "structured_unit_cell",
     "unit_cell_mesh",
     "write_unit_cell",
 ]
+
+
+def structured_unit_cell(cell: UnitCell, nx: int, rows: Sequence[Sequence[float]]):
+    """A structured triangle mesh of the cell without Gmsh: ``nx`` columns over the period and
+    ``rows`` of ``(y0, y1, n)`` stacked from the bottom (``y0`` of the first row = ``y_bottom``,
+    ``y1`` of the last = ``y_top``; put the stack interfaces and the shape edges on row and
+    column lines). Cells are tagged by :meth:`UnitCell.tag_at` of their centroid, the sides get
+    the ``box_tag`` numbers."""
+    import hpfem
+
+    xs = [cell.left + cell.period * i / nx for i in range(nx + 1)]
+    ys = [float(rows[0][0])]
+    for y0, y1, n in rows:
+        if abs(y0 - ys[-1]) > 1e-9 * cell.period:
+            raise ValueError("structured_unit_cell: rows must be contiguous from the bottom")
+        ys += [y0 + (y1 - y0) * k / int(n) for k in range(1, int(n) + 1)]
+    ny = len(ys) - 1
+    vertices = [(x, y) for y in ys for x in xs]
+    cells = []
+    for j in range(ny):
+        for i in range(nx):
+            a = j * (nx + 1) + i
+            b, c, d = a + 1, a + nx + 2, a + nx + 1
+            cells.append((a, b, c))
+            cells.append((a, c, d))
+    tags = []
+    for tri in cells:
+        cx = sum(vertices[v][0] for v in tri) / 3.0
+        cy = sum(vertices[v][1] for v in tri) / 3.0
+        tags.append(cell.tag_at(cx, cy))
+    mesh = hpfem.Mesh2D(vertices, cells, tags)
+    x0, x1, y0, y1 = cell.left, cell.left + cell.period, ys[0], ys[-1]
+    tol = 1e-9 * cell.period
+    for f in mesh.boundary_facets:
+        v = mesh.facet_vertices(f)
+        mx = 0.5 * (mesh.vertex(int(v[0]))[0] + mesh.vertex(int(v[1]))[0])
+        my = 0.5 * (mesh.vertex(int(v[0]))[1] + mesh.vertex(int(v[1]))[1])
+        if abs(mx - x0) < tol:
+            mesh.set_facet_tag(f, X_MIN)
+        elif abs(mx - x1) < tol:
+            mesh.set_facet_tag(f, X_MAX)
+        elif abs(my - y0) < tol:
+            mesh.set_facet_tag(f, Y_MIN)
+        elif abs(my - y1) < tol:
+            mesh.set_facet_tag(f, Y_MAX)
+    return mesh

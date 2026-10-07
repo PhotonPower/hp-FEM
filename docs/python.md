@@ -173,6 +173,24 @@ estimate = problem.estimate(solution)
 marked = hpfem.dorfler_marking(estimate.indicators, 0.5)
 ```
 
+## Job runner (`python -m hpfem.run`)
+
+`python -m hpfem.run job.json [--out DIR] [--cancel-file F] [--threads N] [--quiet]` runs a
+grating job described by a JSON document (schema version 1: `model` as a `UnitCell`, `mesh`
+as `structured` / `gmsh` / `file`, `materials` by library name or `{"eps"}` / `{"n"}`,
+`stack`, `incidence`, `sweep` over wavelengths or angles, `solver`, `maps`; the full example
+is in the module docstring) and streams JSON-lines events on stdout: `start` (with
+`version_info()`), `mesh` (the report), `diagnostics` (when they change), one `point` per
+sweep point with R, T, A, the balance, the orders and the timing, `map` per field map
+(`maps_<point>_<map>.npz` with `x`, `y`, `values`), `cancelled`, `error` and `done`. The
+results go to `results.json`. SIGTERM / SIGINT or the appearance of the cancel file stop the
+run after the current point (exit code 2; 1 on an error). From Python,
+`hpfem.run.run_job(job, out_dir, emit, cancel)` does the same with callbacks;
+`hpfem.version_info()` reports version, platform, OpenMP, threads, backends and whether gmsh
+is importable. `hpfem.meshing.structured_unit_cell(cell, nx, rows)` meshes a `UnitCell`
+without Gmsh (columns over the period, rows of cells stacked from the bottom, tags by
+priority), which the runner uses for `"mesh": {"structured": ...}`.
+
 ## Diagnostics (`hpfem.diagnostics`)
 
 `hpfem.grating.validate(...)` (the arguments of `solve`) and

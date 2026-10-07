@@ -316,7 +316,9 @@ faces" of M14-B.
   (`solution.sample(points)`, `solution.triangulate(subdivisions)`), for both solvers
 - [ ] F4 (P1) exact absorbed power per material tag and per cell (`absorbed_power`,
   `absorption_density`) by volume quadrature
-- [ ] F5 (P1) job runner / CLI with a stable JSON schema and JSON-lines events
+- [x] F5 (P1) job runner / CLI with a stable JSON schema and JSON-lines events
+  (`python -m hpfem.run`, `hpfem.run.run_job`, `hpfem.version_info`, schema version 1 for grating
+  jobs with sweeps, maps, cancellation; the six GUI presets are not in the repository)
   (`python -m hpfem.run job.json`), `hpfem.version_info()`
 - [x] F6 (P1) mesh module: unit-cell mesher (`hpfem.meshing`), `mesh.report()`,
   `mesh.check_periodic`, `read_gmsh` reading `$Periodic`
