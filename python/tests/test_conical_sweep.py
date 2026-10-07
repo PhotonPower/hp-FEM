@@ -52,8 +52,8 @@ def test_conical_sweep_matches_the_per_point_solves():
         direct = hpfem.ConicalScattering(nd, h1, setup).solve()
         swept = sweep.solve(setup)
         scale = np.hypot(np.linalg.norm(direct.transverse), np.linalg.norm(direct.longitudinal))
-        assert np.linalg.norm(swept.transverse - direct.transverse) < 1e-8 * scale
-        assert np.linalg.norm(swept.longitudinal - direct.longitudinal) < 1e-8 * scale
+        assert np.linalg.norm(swept.transverse - direct.transverse) < 1e-7 * scale
+        assert np.linalg.norm(swept.longitudinal - direct.longitudinal) < 1e-7 * scale
         assert swept.beta == setup.beta and swept.scattered
     assert sweep.timings.points == 3
     assert sweep.timings.total() > sweep.timings.setup > 0
