@@ -301,6 +301,22 @@ backend, conical)` and the map-based overloads) predicts DoFs, matrix nonzeros, 
 and bytes of the factorisation before the run; `LinearSolver.factor_entries` is the measured
 number after `factorize` (docs/theory/solvers.md, "Memory estimate").
 
+**Resonances and bands of the cell (F14).** `grating.resonances(mesh, materials, stack,
+omega_target, kx=0.0, beta=0.0, num_modes=4, order=4, pml=None, bottom="pml", ...)` solves
+the conical eigenproblem of the unit cell (`hpfem.ConicalResonance`: PEC top and bottom, PML
+designed at the target and the angle of the Bloch wavenumber `kx` [1/m], both polarisations
+at `beta = 0`) and returns a `ResonanceResult` with `modes` (`omega` complex with Im < 0 for
+a decaying mode, `wavelength`, `Q`, `residual`, `beta`, `field(points, quantity)` with `"E"`,
+`"H"` or `"S"`), `omegas`, `dofs` and `timing`; `progress` / `cancel` as in `solve` (phases
+assembly, constraints, eigensolve, post). `grating.bands(mesh, materials, stack,
+omega_target, kx_values, **kwargs)` repeats this along a list of Bloch wavenumbers (the
+complex band structure of the open cell; closed photonic crystals stay with
+`hpfem.BandStructure2D`). In the job runner `"task": "resonances"` with a `"resonance"` block
+(`wavelength`, `num_modes`, `kx_over_g` or `theta_deg`, `beta`) and `"task": "bands"` with
+`"sweep": {"kx_over_g": ...}` emit `mode` and `point` events and write the maps per mode.
+`python/tests/test_grating_resonances.py` checks the Fabry–Pérot slab against the exact complex
+wavenumber through the front end and the runner.
+
 `python/tests/test_grating_solve.py` checks the glass grating of the conical validation
 against the conical RCWA (s 40°/30°, p 50°/30°, reflected and transmitted orders to 2e-3 at
 p = 3), the silver grating with the PEC bottom and the absorbed power, and the snapping.

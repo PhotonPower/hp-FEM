@@ -364,6 +364,201 @@ def _diagnostics(mesh, pr: _Prepared, stack, materials, order, bottom, orders_ma
     return out
 
 
+@dataclass
+class ResonantMode:
+    """One resonance of the unit cell: complex ``omega`` (Im < 0 for a decaying mode),
+    ``wavelength`` of the real part, quality factor ``Q``, Arnoldi ``residual``, ``beta``."""
+
+    index: int
+    omega: complex
+    wavelength: float
+    Q: float
+    residual: float
+    beta: float
+    _result: object = field(default=None, repr=False)
+
+    @property
+    def raw(self):
+        """the ``hpfem.ConicalResonantMode`` (block coefficients)"""
+        return self._result.raw.modes[self.index]
+
+    def field(self, points, quantity: str = "E") -> np.ndarray:
+        """Physical mode field at ``points`` of shape (n, 2): (n, 3) complex; ``quantity``
+        ``"E"``, ``"H"`` (with the complex omega) or ``"S"``; Bloch-wrapped along the period,
+        NaN outside the mesh. The modes are normalised to unit 2-norm of the coefficients."""
+        values, _cells = self._result.problem.sample(
+            self.raw, self._result._locator_or_build(), np.asarray(points, dtype=float), True, 0,
+            quantity,
+        )  # fmt: skip
+        return values
+
+
+@dataclass
+class ResonanceResult:
+    """Result of :func:`resonances`: the modes closest to the target, the problem and the
+    timing. ``omegas`` is the array of complex angular frequencies."""
+
+    mesh: object
+    problem: object
+    raw: object
+    modes: list[ResonantMode]
+    kx: float
+    beta: float
+    target_omega: float
+    period: float
+    dofs: int
+    timing: dict[str, float] = field(default_factory=dict)
+    _locator: object = None
+
+    @property
+    def omegas(self) -> np.ndarray:
+        return np.array([m.omega for m in self.modes], dtype=complex)
+
+    def _locator_or_build(self):
+        if self._locator is None:
+            self._locator = hpfem.PointLocator2D(self.mesh)
+        return self._locator
+
+
+def resonances(
+    mesh,
+    materials,
+    stack,
+    omega_target: float,
+    *,
+    kx: float = 0.0,
+    beta: float = 0.0,
+    num_modes: int = 4,
+    order=4,
+    pml=None,
+    bottom: str = "pml",
+    snap_tolerance: float = 1e-9,
+    pml_target: float = 1e-6,
+    pml_wavelengths: float = 0.5,
+    solver=None,
+    krylov_dimension: int = 0,
+    tolerance: float = 1e-10,
+    max_iterations: int = 100,
+    extra_quadrature_order: int = 2,
+    progress=None,
+    cancel=None,
+) -> ResonanceResult:
+    """Resonances (quasi-normal modes) of the grating unit cell closest to ``omega_target``
+    [rad/s]: the conical eigenproblem of :class:`hpfem.ConicalResonance` with the Bloch
+    wavenumber ``kx`` [1/m] along the period, the longitudinal wavenumber ``beta`` [1/m] (0:
+    in-plane, both polarisations in one call), the PML of :func:`solve` designed at the
+    target frequency and the angle of ``kx``, PEC at the top and bottom of the mesh. ``mesh``,
+    ``materials``, ``stack``, ``order``, ``pml``, ``bottom`` and the snapping as in
+    :func:`solve`; ``num_modes``, ``krylov_dimension``, ``tolerance``, ``max_iterations`` as
+    in ``ConicalResonanceSetup``; ``progress`` / ``cancel`` as in :func:`solve` (phases
+    assembly, constraints, eigensolve, post). Returns a :class:`ResonanceResult` whose modes
+    are ordered by the distance of omega to the target and sample their fields with
+    :meth:`ResonantMode.field`."""
+    t0 = time.perf_counter()
+    k0 = float(units.vacuum_wavenumber(omega_target))
+    n_cover = complex(stack.incidence_medium.refractive_index)
+    # the PML design angle of the Bloch wavenumber, capped at 80 deg (evanescent kx)
+    sin_theta = min(np.sin(80 * units.deg), abs(float(kx)) / (k0 * max(n_cover.real, 1e-300)))
+    pr = _prepare(
+        mesh,
+        materials,
+        stack,
+        "p",
+        float(np.arcsin(sin_theta)),
+        0.0,
+        float(omega_target),
+        pml=pml,
+        bottom=bottom,
+        orders_max=0,
+        snap_tolerance=snap_tolerance,
+        pml_target=pml_target,
+        pml_wavelengths=pml_wavelengths,
+        cover_line=None,
+        substrate_line=None,
+    )
+    period = pr.period
+    orders = [int(order)] * mesh.num_cells if np.isscalar(order) else [int(p) for p in order]
+    nd = hpfem.NedelecDofMap2D(mesh, orders)
+    h1 = hpfem.DofMap2D(mesh, orders)
+    setup = hpfem.ConicalResonanceSetup()
+    setup.target_omega = float(omega_target)
+    setup.beta = float(beta)
+    setup.materials = pr.material_map
+    setup.pml = pr.box
+    setup.pec_tags = [hpfem.box_tag.Y_MIN, hpfem.box_tag.Y_MAX]
+    setup.periodic = [
+        hpfem.PeriodicPair2D(
+            hpfem.box_tag.X_MIN,
+            hpfem.box_tag.X_MAX,
+            [period, 0.0],
+            hpfem.bloch_phase([float(kx), 0.0], [period, 0.0]),
+        )
+    ]
+    setup.num_modes = int(num_modes)
+    setup.krylov_dimension = int(krylov_dimension)
+    setup.tolerance = float(tolerance)
+    setup.max_iterations = int(max_iterations)
+    setup.extra_quadrature_order = int(extra_quadrature_order)
+    if solver is not None:
+        setup.solver = solver
+    if progress is not None or cancel is not None:
+
+        def report(event):
+            if progress is not None:
+                progress(event)
+            return not (cancel is not None and cancel())
+
+        setup.progress = report
+    try:
+        problem = hpfem.ConicalResonance(nd, h1, setup)
+    except ValueError as error:
+        raise GratingError(f"{error} (snapped {pr.moved} vertices)") from error
+    raw = problem.solve()
+    timing = dict(raw.timing)
+    timing["total"] = time.perf_counter() - t0
+    result = ResonanceResult(
+        mesh=mesh,
+        problem=problem,
+        raw=raw,
+        modes=[],
+        kx=float(kx),
+        beta=float(beta),
+        target_omega=float(omega_target),
+        period=period,
+        dofs=int(len(problem.free_dofs)),
+        timing=timing,
+    )
+    result.modes = [
+        ResonantMode(
+            index=i,
+            omega=complex(m.omega),
+            wavelength=float(m.wavelength),
+            Q=float(m.quality),
+            residual=float(m.residual),
+            beta=float(m.beta),
+            _result=result,
+        )
+        for i, m in enumerate(raw.modes)
+    ]
+    return result
+
+
+def bands(
+    mesh, materials, stack, omega_target: float, kx_values, **kwargs
+) -> list[ResonanceResult]:
+    """The resonances of :func:`resonances` for every Bloch wavenumber in ``kx_values`` [1/m]:
+    the complex band structure (dispersion of the leaky and guided modes) of the open unit
+    cell near ``omega_target``. Keyword arguments as :func:`resonances`; ``cancel`` is polled
+    per wavenumber as well. Closed photonic crystals are ``hpfem.BandStructure2D``."""
+    cancel = kwargs.get("cancel")
+    out = []
+    for kx in kx_values:
+        if cancel is not None and cancel():
+            raise hpfem.Cancelled("bands cancelled")
+        out.append(resonances(mesh, materials, stack, omega_target, kx=float(kx), **kwargs))
+    return out
+
+
 def estimate_memory(mesh, order=4, solver=None):
     """Predicted sizes of the factorisation of :func:`solve` on ``mesh`` with the polynomial
     ``order`` (``hpfem.MemoryEstimate``: DoFs, nonzeros, factor entries, bytes, backend);

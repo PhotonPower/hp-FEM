@@ -64,6 +64,10 @@ using ConicalField = std::function<ConicalVector(const Point<2>&)>;
 [[nodiscard]] ConicalVector conical_polarisation(const Point<3>& wave_vector,
                                                  const Point<3>& normal, Polarisation polarisation);
 
+/// Homogeneous material as conical form: diagonal tensors @f$ \mu_r^{-1} @f$ and
+/// @f$ \varepsilon_r @f$, no sources.
+[[nodiscard]] assembly::ConicalForm conical_material_form(const materials::Material& material);
+
 /// PML as material for the conical forms (ADR-0005): with the stretch factors
 /// @f$ s_x, s_y @f$ of the box, @f$ \Lambda = \mathrm{diag}(s_y/s_x, s_x/s_y, s_xs_y) @f$ gives
 /// @f$ \tilde\varepsilon = \varepsilon_r\Lambda @f$ and @f$ \tilde\mu^{-1} = \mu_r^{-1}\Lambda^{-1}

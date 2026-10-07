@@ -30,6 +30,16 @@ sweep point) or ``{"file": "cell.msh", "scale": 1e-9}``. Materials are library n
 (``hpfem.materials.get``), ``{"eps": [re, im]}``, ``{"n": [n, k]}`` or ``{"eps": x}``; ``sweep``
 holds ``"wavelength"`` or ``"theta_deg"`` as a list of values or ``{"start", "stop", "count"}``.
 
+``"task"`` selects what is computed: ``"scattering"`` (default, the sweep above),
+``"resonances"`` (the quasi-normal modes of the cell closest to ``resonance.wavelength``:
+``{"resonance": {"wavelength": 405, "num_modes": 4, "kx_over_g": 0.0, "beta": 0.0}}`` with
+the Bloch wavenumber in units of 2π / period, or ``"theta_deg"`` for kx = k0 n sin(theta) at
+the target; :func:`hpfem.grating.resonances`) and ``"bands"`` (the same for every Bloch
+wavenumber of ``{"sweep": {"kx_over_g": {"start": 0, "stop": 0.5, "count": 6}}}``:
+:func:`hpfem.grating.bands`). ``incidence`` is not needed for these tasks; the maps are
+written per mode (``maps_<point>_<map>_<mode>.npz``, ``"modes": [0, 1]`` in a map spec
+restricts them).
+
 Events (one JSON object per line): ``start`` (job, version_info), ``mesh`` (report),
 ``estimate`` (predicted ``dofs``, ``matrix_nonzeros``, ``factor_entries``, ``total_bytes``,
 ``backend``, ``text`` of one factorisation), ``diagnostics`` (list of code / severity / text /
@@ -38,7 +48,10 @@ hint, per point only when they change), ``progress`` (``i``, ``phase``, ``step``
 ``wavelength``, ``theta_deg``, ``R``, ``T``, ``A``, ``balance``, ``R_orders``, ``T_orders``,
 ``dofs``, ``seconds``, ``timing``), ``map`` (file), ``cancelled``, ``error`` (``text``) and
 ``done`` (``results`` file). Cancellation is checked between the points and between the
-phases of a solve.
+phases of a solve. The eigen tasks emit ``mode`` (``i``, ``m``, ``omega`` as [re, im],
+``wavelength``, ``Q``, ``residual``) per mode and ``point`` (``i``, ``n``, ``kx``,
+``kx_over_g``, ``beta``, ``modes``, ``dofs``, ``seconds``, ``timing``) per Bloch wavenumber;
+the results hold them under ``"points"`` as well.
 """
 
 from __future__ import annotations
@@ -252,12 +265,21 @@ def run_job(
         int(t): _material(m, f"materials[{t}]")
         for t, m in dict(_get(job, "materials", required=True)).items()
     }
-    incidence = _get(job, "incidence", required=True)
+    task = str(_get(job, "task", "scattering"))
+    if task not in ("scattering", "resonances", "bands"):
+        raise JobError(f"task {task!r}: use 'scattering', 'resonances' or 'bands'")
+    incidence = _get(job, "incidence", required=task == "scattering") or {}
     polarisation = str(_get(incidence, "polarisation", "p"))
     theta0 = float(_get(incidence, "theta_deg", 0.0)) * units.deg
     phi = float(_get(incidence, "phi_deg", 0.0)) * units.deg
     sweep = _get(job, "sweep", {})
-    if "wavelength" in sweep:
+    resonance = _get(job, "resonance", required=task != "scattering") or {}
+    if task != "scattering":
+        wavelengths = [
+            float(_get(resonance, "wavelength", required=True, where="resonance")) * unit
+        ]
+        thetas = [0.0]
+    elif "wavelength" in sweep:
         wavelengths = _sweep_values(sweep["wavelength"], unit, "sweep.wavelength")
         thetas = [theta0] * len(wavelengths)
     elif "theta_deg" in sweep:
@@ -328,8 +350,14 @@ def run_job(
         "maps": [],
         "cancelled": False,
     }
-    last_codes = None
     t_start = time.perf_counter()
+    if task != "scattering":
+        _run_modes(
+            job, task, resonance, mesh, material_specs, unit, order, pml, options, maps, out,
+            emit, cancel, results, t_start,
+        )  # fmt: skip
+        return _finish(results, out, emit, t_start)
+    last_codes = None
     for i, (wavelength, theta) in enumerate(zip(wavelengths, thetas, strict=True)):
         if cancel is not None and cancel():
             results["cancelled"] = True
@@ -426,6 +454,10 @@ def run_job(
                 entry["file"] = str(file)
             results["maps"].append(entry)
             emit({"event": "map", **entry})
+    return _finish(results, out, emit, t_start)
+
+
+def _finish(results: dict, out: Path | None, emit, t_start: float) -> dict:
     results["seconds"] = time.perf_counter() - t_start
     if out is not None:
         file = out / "results.json"
@@ -440,6 +472,128 @@ def run_job(
         }
     )
     return results
+
+
+def _mode_dict(mode) -> dict:
+    return {
+        "m": mode.index,
+        "omega": [mode.omega.real, mode.omega.imag],
+        "wavelength": mode.wavelength,
+        "Q": mode.Q,
+        "residual": mode.residual,
+    }
+
+
+def _run_modes(
+    job, task, resonance, mesh, material_specs, unit, order, pml, options, maps, out, emit,
+    cancel, results, t_start,
+):  # fmt: skip
+    """The eigen tasks: resonances at one Bloch wavenumber or along a sweep of them."""
+    omega = units.angular_frequency(
+        wavelength=float(_get(resonance, "wavelength", required=True, where="resonance")) * unit
+    )
+    stack = _stack(_get(job, "stack", required=True), omega, unit)
+    period = float(_get(_get(job, "model", required=True), "period", required=True)) * unit
+    g = 2 * np.pi / period
+    if task == "bands":
+        sweep = _get(job, "sweep", required=True)
+        kx_over_g = _sweep_values(_get(sweep, "kx_over_g", required=True, where="sweep"), 1.0,
+                                  "sweep.kx_over_g")  # fmt: skip
+    elif "theta_deg" in resonance:
+        k0 = units.vacuum_wavenumber(omega)
+        n = complex(stack.incidence_medium.refractive_index).real
+        kx_over_g = [k0 * n * np.sin(float(resonance["theta_deg"]) * units.deg) / g]
+    else:
+        kx_over_g = [float(_get(resonance, "kx_over_g", 0.0))]
+    beta = float(_get(resonance, "beta", 0.0))
+    num_modes = int(_get(resonance, "num_modes", 4))
+    kwargs = dict(
+        beta=beta,
+        num_modes=num_modes,
+        order=order,
+        pml=pml,
+        bottom=options["bottom"],
+        snap_tolerance=options["snap_tolerance"],
+        pml_target=options["pml_target"],
+        krylov_dimension=int(_get(resonance, "krylov_dimension", 0)),
+        tolerance=float(_get(resonance, "tolerance", 1e-10)),
+        max_iterations=int(_get(resonance, "max_iterations", 100)),
+    )
+    if options.get("solver") is not None:
+        kwargs["solver"] = options["solver"]
+    results["task"] = task
+    for i, value in enumerate(kx_over_g):
+        if cancel is not None and cancel():
+            results["cancelled"] = True
+            emit({"event": "cancelled", "i": i, "n": len(kx_over_g)})
+            break
+        t0 = time.perf_counter()
+
+        def report(event, i=i):
+            emit(
+                {
+                    "event": "progress",
+                    "i": i,
+                    "phase": event.phase,
+                    "step": event.step,
+                    "num_steps": event.num_steps,
+                    "seconds": event.seconds,
+                }
+            )
+
+        try:
+            result = grating.resonances(
+                mesh, material_specs, stack, omega, kx=float(value) * g, progress=report,
+                cancel=cancel, **kwargs,
+            )  # fmt: skip
+        except hpfem.Cancelled:
+            results["cancelled"] = True
+            emit({"event": "cancelled", "i": i, "n": len(kx_over_g)})
+            break
+        modes = [_mode_dict(m) for m in result.modes]
+        for m in modes:
+            emit({"event": "mode", "i": i, **m})
+        point = {
+            "i": i,
+            "kx": result.kx,
+            "kx_over_g": float(value),
+            "beta": beta,
+            "target_wavelength": float(2 * np.pi * hpfem.constants.c0 / omega),
+            "modes": modes,
+            "dofs": result.dofs,
+            "seconds": time.perf_counter() - t0,
+            "timing": dict(result.timing),
+        }
+        results["points"].append(point)
+        emit({"event": "point", "n": len(kx_over_g), **point})
+        for j, spec in enumerate(maps):
+            xs = _grid(_get(spec, "x", required=True, where="maps"), unit)
+            ys = _grid(_get(spec, "y", required=True, where="maps"), unit)
+            gx, gy = np.meshgrid(xs, ys)
+            points = np.column_stack([gx.ravel(), gy.ravel()])
+            quantity = str(_get(spec, "quantity", "E"))
+            wanted = _get(spec, "modes", list(range(len(result.modes))))
+            for m in wanted:
+                if int(m) >= len(result.modes):
+                    continue
+                mode = result.modes[int(m)]
+                values = mode.field(points, quantity=quantity).reshape(len(ys), len(xs), 3)
+                entry = {
+                    "point": i,
+                    "map": j,
+                    "mode": int(m),
+                    "quantity": quantity,
+                    "shape": [len(ys), len(xs), 3],
+                }
+                if out is not None:
+                    file = out / f"maps_{i}_{j}_{int(m)}.npz"
+                    np.savez_compressed(
+                        file, x=xs, y=ys, values=values, quantity=quantity,
+                        omega=np.array([mode.omega]), wavelength=mode.wavelength,
+                    )  # fmt: skip
+                    entry["file"] = str(file)
+                results["maps"].append(entry)
+                emit({"event": "map", **entry})
 
 
 def main(argv: list[str] | None = None) -> int:

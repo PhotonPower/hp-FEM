@@ -15,6 +15,7 @@
 #include "hpfem/core/types.hpp"
 #include "hpfem/mesh/mesh.hpp"
 #include "hpfem/mesh/point_location.hpp"
+#include "hpfem/physics/conical_resonance.hpp"
 #include "hpfem/physics/conical_scattering.hpp"
 #include "hpfem/physics/scattering.hpp"
 
@@ -77,6 +78,14 @@ template <int Dim>
                                         std::span<const Point<2>> points,
                                         const SamplingOptions& options = {});
 
+/// A conical resonant mode (E, H with the mode's complex ω, or S), physical components;
+/// `options.scattered` must be false.
+[[nodiscard]] SampledField sample_field(const ConicalResonance& problem,
+                                        const ConicalResonantMode& mode,
+                                        const mesh::PointLocator<2>& locator,
+                                        std::span<const Point<2>> points,
+                                        const SamplingOptions& options = {});
+
 /// Total (or scattered) field on the `subdivisions`-fold subdivided mesh (`options.bloch_wrap`
 /// and `interface_side` do not apply: every sub-vertex belongs to its parent cell).
 /// @throws InvalidArgument if `subdivisions` < 1.
@@ -89,6 +98,12 @@ template <int Dim>
 /// The same for the conical solver.
 [[nodiscard]] TriangulatedField<2> triangulate_field(const ConicalScattering& problem,
                                                      const ConicalSolution& solution,
+                                                     int subdivisions,
+                                                     const SamplingOptions& options = {});
+
+/// The same for a conical resonant mode.
+[[nodiscard]] TriangulatedField<2> triangulate_field(const ConicalResonance& problem,
+                                                     const ConicalResonantMode& mode,
                                                      int subdivisions,
                                                      const SamplingOptions& options = {});
 

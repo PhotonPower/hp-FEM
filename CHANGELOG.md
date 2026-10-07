@@ -12,6 +12,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- Conical resonances and the periodic-cell eigen front end (M15 F14):
+  `physics::ConicalResonance` (`conical_resonance.hpp`: the pencil S(β) − k0² M with PEC,
+  PML, Bloch constraints and the gradient kernel projected out, modes with complex ω, Q and
+  block coefficients, `field` / `h_field` / `poynting`, `sample_field` / `triangulate_field`
+  overloads), `conical_material_form`; Python `hpfem.ConicalResonance`,
+  `grating.resonances` / `grating.bands` (`ResonanceResult`, `ResonantMode.field`), job-runner
+  tasks `resonances` and `bands` (events `mode` / `point`, maps per mode); unit tests (PEC
+  square waveguide at β ≠ 0, Bloch strip), convergence test `conical_resonance` (Fabry–Pérot
+  slab between PMLs), docs (maxwell.md "Conical resonances", python.md).
 - Progress, cancellation, timing and memory estimate (M15 F9): `core/progress.hpp`
   (`ProgressCallback`, `ProgressEvent`, `Timing`, `Cancelled`, `ProgressReporter`);
   `ScatteringSetup::progress` / `ConicalScatteringSetup::progress` called at every phase of

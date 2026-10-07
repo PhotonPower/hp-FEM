@@ -732,6 +732,36 @@ block pencil of a dielectric sphere with a transverse dipole at its centre (2.5D
 the sphere resonance test). `examples/micropillar_qd` compares the Purcell spectrum of the
 quantum dot from the modal sum with the frequency sweep of the example.
 
+### Conical resonances (`physics/conical_resonance.hpp`)
+
+The same eigenproblem for the 2.5D field of the conical solver (M15 F14): with the block
+forms of `assembly/conical_forms.hpp`,
+
+$$
+S(\beta)\,(e, v) = k_0^2\,M\,(e, v), \qquad k_0^2 = \omega^2/c_0^2 \in \mathbb{C},
+$$
+
+with the longitudinal wavenumber $\beta$, PEC walls on both spaces, Bloch constraints along
+the period (the phase of the pair is the Bloch wavenumber $k_x$) and the PML designed at the
+target frequency. At $\beta = 0$ the pencil decouples into the in-plane ($H_z$) and the $E_z$
+family, so one call returns the resonances of both polarisations of a grating unit cell; at
+$\beta \ne 0$ the modes are conical. The gradient kernel of $S(\beta)$ is spanned by
+$K_\beta = [G;\ \beta I]$ applied to the (PEC-free, Bloch-reduced) H1 potentials and is
+projected out of the Krylov space (`solvers::complex_eigenpairs_near_gauged` with the reduced
+kernel $\tilde K = (P^HP)^{-1}P^H K P_\psi$, as for the band structures), so a target near
+$k_0 = 0$ or a large H1 space does not flood the result with eigenvalues at zero
+(`ConicalResonanceSetup::remove_gradients`). `physics::ConicalResonance` returns the modes
+ordered by the distance of $\omega$ to the target with the block coefficients; `field`,
+`h_field` (with the mode's complex $\omega$) and `poynting` evaluate them, `sample_field` and
+`triangulate_field` have overloads for modes. Checks: the PEC square waveguide at $\beta \ne 0$
+reproduces $k_0^2 = \pi^2(m^2 + n^2) + \beta^2$ of both families (TE$_{10}$, TE$_{01}$,
+TE$_{11}$, TM$_{11}$ to $2\cdot10^{-3}$ at $p = 3$ on $4\times4$ cells), a Bloch-periodic strip
+the folded free-space modes $(k_x + 2\pi m/a)^2 + (n\pi/h)^2$, and the convergence test
+`conical_resonance` drives the Fabry–Pérot resonance of a slab between PMLs ($n = 3.5$,
+$Q = 10.7$) in $p$ to the floor of about $1.5\cdot10^{-4}$ set by the PML's reflection of the
+outward-growing quasi-normal mode. The periodic-cell front end is
+`hpfem.grating.resonances` / `bands` (docs/python.md).
+
 ## Band structures (`physics/band_structure.hpp`)
 
 A photonic crystal is a lossless periodic structure with lattice vectors $a_j$. By Bloch's

@@ -338,7 +338,7 @@ faces" of M14-B.
   omega)`, library names, numbers and core materials accepted; `grating.solve` takes dispersive
   dicts), explicit
   out-of-range policy, Drude–Lorentz fit helper
-- [ ] F14 (P3) high-level eigenproblems on the periodic-cell front end (resonances, bands)
+- [x] F14 (P3) high-level eigenproblems on the periodic-cell front end (resonances, bands)
 - [ ] F15 (P3) distribution: Windows/Linux wheels, `pip install hpfem[gui]`, `hpfem-gui` entry point
 
 ## Backlog / ideas
