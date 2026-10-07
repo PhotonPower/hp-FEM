@@ -81,6 +81,17 @@ database, CC0):
 setup.materials.set(2, materials.get("Au").at(omega))      # eps_r = (n + ik)^2, Im > 0
 ```
 
+Dispersive materials can also live in a `materials.DispersiveMap` (M15 F13):
+`dmap = DispersiveMap("air").set(2, "Ag").set(3, glass)` takes models, core materials, library
+names or numbers, `dmap.at(omega)` freezes them into a `MaterialMap`, and
+`dmap.apply(setup, omega)` sets `setup.omega` and `setup.materials` in one call, so a sweep is
+one line per frequency. Tabulated data outside its range raises by default; `out_of_range =
+"clamp"` (on the map or via `materials.with_policy(m, "clamp")`) uses the nearest sample and
+warns once. `materials.fit_drude_lorentz(m, (lam0, lam1, count), oscillators=n)` fits a
+passive Drude–Lorentz model to tabulated n, k over a wavelength range and returns the model
+with its maximal relative error of ε (silver over 350–800 nm with two poles: a few per cent);
+the fit is smooth in ω, for adaptive runs, resonances and sweeps beyond the samples.
+
 ## Project files and the command line
 
 A simulation can be described without Python in a JSON (or YAML) project file and run with

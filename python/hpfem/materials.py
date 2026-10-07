@@ -2,7 +2,7 @@
 
 A :class:`Dispersive` material gives the complex relative permittivity ``eps_r(omega)`` of
 a medium at an angular frequency and turns it into the frequency-independent
-:class:`hpfem.Material` the C++ core uses at one frequency (``at(omega)``), so a frequency
+:class:`Material` the C++ core uses at one frequency (``at(omega)``), so a frequency
 sweep is ``for omega in omegas: setup.materials.set(tag, library["Au"].at(omega))``.
 Convention ``exp(-i omega t)``: ``eps_r = (n + i k)^2`` with ``k >= 0``, lossy media have
 ``Im eps_r > 0`` (CLAUDE.md §6). Wavelengths are vacuum wavelengths in metres.
@@ -31,13 +31,14 @@ MAPbI3   Phillips et al. 2015 (CH3NH3PbI3 perovskite)     0.30 – 1.50
 from __future__ import annotations
 
 import importlib.resources
+import warnings
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 
 from hpfem import units
-from hpfem._hpfem import Material, constants
+from hpfem._hpfem import Material, MaterialMap, constants
 
 
 class Dispersive:
@@ -82,7 +83,9 @@ class Constant(Dispersive):
 @dataclass(repr=False)
 class Tabulated(Dispersive):
     """n, k tabulated over the vacuum wavelength [m], interpolated linearly in n and k.
-    Outside the tabulated range a ``ValueError`` is raised (no extrapolation)."""
+    Outside the tabulated range the policy ``out_of_range`` decides: ``"error"`` (default)
+    raises ``ValueError``, ``"clamp"`` uses the nearest tabulated value and warns once
+    (:func:`with_policy` makes a copy with another policy)."""
 
     wavelengths: np.ndarray = field(default_factory=lambda: np.zeros(0))
     n: np.ndarray = field(default_factory=lambda: np.zeros(0))
@@ -90,6 +93,7 @@ class Tabulated(Dispersive):
     name: str = "tabulated"
     source: str = "user"
     mu_r: complex = 1.0
+    out_of_range: str = "error"
 
     def __post_init__(self):
         self.wavelengths = np.asarray(self.wavelengths, dtype=float)
@@ -128,10 +132,19 @@ class Tabulated(Dispersive):
         lo, hi = self.range
         if np.any(lam < lo * (1 - 1e-12)) or np.any(lam > hi * (1 + 1e-12)):
             given = f"{np.min(lam) / units.nm:.1f}-{np.max(lam) / units.nm:.1f} nm"
-            raise ValueError(
+            message = (
                 f"{self.name}: wavelength {given} outside the tabulated range "
                 f"{lo / units.nm:.1f}-{hi / units.nm:.1f} nm"
             )
+            if self.out_of_range == "clamp":
+                warnings.warn(message + " (clamped to the nearest tabulated value)", stacklevel=2)
+                lam = np.clip(lam, lo, hi)
+            elif self.out_of_range == "error":
+                raise ValueError(message)
+            else:
+                raise ValueError(
+                    f"{self.name}: out_of_range = {self.out_of_range!r} (use 'error' or 'clamp')"
+                )
         return np.interp(lam, self.wavelengths, self.n) + 1j * np.interp(
             lam, self.wavelengths, self.k
         )
@@ -196,6 +209,158 @@ class DrudeLorentz(Dispersive):
 def Drude(eps_inf: float, omega_p: float, gamma: float, name: str = "drude") -> DrudeLorentz:
     """Drude metal ``eps_r = eps_inf - omega_p^2 / (omega^2 + i gamma omega)``."""
     return DrudeLorentz(eps_inf, omega_p, gamma, (), name=name)
+
+
+def with_policy(material: Dispersive, out_of_range: str) -> Dispersive:
+    """A copy of a ``Tabulated`` material with another out-of-range policy (``"error"`` or
+    ``"clamp"``); other materials are returned unchanged."""
+    if isinstance(material, Tabulated):
+        return replace(material, out_of_range=out_of_range)
+    return material
+
+
+class DispersiveMap:
+    """Materials by cell tag that may depend on the frequency (M15 F13): ``set(tag, m)`` takes
+    a :class:`Dispersive` model, a core ``Material`` or a library name, ``at(omega)`` returns
+    the frozen ``MaterialMap`` for one frequency and ``apply(setup, omega)`` sets
+    ``setup.omega`` and ``setup.materials`` in one call, so a sweep is ``for omega in ...:
+    dmap.apply(setup, omega); problem = ...``. ``out_of_range`` (``"error"`` / ``"clamp"``)
+    is applied to every tabulated material."""
+
+    def __init__(self, background=None, out_of_range: str = "error"):
+        self.background = self._coerce(background) if background is not None else Constant(1.0)
+        self.out_of_range = out_of_range
+        self._materials: dict[int, Dispersive] = {}
+
+    @staticmethod
+    def _coerce(material) -> Dispersive:
+        if isinstance(material, Dispersive):
+            return material
+        if isinstance(material, str):
+            return get(material)
+        if isinstance(material, Material):
+            return Constant(complex(material.eps_r), complex(material.mu_r), name="material")
+        if isinstance(material, (int, float, complex)):
+            return Constant(complex(material))
+        raise TypeError(f"DispersiveMap: cannot use {material!r} as a material")
+
+    def set(self, tag: int, material) -> DispersiveMap:
+        self._materials[int(tag)] = self._coerce(material)
+        return self
+
+    def has(self, tag: int) -> bool:
+        return int(tag) in self._materials
+
+    @property
+    def tags(self) -> list[int]:
+        return sorted(self._materials)
+
+    def of_tag(self, tag: int) -> Dispersive:
+        return self._materials.get(int(tag), self.background)
+
+    @property
+    def range(self) -> tuple[float, float]:
+        """Common wavelength range [m] of all tabulated / Sellmeier materials (0, inf without)."""
+        lo, hi = 0.0, np.inf
+        for material in [self.background, *self._materials.values()]:
+            rng = getattr(material, "range", None)
+            if rng is None and isinstance(material, Sellmeier):
+                rng = (material.range_um[0] * units.um, material.range_um[1] * units.um)
+            if rng is not None:
+                lo, hi = max(lo, rng[0]), min(hi, rng[1])
+        return lo, hi
+
+    def at(self, omega: float) -> MaterialMap:
+        """The core materials at ``omega`` as a ``MaterialMap`` (policy applied)."""
+        out = MaterialMap(with_policy(self.background, self.out_of_range).at(omega))
+        for tag, material in self._materials.items():
+            out.set(tag, with_policy(material, self.out_of_range).at(omega))
+        return out
+
+    def at_wavelength(self, wavelength: float) -> MaterialMap:
+        return self.at(units.angular_frequency(wavelength=wavelength))
+
+    def apply(self, setup, omega: float):
+        """Sets ``setup.omega`` and ``setup.materials`` for one frequency; returns the setup."""
+        setup.omega = float(omega)
+        setup.materials = self.at(omega)
+        return setup
+
+    def items(self):
+        return self._materials.items()
+
+    def __repr__(self):
+        return f"<hpfem.materials.DispersiveMap {self.tags} background={self.background.name}>"
+
+
+def fit_drude_lorentz(
+    material: Dispersive,
+    wavelengths,
+    oscillators: int = 1,
+    *,
+    eps_inf: float | None = None,
+    max_iterations: int = 2000,
+) -> tuple[DrudeLorentz, float]:
+    """Fits a :class:`DrudeLorentz` model (Drude term plus ``oscillators`` Lorentz poles) to the
+    permittivity of ``material`` sampled at ``wavelengths`` [m] (an array; ``(start, stop,
+    count)`` is expanded to a geometric grid). All rates are kept positive, so the fit is
+    passive (``Im eps_r > 0``) and smooth in ω: for adaptive runs, eigenproblems and sweeps
+    beyond the tabulated samples; ``eps_inf`` is kept at or above 1. Returns ``(model, max
+    relative error of eps_r on the samples)``. ``eps_inf`` fixes the high-frequency limit if
+    given."""
+    from scipy.optimize import least_squares
+
+    if isinstance(wavelengths, tuple) and len(wavelengths) == 3:
+        wavelengths = np.geomspace(wavelengths[0], wavelengths[1], int(wavelengths[2]))
+    lam = np.asarray(wavelengths, dtype=float)
+    omega = np.asarray(units.angular_frequency(wavelength=lam), dtype=float)
+    target = np.asarray(material.eps_r(omega), dtype=complex)
+    scale = float(np.max(np.abs(target)))
+    w_ref = float(np.sqrt(omega.min() * omega.max()))
+
+    def unpack(x):
+        # log-parameters keep every rate and strength positive; frequencies in units of w_ref
+        e_inf = 1.0 + float(np.exp(x[0])) if eps_inf is None else float(eps_inf)
+        offset = 0 if eps_inf is None else -1
+        w_p = w_ref * np.exp(x[1 + offset])
+        gamma = w_ref * np.exp(x[2 + offset])
+        osc = []
+        for j in range(oscillators):
+            base = 3 + offset + 3 * j
+            osc.append((np.exp(x[base]), w_ref * np.exp(x[base + 1]), w_ref * np.exp(x[base + 2])))
+        return DrudeLorentz(e_inf, w_p, gamma, tuple(osc), name=f"{material.name} fit")
+
+    def residual(x):
+        eps = unpack(x).eps_r(omega)
+        d = (eps - target) / scale
+        return np.concatenate([d.real, d.imag])
+
+    # start: Drude parameters from the longest wavelength, oscillators spread over the range
+    eps_long = target[np.argmax(lam)]
+    e_inf0 = max(
+        1.0, float(np.real(target[np.argmin(lam)])) if np.real(target[np.argmin(lam)]) > 0 else 1.0
+    )
+    w_long = float(omega[np.argmax(lam)])
+    wp0 = max(np.sqrt(max((e_inf0 - eps_long.real) * w_long**2, 1e-6 * w_ref**2)), 1e-3 * w_ref)
+    gamma0 = 0.05 * w_ref
+    x0 = ([np.log(max(e_inf0 - 1.0, 1e-3))] if eps_inf is None else []) + [
+        np.log(wp0 / w_ref),
+        np.log(gamma0 / w_ref),
+    ]
+    for j in range(oscillators):
+        w_j = omega.min() * (omega.max() / omega.min()) ** ((j + 1) / (oscillators + 1))
+        x0 += [np.log(0.1), np.log(w_j / w_ref), np.log(0.1)]
+    best = None
+    for attempt in range(3):
+        start = np.array(x0, dtype=float)
+        if attempt > 0:
+            start = start + np.random.default_rng(attempt).normal(0, 0.3, size=start.shape)
+        fit = least_squares(residual, start, max_nfev=max_iterations, method="trf")
+        if best is None or fit.cost < best.cost:
+            best = fit
+    model = unpack(best.x)
+    error = float(np.max(np.abs(model.eps_r(omega) - target) / np.abs(target)))
+    return model, error
 
 
 def _data_file(name: str):

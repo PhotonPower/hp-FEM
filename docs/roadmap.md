@@ -334,7 +334,9 @@ faces" of M14-B.
 - [ ] F11 (P2) isolated scatterers for the conical solver: cross sections, far field, automatic
   closed measurement contour
 - [ ] F12 (P2) H field and Poynting vector of the conical solution
-- [ ] F13 (P2) dispersive materials directly in the setup (`setup.set_frequency`), explicit
+- [x] F13 (P2) dispersive materials directly in the setup (`materials.DispersiveMap.apply(setup,
+  omega)`, library names, numbers and core materials accepted; `grating.solve` takes dispersive
+  dicts), explicit
   out-of-range policy, Drude–Lorentz fit helper
 - [ ] F14 (P3) high-level eigenproblems on the periodic-cell front end (resonances, bands)
 - [ ] F15 (P3) distribution: Windows/Linux wheels, `pip install hpfem[gui]`, `hpfem-gui` entry point

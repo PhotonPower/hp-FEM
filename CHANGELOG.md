@@ -12,6 +12,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- Dispersive materials in the setup (M15 F13): `materials.DispersiveMap` (models, core
+  materials, library names or numbers by tag; `at(omega)` freezes a `MaterialMap`,
+  `apply(setup, omega)` sets frequency and materials in one call, `range` of the tabulated
+  data), the out-of-range policy of `Tabulated` (`"error"` / `"clamp"` with a warning,
+  `materials.with_policy`), and `materials.fit_drude_lorentz` (passive Drude + n Lorentz poles
+  fitted to tabulated n, k by least squares in log parameters, with the maximal relative error).
 - Job runner (M15 F5): `python -m hpfem.run job.json` runs a grating job from a JSON document
   (schema version 1: model, mesh (structured / gmsh / file), materials, stack, incidence, sweep,
   solver, maps) with JSON-lines events (start, mesh, diagnostics, point, map, cancelled, error,
