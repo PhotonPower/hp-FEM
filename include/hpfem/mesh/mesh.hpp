@@ -117,6 +117,11 @@ class Mesh {
     return vertices_[as_size(v)];
   }
   [[nodiscard]] std::span<const Vertex> vertices() const noexcept { return vertices_; }
+  /// Moves a vertex (e.g. snapping a mesh line onto a material interface). The topology is
+  /// untouched; point locators and cell geometries created before are stale afterwards, and
+  /// the control points of curved cells are not adjusted.
+  /// @throws InvalidArgument for an index out of range.
+  void set_vertex(Index v, const Vertex& x);
 
   // --- cells -----------------------------------------------------------------------------
 

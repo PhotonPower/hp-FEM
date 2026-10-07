@@ -306,8 +306,12 @@ faces" of M14-B.
 - [x] dimensionally consistent Gauss-law terms in the three residual estimators
   (`EstimatorOptions::length_scale`, default ℓ = 1/k; in SI units the unscaled terms dominated η
   by 1/(kh)², docs/validation.md E)
-- [ ] F2 (P1) one-call periodic scattering API (`hpfem.grating.solve`: stack interfaces snapped to
-  mesh lines, PML from the largest order angle, orders in cover and substrate, power balance)
+- [x] F2 (P1) one-call periodic scattering API: `hpfem.grating.solve` (interfaces snapped onto
+  mesh vertices with `Mesh::set_vertex`, PML from the largest propagating-order angle, measurement
+  lines between structure and PML, reflected / transmitted orders with vector amplitudes,
+  absorbed power per tag, power balance, `field(points)`, timing, `GratingError` diagnostics);
+  `test_grating_solve.py` against the conical RCWA references. The six GUI presets of
+  `fem_worker.py` are not in this repository; the worker can be reduced to JSON handling on top
 - [ ] F3 (P1) vectorised field sampling and triangulated field export as NumPy
   (`solution.sample(points)`, `solution.triangulate(subdivisions)`), for both solvers
 - [ ] F4 (P1) exact absorbed power per material tag and per cell (`absorbed_power`,

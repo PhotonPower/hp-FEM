@@ -12,6 +12,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- `hpfem.grating.solve` (M15 F2), the one-call periodic scattering API on the conical solver:
+  snapping of the stack interfaces onto mesh vertices (`Mesh::set_vertex`, bound as
+  `set_vertex`), PML designed from the largest propagating-order angle (`PmlProfile.for_angle`,
+  reference index `min(n_cover, n_substrate)`), measurement lines between structure and PML,
+  `GratingResult` with reflected / transmitted orders (efficiencies, vector amplitudes,
+  wavenumbers), absorbed power per tag, power-balance residual, `field(points)` and timing;
+  `GratingError` names straddling cells and bad options; `python/tests/test_grating_solve.py`.
 - Non-matching Bloch-periodic coupling (M15 F16 stage 2): `assembly::bloch_constraints` no
   longer requires identical meshes on the two sides. Facets are grouped by overlap after the
   shift; the coarser facet of a group carries the trace of the coupled space truncated to the
