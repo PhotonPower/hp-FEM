@@ -76,6 +76,12 @@ hpfem_add_test(convergence_conical_lamellar_grating_ez convergence
 hpfem_add_test(convergence_conical_grating_validation convergence
   conical_grating_validation.cpp)
 
+hpfem_add_test(convergence_conical_hp_corner convergence
+  conical_hp_corner.cpp)
+
+hpfem_add_test(convergence_conical_grating_hp convergence
+  conical_grating_hp.cpp)
+
 hpfem_add_test(convergence_axisymmetric_dipole convergence
   axisymmetric_dipole.cpp)
 
@@ -123,3 +129,6 @@ hpfem_add_test(convergence_mie_sphere "convergence;validation"
 add_test(NAME validation_long_mie_sphere
   COMMAND convergence_mie_sphere "[validation-long]")
 set_tests_properties(validation_long_mie_sphere PROPERTIES LABELS "validation-long")
+add_test(NAME validation_long_conical_grating_hp
+  COMMAND convergence_conical_grating_hp "[validation-long]")
+set_tests_properties(validation_long_conical_grating_hp PROPERTIES LABELS "validation-long")

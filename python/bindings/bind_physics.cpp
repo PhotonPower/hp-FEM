@@ -784,6 +784,14 @@ void bind_physics(py::module_& m) {
         .def_property_readonly("free_dofs",
                                [](const ConicalScattering& p) { return to_array(p.free_dofs()); })
         .def("solve", &ConicalScattering::solve, Release())
+        .def("estimate", &ConicalScattering::estimate, py::arg("solution"),
+             py::arg("options") = adaptivity::EstimatorOptions{}, Release(),
+             "residual indicators of the coupled system (adaptivity.Estimate), the same "
+             "quantities as Scattering2D.estimate so that marking and hp decisions apply unchanged")
+        .def("error", &ConicalScattering::error, py::arg("solution"), py::arg("exact"),
+             py::arg("exact_curl") = physics::ConicalField{}, py::arg("extra_order") = 4, Release(),
+             "L2 errors of the unknown (E_x, E_y, E_z) and of its conical curl against an exact "
+             "physical field and curl (callables of the point)")
         .def(
             "field",
             [](const ConicalScattering& p, const ConicalSolution& s, Index c, const Point<2>& xi) {
@@ -867,6 +875,10 @@ void bind_physics(py::module_& m) {
             [](const ConicalScattering& p, const ConicalSolution& s, const mesh::PointLocator<2>& l,
                const Point<2>& x) { return p.poynting(s, l, x); },
             py::arg("solution"), py::arg("locator"), py::arg("x"), "None outside the mesh");
+    py::class_<physics::ConicalError>(m, "ConicalError",
+                                      "L2 norms of the field and conical-curl errors")
+        .def_readonly("l2", &physics::ConicalError::l2)
+        .def_readonly("curl", &physics::ConicalError::curl);
     m.def("conical_poynting_flux", &physics::conical_poynting_flux, py::arg("transverse"),
           py::arg("longitudinal"), py::arg("e"), py::arg("v"), py::arg("beta"), py::arg("omega"),
           py::arg("materials"), py::arg("surface"), py::arg("order") = 8, Release(),

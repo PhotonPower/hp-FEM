@@ -9,6 +9,7 @@
 #include <Eigen/Geometry>
 #include <fmt/format.h>
 
+#include "hpfem/adaptivity/conical_estimator.hpp"
 #include "hpfem/assembly/dirichlet.hpp"
 #include "hpfem/assembly/discrete_gradient.hpp"
 #include "hpfem/assembly/hanging_constraints.hpp"
@@ -245,6 +246,39 @@ ConicalSolution ConicalScattering::solve() const {
   out.longitudinal = full.tail(longitudinal_->num_dofs());
   log().info("ConicalScattering: solved beta = {:.6g} ({} unknowns)", setup_.beta, reduced.size());
   return out;
+}
+adaptivity::Estimate ConicalScattering::estimate(
+    const ConicalSolution& solution, const adaptivity::EstimatorOptions& options) const {
+  return adaptivity::conical_residual_estimate(
+      *transverse_, *longitudinal_, solution.transverse, solution.longitudinal, solution.beta,
+      k0_ * k0_, [this](Index c) { return form_of_cell(c); }, options);
+}
+
+ConicalError ConicalScattering::error(
+    const ConicalSolution& solution, const std::function<ConicalVector(const Point<2>&)>& exact,
+    const std::function<ConicalVector(const Point<2>&)>& exact_curl, int extra_order) const {
+  if (!exact) throw InvalidArgument("ConicalScattering::error: the exact field is required");
+  const auto& mesh = transverse_->mesh();
+  Real l2 = 0;
+  Real curl = 0;
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    const int p = transverse_->cell_order(c);
+    const auto geometry = mesh::cell_geometry(mesh, c);
+    const auto rule =
+        assembly::simplex_quadrature<2>(2 * p + extra_order + (geometry->is_affine() ? 0 : 2));
+    for (std::size_t q = 0; q < rule.size(); ++q) {
+      const auto g = geometry->evaluate(rule.points[q]);
+      ConicalVector curl_h;
+      const ConicalVector value =
+          conical_field_at(*transverse_, *longitudinal_, solution.transverse, solution.longitudinal,
+                           solution.beta, c, rule.points[q], &curl_h);
+      const Real dx = rule.weights[q] * std::abs(g.det);
+      l2 += dx * (value - exact(g.x)).squaredNorm();
+      if (exact_curl) curl_h -= exact_curl(g.x);
+      curl += dx * curl_h.squaredNorm();
+    }
+  }
+  return {std::sqrt(l2), std::sqrt(curl)};
 }
 
 ConicalVector conical_field_at(const fespace::NedelecDofMap<2>& transverse,

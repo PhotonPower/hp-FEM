@@ -287,10 +287,18 @@ faces" of M14-B.
   with different levels and orders on the two faces, and the periodic facets in the residual
   estimator. Observed before stage 1: `bloch_constraints: 14 master facets but 16 slave
   facets` after a closure refinement on an unstructured Gmsh mesh
-- [ ] F1 (P1) hp-adaptivity for `ConicalScattering`: residual estimator of the coupled system,
-  goal-oriented estimator for the diffraction orders (`GoalEstimate`), corner pre-refinement,
-  generator `adaptive_solve` that streams steps; acceptance on the Ag grating (TM, 50°), TE and
-  conical cases
+- [x] F1 stage 1 (P1) hp-adaptivity for `ConicalScattering`: `adaptivity::conical_residual_estimate`
+  (residual of the coupled system with the β terms, PML tensors and the E_z / εE_z interface
+  conditions), `ConicalScattering::estimate` / `error`, Python bindings and hp loop; convergence
+  tests `conical_hp_corner` (re-entrant PEC corner at β = 1.3, exponential, b = 0.26) and
+  `conical_grating_hp` (acceptance (a) and (d): Ag grating TM 50° from p = 4, ΔR−1 = −4e-6,
+  ΔR0 = −2.2e-4 at 86 k DoFs, `validation-long`; docs/validation.md E)
+- [ ] F1 stage 2 (P1): goal-oriented estimator for the diffraction orders (`GoalEstimate` with the
+  conical vector amplitudes; the energy-norm loop leaves unmarked cells at their initial order,
+  so the PML / air order has to be chosen by hand today), corner pre-refinement
+  (`refine_at_corners`), generator `hpfem.adaptive_solve` that streams steps, acceptance (b) TE
+  Ag 50° and (c) conical φ = 40°; dimensionally consistent Gauss-law terms (factor 1/k²) in the
+  three residual estimators (in SI units they dominate η by 1/(kh)², docs/validation.md E)
 - [ ] F2 (P1) one-call periodic scattering API (`hpfem.grating.solve`: stack interfaces snapped to
   mesh lines, PML from the largest order angle, orders in cover and substrate, power balance)
 - [ ] F3 (P1) vectorised field sampling and triangulated field export as NumPy
