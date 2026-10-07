@@ -79,24 +79,21 @@ Scattering<Dim>::Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringS
     // every cell must lie inside one region of the stack (interfaces on facets)
     const auto& mesh = dofs_->mesh();
     const LayerStack<Dim>& stack = *setup_.background;
-    // a cell straddles an interface if a vertex lies beyond it by more than a rounding
-    // tolerance of the mesh extent (a half-space stack has top == bottom)
-    Real extent = 0;
-    {
-      Real lo = std::numeric_limits<Real>::infinity();
-      Real hi = -lo;
-      for (Index v = 0; v < mesh.num_vertices(); ++v) {
-        lo = std::min(lo, mesh.vertex(v)(Dim - 1));
-        hi = std::max(hi, mesh.vertex(v)(Dim - 1));
-      }
-      extent = hi - lo;
+    Real y_min = std::numeric_limits<Real>::infinity();
+    Real y_max = -std::numeric_limits<Real>::infinity();
+    for (Index v = 0; v < mesh.num_vertices(); ++v) {
+      y_min = std::min(y_min, mesh.vertex(v)(Dim - 1));
+      y_max = std::max(y_max, mesh.vertex(v)(Dim - 1));
     }
+    const Real extent = y_max - y_min;
     for (Index c = 0; c < mesh.num_cells(); ++c) {
       const int region = stack.region(mesh::affine_map(mesh, c).centroid()(Dim - 1));
       const Real above =
           region == 0 ? std::numeric_limits<Real>::infinity() : stack.interface(region - 1);
       const Real below = region == stack.num_layers() + 1 ? -std::numeric_limits<Real>::infinity()
                                                           : stack.interface(region);
+      // relative to the mesh extent along the normal (a stack without finite layers has
+      // top == bottom; mesh lines sit on the interfaces only up to rounding, defect D2)
       const Real tolerance = 1e-9 * std::max(std::abs(stack.top() - stack.bottom()), extent);
       for (const Index v : mesh.cell_vertices(c)) {
         const Real z = mesh.vertex(v)(Dim - 1);

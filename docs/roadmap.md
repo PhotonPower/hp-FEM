@@ -244,20 +244,78 @@ polarisation of the 2D solver and the longitudinal wavenumber for the microscope
   layered background); theory section `docs/theory/maxwell.md#conical-incidence`
 - [ ] Python bindings (`ConicalScattering`, `layered_conical_wave`, orders), `hpfem.project` keys
   `"polarisation": "Ez" | "Hz"` and `"azimuth"` (conical), example (Si ridge in E_z, R1 Ag case)
-- [ ] conical grating validation at β ≠ 0 against a vector RCWA (or the 3D solver on a thin
-  unit cell), the acceptance case R1 of the report (Ag lamellar grating, 50°, TE) as a
-  `validation-long` test with the user's reference data
+- [x] conical grating validation at β ≠ 0 against the conical RCWA of the GUI work
+  (`conical_grating_validation`: glass lamellar grating, s at θ = 40°, φ = 30° and p at
+  θ = 50°, φ = 30° with the order m = −2 evanescent in air; 3.5e-5 and 4e-6 at p = 4,
+  energy balance 1e-6)
+- [ ] the acceptance case R1 of the report (Ag lamellar grating, 50°, TE, and the conical
+  Ag / Si cases of `gui-support-features.md` section 3) as a `validation-long` test
 - [ ] later: hp-adaptivity for the conical solver (estimator of the mode equation), E_z
   resonances and band structures, scalar `ScatteringEz` (H1 only) when the DoF count matters
 
 ## M14 — Accuracy infrastructure for oblique incidence and gratings
 From the same report (`spec-m14a/b/c`); A and C by the gpu agent, B by dev.
-- [ ] M14-A PML for oblique incidence (`PmlProfile::for_angle`, `PmlBox::max_resolution` with a
-  warning, documentation of R0 at the angle θ; flat Si / Ag against Fresnel)
+- [x] M14-A PML for oblique incidence (`PmlProfile::for_angle`, `PmlBox::max_resolution` /
+  `resolution_limit` / `recommended_thickness(profile, p)`, under-resolution warning in
+  `Scattering`, R0^(cos θ / 2) documented in `docs/theory/pml.md`; convergence test
+  `flat_surface_fresnel`: Si and Ag half spaces at 10-70° against Fresnel; Python / project
+  keys `theta_max` / `target`)
 - [ ] M14-B hp-adaptivity on a plasmonic grating (Bloch + layered background + PML): marking
   symmetrised across periodic faces, estimator options, convergence test on the Ag grating
-- [ ] M14-C post-processing for gratings (`diffraction_orders` with any orientation and the
-  background subtracted, `power_balance`, `Surface::line`, `total_field` on stack interfaces)
+- [x] M14-C post-processing for gratings (`diffraction_orders` on an `OrderLine` of any
+  orientation with the incident wave subtracted, complex vector amplitudes; `power_balance` /
+  `absorbed_power(problem, solution)` of the total field; `Surface::plane`; `total_field` on
+  stack interfaces by the cell side; `incident_wave` on the stack wave, setup and problem;
+  convergence test `grating_postprocessing`: the report's Si grating to 1e-6 of the RCWA,
+  lossless balance 2e-6; convergence test #6 moved to the layered background)
+
+## M15 — Features requested by the GUI work (FEM model builder)
+From the user's GUI work of 6 October 2026 (details, API proposals, acceptance data and the measurements
+behind them in [`gui-support-features.md`](gui-support-features.md); IDs F0–F16 as there). The GUI builds
+a periodic unit cell, meshes it with Gmsh and runs `ConicalScattering` / `Scattering2D`; every item
+removes glue code or a workaround on its side. Priorities P1 > P2 > P3. Overlaps: F1 contains the
+unchecked "hp-adaptivity for the conical solver" of M13, F16 the "marking symmetrised across periodic
+faces" of M14-B.
+- [x] F0 (P1) conventions of the conical API documented in `layered_conical_wave` (s = k × ŷ / |·|
+  = (−sin φ, 0, cos φ), p = k̂ × s, phase 1 at the origin on the top interface, scaled against
+  physical components, solver frame against the literature frame, `ky` is the normal
+  wavenumber) and tested at five (θ, φ) pairs to 1e-10
+- [x] F16 stage 1 (P1): symmetric refinement across a Bloch pair in the adaptive mesh
+  (`AdaptiveMesh::set_periodic`, mirrored after the closure in `refine` / `hp_refine`; 2D
+  and 3D unit tests, Python `set_periodic`)
+- [ ] F16 stage 2 (P1): non-matching (mortar-type) Bloch coupling for the Nédélec and H1 traces
+  with different levels and orders on the two faces, and the periodic facets in the residual
+  estimator. Observed before stage 1: `bloch_constraints: 14 master facets but 16 slave
+  facets` after a closure refinement on an unstructured Gmsh mesh
+- [ ] F1 (P1) hp-adaptivity for `ConicalScattering`: residual estimator of the coupled system,
+  goal-oriented estimator for the diffraction orders (`GoalEstimate`), corner pre-refinement,
+  generator `adaptive_solve` that streams steps; acceptance on the Ag grating (TM, 50°), TE and
+  conical cases
+- [ ] F2 (P1) one-call periodic scattering API (`hpfem.grating.solve`: stack interfaces snapped to
+  mesh lines, PML from the largest order angle, orders in cover and substrate, power balance)
+- [ ] F3 (P1) vectorised field sampling and triangulated field export as NumPy
+  (`solution.sample(points)`, `solution.triangulate(subdivisions)`), for both solvers
+- [ ] F4 (P1) exact absorbed power per material tag and per cell (`absorbed_power`,
+  `absorption_density`) by volume quadrature
+- [ ] F5 (P1) job runner / CLI with a stable JSON schema and JSON-lines events
+  (`python -m hpfem.run job.json`), `hpfem.version_info()`
+- [ ] F6 (P1) mesh module: unit-cell mesher (`hpfem.meshing`), `mesh.report()`,
+  `mesh.check_periodic`, `read_gmsh` reading `$Periodic`
+- [ ] F7 (P1) structured diagnostics (`problem.validate()`): interface off the mesh lines, untagged
+  cells, missing periodic partner, under-resolved or thin PML, too few elements per wavelength,
+  material outside its data range, lossy incidence medium, PEC wall too close in a lossy substrate
+- [ ] F8 (P2) sweep acceleration: `LinearSolver.refactorize` reusing the symbolic analysis, affine
+  assembly per material tag, `solve_sweep` with processes
+- [ ] F9 (P2) progress callback, cancellation, timing breakdown, `estimate_memory`
+- [ ] F10 (P2) conical equivalents of `diffraction_orders` / `power_balance` (flux based, complex
+  vector amplitudes)
+- [ ] F11 (P2) isolated scatterers for the conical solver: cross sections, far field, automatic
+  closed measurement contour
+- [ ] F12 (P2) H field and Poynting vector of the conical solution
+- [ ] F13 (P2) dispersive materials directly in the setup (`setup.set_frequency`), explicit
+  out-of-range policy, Drude–Lorentz fit helper
+- [ ] F14 (P3) high-level eigenproblems on the periodic-cell front end (resonances, bands)
+- [ ] F15 (P3) distribution: Windows/Linux wheels, `pip install hpfem[gui]`, `hpfem-gui` entry point
 
 ## Backlog / ideas
 - [x] dual H-formulation for guaranteed error bounds (`adaptivity::dual_solution` on the

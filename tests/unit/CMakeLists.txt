@@ -15,7 +15,8 @@ hpfem_add_test(test_mesh unit
   mesh/test_point_location.cpp
   mesh/test_subdivision.cpp
   mesh/test_refinement.cpp
-  mesh/test_adaptive_mesh.cpp)
+  mesh/test_adaptive_mesh.cpp
+  mesh/test_adaptive_periodic.cpp)
 
 hpfem_add_test(test_io unit
   io/test_vtk.cpp

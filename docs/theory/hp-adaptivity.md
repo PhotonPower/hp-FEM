@@ -190,6 +190,21 @@ error with 12 600 DoFs at $p = 2$ in 3 s. The singular solution limits uniform r
 $N^{-1/3}$ for every $p$ (the $h$ part of convergence test #7; the $hp$ part follows with
 the $hp$ decision).
 
+## Periodic faces
+
+Bloch-periodic constraints (`assembly::bloch_constraints`) pair the facets of the two faces one
+to one and need identical meshes on both sides. Local refinement breaks this as soon as a
+cell at one face is marked, or refined by the one-irregular closure of a neighbour, while
+its partner is not. `AdaptiveMesh::set_periodic({master_tag, slave_tag, shift})` declares
+the pairs; `refine` (and therefore `hp_refine`) then mirrors every refinement across the
+pair after the closure: facets of one face without a partner of the same position and
+size on the other face split the cell owning the nearest coarser partner facet, repeated
+until both faces match. The mirrored cells inherit their parent's order like any closure
+cell. Unit test: `tests/unit/mesh/test_adaptive_periodic.cpp` (2D and 3D, marked face
+cells, closure next to a face, `hp_refine`, the constraints of both spaces built after
+every step). The non-matching (mortar-type) coupling and the periodic facets in the
+estimator are the open stage 2 of M15 F16.
+
 ## Bodies of revolution
 
 The loop runs unchanged on the meridian mesh of the axisymmetric solver: the problem

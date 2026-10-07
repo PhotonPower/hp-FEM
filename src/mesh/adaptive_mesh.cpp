@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <unordered_map>
 
@@ -224,6 +225,8 @@ RefinementStep AdaptiveMesh<Dim>::refine(std::span<const Index> marked) {
     }
   }
   for (const Index c : marked) refine_cell(leaves_[as_size(c)]);
+  Index mirrored = 0;
+  if (!periodic_.empty()) mirrored = mirror_periodic();
 
   leaves_.clear();
   for (std::size_t t = 0; t < cells_.size(); ++t) {
@@ -248,10 +251,110 @@ RefinementStep AdaptiveMesh<Dim>::refine(std::span<const Index> marked) {
     HPFEM_ASSERT(step.parent[i] != kInvalidIndex, "refined cell was not a leaf");
   }
   rebuild_leaf_mesh();
-  log().debug("AdaptiveMesh<{}>::refine: {} marked, {} -> {} cells, {} hanging edges, max level {}",
-              Dim, marked.size(), num_old_cells, leaves_.size(), leaf_mesh_.hanging_edges().size(),
-              max_level_);
+  log().debug(
+      "AdaptiveMesh<{}>::refine: {} marked, {} mirrored, {} -> {} cells, {} hanging edges, "
+      "max level {}",
+      Dim, marked.size(), mirrored, num_old_cells, leaves_.size(),
+      leaf_mesh_.hanging_edges().size(), max_level_);
   return step;
+}
+
+template <int Dim>
+void AdaptiveMesh<Dim>::set_periodic(std::vector<PeriodicFace<Dim>> faces) {
+  for (const auto& face : faces) {
+    for (const Tag tag : {face.master, face.slave}) {
+      if (root_.facets_with_tag(tag).empty()) {
+        throw InvalidArgument(
+            fmt::format("AdaptiveMesh::set_periodic: no root facet carries the tag {}", tag));
+      }
+    }
+  }
+  periodic_ = std::move(faces);
+}
+
+template <int Dim>
+Index AdaptiveMesh<Dim>::mirror_periodic() {
+  struct LeafFacet {
+    Point<Dim> centroid;
+    Real diameter;
+    Index tree_cell;
+  };
+  const auto collect = [this](Tag tag, const Point<Dim>& shift) {
+    std::vector<LeafFacet> out;
+    for (const Index f : leaf_mesh_.facets_with_tag(tag)) {
+      const auto& fv = leaf_mesh_.facet_vertices(f);
+      LeafFacet lf;
+      lf.centroid = Point<Dim>::Zero();
+      for (const Index v : fv) lf.centroid += leaf_mesh_.vertex(v);
+      lf.centroid /= static_cast<Real>(fv.size());
+      lf.centroid += shift;
+      lf.diameter = 0;
+      for (std::size_t a = 0; a < fv.size(); ++a) {
+        for (std::size_t b = a + 1; b < fv.size(); ++b) {
+          lf.diameter =
+              std::max(lf.diameter, (leaf_mesh_.vertex(fv[a]) - leaf_mesh_.vertex(fv[b])).norm());
+        }
+      }
+      lf.tree_cell = leaves_[as_size(leaf_mesh_.facet_cells(f)[0])];
+      out.push_back(lf);
+    }
+    return out;
+  };
+  // facets of `fine` without a partner of the same place and size in `coarse`: the coarse
+  // facet nearest to them is split by refining its cell
+  const auto unmatched_partners = [](const std::vector<LeafFacet>& fine,
+                                     const std::vector<LeafFacet>& coarse,
+                                     std::vector<Index>& to_refine) {
+    for (const LeafFacet& f : fine) {
+      const Real tol = 1e-8 * f.diameter;
+      bool matched = false;
+      for (const LeafFacet& c : coarse) {
+        if ((c.centroid - f.centroid).norm() <= tol && std::abs(c.diameter - f.diameter) <= tol) {
+          matched = true;
+          break;
+        }
+      }
+      if (matched) continue;
+      Index best = kInvalidIndex;
+      Real best_distance = std::numeric_limits<Real>::infinity();
+      for (const LeafFacet& c : coarse) {
+        if (c.diameter <= f.diameter * (1 + 1e-8)) continue;  // not coarser: nothing to split
+        const Real d = (c.centroid - f.centroid).norm();
+        if (d < best_distance) {
+          best_distance = d;
+          best = c.tree_cell;
+        }
+      }
+      if (best != kInvalidIndex) to_refine.push_back(best);
+    }
+  };
+  Index refined = 0;
+  for (int iteration = 0; iteration < 64; ++iteration) {
+    leaves_.clear();
+    for (std::size_t t = 0; t < cells_.size(); ++t) {
+      if (cells_[t].is_leaf()) leaves_.push_back(static_cast<Index>(t));
+    }
+    rebuild_leaf_mesh();
+    std::vector<Index> to_refine;
+    for (const auto& face : periodic_) {
+      const auto master = collect(face.master, face.shift);
+      const auto slave = collect(face.slave, Point<Dim>::Zero());
+      unmatched_partners(slave, master, to_refine);
+      unmatched_partners(master, slave, to_refine);
+    }
+    std::sort(to_refine.begin(), to_refine.end());
+    to_refine.erase(std::unique(to_refine.begin(), to_refine.end()), to_refine.end());
+    if (to_refine.empty()) return refined;
+    for (const Index t : to_refine) {
+      if (cells_[as_size(t)].is_leaf()) {
+        refine_cell(t);
+        ++refined;
+      }
+    }
+  }
+  throw Error(
+      "AdaptiveMesh::mirror_periodic: the periodic faces did not converge to matching "
+      "facets (are the faces meshed identically on the root mesh?)");
 }
 
 template <int Dim>
