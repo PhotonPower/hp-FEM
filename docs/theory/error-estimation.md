@@ -66,8 +66,13 @@ the scatterer boundary).
   integral. In 2D the tangential jump of the scalar curl is $|[\![w]\!]|$.
 - **Hanging facets** (locally refined meshes): the jump is integrated over each child
   facet against the cell of the parent facet; the parent facet itself carries no term.
-- **Boundary facets** carry no term: PEC and prescribed tangential traces are imposed
-  exactly, PMC (natural) and Bloch-periodic facets are not yet accounted for.
+- **Boundary facets.** PEC and prescribed tangential traces are imposed exactly and carry no
+  term; PMC (natural) facets are not accounted for. **Bloch facets** (`periodic` argument,
+  passed by `Scattering::estimate` and `ConicalScattering::estimate`): the jump
+  $[\![n\times w]\!] = w_\text{slave} - e^{ik\cdot a}\,w_\text{master}$ (and the flux jump) is
+  integrated on each slave facet against the master cells under its shifted quadrature points
+  (`assembly::PeriodicLocator`, non-matching faces included) and credited to the slave cell and
+  to each master cell met, so cells at the periodic faces are marked like interior cells.
 - **Quadrature** degree $2p + $ `extra_order` (+2 on curved cells), or the cell's own
   `quadrature_order` (PML cells); facet rules of the same degree.
 - The Gauss-law terms can be switched off (`divergence_terms = false`), e.g. for

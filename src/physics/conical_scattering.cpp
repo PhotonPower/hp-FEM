@@ -251,7 +251,7 @@ adaptivity::Estimate ConicalScattering::estimate(
     const ConicalSolution& solution, const adaptivity::EstimatorOptions& options) const {
   return adaptivity::conical_residual_estimate(
       *transverse_, *longitudinal_, solution.transverse, solution.longitudinal, solution.beta,
-      k0_ * k0_, [this](Index c) { return form_of_cell(c); }, options);
+      k0_ * k0_, [this](Index c) { return form_of_cell(c); }, options, setup_.periodic);
 }
 
 ConicalError ConicalScattering::error(

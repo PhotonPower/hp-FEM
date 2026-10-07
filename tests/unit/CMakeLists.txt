@@ -47,7 +47,8 @@ hpfem_add_test(test_maxwell unit
   assembly/test_discrete_gradient.cpp
   assembly/test_field_evaluation.cpp
   assembly/test_tangential_dirichlet.cpp
-  assembly/test_periodic.cpp)
+  assembly/test_periodic.cpp
+  assembly/test_periodic_nonmatching.cpp)
 
 hpfem_add_test(test_materials unit
   materials/test_material.cpp)

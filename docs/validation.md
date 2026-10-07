@@ -552,3 +552,12 @@ with a weaker exponent. The goal-oriented loop (`conical_dwr_estimate`, section
 the generator `hpfem.adaptive_solve` are verified on the manufactured conical corner, not on
 the gratings: with the references good to $10^{-4}$ at best, a goal error below that cannot be
 checked there.
+
+**Case (d), non-matching Bloch faces (M15 F16).** The TM silver case with the ridge centred at
+$x = 25$ nm instead of 0 (edges at $-75$ and $125$ nm on a 25 nm root grid), so the two Bloch
+faces are no mirror images of each other, and the refinement left independent (no
+`set_periodic`): the faces end up with different levels and orders, coupled by the non-matching
+`bloch_constraints`, and the estimator includes the jump across them. The loop reaches
+$\Delta R_{-1} = +2\cdot 10^{-6}$ and $\Delta R_0 = -2.2\cdot 10^{-4}$ at 110 k DoFs with $b = 0.61$, the same
+values and rate as the mirrored symmetric case (a): the coupling costs no accuracy and the
+mirroring is no longer needed.

@@ -101,9 +101,10 @@ TEST_CASE("bloch_constraints: 2D edges map one to one with the phase and orienta
   const NedelecDofMap<2> dofs(relabelled, 3);
   const Constraints c = bloch_constraints<2>(dofs, pairs);
   REQUIRE(check_one_to_one(c, phase) == 9);
-  // mismatched sides are rejected
+  // a shift that moves the slave facets off the master line is rejected (a shift along the
+  // line, e.g. (0.3, 1), is a sheared lattice: the non-matching coupling handles it)
   const std::vector<PeriodicPair<2>> bad{
-      PeriodicPair<2>{box_tag::kYMin, box_tag::kYMax, Point<2>(0.3, 1.0), phase}};
+      PeriodicPair<2>{box_tag::kYMin, box_tag::kYMax, Point<2>(0.0, 0.7), phase}};
   REQUIRE_THROWS_AS(bloch_constraints<2>(dofs, bad), hpfem::InvalidArgument);
 }
 

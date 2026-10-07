@@ -283,10 +283,14 @@ faces" of M14-B.
 - [x] F16 stage 1 (P1): symmetric refinement across a Bloch pair in the adaptive mesh
   (`AdaptiveMesh::set_periodic`, mirrored after the closure in `refine` / `hp_refine`; 2D
   and 3D unit tests, Python `set_periodic`)
-- [ ] F16 stage 2 (P1): non-matching (mortar-type) Bloch coupling for the Nédélec and H1 traces
-  with different levels and orders on the two faces, and the periodic facets in the residual
-  estimator. Observed before stage 1: `bloch_constraints: 14 master facets but 16 slave
-  facets` after a closure refinement on an unstructured Gmsh mesh
+- [x] F16 stage 2 (P1): non-matching Bloch coupling for the Nédélec and H1 traces (facets
+  grouped by overlap; the coarser facet carries the trace truncated to the common order, the
+  finer facets interpolate it, exact for different levels and orders on the two faces; unrelated
+  layouts by interpolation with a warning), `assembly::PeriodicLocator`, and the Bloch facets in
+  the residual estimators (`periodic` argument); `test_periodic_nonmatching.cpp`, case (d) of
+  `conical_grating_hp` (ridge off centre, faces refined independently). Observed before stage
+  1: `bloch_constraints: 14 master facets but 16 slave facets` after a closure refinement on an
+  unstructured Gmsh mesh
 - [x] F1 stage 1 (P1) hp-adaptivity for `ConicalScattering`: `adaptivity::conical_residual_estimate`
   (residual of the coupled system with the β terms, PML tensors and the E_z / εE_z interface
   conditions), `ConicalScattering::estimate` / `error`, Python bindings and hp loop; convergence

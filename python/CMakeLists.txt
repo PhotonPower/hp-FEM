@@ -12,6 +12,11 @@ pybind11_add_module(_hpfem
   bindings/bind_adaptivity.cpp
   bindings/bind_io.cpp)
 target_link_libraries(_hpfem PRIVATE hpfem::hpfem)
+if(MINGW)
+  # the extension carries no debug info on Windows: with -g (release with asserts) the module
+  # exceeds half a gigabyte and the loader rejects it ("not a valid Win32 application")
+  target_link_options(_hpfem PRIVATE -Wl,--strip-debug)
+endif()
 hpfem_set_warnings(_hpfem)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   # GCC reports -Wnull-dereference inside pybind11's dispatcher (std::vector<bool>::reserve

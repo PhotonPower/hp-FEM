@@ -47,32 +47,6 @@ class _State:
     predicted: np.ndarray
 
 
-def _equalise_periodic_orders(adaptive, orders, periodic_pairs, tolerance=1e-6):
-    """Paired face cells of the Bloch faces get the larger of the two orders (the Bloch
-    constraints pair the facet DoFs one to one until the non-matching coupling exists)."""
-    mesh = adaptive.mesh
-    for master, slave, shift in periodic_pairs:
-        shift = np.asarray(shift, dtype=float)
-        cells_by_mid = {}
-        for f in mesh.facets_with_tag(master):
-            v = mesh.facet_vertices(f)
-            mid = 0.5 * (np.asarray(mesh.vertex(int(v[0]))) + np.asarray(mesh.vertex(int(v[1]))))
-            key = tuple(np.round((mid + shift) / (tolerance * np.linalg.norm(shift))).astype(int))
-            cells_by_mid[key] = int(mesh.facet_cells(f)[0])
-        for f in mesh.facets_with_tag(slave):
-            v = mesh.facet_vertices(f)
-            mid = 0.5 * (np.asarray(mesh.vertex(int(v[0]))) + np.asarray(mesh.vertex(int(v[1]))))
-            key = tuple(np.round(mid / (tolerance * np.linalg.norm(shift))).astype(int))
-            a = cells_by_mid.get(key)
-            if a is None:
-                continue
-            b = int(mesh.facet_cells(f)[0])
-            p = max(orders[a], orders[b])
-            orders[a] = p
-            orders[b] = p
-    return orders
-
-
 def adaptive_solve(
     adaptive,
     factory: Callable[[Any, np.ndarray], Any],
@@ -84,7 +58,6 @@ def adaptive_solve(
     max_steps: int = 50,
     initial_order: int = 1,
     theta: float = 0.5,
-    periodic_pairs=(),
     keep: bool = False,
 ) -> Iterator[AdaptiveStep]:
     """Generator of the hp-adaptive loop on ``adaptive`` (an ``AdaptiveMesh2D``).
@@ -97,9 +70,10 @@ def adaptive_solve(
     marking and ``goal_error`` is reported. The loop stops (``converged = True``) when every
     real-valued observable changed by less than ``tolerance`` since the previous step and, with
     a goal, the estimated goal error is below ``tolerance``; it always stops at ``max_dofs`` or
-    ``max_steps``. ``periodic_pairs`` are ``(master_tag, slave_tag, shift)`` of Bloch faces
-    whose paired cells keep equal orders (``AdaptiveMesh2D.set_periodic`` mirrors their
-    refinement). With ``keep`` the step carries the problem, solution, mesh and orders.
+    ``max_steps``. Bloch faces need no special treatment: the non-matching coupling of
+    ``bloch_constraints`` accepts different refinement and orders on the two sides
+    (``AdaptiveMesh2D.set_periodic`` mirrors the refinement if identical faces are wanted).
+    With ``keep`` the step carries the problem, solution, mesh and orders.
     """
     orders = np.full(adaptive.mesh.num_cells, initial_order, dtype=int)
     predicted = np.zeros(0)
@@ -145,5 +119,3 @@ def adaptive_solve(
         hp = hpfem.hp_refine(adaptive, orders.tolist(), decision.h_marked, decision.p_marked)
         predicted = hpfem.predict_indicators(indicators, orders.tolist(), hp)
         orders = np.asarray(hp.orders, dtype=int)
-        if periodic_pairs:
-            orders = _equalise_periodic_orders(adaptive, orders, periodic_pairs)

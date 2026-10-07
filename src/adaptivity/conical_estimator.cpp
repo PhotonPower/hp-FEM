@@ -3,11 +3,14 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <optional>
+#include <tuple>
 #include <memory>
 #include <vector>
 
 #include <fmt/format.h>
 
+#include "hpfem/assembly/periodic.hpp"
 #include "hpfem/assembly/quadrature.hpp"
 #include "hpfem/assembly/sparse_assembler.hpp"
 #include "hpfem/core/error.hpp"
@@ -241,7 +244,8 @@ Estimate conical_residual_estimate(const fespace::NedelecDofMap<2>& transverse,
                                    const fespace::DofMap<2>& longitudinal, const Vector& e,
                                    const Vector& v, Real beta, Real k_squared,
                                    const assembly::ConicalFormFactory& form_of_cell,
-                                   const EstimatorOptions& options) {
+                                   const EstimatorOptions& options,
+                                   std::span<const assembly::PeriodicPair<2>> periodic) {
   if (&transverse.mesh() != &longitudinal.mesh()) {
     throw InvalidArgument("conical_residual_estimate: the maps must share the mesh");
   }
@@ -293,52 +297,96 @@ Estimate conical_residual_estimate(const fespace::NedelecDofMap<2>& transverse,
     parts.divergence = options.divergence_terms ? gauss_scale * weight * divergence : 0.0;
   });
 
+  // facet jumps; Bloch slave facets against the phase-shifted master cells
+  std::optional<assembly::PeriodicLocator<2>> locator;
+  if (!periodic.empty()) locator.emplace(mesh, periodic);
   const Index num_facets = mesh.num_facets();
   std::vector<Real> tangential(as_size(num_facets), 0.0);
   std::vector<Real> normal_flux(as_size(num_facets), 0.0);
   std::vector<Real> weights(as_size(num_facets), 0.0);
   std::vector<FacetSides> sides(as_size(num_facets));
+  std::vector<std::vector<std::tuple<Index, Real, Real>>> partner_share(as_size(num_facets));
   parallel_for(num_facets, [&](Index f, int thread) {
     sides[as_size(f)] = facet_sides(mesh, f);
     const FacetSides& side = sides[as_size(f)];
-    if (side.skip || side.boundary) return;
+    if (side.skip) return;
+    const bool bloch = side.boundary && locator && locator->is_slave(f);
+    if (side.boundary && !bloch) return;
     const Index c0 = side.c0;
-    const Index c1 = side.c1;
     const LocalIndex k0 = mesh.facet_local_indices(f)[0];
     CellSampler sample0 = make_sampler(c0);
-    CellSampler sample1 = make_sampler(c1);
-    const int p_f = std::max(cell_order(c0), cell_order(c1));
+    std::map<Index, CellSampler> partners;
+    const auto partner_sampler = [&](Index c) -> CellSampler& {
+      auto it = partners.find(c);
+      if (it == partners.end()) it = partners.emplace(c, make_sampler(c)).first;
+      return it->second;
+    };
+    int p_f = cell_order(c0);
+    if (!bloch) {
+      p_f = std::max(p_f, cell_order(side.c1));
+      partner_sampler(side.c1);
+    }
     const auto& rule = rules.facet(
         thread, 2 * p_f + options.extra_order + (sample0.geometry().is_affine() ? 0 : 2));
     const Point<2> centroid0 = mesh::affine_map(mesh, c0).centroid();
     Real t_sum = 0;
     Real n_sum = 0;
+    std::map<Index, std::pair<Real, Real>> shares;
     for (std::size_t q = 0; q < rule.size(); ++q) {
       Point<2> xi0;
       Point<2> n;
       Real measure = 0;
       facet_point(sample0.geometry(), k0, centroid0, rule, q, xi0, n, measure);
       const Sample s0 = sample0(xi0);
-      const Sample s1 = sample1(sample1.geometry().to_reference(s0.x));
+      Index c1 = side.c1;
+      Complex phase{1.0, 0.0};
+      Point<2> xi1;
+      if (bloch) {
+        const auto partner = locator->partner(f, s0.x);
+        if (!partner) continue;
+        c1 = partner->cell;
+        xi1 = partner->xi;
+        phase = partner->phase;
+      } else {
+        xi1 = partner_sampler(c1).geometry().to_reference(s0.x);
+      }
+      const Sample s1 = partner_sampler(c1)(xi1);
       const Real ds = rule.weights[q] * measure;
-      const Vec3 jump_w = s0.w - s1.w;
-      t_sum += ds * (std::norm(jump_w(2)) + std::norm(n(0) * jump_w(1) - n(1) * jump_w(0)));
-      const Vec3 jump_d = s0.d - s1.d;
-      n_sum += ds * std::norm(n(0) * jump_d(0) + n(1) * jump_d(1));
+      const Vec3 jump_w = s0.w - phase * s1.w;
+      const Real t =
+          ds * (std::norm(jump_w(2)) + std::norm(n(0) * jump_w(1) - n(1) * jump_w(0)));
+      const Vec3 jump_d = s0.d - phase * s1.d;
+      const Real nn = ds * std::norm(n(0) * jump_d(0) + n(1) * jump_d(1));
+      t_sum += t;
+      n_sum += nn;
+      if (bloch) {
+        auto& share = shares[c1];
+        share.first += t;
+        share.second += nn;
+      }
     }
     tangential[as_size(f)] = t_sum;
     normal_flux[as_size(f)] = n_sum;
     weights[as_size(f)] = mesh::facet_measure(mesh, f) / (2.0 * p_f);
+    for (const auto& [c1, share] : shares) {
+      partner_share[as_size(f)].emplace_back(c1, share.first, share.second);
+    }
   });
   for (Index f = 0; f < num_facets; ++f) {
     const FacetSides& side = sides[as_size(f)];
-    if (side.skip || side.boundary) continue;
-    for (const Index c : {side.c0, side.c1}) {
+    if (side.skip) continue;
+    const bool bloch = side.boundary && locator && locator->is_slave(f);
+    if (side.boundary && !bloch) continue;
+    const auto add = [&](Index c, Real t, Real nn) {
       auto& parts = out.parts[as_size(c)];
-      parts.tangential_jump += weights[as_size(f)] * tangential[as_size(f)];
-      if (options.divergence_terms) {
-        parts.normal_jump += gauss_scale * weights[as_size(f)] * normal_flux[as_size(f)];
-      }
+      parts.tangential_jump += weights[as_size(f)] * t;
+      if (options.divergence_terms) parts.normal_jump += gauss_scale * weights[as_size(f)] * nn;
+    };
+    add(side.c0, tangential[as_size(f)], normal_flux[as_size(f)]);
+    if (bloch) {
+      for (const auto& [c1, t, nn] : partner_share[as_size(f)]) add(c1, t, nn);
+    } else {
+      add(side.c1, tangential[as_size(f)], normal_flux[as_size(f)]);
     }
   }
 

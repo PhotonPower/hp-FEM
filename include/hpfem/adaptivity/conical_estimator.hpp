@@ -20,14 +20,17 @@
 /// - \partial_yw_x @f$, @f$ \nabla\cdot d = \partial_xd_x + \partial_yd_y + i\beta d_z @f$. The
 /// facet normal lies in the plane, so @f$ |n\times w|^2 = |w_z|^2 + |n_xw_y - n_yw_x|^2 @f$ and
 /// @f$ n\cdot d = n_xd_x + n_yd_y @f$. Interior facets only (hanging child facets against the
-/// cell of their parent); PEC and Bloch-periodic facets carry no term. At β = 0 the indicators
-/// are those of the in-plane and the E_z block side by side. Convention exp(-iωt). See
+/// cell of their parent); PEC facets carry no term, Bloch slave facets (with `periodic`) the jump
+/// against the phase-shifted master cells, credited to both sides. At β = 0 the indicators are
+/// those of the in-plane and the E_z block side by side. Convention exp(-iωt). See
 /// docs/theory/maxwell.md#conical-incidence-and-the-e_z-polarisation.
 
+#include <span>
 #include <vector>
 
 #include "hpfem/adaptivity/residual_estimator.hpp"
 #include "hpfem/assembly/conical_forms.hpp"
+#include "hpfem/assembly/periodic.hpp"
 #include "hpfem/core/types.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 
@@ -42,12 +45,11 @@ namespace hpfem::adaptivity {
 /// (`options.difference_step`) as in `residual_estimate`. Parallel over cells and facets.
 /// @throws InvalidArgument if the maps differ in mesh, a coefficient vector does not match
 ///         its map, or the difference step is not positive.
-[[nodiscard]] Estimate conical_residual_estimate(const fespace::NedelecDofMap<2>& transverse,
-                                                 const fespace::DofMap<2>& longitudinal,
-                                                 const Vector& e, const Vector& v, Real beta,
-                                                 Real k_squared,
-                                                 const assembly::ConicalFormFactory& form_of_cell,
-                                                 const EstimatorOptions& options = {});
+[[nodiscard]] Estimate conical_residual_estimate(
+    const fespace::NedelecDofMap<2>& transverse, const fespace::DofMap<2>& longitudinal,
+    const Vector& e, const Vector& v, Real beta, Real k_squared,
+    const assembly::ConicalFormFactory& form_of_cell, const EstimatorOptions& options = {},
+    std::span<const assembly::PeriodicPair<2>> periodic = {});
 
 /// Weighted residual of the conical system for goal-oriented estimation: the cell
 /// contributions @f$ r_K(W) = \int_K R_K\cdot W + \tfrac12\sum_{F\subset\partial K}\int_F

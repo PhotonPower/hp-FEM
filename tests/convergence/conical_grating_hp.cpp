@@ -5,21 +5,22 @@
 // in-plane solver and the RCWA: R0 = 0.77960 +- 6e-5, R-1 = 0.07795 +- 2e-5. Uniform meshes
 // stagnate at |dR0| ~ 3e-3 ... 5e-3 and |dR-1| ~ 6e-3 ... 9e-3 for 65-130 k DoFs because of the
 // field singularities at the metal corners; the loop SOLVE - ESTIMATE (conical residual
-// estimator) - MARK (Doerfler 0.5) - DECIDE (error prediction) - REFINE (hanging nodes,
-// refinement mirrored across the Bloch faces, equal orders on the paired face cells) must
+// estimator with the Bloch facets) - MARK (Doerfler 0.5) - DECIDE (error prediction) - REFINE
+// (hanging nodes; the refinement is mirrored across the Bloch faces in cases a-c and left
+// independent in case d, the non-matching coupling of F16 taking the rest) must
 // beat that plateau and converge exponentially in N^(1/3). The loop starts at order 4: the
 // corner indicators saturate the energy-norm marking, so cells the loop never marks keep
 // their initial order; from p = 1 the air region leaves a dispersion error of ~1e-3 in R0 that
 // depends on the height of the measurement line, from p = 3 the PML and substrate cells leave
 // a line-independent offset of -5.5e-4 (docs/validation.md section E). The short variant runs
 // in CI with case (a); the [validation-long] variant goes to 100 k DoFs with the cases (a) TM Ag
-// 50 deg, (b) TE Ag 50 deg and (c) conical TM Si 50 deg / 40 deg and checks the acceptance
-// tolerances of docs/gui-support-features.md.
+// 50 deg, (b) TE Ag 50 deg, (c) conical TM Si 50 deg / 40 deg and (d) the ridge 25 nm off
+// centre with independently refined Bloch faces, and checks the acceptance tolerances of
+// docs/gui-support-features.md (F1 and F16).
 #include <cmath>
 #include <complex>
 #include <cstdlib>
 #include <fstream>
-#include <map>
 #include <numbers>
 #include <vector>
 
@@ -82,6 +83,8 @@ struct Case {
   Real theta_deg, phi_deg;
   Real r0, r1;          ///< reference efficiencies
   Real tol_r0, tol_r1;  ///< acceptance tolerances (long variant)
+  Real offset = 0;     ///< ridge centre [m]: 0 symmetric, else the Bloch faces are no mirror images
+  bool mirror = true;  ///< mirror the refinement across the Bloch faces (`set_periodic`)
 };
 
 // (a) the in-plane reference of F1 (R0 +- 6e-5, R-1 +- 2e-5; the two reference methods differ
@@ -91,6 +94,11 @@ const Case kCases[] = {
      5e-5 + 2e-5},
     {"b_TE_Ag_50", kSilver, Polarisation::kS, 50.0, 0.0, 0.319215, 0.643575, 5e-4, 5e-4},
     {"c_TM_Si_50_40", kSilicon, Polarisation::kP, 50.0, 40.0, 0.142373, 0.179169, 1e-4, 1e-4},
+    // (d) F16: ridge edge 25 nm off the symmetric position, the two Bloch faces refined
+    //     independently (no mirroring), the non-matching coupling and the periodic facets in
+    //     the estimator at work; same references and tolerances as (a)
+    {"d_TM_Ag_50_offset", kSilver, Polarisation::kP, 50.0, 0.0, 0.77960, 0.07795, 5e-4 + 6e-5,
+     5e-5 + 2e-5, 25 * kNano, false},
 };
 // mesh lines hit the interface y = 0, the ridge top and the ridge edges: vertical sizes are
 // multiples of h = 148 nm / 4, the period is 8 cells of 50 nm (the adaptivity refines)
@@ -107,45 +115,23 @@ constexpr int kFourierPoints = 256;
 constexpr hpfem::mesh::Tag kSub = 2;
 constexpr hpfem::mesh::Tag kRidgeTag = 3;
 
-Mesh<2> root_mesh() {
+/// With an offset ridge the period is meshed with 16 cells of 25 nm so that the ridge edges
+/// stay on mesh lines.
+Mesh<2> root_mesh(Real offset) {
   const Real y_bottom = -static_cast<Real>(kSubstrateCells + kPmlCells) * kCell;
   const Real y_top = static_cast<Real>(kRidgeCells + kAirCells + kPmlCells) * kCell;
   const Index ny = kSubstrateCells + kPmlCells + kRidgeCells + kAirCells + kPmlCells;
-  Mesh<2> mesh =
-      rectangle(kPeriodCells, ny, Point<2>(-kPeriod / 2, y_bottom), Point<2>(kPeriod / 2, y_top));
+  const Index nx = offset == 0 ? kPeriodCells : 2 * kPeriodCells;
+  Mesh<2> mesh = rectangle(nx, ny, Point<2>(-kPeriod / 2, y_bottom), Point<2>(kPeriod / 2, y_top));
   for (Index i = 0; i < mesh.num_cells(); ++i) {
     const Point<2> x = affine_map(mesh, i).centroid();
     if (x(1) < 0) {
       mesh.set_cell_tag(i, kSub);
-    } else if (x(1) < kHeight && std::abs(x(0)) < kRidge / 2) {
+    } else if (x(1) < kHeight && std::abs(x(0) - offset) < kRidge / 2) {
       mesh.set_cell_tag(i, kRidgeTag);
     }
   }
   return mesh;
-}
-
-/// The Bloch constraints pair the facet DoFs one to one: the cells on the two periodic faces
-/// get the larger of the two orders (the non-matching coupling is M15 F16 stage 2).
-void equalise_periodic_orders(const Mesh<2>& mesh, std::vector<int>& orders) {
-  std::map<long long, Index> left;
-  const auto key = [](const Point<2>& mid) { return std::llround(mid(1) / (1e-4 * kCell)); };
-  const auto midpoint = [&](Index f) {
-    const auto& v = mesh.facet_vertices(f);
-    return Point<2>(0.5 * (mesh.vertex(v[0]) + mesh.vertex(v[1])));
-  };
-  for (const Index f : mesh.boundary_facets()) {
-    if (mesh.facet_tag(f) == box_tag::kXMin) left[key(midpoint(f))] = mesh.facet_cells(f)[0];
-  }
-  for (const Index f : mesh.boundary_facets()) {
-    if (mesh.facet_tag(f) != box_tag::kXMax) continue;
-    const auto it = left.find(key(midpoint(f)));
-    REQUIRE(it != left.end());
-    const Index a = it->second;
-    const Index b = mesh.facet_cells(f)[0];
-    const int p = std::max(orders[as_size(a)], orders[as_size(b)]);
-    orders[as_size(a)] = p;
-    orders[as_size(b)] = p;
-  }
 }
 
 struct Step {
@@ -179,8 +165,11 @@ std::vector<Step> run(const Case& c, Index max_dofs, int max_steps, const char* 
                                            c.phi_deg * std::numbers::pi / 180.0, c.pol);
   const Real kR0 = c.r0;
   const Real kR1 = c.r1;
-  AdaptiveMesh<2> adaptive(root_mesh());
-  adaptive.set_periodic({PeriodicFace<2>{box_tag::kXMin, box_tag::kXMax, Point<2>(kPeriod, 0.0)}});
+  AdaptiveMesh<2> adaptive(root_mesh(c.offset));
+  if (c.mirror) {
+    adaptive.set_periodic(
+        {PeriodicFace<2>{box_tag::kXMin, box_tag::kXMax, Point<2>(kPeriod, 0.0)}});
+  }
   std::vector<int> orders(as_size(adaptive.mesh().num_cells()), kInitialOrder);
   std::vector<Real> predicted;
   std::vector<Step> steps;
@@ -237,7 +226,6 @@ std::vector<Step> run(const Case& c, Index max_dofs, int max_steps, const char* 
         hpfem::adaptivity::hp_refine<2>(adaptive, orders, decision.h_marked, decision.p_marked);
     predicted = hpfem::adaptivity::predict_indicators(estimate.indicators, orders, hp);
     orders = hp.orders;
-    equalise_periodic_orders(adaptive.mesh(), orders);
   }
   if (const char* path = std::getenv("HPFEM_VALIDATION_RESULTS")) {
     std::ofstream file(path, std::ios::app);

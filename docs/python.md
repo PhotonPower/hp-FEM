@@ -186,8 +186,7 @@ def factory(mesh, orders):
 
 goal = lambda p, s: hpfem.conical_dwr_estimate(p, s, functional)   # DWR of an order amplitude
 for step in hpfem.adaptive_solve(adaptive, factory, observe=orders_of, goal=goal,
-                                 tolerance=1e-4, max_dofs=100_000,
-                                 periodic_pairs=[(X_MIN, X_MAX, [period, 0.0])]):
+                                 tolerance=1e-4, max_dofs=100_000):
     print(step.dofs, step.eta, step.observables, step.goal_error, step.converged)
 ```
 
@@ -197,8 +196,8 @@ with `e = conj(A_m) / |A_m|` of the current amplitude linearises the efficiency 
 
 The hp loop (`tests/convergence/adaptive_hp_refinement.cpp`) reads the same in Python, and
 with `ConicalScattering` in place of `Scattering2D` (its `estimate` / `error` take the
-`ConicalSolution`, both DoF maps get the same `orders`; `AdaptiveMesh2D.set_periodic` keeps
-the Bloch faces of a grating mirrored):
+`ConicalSolution`, both DoF maps get the same `orders`; the Bloch faces may be refined
+independently, `AdaptiveMesh2D.set_periodic` keeps them mirrored if wanted):
 
 ```python
 adaptive = hpfem.AdaptiveMesh2D(root_mesh)

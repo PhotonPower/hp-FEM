@@ -310,6 +310,29 @@ with Bloch-periodic sides and the exact trace on the remaining sides converges w
 $p$ in $H(\mathrm{curl})$ (2D with one periodic direction, 3D with two) and exponentially
 under p-refinement.
 
+**Non-matching faces (M15 F16).** The two sides need not be meshed identically. The facets
+of a periodic direction are grouped by overlap after the shift, and each group is coupled as
+a conforming constraint: the *coarser* facet of the group carries the trace of the coupled
+space, truncated to the lowest polynomial order $p^\ast$ occurring in the group (the minimum
+rule of the hp spaces), its surplus hierarchical modes are constrained to zero, and every DoF
+of the finer facets is the interpolation of that trace (as for hanging nodes), so that the
+discrete space is exactly the Bloch-periodic subspace. This is exact for identical facets with
+different orders, for facets refined on one side only (nested, either side finer) and for
+their combinations; the direction of the constraint follows the coarser side, coincident
+vertices and edges keep the default direction slave $= e^{ik\cdot a}\,$master so that no cycles
+arise, and the Bloch phase enters as $e^{-ik\cdot a}$ when the master side is the finer one.
+Facets that are neither identical nor nested (unrelated meshes on the two sides, sheared
+lattices) fall back to interpolating the master trace from the master cells under each point,
+which is exact only up to the slave's order (a warning is logged once). `AdaptiveMesh::set_periodic`
+(identical faces by mirrored refinement) is therefore optional. `assembly::PeriodicLocator`
+answers, for a point on a slave facet, which master cell lies under its shifted image, with the
+phase; the residual estimators use it to include the jump across the Bloch faces
+([error-estimation.md](error-estimation.md)). Verified in
+`tests/unit/assembly/test_periodic_nonmatching.cpp` (interpolants of Bloch functions obey the
+constraints to $10^{-10}$, the solution's tangential trace is continuous up to the phase, the
+mixed-order space is no worse than the uniform space of the common order) and by case (d) of
+`conical_grating_hp` ([validation.md](../validation.md)).
+
 ## Propagating modes (`physics/propagating_mode.hpp`)
 
 For a waveguide with a 2D cross-section and propagation $e^{i\beta z}$, write

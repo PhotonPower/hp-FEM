@@ -134,7 +134,7 @@ adaptivity::Estimate Scattering<Dim>::estimate(const ScatteringSolution<Dim>& so
                                                const adaptivity::EstimatorOptions& options) const {
   return adaptivity::residual_estimate<Dim>(
       *dofs_, solution.unknown, k0_ * k0_, [this](Index cell) { return form_of_cell(cell); },
-      options);
+      options, setup_.periodic);
 }
 
 template <int Dim>

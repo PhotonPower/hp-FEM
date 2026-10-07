@@ -202,8 +202,12 @@ size on the other face split the cell owning the nearest coarser partner facet, 
 until both faces match. The mirrored cells inherit their parent's order like any closure
 cell. Unit test: `tests/unit/mesh/test_adaptive_periodic.cpp` (2D and 3D, marked face
 cells, closure next to a face, `hp_refine`, the constraints of both spaces built after
-every step). The non-matching (mortar-type) coupling and the periodic facets in the
-estimator are the open stage 2 of M15 F16.
+every step). Since stage 2 of M15 F16 the mirroring is optional: `bloch_constraints` couples
+faces refined to different levels and orders exactly
+([maxwell.md](maxwell.md#bloch-periodic-constraints-assemblyperiodichpp)), and the residual
+estimators include the jump across the Bloch faces, so the cells at the faces are marked and
+refined like any other and the orders of the paired cells need not agree (case (d) of
+`conical_grating_hp`: ridge off centre, faces refined independently).
 
 ## Bodies of revolution
 
@@ -220,10 +224,9 @@ indicators of `adaptivity::conical_residual_estimate`
 ([error-estimation.md](error-estimation.md#conical-incidence-adaptivityconical_residual_estimate)),
 `ConicalScattering::error` the L2 errors of the field and the conical curl against an exact
 field, and `hp_refine` raises the orders of both maps together (the two spaces share the
-per-cell order). With `AdaptiveMesh::set_periodic` the h-refinement stays mirrored across
-the Bloch faces of a grating; the orders of the paired face cells must agree until the
-non-matching coupling of M15 F16 stage 2 exists (the grating test equalises them after every
-step). The convergence tests are `conical_hp_corner` (manufactured gradient mode at a
+per-cell order). The Bloch faces of a grating may be refined independently and carry different
+orders (the non-matching coupling of M15 F16); `AdaptiveMesh::set_periodic` keeps them
+identical when that is wanted. The convergence tests are `conical_hp_corner` (manufactured gradient mode at a
 re-entrant PEC corner, $\beta = 1.3$: exponential with $b = 0.26$, the corner cells h-refined)
 and `conical_grating_hp` (the Ag lamellar grating of M15 F1 under TM at 50° with the layered
 background, Bloch faces and PML: $\Delta R_{-1} = -5\cdot 10^{-6}$, $\Delta R_0 = -2.2\cdot 10^{-4}$
