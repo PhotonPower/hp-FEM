@@ -193,7 +193,10 @@ as `structured` / `gmsh` / `file`, `materials` by library name or `{"eps"}` / `{
 is in the module docstring) and streams JSON-lines events on stdout: `start` (with
 `version_info()`), `mesh` (the report), `diagnostics` (when they change), one `point` per
 sweep point with R, T, A, the balance, the orders and the timing, `map` per field map
-(`maps_<point>_<map>.npz` with `x`, `y`, `values`), `cancelled`, `error` and `done`. The
+(`maps_<point>_<map>.npz` with `x`, `y`, `values`), `cancelled`, `error` and `done`; since F9
+also `estimate` (the predicted sizes of a factorisation, after `mesh`) and `progress` (`i`,
+`phase`, `step`, `num_steps`, `seconds` at the start of every phase of a solve), the point's
+`timing`, and cancellation between the phases of a solve as well as between points. The
 results go to `results.json`. SIGTERM / SIGINT or the appearance of the cancel file stop the
 run after the current point (exit code 2; 1 on an error). From Python,
 `hpfem.run.run_job(job, out_dir, emit, cancel)` does the same with callbacks;
@@ -285,6 +288,18 @@ conical solver, `conical_cross_sections(problem, solution, surface)` and
 pattern of the 2.5D field (F10 / F11); `conical_diffraction_orders` takes orders on any
 `OrderLine`, `to_literature_frame` converts the vector amplitudes to the x-period / y-invariant
 / z-normal frame of the grating literature.
+
+**Progress, cancellation, timing, memory (F9).** `solve(..., progress=callback,
+cancel=flag)` calls `callback(event)` with an `hpfem.ProgressEvent` (`phase`, `step`,
+`num_steps`, `seconds`) at the start of every phase of the solve (assembly, constraints,
+factorisation, solve, post) and when it is done, and polls `cancel()` at the same moments;
+a true value raises `hpfem.Cancelled`. The same callback is `setup.progress` of
+`Scattering2D` / `Scattering3D` / `ConicalScattering`, whose solutions carry `timing` (seconds
+per phase and total); `result.timing` of `grating.solve` adds them as `solver.<phase>`.
+`grating.estimate_memory(mesh, order, solver)` (or `hpfem.estimate_memory(mesh, order,
+backend, conical)` and the map-based overloads) predicts DoFs, matrix nonzeros, factor entries
+and bytes of the factorisation before the run; `LinearSolver.factor_entries` is the measured
+number after `factorize` (docs/theory/solvers.md, "Memory estimate").
 
 `python/tests/test_grating_solve.py` checks the glass grating of the conical validation
 against the conical RCWA (s 40°/30°, p 50°/30°, reflected and transmitted orders to 2e-3 at

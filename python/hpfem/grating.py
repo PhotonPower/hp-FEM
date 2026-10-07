@@ -364,6 +364,19 @@ def _diagnostics(mesh, pr: _Prepared, stack, materials, order, bottom, orders_ma
     return out
 
 
+def estimate_memory(mesh, order=4, solver=None):
+    """Predicted sizes of the factorisation of :func:`solve` on ``mesh`` with the polynomial
+    ``order`` (``hpfem.MemoryEstimate``: DoFs, nonzeros, factor entries, bytes, backend);
+    ``solver`` is the ``DirectSolverBackend`` (default: the automatic choice)."""
+    backend = hpfem.DirectSolverBackend.AUTO if solver is None else solver
+    if np.isscalar(order):
+        return hpfem.estimate_memory(mesh, int(order), backend, True)
+    orders = [int(p) for p in order]
+    nd = hpfem.NedelecDofMap2D(mesh, orders)
+    h1 = hpfem.DofMap2D(mesh, orders)
+    return hpfem.estimate_memory(nd, backend, False, h1)
+
+
 def validate(
     mesh,
     materials,
@@ -433,6 +446,8 @@ def solve(
     extra_quadrature_order: int = 4,
     solver=None,
     check: bool = True,
+    progress=None,
+    cancel=None,
 ) -> GratingResult:
     """Solves the grating unit cell and returns a :class:`GratingResult`.
 
@@ -463,6 +478,13 @@ def solve(
     midway between the lowest scatterer vertex and the bottom PML; skipped for a lossy
     substrate or ``bottom="pec"``). ``A`` is the absorbed power of the lossy cells per period
     divided by the incident power, ``power_balance_residual = R + T + A - 1``.
+
+    ``progress(event)`` is called with an ``hpfem.ProgressEvent`` at the start of every phase
+    of the solve (assembly, constraints, factorisation, solve, post) and when it is done;
+    ``cancel()`` is polled at the same moments and raises ``hpfem.Cancelled`` when it returns
+    true. ``result.timing`` holds the seconds of the setup, the solve (with the phases as
+    ``solver.<phase>``) and the post-processing. :func:`estimate_memory` predicts the sizes
+    of the factorisation before a run.
     """
     from hpfem import diagnostics as dg
 
@@ -519,12 +541,23 @@ def solve(
     setup.extra_quadrature_order = int(extra_quadrature_order)
     if solver is not None:
         setup.solver = solver
+    if progress is not None or cancel is not None:
+
+        def report(event):
+            if progress is not None:
+                progress(event)
+            return not (cancel is not None and cancel())
+
+        setup.progress = report
     try:
         problem = hpfem.ConicalScattering(nd, h1, setup)
     except Exception as error:  # the solver's own diagnostics, with the hint
         raise GratingError(f"{error} (snapped {pr.moved} vertices)") from error
     solution = problem.solve()
     timing["solve"] = time.perf_counter() - t1
+    for phase, seconds in solution.timing.items():
+        if phase != "total":
+            timing[f"solver.{phase}"] = seconds
 
     # --- orders, absorption, balance ------------------------------------------------------------
     t2 = time.perf_counter()

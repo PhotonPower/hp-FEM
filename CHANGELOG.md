@@ -12,6 +12,16 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- Progress, cancellation, timing and memory estimate (M15 F9): `core/progress.hpp`
+  (`ProgressCallback`, `ProgressEvent`, `Timing`, `Cancelled`, `ProgressReporter`);
+  `ScatteringSetup::progress` / `ConicalScatteringSetup::progress` called at every phase of
+  `solve` (assembly, constraints, factorisation, solve, post, done), cancellation between the
+  phases, `solution.timing` with the seconds per phase; `solvers::estimate_memory` (DoFs,
+  nonzeros, factor entries and bytes from fitted fill-in laws, record
+  `benchmarks/results/2026-10-08-fill-in.jsonl`), `LinearSolver::factor_entries()`;
+  Python: `hpfem.ProgressEvent`, `hpfem.Cancelled`, `hpfem.estimate_memory`,
+  `grating.solve(progress=, cancel=)`, `grating.estimate_memory`, job-runner events
+  `estimate` and `progress`, cancellation inside a solve, `timing` per point.
 - Conical post-processing (M15 F10 / F11, `physics/conical_postprocess.hpp`):
   `conical_diffraction_orders` on any `OrderLine`, `to_literature_frame` /
   `from_literature_frame`, `conical_curl_of`, the flux-based `conical_power_balance`

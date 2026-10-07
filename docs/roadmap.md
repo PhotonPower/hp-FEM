@@ -328,7 +328,7 @@ faces" of M14-B.
   material outside its data range, lossy incidence medium, PEC wall too close in a lossy substrate
 - [ ] F8 (P2) sweep acceleration: `LinearSolver.refactorize` reusing the symbolic analysis, affine
   assembly per material tag, `solve_sweep` with processes
-- [ ] F9 (P2) progress callback, cancellation, timing breakdown, `estimate_memory`
+- [x] F9 (P2) progress callback, cancellation, timing breakdown, `estimate_memory`
 - [x] F10 (P2) conical equivalents of `diffraction_orders` / `power_balance` (flux based, complex
   vector amplitudes)
 - [x] F11 (P2) isolated scatterers for the conical solver: cross sections, far field, automatic

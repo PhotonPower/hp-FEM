@@ -26,6 +26,7 @@
 #include "hpfem/adaptivity/residual_estimator.hpp"
 #include "hpfem/assembly/conical_forms.hpp"
 #include "hpfem/assembly/periodic.hpp"
+#include "hpfem/core/progress.hpp"
 #include "hpfem/core/types.hpp"
 #include "hpfem/fespace/constraints.hpp"
 #include "hpfem/fespace/dof_map.hpp"
@@ -99,6 +100,9 @@ struct ConicalScatteringSetup {
   solvers::DirectSolverBackend solver = solvers::DirectSolverBackend::kAuto;
   int extra_quadrature_order = 4;      ///< added to 2p for the non-polynomial incident field
   int pml_extra_quadrature_order = 6;  ///< added to 2p in PML cells
+  /// Called when a phase of `solve` starts (assembly, constraints, factorisation, solve,
+  /// post) and when it is done; returning false cancels the solve (`Cancelled`). Optional.
+  ProgressCallback progress;
 };
 
 /// Error of a conical field against an exact one: @f$ \|e\|^2 = \int |e_x|^2 + |e_y|^2 + |e_z|^2
@@ -115,6 +119,7 @@ struct ConicalSolution {
   bool scattered = false;  ///< the unknown is E − E^inc
   Vector transverse;       ///< (E_x, E_y) coefficients (full size)
   Vector longitudinal;     ///< v = −i E_z coefficients (full size)
+  Timing timing;           ///< seconds per phase of `solve` and "total"
 };
 
 /// Assembles @f$ S(\beta) - k_0^2M @f$ with PML, PEC, Bloch and hanging-node constraints and

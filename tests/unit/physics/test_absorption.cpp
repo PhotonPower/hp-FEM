@@ -108,8 +108,8 @@ TEST_CASE("absorbed_power_by_tag: the absorptance of a flat film on a layered ba
   const Scattering<2> problem(dofs, setup);
   // the exact total field is the stack wave: a solution with a vanishing unknown; the real
   // solve differs from it by the PML reflection and the discretisation of the stack wave
-  const hpfem::physics::ScatteringSolution<2> solution{Formulation::kScatteredField,
-                                                       hpfem::Vector::Zero(dofs.num_dofs())};
+  const hpfem::physics::ScatteringSolution<2> solution{
+      Formulation::kScatteredField, hpfem::Vector::Zero(dofs.num_dofs()), {}};
   const auto solved = problem.solve();
   REQUIRE(absorbed_power_by_tag<2>(problem, solved, 6).total / film.incident_power(angle) ==
           Approx(wave.absorptance).epsilon(2e-3));

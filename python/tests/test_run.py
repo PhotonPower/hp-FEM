@@ -64,17 +64,32 @@ def test_job_reproduces_the_rcwa_and_writes_results_and_maps(tmp_path):
 def test_sweep_cancellation_and_errors(tmp_path):
     job = dict(JOB, sweep={"theta_deg": {"start": 30, "stop": 60, "count": 3}}, maps=[])
     job["incidence"] = dict(JOB["incidence"], wavelength=405)
-    calls = {"n": 0}
-
-    def cancel():
-        calls["n"] += 1
-        return calls["n"] > 1  # cancel before the second point
-
     events = []
+
+    def cancel():  # cancel once the first point is done (polled between points and phases)
+        return any(e["event"] == "point" for e in events)
+
     results = runner.run_job(job, None, events.append, cancel)
     assert results["cancelled"] and len(results["points"]) == 1
     assert [e["event"] for e in events][-2:] == ["cancelled", "done"]
     assert results["points"][0]["theta_deg"] == pytest.approx(30)
+    # the estimate and the progress events of the solve, with the timing in the point
+    estimate = next(e for e in events if e["event"] == "estimate")
+    # the estimate counts the maps' DoFs, the point the free ones (PEC and Bloch eliminated)
+    assert 0.95 < estimate["dofs"] / results["points"][0]["dofs"] < 1.05
+    assert estimate["total_bytes"] > 0
+    phases = [e["phase"] for e in events if e["event"] == "progress" and e["i"] == 0]
+    assert phases == ["assembly", "constraints", "factorisation", "solve", "post", "done"]
+    assert set(results["points"][0]["timing"]) >= {"setup", "solve", "solver.factorisation"}
+    # cancellation inside a solve: no point is finished
+    events = []
+
+    def cancel_in_solve():
+        return any(e["event"] == "progress" and e["phase"] == "solve" for e in events)
+
+    results = runner.run_job(job, None, events.append, cancel_in_solve)
+    assert results["cancelled"] and results["points"] == []
+    assert [e["event"] for e in events][-2:] == ["cancelled", "done"]
     with pytest.raises(runner.JobError, match="version"):
         runner.run_job(dict(JOB, version=7))
     with pytest.raises(runner.JobError, match="material"):

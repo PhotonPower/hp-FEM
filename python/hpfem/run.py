@@ -31,10 +31,14 @@ sweep point) or ``{"file": "cell.msh", "scale": 1e-9}``. Materials are library n
 holds ``"wavelength"`` or ``"theta_deg"`` as a list of values or ``{"start", "stop", "count"}``.
 
 Events (one JSON object per line): ``start`` (job, version_info), ``mesh`` (report),
-``diagnostics`` (list of code / severity / text / hint, per point only when they change),
-``point`` (``i``, ``n``, ``wavelength``, ``theta_deg``, ``R``, ``T``, ``A``, ``balance``,
-``R_orders``, ``T_orders``, ``dofs``, ``seconds``), ``map`` (file), ``cancelled``, ``error``
-(``text``) and ``done`` (``results`` file).
+``estimate`` (predicted ``dofs``, ``matrix_nonzeros``, ``factor_entries``, ``total_bytes``,
+``backend``, ``text`` of one factorisation), ``diagnostics`` (list of code / severity / text /
+hint, per point only when they change), ``progress`` (``i``, ``phase``, ``step``,
+``num_steps``, ``seconds`` at the start of every phase of a solve), ``point`` (``i``, ``n``,
+``wavelength``, ``theta_deg``, ``R``, ``T``, ``A``, ``balance``, ``R_orders``, ``T_orders``,
+``dofs``, ``seconds``, ``timing``), ``map`` (file), ``cancelled``, ``error`` (``text``) and
+``done`` (``results`` file). Cancellation is checked between the points and between the
+phases of a solve.
 """
 
 from __future__ import annotations
@@ -300,6 +304,21 @@ def run_job(
             **{k: (v.tolist() if isinstance(v, np.ndarray) else v) for k, v in report.items()},
         }
     )
+    try:
+        estimate = grating.estimate_memory(mesh, order, options.get("solver"))
+        emit(
+            {
+                "event": "estimate",
+                "dofs": estimate.dofs,
+                "matrix_nonzeros": estimate.matrix_nonzeros,
+                "factor_entries": estimate.factor_entries,
+                "total_bytes": estimate.total_bytes,
+                "backend": hpfem.backend_name(estimate.backend),
+                "text": estimate.describe(),
+            }
+        )
+    except (ValueError, RuntimeError) as error:  # a problem the solve reports properly
+        emit({"event": "estimate", "text": f"no estimate: {error}"})
     results: dict[str, Any] = {
         "version": SCHEMA_VERSION,
         "job": _get(job, "name", ""),
@@ -319,9 +338,28 @@ def run_job(
         omega = units.angular_frequency(wavelength=wavelength)
         stack = _stack(_get(job, "stack", required=True), omega, unit)
         t0 = time.perf_counter()
-        result = grating.solve(
-            mesh, material_specs, stack, polarisation, theta, phi, omega, order, pml=pml, **options
-        )
+
+        def report(event, i=i):
+            emit(
+                {
+                    "event": "progress",
+                    "i": i,
+                    "phase": event.phase,
+                    "step": event.step,
+                    "num_steps": event.num_steps,
+                    "seconds": event.seconds,
+                }
+            )
+
+        try:
+            result = grating.solve(
+                mesh, material_specs, stack, polarisation, theta, phi, omega, order, pml=pml,
+                progress=report, cancel=cancel, **options,
+            )  # fmt: skip
+        except hpfem.Cancelled:
+            results["cancelled"] = True
+            emit({"event": "cancelled", "i": i, "n": len(wavelengths)})
+            break
         found = result.diagnostics
         codes = [(d.code, d.text) for d in found]
         if codes != last_codes:
@@ -358,6 +396,7 @@ def run_job(
             "dofs": result.dofs,
             "beta": result.wave.beta,
             "seconds": time.perf_counter() - t0,
+            "timing": dict(result.timing),
             "diagnostics": _diagnostic_dicts(found),
         }
         results["points"].append(point)

@@ -25,6 +25,7 @@
 #include "hpfem/assembly/h1_forms.hpp"
 #include "hpfem/assembly/maxwell_forms.hpp"
 #include "hpfem/assembly/periodic.hpp"
+#include "hpfem/core/progress.hpp"
 #include "hpfem/core/types.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/materials/material.hpp"
@@ -67,7 +68,10 @@ struct ScatteringSetup {
   /// formulation; 2D only so far)
   std::vector<WaveguidePort> ports;
   solvers::DirectSolverBackend solver = solvers::DirectSolverBackend::kAuto;  ///< direct solver
-  bool condense = true;                ///< static condensation of the interior DoFs in `solve`
+  bool condense = true;  ///< static condensation of the interior DoFs in `solve`
+  /// Called when a phase of `solve` starts (assembly, constraints, factorisation, solve,
+  /// post) and when it is done; returning false cancels the solve (`Cancelled`). Optional.
+  ProgressCallback progress;
   int extra_quadrature_order = 4;      ///< added to 2p for the non-polynomial incident field
   int pml_extra_quadrature_order = 6;  ///< added to 2p in PML cells (rational stretched tensors)
 };
@@ -77,6 +81,7 @@ template <int Dim>
 struct ScatteringSolution {
   Formulation formulation = Formulation::kTotalField;
   Vector unknown;  ///< E (total) or E_sc (scattered)
+  Timing timing;   ///< seconds per phase of `solve` and "total"
 };
 
 /// Assembles, constrains and solves a scattering problem and evaluates its fields.

@@ -37,6 +37,10 @@ class LinearSolver {
   /// (entries in the factors, memory, mode); empty before `factorize` or if the backend
   /// has nothing to say.
   [[nodiscard]] virtual std::string details() const { return {}; }
+  /// Entries of the factors of the current factorisation (L + U, or L of an LDLᵀ path), the
+  /// quantity `estimate_memory` predicts; -1 before `factorize` or if the backend does not
+  /// report it.
+  [[nodiscard]] virtual Index factor_entries() const noexcept { return -1; }
   /// The solver doing the work: the object itself, or for `kAuto` the backend it chose in
   /// `factorize` (null before). Lets GPU-side algorithms recognise the cuDSS backend.
   [[nodiscard]] virtual const LinearSolver* backend() const noexcept { return this; }
