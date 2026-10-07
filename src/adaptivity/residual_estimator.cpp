@@ -290,6 +290,8 @@ Estimate residual_estimate(const fespace::NedelecDofMap<Dim>& dofs, const Vector
   const auto& mesh = dofs.mesh();
   const Index num_cells = mesh.num_cells();
   Estimate out;
+  const Real gauss_scale = options.length_scale > 0 ? options.length_scale * options.length_scale
+                                                    : (k_squared > 0 ? 1.0 / k_squared : 1.0);
   out.parts.assign(as_size(num_cells), ResidualParts{});
   RuleCache<Dim> rules(num_threads());
   const auto quadrature_order = [&](const CellSampler<Dim>& s, int p) {
@@ -319,7 +321,7 @@ Estimate residual_estimate(const fespace::NedelecDofMap<Dim>& dofs, const Vector
     }
     auto& parts = out.parts[as_size(c)];
     parts.element = weight * element;
-    parts.divergence = options.divergence_terms ? weight * divergence : 0.0;
+    parts.divergence = options.divergence_terms ? gauss_scale * weight * divergence : 0.0;
   });
 
   // --- facet jumps (per facet, accumulated into the two cells afterwards) ---------------------
@@ -371,7 +373,7 @@ Estimate residual_estimate(const fespace::NedelecDofMap<Dim>& dofs, const Vector
       auto& parts = out.parts[as_size(c)];
       parts.tangential_jump += weights[as_size(f)] * tangential[as_size(f)];
       if (options.divergence_terms) {
-        parts.normal_jump += weights[as_size(f)] * normal_flux[as_size(f)];
+        parts.normal_jump += gauss_scale * weights[as_size(f)] * normal_flux[as_size(f)];
       }
     }
   }

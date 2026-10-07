@@ -217,6 +217,8 @@ Estimate conical_residual_estimate(const fespace::NedelecDofMap<2>& transverse,
   const auto& mesh = transverse.mesh();
   const Index num_cells = mesh.num_cells();
   Estimate out;
+  const Real gauss_scale = options.length_scale > 0 ? options.length_scale * options.length_scale
+                                                    : (k_squared > 0 ? 1.0 / k_squared : 1.0);
   out.parts.assign(as_size(num_cells), ResidualParts{});
   RuleCache rules(num_threads());
   const auto make_sampler = [&](Index c) {
@@ -251,7 +253,7 @@ Estimate conical_residual_estimate(const fespace::NedelecDofMap<2>& transverse,
     }
     auto& parts = out.parts[as_size(c)];
     parts.element = weight * element;
-    parts.divergence = options.divergence_terms ? weight * divergence : 0.0;
+    parts.divergence = options.divergence_terms ? gauss_scale * weight * divergence : 0.0;
   });
 
   const Index num_facets = mesh.num_facets();
@@ -298,7 +300,7 @@ Estimate conical_residual_estimate(const fespace::NedelecDofMap<2>& transverse,
       auto& parts = out.parts[as_size(c)];
       parts.tangential_jump += weights[as_size(f)] * tangential[as_size(f)];
       if (options.divergence_terms) {
-        parts.normal_jump += weights[as_size(f)] * normal_flux[as_size(f)];
+        parts.normal_jump += gauss_scale * weights[as_size(f)] * normal_flux[as_size(f)];
       }
     }
   }
