@@ -140,7 +140,30 @@ Elements of other dimensions are ignored, non-simplex elements (quads, hexes, �
 mixing first- and second-order cells are an error. Second-order files (`Mesh.ElementOrder
 = 2`) give curved cells: Gmsh's extra nodes are assigned to the edges by their vertex
 pairs (triangle: (0,1) (1,2) (2,0); tetrahedron: (0,1) (1,2) (0,2) (0,3) (2,3) (1,3)).
-Unknown sections (`$Periodic`, `$NodeData`, …) are skipped.
+Unknown sections (`$NodeData`, …) are skipped. `read_gmsh_with_periodic` additionally returns
+the `$Periodic` section (Gmsh's `setPeriodic`) as `PeriodicLink`s: for every link of dimension
+$d-1$ the first physical groups of the two entities become the master and slave facet tags
+and the translation part of the affine transform (or, without one, the difference of the
+first corresponding node pair) scaled by `scale` becomes the shift; links with the same tags
+and shift are merged, links of points (and edges in 3D) are ignored, an entity without a
+physical group is an error. In Python `read_gmsh_periodic(file, scale, dim)` returns
+`(mesh, [(master_tag, slave_tag, shift), ...])`; adding the Bloch phase gives the
+`PeriodicPair`s. Since the non-matching coupling (M15 F16) the two sides need no matching
+nodes, so the section is a convenience, not a requirement.
+
+## Mesh report
+
+`mesh::report(mesh)` (`mesh/report.hpp`, Python `mesh_report(mesh)` and
+`hpfem.meshing.report(mesh, materials)`) collects what a mesh dialog shows before a run: the
+numbers of vertices, cells, facets and boundary facets; the smallest and the mean angle (the
+three angles of every triangle, the six dihedral angles of every tetrahedron); the largest
+aspect ratio, circumradius over inradius normalised so that the regular simplex gives 1; the
+shortest, mean and longest edge; the number of curved (quadratic) cells and of those whose
+Jacobian changes sign on a sample of reference points (`invalid_cells`); the untagged cells,
+the distinct cell and facet tags and the hanging entities. `mesh::check_periodic(mesh, master,
+slave, shift)` pairs the facets of a periodic direction by shifted centroid and reports the
+matched and unmatched counts and the largest mismatch; `identical()` says whether the two sides
+are meshed identically (which the Bloch coupling no longer needs).
 
 ## Geometry
 

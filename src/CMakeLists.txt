@@ -10,6 +10,7 @@ add_library(hpfem
   mesh/subdivision.cpp
   mesh/refinement.cpp
   mesh/adaptive_mesh.cpp
+  mesh/report.cpp
   io/vtk.cpp
   io/field_export.cpp
   materials/material.cpp

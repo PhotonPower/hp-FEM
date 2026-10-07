@@ -173,6 +173,36 @@ estimate = problem.estimate(solution)
 marked = hpfem.dorfler_marking(estimate.indicators, 0.5)
 ```
 
+## Unit-cell meshing (`hpfem.meshing`)
+
+`hpfem.meshing` builds the unit cell of a grating or metasurface with the Gmsh Python API
+(`pip install gmsh`): a `UnitCell(period, y_bottom, y_top, slabs=[Slab(tag, y0, y1), ...],
+shapes=[Shape(kind, tag, params), ...], background_tag=...)` with slabs over the full period
+(substrate, films, cover; the PML space is part of `y_bottom` / `y_top`) and scatterers of
+kind `"rectangle"`, `"trapezoid"`, `"ellipse"` or `"polygon"` that are copied by ±period and
+clipped to the cell; a shape wins over a slab, a later shape over an earlier one
+(`cell.tag_at(x, y)`). `element_sizes(materials, omega, p)` gives the size per tag from
+`12 / p` elements per local wavelength and, in absorbing media, the field decay length
+`1 / (k0 Im n)`. `unit_cell_mesh(cell, sizes, interface_factor=0.5, periodic=True, order=None)`
+writes the MSH 4.1 file (physical groups: surfaces = material tags, curves = the four sides
+with the `box_tag` numbers, `$Periodic` for the x faces) and reads it back as
+`(mesh, periodic_links)`; curved cells (order 2) are used when a shape is an ellipse. The
+model is built in nanometres (OpenCASCADE's absolute tolerances) and read with the matching
+scale. `meshing.report(mesh, materials)` adds `tags_without_material` and
+`materials_without_cells` to `hpfem.mesh_report`, and `hpfem.check_periodic` checks a pair
+of faces.
+
+```python
+cell = meshing.UnitCell(period=400 * nm, y_bottom=-800 * nm, y_top=950 * nm,
+                        slabs=[meshing.Slab(SUB, -800 * nm, 0.0)],
+                        shapes=[meshing.Shape("rectangle", RIDGE, dict(x=-100 * nm, y=0.0,
+                                                                          width=200 * nm, height=148 * nm))],
+                        background_tag=AIR)
+sizes = meshing.element_sizes({AIR: air, SUB: glass, RIDGE: glass}, omega, p=3)
+mesh, links = meshing.unit_cell_mesh(cell, sizes)
+result = hpfem.grating.solve(mesh, {AIR: air, SUB: glass, RIDGE: glass}, stack, "p", theta, phi, omega)
+```
+
 ## Gratings in one call (`hpfem.grating.solve`)
 
 `hpfem.grating.solve(mesh, materials, stack, polarisation, theta, phi, omega, order=4, *,

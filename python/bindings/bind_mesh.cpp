@@ -15,6 +15,7 @@
 #include "hpfem/mesh/mesh.hpp"
 #include "hpfem/mesh/point_location.hpp"
 #include "hpfem/mesh/refinement.hpp"
+#include "hpfem/mesh/report.hpp"
 #include "hpfem/mesh/subdivision.hpp"
 
 namespace hpfem::python {
@@ -399,6 +400,98 @@ void bind_mesh(py::module_& m) {
       },
       py::arg("text"), py::arg("scale") = 1.0, py::arg("dim") = 3,
       "As read_gmsh, from the file contents");
+  const auto with_periodic = [](auto result) -> py::object {
+    py::list links;
+    for (const auto& link : result.periodic) {
+      links.append(py::make_tuple(link.master, link.slave, link.shift));
+    }
+    return py::make_tuple(py::cast(std::move(result.mesh)), links);
+  };
+  m.def(
+      "mesh_report",
+      [](py::object mesh_object) -> py::object {
+        const auto to_dict = [](const auto& r) {
+          py::dict d;
+          d["num_vertices"] = r.num_vertices;
+          d["num_cells"] = r.num_cells;
+          d["num_facets"] = r.num_facets;
+          d["num_boundary_facets"] = r.num_boundary_facets;
+          d["min_angle"] = r.min_angle;
+          d["mean_angle"] = r.mean_angle;
+          d["max_aspect_ratio"] = r.max_aspect_ratio;
+          d["min_edge"] = r.min_edge;
+          d["mean_edge"] = r.mean_edge;
+          d["max_edge"] = r.max_edge;
+          d["num_curved"] = r.num_curved;
+          d["num_invalid"] = r.num_invalid;
+          d["invalid_cells"] = to_array(r.invalid_cells);
+          d["num_untagged"] = r.num_untagged;
+          d["cell_tags"] = r.cell_tags;
+          d["facet_tags"] = r.facet_tags;
+          d["num_hanging"] = r.num_hanging;
+          return d;
+        };
+        if (py::isinstance<mesh::Mesh<2>>(mesh_object)) {
+          return to_dict(mesh::report<2>(mesh_object.cast<const mesh::Mesh<2>&>()));
+        }
+        if (py::isinstance<mesh::Mesh<3>>(mesh_object)) {
+          return to_dict(mesh::report<3>(mesh_object.cast<const mesh::Mesh<3>&>()));
+        }
+        throw InvalidArgument("mesh_report: expected a Mesh2D or Mesh3D");
+      },
+      py::arg("mesh"),
+      "Quality report as a dict: counts, min / mean angle [rad] (triangle angles, dihedral "
+      "angles in 3D), max aspect ratio (1 = regular simplex), edge lengths, curved and invalid "
+      "cells, untagged cells, the distinct cell and facet tags, hanging entities");
+  m.def(
+      "check_periodic",
+      [](py::object mesh_object, mesh::Tag master, mesh::Tag slave, py::object shift,
+         Real tolerance) {
+        const auto to_dict = [](const auto& c) {
+          py::dict d;
+          d["num_master"] = c.num_master;
+          d["num_slave"] = c.num_slave;
+          d["matched"] = c.matched;
+          d["unmatched_slave"] = c.unmatched_slave;
+          d["unmatched_master"] = c.unmatched_master;
+          d["max_mismatch"] = c.max_mismatch;
+          d["identical"] = c.identical();
+          return d;
+        };
+        if (py::isinstance<mesh::Mesh<2>>(mesh_object)) {
+          return to_dict(mesh::check_periodic<2>(mesh_object.cast<const mesh::Mesh<2>&>(), master,
+                                                 slave, shift.cast<Point<2>>(), tolerance));
+        }
+        if (py::isinstance<mesh::Mesh<3>>(mesh_object)) {
+          return to_dict(mesh::check_periodic<3>(mesh_object.cast<const mesh::Mesh<3>&>(), master,
+                                                 slave, shift.cast<Point<3>>(), tolerance));
+        }
+        throw InvalidArgument("check_periodic: expected a Mesh2D or Mesh3D");
+      },
+      py::arg("mesh"), py::arg("master"), py::arg("slave"), py::arg("shift"),
+      py::arg("tolerance") = 1e-8,
+      "Facet-by-facet check of a periodic pair: matched / unmatched counts, max_mismatch [m], "
+      "identical (the non-matching Bloch coupling does not need identical faces)");
+  m.def(
+      "read_gmsh_periodic",
+      [with_periodic](const std::filesystem::path& file, Real scale, int dim) -> py::object {
+        if (dim == 2) return with_periodic(mesh::read_gmsh_with_periodic<2>(file, scale));
+        if (dim == 3) return with_periodic(mesh::read_gmsh_with_periodic<3>(file, scale));
+        throw InvalidArgument("read_gmsh_periodic: dim must be 2 or 3");
+      },
+      py::arg("file"), py::arg("scale") = 1.0, py::arg("dim") = 3,
+      "As read_gmsh, plus the $Periodic section: (mesh, [(master_tag, slave_tag, shift), ...]); "
+      "add the Bloch phase to get PeriodicPair2D / 3D");
+  m.def(
+      "read_gmsh_string_periodic",
+      [with_periodic](const std::string& text, Real scale, int dim) -> py::object {
+        std::istringstream in(text);
+        if (dim == 2) return with_periodic(mesh::read_gmsh_with_periodic<2>(in, scale));
+        if (dim == 3) return with_periodic(mesh::read_gmsh_with_periodic<3>(in, scale));
+        throw InvalidArgument("read_gmsh_string_periodic: dim must be 2 or 3");
+      },
+      py::arg("text"), py::arg("scale") = 1.0, py::arg("dim") = 3,
+      "As read_gmsh_periodic, from the file contents");
 }
 
 }  // namespace hpfem::python

@@ -12,6 +12,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- Mesh module (M15 F6): `hpfem.meshing` builds grating / metasurface unit cells with the Gmsh
+  Python API (`UnitCell` with slabs and rectangle / trapezoid / ellipse / polygon shapes copied
+  by the period and clipped, material tags by priority, side physical groups, `$Periodic`,
+  element sizes per tag from the wavelength and the metal decay length, interface refinement,
+  curved cells for ellipses); `mesh::report` / `mesh_report` (counts, angles, aspect ratio,
+  edge lengths, invalid curved cells, untagged cells, tags, hanging entities) and
+  `mesh::check_periodic`; `read_gmsh_with_periodic` / `read_gmsh_periodic` read the `$Periodic`
+  section into (master, slave, shift) links. `gmsh` is a dev extra; the meshing test skips
+  without it.
 - `hpfem.grating.solve` (M15 F2), the one-call periodic scattering API on the conical solver:
   snapping of the stack interfaces onto mesh vertices (`Mesh::set_vertex`, bound as
   `set_vertex`), PML designed from the largest propagating-order angle (`PmlProfile.for_angle`,
