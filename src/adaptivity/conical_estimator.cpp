@@ -3,9 +3,9 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <memory>
 #include <optional>
 #include <tuple>
-#include <memory>
 #include <vector>
 
 #include <fmt/format.h>
@@ -353,8 +353,7 @@ Estimate conical_residual_estimate(const fespace::NedelecDofMap<2>& transverse,
       const Sample s1 = partner_sampler(c1)(xi1);
       const Real ds = rule.weights[q] * measure;
       const Vec3 jump_w = s0.w - phase * s1.w;
-      const Real t =
-          ds * (std::norm(jump_w(2)) + std::norm(n(0) * jump_w(1) - n(1) * jump_w(0)));
+      const Real t = ds * (std::norm(jump_w(2)) + std::norm(n(0) * jump_w(1) - n(1) * jump_w(0)));
       const Vec3 jump_d = s0.d - phase * s1.d;
       const Real nn = ds * std::norm(n(0) * jump_d(0) + n(1) * jump_d(1));
       t_sum += t;

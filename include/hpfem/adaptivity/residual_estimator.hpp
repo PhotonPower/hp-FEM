@@ -23,10 +23,9 @@
 /// equation actually solved. Convention exp(-iωt) as everywhere. See
 /// docs/theory/error-estimation.md.
 
+#include <span>
 #include <type_traits>
 #include <vector>
-
-#include <span>
 
 #include "hpfem/assembly/maxwell_forms.hpp"
 #include "hpfem/assembly/periodic.hpp"
