@@ -20,6 +20,7 @@ add_library(hpfem
   physics/waveguide_port.cpp
   physics/conical_scattering.cpp
   physics/conical_goal.cpp
+  physics/conical_postprocess.cpp
   physics/field_sampling.cpp
   physics/absorption.cpp
   physics/postprocess.cpp

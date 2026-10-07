@@ -69,6 +69,11 @@ def test_glass_grating_matches_the_conical_rcwa(pol, theta_deg, phi_deg, r_ref, 
         assert abs(t[m] - value) < 2e-3, (m, t[m], value)
     assert result.A == 0.0  # lossless
     assert abs(result.power_balance_residual) < 2e-3
+    # the flux-based balance through the PML boundaries agrees with the orders
+    fb = result.flux_balance
+    assert fb is not None and abs(fb["relative_residual"]) < 5e-3
+    assert abs(fb["reflected"] / fb["incident"] - result.R) < 5e-3
+    assert abs(fb["transmitted"] / fb["incident"] - result.T) < 5e-3
     assert result.dofs > 0 and result.timing["total"] > 0
     # the field sampler works and the orders carry vector amplitudes
     values = result.field(np.array([[0.0, result.cover_line], [50 * NM, result.cover_line]]))
@@ -104,6 +109,10 @@ def test_silver_grating_with_pec_bottom_absorbs_the_rest():
     assert 0.05 < result.A < 0.3
     assert abs(result.power_balance_residual) < 2e-2
     assert result.wave.beta == 0.0
+    fb = result.flux_balance
+    assert fb is not None and fb["transmitted"] == 0.0
+    assert abs(fb["relative_residual"]) < 2e-2
+    assert abs(fb["absorbed"] / fb["incident"] - result.A) < 1e-6
 
 
 def test_interfaces_are_snapped_and_straddling_cells_are_reported():

@@ -7,6 +7,7 @@
 
 #include "common.hpp"
 #include "hpfem/physics/absorption.hpp"
+#include "hpfem/physics/conical_postprocess.hpp"
 #include "hpfem/physics/conical_scattering.hpp"
 #include "hpfem/physics/diffraction.hpp"
 #include "hpfem/physics/farfield.hpp"
@@ -346,6 +347,74 @@ void bind_postprocess(py::module_& m) {
       "incident power per period, reflected flux of (total - incident wave) through the "
       "reflection plane, transmitted flux, absorbed power of the total field; the relative "
       "residual is a reference-free quality indicator");
+
+  // --- conical post-processing (M15 F10 / F11) -------------------------------------------
+  using ConicalFn = physics::ConicalFieldFunction;
+  m.def("to_literature_frame", &physics::to_literature_frame, py::arg("v"),
+        "solver frame (x period, y normal, z invariant) -> literature frame (x, -z, y)");
+  m.def("from_literature_frame", &physics::from_literature_frame, py::arg("v"));
+  m.def("conical_curl_of", &physics::conical_curl_of, py::arg("field"), py::arg("x"),
+        py::arg("beta"), py::arg("step"),
+        "curl of a physical 2.5D field by central differences (d/dz = i beta)");
+  m.def(
+      "conical_diffraction_orders",
+      [](const ConicalFn& field, const physics::OrderLine& line, Real k0, Real index_line, Real kt0,
+         Real beta, Real kn_incident, const ConicalFn& incident, int max_order, int num_points,
+         Real incident_amplitude) {
+        return physics::conical_diffraction_orders(field, line, k0, index_line, kt0, beta,
+                                                   kn_incident, incident, max_order, num_points,
+                                                   incident_amplitude);
+      },
+      py::arg("field"), py::arg("line"), py::arg("k0"), py::arg("index_line"), py::arg("kt0"),
+      py::arg("beta"), py::arg("kn_incident"), py::arg("incident") = ConicalFn{},
+      py::arg("max_order") = 3, py::arg("num_points") = 0, py::arg("incident_amplitude") = 1.0,
+      "orders of field - incident (or field) on any OrderLine as ConicalDiffractionOrder with "
+      "vector amplitudes (solver frame; to_literature_frame converts)");
+  m.def(
+      "conical_power_balance",
+      [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,
+         const physics::Surface<2>& reflection, Real period, Real kn_incident,
+         const ConicalFn& incident_wave, Real incident_amplitude,
+         const physics::Surface<2>* transmission, int extra_order) {
+        return physics::conical_power_balance(problem, solution, reflection, period, kn_incident,
+                                              incident_wave, incident_amplitude, transmission,
+                                              extra_order);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("reflection"), py::arg("period"),
+      py::arg("kn_incident"), py::arg("incident_wave"), py::arg("incident_amplitude") = 1.0,
+      py::arg("transmission") = py::none(), py::arg("extra_order") = 2, Release(),
+      "flux-based energy balance of the conical solution (PowerBalance): incident per period, "
+      "reflected (total minus the downward wave) through the reflection line, transmitted "
+      "through the transmission line, absorbed volumetrically");
+  m.def(
+      "conical_cross_sections",
+      [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,
+         const physics::Surface<2>& surface, Real incident_amplitude, int extra_order) {
+        return physics::conical_cross_sections(problem, solution, surface, incident_amplitude,
+                                               extra_order);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("surface"),
+      py::arg("incident_amplitude") = 1.0, py::arg("extra_order") = 2, Release(),
+      "cross-sections per unit length [m] of an isolated scatterer: scattering from the flux "
+      "of the scattered field through the closed surface, absorption volumetric, extinction "
+      "their sum");
+  py::class_<physics::ConicalFarField>(
+      m, "ConicalFarField",
+      "Far-field pattern F(phi) of the scattered 2.5D field sampled on a closed surface in the "
+      "lossless background (E -> F e^{i k_t rho} / sqrt(rho) e^{i beta z})")
+      .def(py::init<const physics::ConicalScattering&, const physics::ConicalSolution&,
+                    const physics::Surface<2>&, int>(),
+           py::arg("problem"), py::arg("solution"), py::arg("surface"), py::arg("extra_order") = 2)
+      .def("pattern", &physics::ConicalFarField::pattern, py::arg("phi"),
+           "(F_x, F_y, F_z) for the in-plane angle phi [rad]")
+      .def("radiated_power", &physics::ConicalFarField::radiated_power, py::arg("resolution") = 360,
+           "[W/m]")
+      .def("scattering_cross_section", &physics::ConicalFarField::scattering_cross_section,
+           py::arg("incident_amplitude"), py::arg("resolution") = 360, "[m]")
+      .def_property_readonly("wavenumber", &physics::ConicalFarField::wavenumber)
+      .def_property_readonly("transverse_wavenumber",
+                             &physics::ConicalFarField::transverse_wavenumber)
+      .def_property_readonly("impedance", &physics::ConicalFarField::impedance);
   m.def("mie_cylinder_coefficients", &physics::mie_cylinder_coefficients, py::arg("k"),
         py::arg("radius"), py::arg("refractive_index"), py::arg("max_order"),
         "Mie coefficients c_n, n = 0..max_order, of a lossless dielectric cylinder (H_z "

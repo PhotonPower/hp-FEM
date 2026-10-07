@@ -329,9 +329,9 @@ faces" of M14-B.
 - [ ] F8 (P2) sweep acceleration: `LinearSolver.refactorize` reusing the symbolic analysis, affine
   assembly per material tag, `solve_sweep` with processes
 - [ ] F9 (P2) progress callback, cancellation, timing breakdown, `estimate_memory`
-- [ ] F10 (P2) conical equivalents of `diffraction_orders` / `power_balance` (flux based, complex
+- [x] F10 (P2) conical equivalents of `diffraction_orders` / `power_balance` (flux based, complex
   vector amplitudes)
-- [ ] F11 (P2) isolated scatterers for the conical solver: cross sections, far field, automatic
+- [x] F11 (P2) isolated scatterers for the conical solver: cross sections, far field, automatic
   closed measurement contour
 - [ ] F12 (P2) H field and Poynting vector of the conical solution
 - [x] F13 (P2) dispersive materials directly in the setup (`materials.DispersiveMap.apply(setup,

@@ -67,6 +67,10 @@ class GratingResult:
     timing: dict[str, float] = field(default_factory=dict)
     diagnostics: list = field(default_factory=list)
     """the warnings and infos of :func:`validate` (errors stop ``solve``)"""
+    flux_balance: dict | None = None
+    """flux-based balance (``conical_power_balance``) through the PML boundaries: incident,
+    reflected, transmitted, absorbed [W/m] and ``relative_residual``; ``None`` when the PML
+    boundaries are no mesh lines (unstructured meshes)"""
     _locator: object = None
 
     def field(self, points, quantity: str = "E", scattered: bool = False) -> np.ndarray:
@@ -527,10 +531,12 @@ def solve(
     locator = hpfem.PointLocator2D(mesh)
     origin_r = [x_min, cover_line]
 
+    def incident_physical(x):
+        i = wave.incident(x)  # the scaled (E_x, E_y, -i E_z) of the downward wave
+        return np.array([i[0], i[1], 1j * i[2]])
+
     def reflected_field(x):
-        total = problem.total_field(solution, locator, x)
-        i = wave.incident(x)
-        return np.asarray(total) - np.array([i[0], i[1], 1j * i[2]])
+        return np.asarray(problem.total_field(solution, locator, x)) - incident_physical(x)
 
     coefficients = hpfem.conical_fourier_coefficients(
         reflected_field, origin_r, [1.0, 0.0], period, wave.kx, orders_max, fourier_points
@@ -555,6 +561,26 @@ def solve(
     absorbed = hpfem.absorbed_power_by_tag(problem, solution)
     # incident power per period and unit length: |E0| = 1 V/m, S.n = n cos(theta) / (2 Z0)
     incident_power = 0.5 * period * wave.ky / (k0 * hpfem.constants.Z0)
+    # the flux-based balance through the PML boundaries (mesh lines on structured cells)
+    flux_balance = None
+    try:
+        reflection = hpfem.Surface2D.plane(mesh, 1, pr.y_max - pr.t_top, 1)
+        transmission = (
+            hpfem.Surface2D.plane(mesh, 1, pr.y_min + pr.t_bottom, -1) if transmitted else None
+        )
+        balance = hpfem.conical_power_balance(
+            problem, solution, reflection, period, wave.ky, incident_physical, 1.0,
+            transmission, extra_quadrature_order,
+        )  # fmt: skip
+        flux_balance = {
+            "incident": balance.incident,
+            "reflected": balance.reflected,
+            "transmitted": balance.transmitted,
+            "absorbed": balance.absorbed,
+            "relative_residual": balance.relative_residual(),
+        }
+    except (hpfem.InvalidArgument, ValueError, RuntimeError):
+        flux_balance = None
     a_total = float(absorbed.total) / incident_power
     a_by_tag = {int(t): float(p) / incident_power for t, p in absorbed.by_tag.items()}
     r_total = sum(o.efficiency for o in r_orders)
@@ -579,6 +605,7 @@ def solve(
         dofs=int(len(problem.free_dofs)),
         timing=timing,
         diagnostics=found,
+        flux_balance=flux_balance,
         _locator=locator,
     )
 

@@ -277,6 +277,15 @@ result = hpfem.grating.solve(mesh, {SUB: glass, RIDGE: glass}, stack, "p",
 print({o.m: o.efficiency for o in result.R_orders if o.propagating}, result.power_balance_residual)
 ```
 
+`result.flux_balance` is the flux-based balance through the PML boundaries
+(`conical_power_balance`; `None` on meshes whose PML boundaries are no mesh lines), the
+cross-check of the order-based `power_balance_residual`. For isolated scatterers in the
+conical solver, `conical_cross_sections(problem, solution, surface)` and
+`ConicalFarField(problem, solution, surface)` give σ_sca / σ_abs / σ_ext and the far-field
+pattern of the 2.5D field (F10 / F11); `conical_diffraction_orders` takes orders on any
+`OrderLine`, `to_literature_frame` converts the vector amplitudes to the x-period / y-invariant
+/ z-normal frame of the grating literature.
+
 `python/tests/test_grating_solve.py` checks the glass grating of the conical validation
 against the conical RCWA (s 40°/30°, p 50°/30°, reflected and transmitted orders to 2e-3 at
 p = 3), the silver grating with the PEC bottom and the absorbed power, and the snapping.

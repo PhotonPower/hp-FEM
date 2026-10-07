@@ -546,6 +546,37 @@ per unit length with the conical curl, `conical_fourier_coefficients` samples a 
 along any line and `conical_diffraction_efficiencies` gives
 $\eta_m = \mathrm{Re}(k_{n,m})|A_m|^2/(k_n^{inc}|E_0|^2)$ with
 $k_{n,m} = \sqrt{k_0^2n^2 - k_{t,m}^2 - \beta^2}$ and the complex vector amplitudes $A_m$.
+**Post-processing of isolated and periodic structures** (`physics/conical_postprocess.hpp`,
+M15 F10 / F11). `conical_diffraction_orders(field, line, k_0, n, k_{t0}, β, k_n^{inc}, incident)`
+takes the orders of `field − incident` on any `OrderLine` with the composite Gauss–Legendre
+rule of `conical_fourier_coefficients`; `to_literature_frame` maps a solver-frame vector
+$(v_x, v_y, v_z)$ to the grating literature's $(x', y', z') = (x, -z, y)$ (period, invariant,
+normal). `conical_power_balance` is the flux-based balance (incident power
+$\tfrac12|E_0|^2 k_n^{inc}a/(k_0Z_0)$ per period, the reflected field = total minus the
+downward wave through a line in the cover with H of the analytic wave by central differences,
+the total field through a line in the substrate, the volumetric absorbed power), whose
+relative residual is the reference-free quality indicator. `conical_cross_sections` gives
+$\sigma_{sca}$ from the flux of the scattered field through a closed surface in the lossless
+background, $\sigma_{abs}$ from the volumetric absorbed power and $\sigma_{ext}$ as their sum,
+per unit length. `ConicalFarField` is the far field of the 2.5D scattered field: every
+Cartesian component of $E(x,y)e^{i\beta z}$ radiates as a cylindrical wave with the transverse
+wavenumber $k_t = \sqrt{k^2 - \beta^2}$, and integrating the 3D Stratton–Chu far field along z
+gives, with $\hat k = (k_t\cos\varphi, k_t\sin\varphi, \beta)/k$, the equivalent currents
+$N = \oint (n\times H)e^{-ik_t\hat\varphi\cdot x'}ds$, $L = -\oint (n\times E)e^{-ik_t\hat\varphi\cdot x'}ds$
+(in-plane normal $n$) and $N_\perp = N - (N\cdot\hat k)\hat k$,
+
+$$
+E \to F(\varphi)\,\frac{e^{ik_t\rho}}{\sqrt\rho}\,e^{i\beta z}, \qquad
+F = \frac{k}{4}\sqrt{\frac{2}{\pi k_t}}\,e^{-i\pi/4}\big(\hat k\times L - Z\,N_\perp\big),
+\qquad P = \frac{k_t}{k}\oint\frac{|F|^2}{2Z}\,d\varphi .
+$$
+
+At $\beta = 0$ with an in-plane field it reproduces `FarField<2>` to $10^{-8}$; the radiated
+power equals the flux of the scattered field through the surface (checked at $\beta = 0.4k$
+with all three components, `test_conical_postprocess.cpp`); the convergence test
+`conical_cross_sections` drives the Mie cylinder ($kR = 1.5$, $n = 1.5$) in the $E_z$ and the
+in-plane polarisation to the series widths by flux and far field to $10^{-4}$.
+
 `estimate` and `error` make the solver part of the hp loop
 ([hp-adaptivity.md](hp-adaptivity.md#conical-incidence), estimator in
 [error-estimation.md](error-estimation.md#conical-incidence-adaptivityconical_residual_estimate)).

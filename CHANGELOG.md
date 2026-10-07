@@ -12,6 +12,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- Conical post-processing (M15 F10 / F11, `physics/conical_postprocess.hpp`):
+  `conical_diffraction_orders` on any `OrderLine`, `to_literature_frame` /
+  `from_literature_frame`, `conical_curl_of`, the flux-based `conical_power_balance`
+  (reflected field through a cover line, transmitted through a substrate line, volumetric
+  absorption; `grating.solve` reports it as `result.flux_balance`), `conical_cross_sections`
+  (σ_sca by flux, σ_abs volumetric, σ_ext) and `ConicalFarField` (far field of the 2.5D field
+  with the transverse wavenumber k_t, 3D Stratton–Chu integrated along z; equals `FarField<2>`
+  at β = 0 and the flux at β ≠ 0); Python bindings; convergence test `conical_cross_sections`
+  (Mie cylinder E_z and in-plane to the series by flux and far field).
 - Dispersive materials in the setup (M15 F13): `materials.DispersiveMap` (models, core
   materials, library names or numbers by tag; `at(omega)` freezes a `MaterialMap`,
   `apply(setup, omega)` sets frequency and materials in one call, `range` of the tabulated
