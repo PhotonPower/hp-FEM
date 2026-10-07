@@ -12,6 +12,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- Structured diagnostics (M15 F7): `hpfem.diagnostics` with `Diagnostic(code, severity, text,
+  hint)` and the checks of the GUI wish list (invalid curved cells, poor angles, untagged cells,
+  tags without material, stack interfaces off the mesh lines, missing periodic partners and
+  non-identical faces, under-resolved or thin PML, too few elements per wavelength for the
+  order, tabulated materials outside their range, lossy incidence medium, grazing orders, a PEC
+  wall within six decay lengths in a lossy substrate); `grating.validate` and
+  `diagnostics.validate_scattering` run them, `grating.solve` runs them first (`check`) and
+  keeps the warnings in `result.diagnostics`; dispersive materials are accepted by
+  `grating.solve`.
 - Mesh module (M15 F6): `hpfem.meshing` builds grating / metasurface unit cells with the Gmsh
   Python API (`UnitCell` with slabs and rectangle / trapezoid / ellipse / polygon shapes copied
   by the period and clipped, material tags by priority, side physical groups, `$Periodic`,

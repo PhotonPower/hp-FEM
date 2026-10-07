@@ -1,6 +1,6 @@
 """One-call periodic scattering (M15 F2): :func:`solve` runs the conical solver on a
 grating unit cell and returns the diffraction efficiencies, the vector amplitudes, the
-absorbed power and the power balance.
+absorbed power and the power balance; :func:`validate` runs the diagnostics (M15 F7) alone.
 
 Frame (as :class:`hpfem.ConicalScattering`): the period along ``x``, the stack normal along
 ``y`` (layers above / below the structure), the structure invariant along ``z``. The mesh is
@@ -65,6 +65,8 @@ class GratingResult:
     substrate_line: float | None
     dofs: int
     timing: dict[str, float] = field(default_factory=dict)
+    diagnostics: list = field(default_factory=list)
+    """the warnings and infos of :func:`validate` (errors stop ``solve``)"""
     _locator: object = None
 
     def field(self, points, quantity: str = "E", scattered: bool = False) -> np.ndarray:
@@ -95,11 +97,15 @@ def _polarisation(pol):
     raise GratingError(f"polarisation {pol!r}: use 's' (E_z at phi = 0) or 'p' (H_z at phi = 0)")
 
 
-def _material_map(materials, stack) -> hpfem.MaterialMap:
+def _material_map(materials, stack, omega: float) -> hpfem.MaterialMap:
+    """``MaterialMap`` as given, or a dict of ``Material`` / dispersive models (evaluated at
+    ``omega`` through their ``at``) with the incidence medium as background."""
     if isinstance(materials, hpfem.MaterialMap):
         return materials
     out = hpfem.MaterialMap(stack.incidence_medium)
     for tag, material in dict(materials).items():
+        if hasattr(material, "at") and not isinstance(material, hpfem.Material):
+            material = material.at(omega)
         out.set(int(tag), material)
     return out
 
@@ -181,55 +187,47 @@ def _orders(coefficients, k0, n, period, kx, beta, ky_incident, orders_max) -> l
     return out
 
 
-def solve(
+@dataclass
+class _Prepared:
+    """Everything :func:`solve` needs besides the mesh, as computed by :func:`_prepare`."""
+
+    period: float
+    x_min: float
+    y_min: float
+    y_max: float
+    k0: float
+    n_cover: complex
+    n_sub: complex
+    material_map: object
+    wave: object
+    box: object
+    t_top: float
+    t_bottom: float
+    cover_line: float
+    substrate_line: float | None
+    transmitted: bool
+    structure_bottom: float
+    moved: int
+
+
+def _prepare(
     mesh,
     materials,
     stack,
     polarisation,
-    theta: float,
-    phi: float,
-    omega: float,
-    order=4,
+    theta,
+    phi,
+    omega,
     *,
-    pml=None,
-    bottom: str = "pml",
-    orders_max: int = 3,
-    snap_tolerance: float = 1e-9,
-    pml_target: float = 1e-6,
-    pml_wavelengths: float = 0.5,
-    cover_line: float | None = None,
-    substrate_line: float | None = None,
-    fourier_points: int = 256,
-    extra_quadrature_order: int = 4,
-    solver=None,
-) -> GratingResult:
-    """Solves the grating unit cell and returns a :class:`GratingResult`.
-
-    ``mesh``: the unit cell (``hpfem.Mesh2D``) including the PML regions, Bloch faces tagged
-    ``box_tag.X_MIN`` / ``X_MAX``, scatterer cells tagged. ``materials``: ``MaterialMap`` or a
-    ``{tag: Material}`` dict (untagged cells take the stack's material at their position; the
-    map's background is the incidence medium). ``stack``: ``LayerStack2D`` with the normal along
-    ``y``. ``polarisation``: ``"s"`` / ``"p"`` (``"Ez"`` / ``"Hz"``) or ``hpfem.Polarisation``.
-    ``theta``, ``phi`` in radians (``hpfem.units.deg``), ``omega`` in rad/s. ``order``: the
-    polynomial order (int) or per-cell orders.
-
-    ``pml``: ``None`` designs the layers (thickness ``pml_wavelengths`` local wavelengths rounded
-    up to whole cells of the mesh's median cell height, profile ``PmlProfile.for_angle`` for the
-    largest propagating-order angle in cover and substrate, reflectance target ``pml_target``,
-    reference index ``min(n_cover, n_substrate)``), a ``{"top": t, "bottom": t}`` dict gives the
-    thicknesses [m] with that profile, and a ``PmlBox2D`` is used as given. ``bottom="pec"``
-    puts no PML at the bottom (a thick lossy substrate ending on the PEC wall; no transmitted
-    orders). Stack interfaces are snapped onto mesh vertices closer than
-    ``snap_tolerance`` × period; cells straddling an interface raise :class:`GratingError`.
-
-    The reflected orders are measured on ``cover_line`` (default: midway between the highest
-    scatterer vertex and the top PML), the transmitted ones on ``substrate_line`` (default:
-    midway between the lowest scatterer vertex and the bottom PML; skipped for a lossy
-    substrate or ``bottom="pec"``). ``A`` is the absorbed power of the lossy cells per period
-    divided by the incident power, ``power_balance_residual = R + T + A - 1``.
-    """
-    t0 = time.perf_counter()
-    timing: dict[str, float] = {}
+    pml,
+    bottom,
+    orders_max,
+    snap_tolerance,
+    pml_target,
+    pml_wavelengths,
+    cover_line,
+    substrate_line,
+) -> _Prepared:
     pol = _polarisation(polarisation)
     if bottom not in ("pml", "pec"):
         raise GratingError(f"bottom={bottom!r}: use 'pml' or 'pec'")
@@ -244,7 +242,7 @@ def solve(
     n_sub = complex(stack.substrate.refractive_index)
     if abs(n_cover.imag) > 1e-12:
         raise GratingError("the incidence medium of the stack must be lossless")
-    material_map = _material_map(materials, stack)
+    material_map = _material_map(materials, stack, float(omega))
 
     # --- geometry: interfaces on mesh lines, PML layers, measurement lines ---------------------
     moved = _snap_interfaces(mesh, stack, snap_tolerance * period)
@@ -316,6 +314,181 @@ def solve(
         )
     if not transmitted:
         substrate_line = None
+    return _Prepared(
+        period=period,
+        x_min=x_min,
+        y_min=y_min,
+        y_max=y_max,
+        k0=k0,
+        n_cover=n_cover,
+        n_sub=n_sub,
+        material_map=material_map,
+        wave=wave,
+        box=box,
+        t_top=t_top,
+        t_bottom=t_bottom,
+        cover_line=cover_line,
+        substrate_line=substrate_line,
+        transmitted=transmitted,
+        structure_bottom=min(structure_bottom, stack.bottom),
+        moved=moved,
+    )
+
+
+def _diagnostics(mesh, pr: _Prepared, stack, materials, order, bottom, orders_max, omega):
+    from hpfem import diagnostics as dg
+
+    given = pr.material_map if isinstance(materials, hpfem.MaterialMap) else materials
+    out = dg.validate_mesh(mesh, given)
+    out += dg.validate_stack(stack)
+    pair = (hpfem.box_tag.X_MIN, hpfem.box_tag.X_MAX, [pr.period, 0.0])
+    out += dg.validate_periodic(mesh, [pair])
+    p = int(order) if np.isscalar(order) else int(np.median(order))
+    out += dg.validate_pml(mesh, pr.box, p, min(pr.n_cover.real, max(pr.n_sub.real, 1.0)))
+    out += dg.validate_resolution(mesh, pr.material_map, omega, order)
+    out += dg.validate_materials(materials, omega)
+    out += dg.validate_orders(
+        pr.k0,
+        pr.wave.kx,
+        pr.n_cover.real,
+        pr.n_sub.real if abs(pr.n_sub.imag) < 1e-12 else None,
+        pr.period,
+        orders_max,
+    )
+    if bottom == "pec":
+        out += dg.validate_bottom_wall(pr.structure_bottom - pr.y_min, pr.n_sub, pr.k0)
+    return out
+
+
+def validate(
+    mesh,
+    materials,
+    stack,
+    polarisation,
+    theta: float,
+    phi: float,
+    omega: float,
+    order=4,
+    *,
+    pml=None,
+    bottom: str = "pml",
+    orders_max: int = 3,
+    snap_tolerance: float = 1e-9,
+    pml_target: float = 1e-6,
+    pml_wavelengths: float = 0.5,
+    cover_line: float | None = None,
+    substrate_line: float | None = None,
+) -> list:
+    """The diagnostics of :func:`solve` without solving (:mod:`hpfem.diagnostics`): a list of
+    ``Diagnostic`` with ``code``, ``severity``, ``text`` and ``hint``; a failing set-up
+    (straddling cells, bad options) is reported as the single error ``setup``."""
+    from hpfem import diagnostics as dg
+
+    try:
+        prepared = _prepare(
+            mesh,
+            materials,
+            stack,
+            polarisation,
+            theta,
+            phi,
+            omega,
+            pml=pml,
+            bottom=bottom,
+            orders_max=orders_max,
+            snap_tolerance=snap_tolerance,
+            pml_target=pml_target,
+            pml_wavelengths=pml_wavelengths,
+            cover_line=cover_line,
+            substrate_line=substrate_line,
+        )
+    except (GratingError, ValueError, RuntimeError) as error:
+        return [dg.Diagnostic("setup", "error", str(error), "")]
+    return _diagnostics(mesh, prepared, stack, materials, order, bottom, orders_max, omega)
+
+
+def solve(
+    mesh,
+    materials,
+    stack,
+    polarisation,
+    theta: float,
+    phi: float,
+    omega: float,
+    order=4,
+    *,
+    pml=None,
+    bottom: str = "pml",
+    orders_max: int = 3,
+    snap_tolerance: float = 1e-9,
+    pml_target: float = 1e-6,
+    pml_wavelengths: float = 0.5,
+    cover_line: float | None = None,
+    substrate_line: float | None = None,
+    fourier_points: int = 256,
+    extra_quadrature_order: int = 4,
+    solver=None,
+    check: bool = True,
+) -> GratingResult:
+    """Solves the grating unit cell and returns a :class:`GratingResult`.
+
+    ``mesh``: the unit cell (``hpfem.Mesh2D``) including the PML regions, Bloch faces tagged
+    ``box_tag.X_MIN`` / ``X_MAX``, scatterer cells tagged. ``materials``: ``MaterialMap`` or a
+    ``{tag: Material}`` dict (dispersive models are evaluated at ``omega``; untagged cells take
+    the stack's material at their position; the map's background is the incidence medium).
+    ``stack``: ``LayerStack2D`` with the normal along ``y``. ``polarisation``: ``"s"`` / ``"p"``
+    (``"Ez"`` / ``"Hz"``) or ``hpfem.Polarisation``. ``theta``, ``phi`` in radians
+    (``hpfem.units.deg``), ``omega`` in rad/s. ``order``: the polynomial order (int) or per-cell
+    orders.
+
+    ``pml``: ``None`` designs the layers (thickness ``pml_wavelengths`` local wavelengths rounded
+    up to whole cells of the mesh's median cell height, profile ``PmlProfile.for_angle`` for the
+    largest propagating-order angle in cover and substrate, reflectance target ``pml_target``,
+    reference index ``min(n_cover, n_substrate)``), a ``{"top": t, "bottom": t}`` dict gives the
+    thicknesses [m] with that profile, and a ``PmlBox2D`` is used as given. ``bottom="pec"``
+    puts no PML at the bottom (a thick lossy substrate ending on the PEC wall; no transmitted
+    orders). Stack interfaces are snapped onto mesh vertices closer than
+    ``snap_tolerance`` × period; cells straddling an interface raise :class:`GratingError`.
+
+    With ``check`` (default) the diagnostics of :func:`validate` run first: an error-level
+    diagnostic raises :class:`GratingError`, warnings and infos are kept in
+    ``result.diagnostics``.
+
+    The reflected orders are measured on ``cover_line`` (default: midway between the highest
+    scatterer vertex and the top PML), the transmitted ones on ``substrate_line`` (default:
+    midway between the lowest scatterer vertex and the bottom PML; skipped for a lossy
+    substrate or ``bottom="pec"``). ``A`` is the absorbed power of the lossy cells per period
+    divided by the incident power, ``power_balance_residual = R + T + A - 1``.
+    """
+    from hpfem import diagnostics as dg
+
+    t0 = time.perf_counter()
+    timing: dict[str, float] = {}
+    pr = _prepare(
+        mesh,
+        materials,
+        stack,
+        polarisation,
+        theta,
+        phi,
+        omega,
+        pml=pml,
+        bottom=bottom,
+        orders_max=orders_max,
+        snap_tolerance=snap_tolerance,
+        pml_target=pml_target,
+        pml_wavelengths=pml_wavelengths,
+        cover_line=cover_line,
+        substrate_line=substrate_line,
+    )
+    found = []
+    if check:
+        found = _diagnostics(mesh, pr, stack, materials, order, bottom, orders_max, omega)
+        if dg.errors(found):
+            raise GratingError("; ".join(str(d) for d in dg.errors(found)))
+    period, x_min, k0, wave, box = pr.period, pr.x_min, pr.k0, pr.wave, pr.box
+    material_map, n_cover, n_sub = pr.material_map, pr.n_cover, pr.n_sub
+    cover_line, substrate_line, transmitted = pr.cover_line, pr.substrate_line, pr.transmitted
     timing["setup"] = time.perf_counter() - t0
 
     # --- solve -------------------------------------------------------------------------------
@@ -345,7 +518,7 @@ def solve(
     try:
         problem = hpfem.ConicalScattering(nd, h1, setup)
     except Exception as error:  # the solver's own diagnostics, with the hint
-        raise GratingError(f"{error} (snapped {moved} vertices)") from error
+        raise GratingError(f"{error} (snapped {pr.moved} vertices)") from error
     solution = problem.solve()
     timing["solve"] = time.perf_counter() - t1
 
@@ -405,8 +578,9 @@ def solve(
         substrate_line=substrate_line,
         dofs=int(len(problem.free_dofs)),
         timing=timing,
+        diagnostics=found,
         _locator=locator,
     )
 
 
-__all__ = ["GratingError", "GratingResult", "Order", "solve"]
+__all__ = ["GratingError", "GratingResult", "Order", "solve", "validate"]

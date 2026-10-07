@@ -173,6 +173,26 @@ estimate = problem.estimate(solution)
 marked = hpfem.dorfler_marking(estimate.indicators, 0.5)
 ```
 
+## Diagnostics (`hpfem.diagnostics`)
+
+`hpfem.grating.validate(...)` (the arguments of `solve`) and
+`hpfem.diagnostics.validate_scattering(mesh, setup, orders, materials=None)` return a list of
+`Diagnostic(code, severity, text, hint)` with stable codes a GUI can translate:
+`mesh_invalid_cells`, `mesh_poor_angles`, `mesh_untagged_cells`, `tag_without_material`,
+`material_without_cells`, `interface_off_mesh`, `periodic_partner_missing`,
+`periodic_faces_differ`, `pml_under_resolved`, `pml_thin`, `pml_missing`,
+`too_few_elements_per_wavelength`, `material_out_of_range` (tabulated data outside its
+range, before anything is assembled), `lossy_incidence_medium`, `grazing_order` (an order
+propagating at more than 80° from the normal), `pec_wall_too_close` (a PEC wall closer than
+six field decay lengths in a lossy substrate, with the amplitude fraction reaching it) and
+`setup` (a failing set-up). `grating.solve` runs them first (`check=True`): errors raise
+`GratingError`, warnings and infos land in `result.diagnostics`;
+`diagnostics.raise_on_errors(found)` does the same for the generic validator. The individual
+checks (`validate_mesh`, `validate_interfaces`, `validate_periodic`, `validate_pml`,
+`validate_resolution`, `validate_materials`, `validate_stack`, `validate_orders`,
+`validate_bottom_wall`) are available on their own. `grating.solve` also accepts dispersive
+materials (`hpfem.materials.get("Ag")`) in its material dict and evaluates them at `omega`.
+
 ## Unit-cell meshing (`hpfem.meshing`)
 
 `hpfem.meshing` builds the unit cell of a grating or metasurface with the Gmsh Python API
