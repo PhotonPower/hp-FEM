@@ -291,7 +291,7 @@ faces" of M14-B.
   (residual of the coupled system with the β terms, PML tensors and the E_z / εE_z interface
   conditions), `ConicalScattering::estimate` / `error`, Python bindings and hp loop; convergence
   tests `conical_hp_corner` (re-entrant PEC corner at β = 1.3, exponential, b = 0.26) and
-  `conical_grating_hp` (acceptance (a) and (d): Ag grating TM 50° from p = 4, ΔR−1 = −4e-6,
+  `conical_grating_hp` (acceptance (a) and (d): Ag grating TM 50° from p = 4, ΔR−1 = −5e-6,
   ΔR0 = −2.2e-4 at 88 k DoFs, `validation-long`; docs/validation.md E)
 - [ ] F1 stage 2 (P1): goal-oriented estimator for the diffraction orders (`GoalEstimate` with the
   conical vector amplitudes; the energy-norm loop leaves unmarked cells at their initial order,
