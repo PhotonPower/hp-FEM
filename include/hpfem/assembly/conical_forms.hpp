@@ -28,8 +28,12 @@
 
 #include <Eigen/Core>
 
+#include "hpfem/assembly/quadrature.hpp"
 #include "hpfem/core/types.hpp"
 #include "hpfem/fespace/dof_map.hpp"
+#include "hpfem/fespace/h1_basis.hpp"
+#include "hpfem/fespace/nedelec_basis.hpp"
+#include "hpfem/mesh/geometry.hpp"
 
 namespace hpfem::assembly {
 
@@ -48,6 +52,21 @@ struct ConicalForm {
 };
 
 using ConicalFormFactory = std::function<ConicalForm(Index)>;
+
+/// Element stiffness, mass and load of one cell in the block order (Nédélec functions, then
+/// H1 functions of the cell).
+struct ConicalElement {
+  Matrix stiffness;
+  Matrix mass;
+  Vector load;
+};
+
+/// Integrates the conical forms over one cell with the given rule.
+[[nodiscard]] ConicalElement element_conical(const fespace::NedelecBasis<2>& nd_basis,
+                                             const fespace::H1Basis<2>& h1_basis,
+                                             const mesh::CellGeometry<2>& geometry,
+                                             const QuadratureRule<2>& rule, Real beta,
+                                             const ConicalForm& form);
 
 /// Stiffness (curl–curl) and mass matrices of the block vector @f$ (e, v) @f$: the first
 /// `nedelec.num_dofs()` entries are the in-plane coefficients, the following `h1.num_dofs()`

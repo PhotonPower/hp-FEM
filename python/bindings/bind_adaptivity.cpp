@@ -14,6 +14,7 @@
 #include "hpfem/physics/conical_goal.hpp"
 #include "hpfem/physics/goal_oriented.hpp"
 #include "hpfem/physics/sensitivity.hpp"
+#include "hpfem/physics/shape_sensitivity.hpp"
 
 namespace hpfem::python {
 
@@ -140,6 +141,43 @@ void bind_adaptivity_dim(py::module_& m) {
       py::arg("problem"), py::arg("solution"), py::arg("adjoint"), py::arg("tag"), Release(),
       "dQ/d(eps_r of the tag), the holomorphic derivative of the discrete goal: "
       "k0^2 integral over the tag of E_total . z");
+  m.def(
+      "shape_gradient",
+      [](const physics::Scattering<Dim>& problem, const physics::ScatteringSolution<Dim>& solution,
+         const Vector& adjoint, Real relative_step) {
+        return physics::shape_gradient<Dim>(problem, solution, adjoint, relative_step);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("adjoint"), py::arg("relative_step") = 1e-6,
+      Release(),
+      "dQ/dx of every geometry node (vertices, then the edge nodes of a second-order mesh) "
+      "and coordinate, complex (num_nodes, Dim); the functional vector q is taken as fixed");
+  m.def(
+      "shape_derivative",
+      [](const physics::Scattering<Dim>& problem, const physics::ScatteringSolution<Dim>& solution,
+         const physics::Functional<Dim>& functional, const physics::NodeField& velocity,
+         Real relative_step, Real functional_step) {
+        return physics::shape_derivative<Dim>(problem, solution, functional, velocity,
+                                              relative_step, functional_step);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("functional"), py::arg("velocity"),
+      py::arg("relative_step") = 1e-6, py::arg("functional_step") = 1e-6, Release(),
+      "dQ/dp for the mesh velocity V (num_nodes, Dim) of a parameter: adjoint solve, node "
+      "gradient paired with V, plus the derivative of the functional along V");
+  m.def(
+      "region_normal_velocity",
+      [](const mesh::Mesh<Dim>& mesh, mesh::Tag tag) {
+        return physics::region_normal_velocity<Dim>(mesh, tag);
+      },
+      py::arg("mesh"), py::arg("tag"),
+      "velocity (num_nodes, Dim) of the uniform normal growth of the cells with the tag");
+  m.def(
+      "move_nodes",
+      [](mesh::Mesh<Dim>& mesh, const physics::NodeField& velocity, Real t) {
+        physics::move_nodes<Dim>(mesh, velocity, t);
+      },
+      py::arg("mesh"), py::arg("velocity"), py::arg("t"),
+      "moves every geometry node by t times its velocity (vertices and edge nodes)");
+  m.def("num_geometry_nodes", &physics::num_geometry_nodes<Dim>, py::arg("mesh"));
 }
 
 }  // namespace
@@ -300,6 +338,28 @@ void bind_adaptivity(py::module_& m) {
       },
       py::arg("problem"), py::arg("solution"), py::arg("z_e"), py::arg("z_v"), py::arg("tag"),
       Release(), "dQ/d(eps_r of the tag) of the conical goal, holomorphic");
+  m.def(
+      "conical_shape_gradient",
+      [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,
+         const Vector& z_e, const Vector& z_v, Real relative_step) {
+        return physics::conical_shape_gradient(problem, solution, {z_e, z_v}, relative_step);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("z_e"), py::arg("z_v"),
+      py::arg("relative_step") = 1e-6, Release(),
+      "dQ/dx of every geometry node for the conical goal (q fixed)");
+  m.def(
+      "conical_shape_derivative",
+      [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,
+         const physics::ConicalFunctional& functional, const physics::NodeField& velocity,
+         Real relative_step, Real functional_step) {
+        return physics::conical_shape_derivative(problem, solution, functional, velocity,
+                                                 relative_step, functional_step);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("functional"), py::arg("velocity"),
+      py::arg("relative_step") = 1e-6, py::arg("functional_step") = 1e-6, Release(),
+      "dQ/dp of the conical goal for the mesh velocity V of a parameter");
+  m.def("shape_sensitivity", &physics::shape_sensitivity, py::arg("gradient"), py::arg("velocity"),
+        "sum of gradient . velocity over the nodes");
   m.def("conical_point_functional", &physics::conical_point_functional, py::arg("x"),
         py::arg("weight"), "Q(E) = E(x) . w of the physical field (E_z = i v), w not conjugated");
   m.def("conical_order_functional", &physics::conical_order_functional, py::arg("origin"),

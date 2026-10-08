@@ -231,8 +231,10 @@ Integrated photonics beyond the effective-index model and the tools around the s
   (`physics/sensitivity.hpp`: `adjoint_solution` / `material_sensitivity` and the conical
   pair, dQ/dε_tag = k0² ∫_tag E·z, holomorphic; `hpfem.grating.sensitivity` for the
   efficiencies; verified against finite differences to 1e-6)
-- [ ] sensitivities, shape derivatives (Hadamard formula with the interface jumps, ADR on the
-  geometry parametrisation); verification against finite differences
+- [x] sensitivities, shape derivatives (ADR-0011: the discrete adjoint on the mesh,
+  `shape_gradient` / `shape_derivative` and the conical pair, parameters as mesh velocity
+  fields, `region_normal_velocity`, `move_nodes`; `hpfem.grating.shape_sensitivity`;
+  verified against finite differences of the solve on moved meshes in 2D, conical and 3D)
 
 ## M13 — Conical incidence and the E_z polarisation (2.5D)
 From the user test report of 5 October 2026 (`spec-m12-ez-polarisation-2d.md`): the missing

@@ -12,6 +12,16 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- Shape derivatives by the discrete adjoint on the mesh (M12, ADR-0011,
+  `physics/shape_sensitivity.hpp`): `shape_gradient` / `conical_shape_gradient` (dQ/dx of
+  every geometry node by central differences of the element integrals, in parallel),
+  `shape_derivative` / `conical_shape_derivative` (one adjoint solve, the gradient paired
+  with a mesh velocity, plus the derivative of the functional along it), parameters as mesh
+  velocity fields (`region_normal_velocity`, `move_nodes`, `num_geometry_nodes`),
+  `assembly::element_conical` factored out of the conical assembler; Python bindings and
+  `grating.shape_sensitivity(result, velocity, order)`; verified against finite differences
+  of the solve on moved meshes (disc radius in-plane and conical on a second-order mesh, ball
+  radius in 3D, ridge height of the glass grating).
 - Material sensitivities by the adjoint solve (M12, `physics/sensitivity.hpp`):
   `adjoint_solution` / `material_sensitivity` for `Scattering<Dim>` and
   `conical_adjoint_solution` / `conical_material_sensitivity` for the conical solver, the

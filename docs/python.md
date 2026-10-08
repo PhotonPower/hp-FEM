@@ -305,6 +305,15 @@ pattern of the 2.5D field (F10 / F11); `conical_diffraction_orders` takes orders
 `OrderLine`, `to_literature_frame` converts the vector amplitudes to the x-period / y-invariant
 / z-normal frame of the grating literature.
 
+**Shape sensitivities.** `grating.shape_sensitivity(result, velocity, order=0, side="R")`
+returns the derivative of an efficiency with respect to a geometry parameter given by its
+mesh velocity, an array `(hpfem.num_geometry_nodes(mesh), 2)` of node displacements per unit
+of the parameter (`hpfem.region_normal_velocity(mesh, tag)` for the uniform normal growth of a
+region; `hpfem.move_nodes(mesh, velocity, t)` applies a step). The general functions
+`shape_gradient` / `shape_derivative` (`Scattering2D` / `3D`) and `conical_shape_gradient` /
+`conical_shape_derivative` take any `Functional` (ADR-0011, docs/theory/maxwell.md "Shape
+derivatives").
+
 **Material sensitivities.** `grating.sensitivity(result, tag, order=0, side="R")` returns
 the derivatives of the efficiency of a reflected or transmitted order with respect to the
 real and the imaginary part of the permittivity of the cells tagged `tag`, from one adjoint
