@@ -223,13 +223,13 @@ Integrated photonics beyond the effective-index model and the tools around the s
   n × (μ⁻¹ curl E) = (∇ₜE_z − iβEₜ)/μᵣ, modal powers, orientation-independent signs);
   convergence test `waveguide_port_3d` (rectangular waveguide TE10: S21 and |S11| decay
   with p), `PortModes3D` / `s_parameters` for `Scattering3D` in Python
-- [x] the ring resonator with ports in 3D (SOI cross-section): stage A done as the 3D
-  directional coupler against coupled-mode theory (`examples/directional_coupler_3d`: mesh /
-  port builder, supermode ports, coupled-mode reference, CPU regression test by dev; the
-  cuDSS production runs up to 2 M DoFs with `--cell-z`, the p-convergence table and
-  `docs/validation.md` F by gpu; p = 3 at L = 2 µm: phase error 5e-4 rad, P_cross to 4e-4).
-  Stage B, the full ring with bus in 3D, is beyond the RTX 3090 at useful accuracy (5–10 M
-  DoFs at p = 2) and goes to the backlog (maintainer's decision of 2026-10-08)
+- [x] the ring resonator with ports in 3D (SOI cross-section): done as stage A, the 3D
+  directional coupler against coupled-mode theory (`examples/directional_coupler_3d` with the
+  mesh / port builder, the coupled-mode reference and the CPU regression test by dev; the
+  cuDSS production runs at p = 1–3 and 2–30 µm, `ScatteringOperator::solve_port` for one
+  factorisation per S-matrix, `--cell-z`, the p-convergence table and `docs/validation.md`
+  section F by gpu). The full ring in 3D (stage B) is in the backlog by the maintainer's
+  decision of 2026-10-08
 - [x] modal expansion by Riesz projection on the resonance solver (`physics::RieszProjection`,
   `AxisymmetricRieszProjection`: residues of the resolvent on circles around the
   quasi-normal modes plus a background contour, spectra of linear observables as sums over
@@ -339,10 +339,13 @@ faces" of M14-B.
   absorbed power per tag, power balance, `field(points)`, timing, `GratingError` diagnostics);
   `test_grating_solve.py` against the conical RCWA references. The six GUI presets of
   `fem_worker.py` are not in this repository; the worker can be reduced to JSON handling on top
-- [ ] F3 (P1) vectorised field sampling and triangulated field export as NumPy
-  (`solution.sample(points)`, `solution.triangulate(subdivisions)`), for both solvers
-- [ ] F4 (P1) exact absorbed power per material tag and per cell (`absorbed_power`,
-  `absorption_density`) by volume quadrature
+- [x] F3 (P1) vectorised field sampling and triangulated field export as NumPy
+  (`physics/field_sampling.hpp`: `sample_field` / `triangulate_field` with `SamplingOptions`
+  for E, H and the Poynting vector, grouped per cell; `solution.sample(points)`,
+  `solution.triangulate(subdivisions)` for both solvers)
+- [x] F4 (P1) exact absorbed power per material tag and per cell (`physics/absorption.hpp`:
+  `absorbed_power_by_tag`, `absorption_density`; `solution.absorbed_power()` with `by_tag` /
+  `per_cell`) by volume quadrature
 - [x] F5 (P1) job runner / CLI with a stable JSON schema and JSON-lines events
   (`python -m hpfem.run`, `hpfem.run.run_job`, `hpfem.version_info`, schema version 1 for grating
   jobs with sweeps, maps, cancellation; the six GUI presets are not in the repository)
@@ -353,14 +356,16 @@ faces" of M14-B.
   `grating.solve`): interface off the mesh lines, untagged
   cells, missing periodic partner, under-resolved or thin PML, too few elements per wavelength,
   material outside its data range, lossy incidence medium, PEC wall too close in a lossy substrate
-- [ ] F8 (P2) sweep acceleration: `LinearSolver.refactorize` reusing the symbolic analysis, affine
-  assembly per material tag, `solve_sweep` with processes
+- [x] F8 (P2) sweep acceleration: `LinearSolver::refactorize` reusing the symbolic analysis
+  (SparseLU, MUMPS, cuDSS), `physics::ConicalSweep` (affine operator per material tag with a
+  pattern cache), `hpfem.sweep.solve_sweep`; 2.1× over 50 points on cuDSS
 - [x] F9 (P2) progress callback, cancellation, timing breakdown, `estimate_memory`
 - [x] F10 (P2) conical equivalents of `diffraction_orders` / `power_balance` (flux based, complex
   vector amplitudes)
 - [x] F11 (P2) isolated scatterers for the conical solver: cross sections, far field, automatic
   closed measurement contour
-- [ ] F12 (P2) H field and Poynting vector of the conical solution
+- [x] F12 (P2) H field and Poynting vector of the conical solution (`curl_field`, `h_field`,
+  `poynting` and the incident counterparts, also on the layered background)
 - [x] F13 (P2) dispersive materials directly in the setup (`materials.DispersiveMap.apply(setup,
   omega)`, library names, numbers and core materials accepted; `grating.solve` takes dispersive
   dicts), explicit
@@ -369,6 +374,9 @@ faces" of M14-B.
 - [x] F15 (P3) distribution: Windows/Linux wheels, `pip install hpfem[gui]`, `hpfem-gui` entry point
 
 ## Backlog / ideas
+- [ ] the full ring resonator with ports in 3D (M12 stage B): needs an hp-mesh that is fine
+  only across the cores and in the coupling region, p = 3 there for the resonance widths
+  (the coarse axial mesh of the long couplers loses the phase as h_z^(2p), docs/validation.md F)
 - [x] dual H-formulation for guaranteed error bounds (`adaptivity::dual_solution` on the
   H1 / Nédélec dual space, `hypercircle_estimate` with the Prager–Synge bound for the
   coercive problem; convergence test `hypercircle_bound`, Python `dual_solution` /
@@ -396,8 +404,5 @@ faces" of M14-B.
   factorisations with iterative refinement had lost accuracy at 2 639 pivots. The refusal of
   perturbed factorisations and the CPU fallback stay as the safety net; a residual-checked
   acceptance remains the option should future systems still trip the static pivoting.
-- [ ] full ring resonator with bus and ports in 3D (SOI): 5–10 M DoFs at p = 2 for a 2.5 µm
-  ring, beyond the GPU memory of the development machine; needs the MPI / out-of-core path or
-  a larger device (deferred from M12 on 2026-10-08)
 - [x] `physics::PropagatingMode<2>` on adaptive meshes: apply the hanging-node constraints
   as `Resonance` does (found during M10 validation; fixed in PR #63)
