@@ -158,11 +158,47 @@ std::pair<SparseMatrix, Vector> Constraints::reduce(const SparseMatrix& matrix,
   if (matrix.rows() != num_dofs_ || matrix.cols() != num_dofs_ || rhs.size() != num_dofs_) {
     throw InvalidArgument("Constraints::reduce: system size does not match the constraints");
   }
-  const SparseMatrix p = prolongation();
-  const SparseMatrix pt = SparseMatrix(p.adjoint());
-  SparseMatrix reduced = pt * matrix * p;
+  resolve();
+  // P^H A P entry by entry: row i of P holds (reduced_[i], 1) for a free DoF and
+  // (reduced_[master], coefficient) for the resolved masters of a slave, so every entry
+  // A(i, j) scatters to the products of the two rows' terms. One pass over the nonzeros
+  // instead of two sparse products (which cost more than the factorisation on large
+  // Bloch-periodic systems).
+  const Index n_free = num_free();
+  std::vector<std::vector<Term>> rows(as_size(num_dofs_));
+  for (Index i = 0; i < num_dofs_; ++i) {
+    const auto& list = terms_[as_size(i)];
+    auto& row = rows[as_size(i)];
+    if (list.empty()) {
+      row.push_back({reduced_[as_size(i)], Complex{1.0, 0.0}});
+    } else {
+      for (const auto& t : list) row.push_back({reduced_[as_size(t.master)], t.coefficient});
+    }
+  }
+  std::vector<Eigen::Triplet<Complex, Index>> triplets;
+  triplets.reserve(as_size(matrix.nonZeros()));
+  for (Index i = 0; i < matrix.outerSize(); ++i) {
+    const auto& ri = rows[as_size(i)];
+    for (SparseMatrix::InnerIterator it(matrix, i); it; ++it) {
+      const auto& rj = rows[as_size(it.col())];
+      for (const auto& a_term : ri) {
+        const Complex left = std::conj(a_term.coefficient) * it.value();
+        for (const auto& b_term : rj) {
+          triplets.emplace_back(a_term.master, b_term.master, left * b_term.coefficient);
+        }
+      }
+    }
+  }
+  SparseMatrix reduced(n_free, n_free);
+  reduced.setFromTriplets(triplets.begin(), triplets.end());
   reduced.makeCompressed();
-  return {std::move(reduced), Vector(pt * rhs)};
+  Vector reduced_rhs = Vector::Zero(n_free);
+  for (Index i = 0; i < num_dofs_; ++i) {
+    for (const auto& t : rows[as_size(i)]) {
+      reduced_rhs(t.master) += std::conj(t.coefficient) * rhs(i);
+    }
+  }
+  return {std::move(reduced), std::move(reduced_rhs)};
 }
 
 }  // namespace hpfem::fespace

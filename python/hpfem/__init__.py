@@ -34,7 +34,11 @@ from hpfem import (  # noqa: E402  (after the core names)
     materials,
     project,
     pv,
+<<<<<<< HEAD
     run,
+=======
+    sweep,
+>>>>>>> origin/main
     units,
 )
 from hpfem._hpfem import *  # noqa: F401, F403  (the bound API)
@@ -49,6 +53,7 @@ __all__ = [name for name in dir(_hpfem) if not name.startswith("_")] + [
     "run",
     "interop",
     "pv",
+    "sweep",
     "adaptive",
     "diagnostics",
     "grating",

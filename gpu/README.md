@@ -111,7 +111,12 @@ complex-symmetric input), a random sparse system, one and several right-hand sid
 solves, and the error paths (inconsistent CSR, singular matrix, solve before factorisation,
 reuse after a failure). All solutions must agree with the reference to 1e-10.
 
-## Interface summary (`include/hpfem_gpu.h`, API version 4)
+## Interface summary (`include/hpfem_gpu.h`, API version 5)
+
+API version 5 adds `hpfem_gpu_refactorize(solver, nnz, values)`: the numerical
+refactorisation (`CUDSS_PHASE_REFACTORIZATION`) with new values on the pattern of the last
+`hpfem_gpu_factorize`, scaling and diagonal equilibration recomputed from the new values;
+`solvers::LinearSolver::refactorize` uses it for sweeps.
 
 | Function | Purpose |
 |----------|---------|

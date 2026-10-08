@@ -201,6 +201,73 @@ void hpfem_gpu_destroy(hpfem_gpu_solver* solver) {
   delete solver;
 }
 
+namespace {
+
+/* cuDSS judges "tiny" pivots by an absolute threshold, so SI-scaled systems (entries around
+ * 1e-15) would be perturbed wholesale; factorise scale * A with max |a_ij| = 1 instead and
+ * undo the scale on every solution (x = scale * (scale A)^{-1} b). Then the diagonal
+ * equilibration D A D with d_i = 1 / sqrt(|a_ii|) (row 2-norm where the diagonal is tiny):
+ * keeps the complex symmetry and evens out the scales of edge and high-order interior
+ * functions, which cuDSS's static pivoting is sensitive to: on hp systems with hanging nodes
+ * it removes every perturbed pivot (ADR-0008). HPFEM_GPU_EQUILIBRATE=0 switches it off for
+ * comparisons. Uses the pattern kept in the solver (host_row_ptr, host_col); writes the
+ * scaled, equilibrated values and uploads D. */
+hpfem_gpu_status scale_and_equilibrate(hpfem_gpu_solver* solver, const char* phase,
+                                       const double* values, std::vector<double>& scaled) {
+  const int64_t n = solver->n;
+  const size_t n_size = static_cast<size_t>(n);
+  const size_t nnz_size = static_cast<size_t>(solver->nnz);
+  const int64_t* row_ptr = solver->host_row_ptr.data();
+  const int64_t* col = solver->host_col.data();
+  double max_abs = 0.0;
+  for (size_t k = 0; k < nnz_size; ++k) {
+    max_abs = std::max(max_abs, std::hypot(values[2 * k], values[2 * k + 1]));
+  }
+  if (!(max_abs > 0.0) || !std::isfinite(max_abs)) {
+    return solver->fail(HPFEM_GPU_ERR_SINGULAR, std::string(phase) +
+                                                    ": the matrix is zero or contains "
+                                                    "non-finite entries");
+  }
+  solver->scale = 1.0 / max_abs;
+  scaled.resize(2 * nnz_size);
+  for (size_t k = 0; k < 2 * nnz_size; ++k) scaled[k] = values[k] * solver->scale;
+  solver->equilibrated = false;
+  const char* equilibrate = std::getenv("HPFEM_GPU_EQUILIBRATE");
+  if (equilibrate == nullptr || *equilibrate != '0') {
+    std::vector<double> d(n_size, 1.0);
+    for (int64_t i = 0; i < n; ++i) {
+      double diagonal = 0.0;
+      double row_norm = 0.0;
+      for (int64_t k = row_ptr[i]; k < row_ptr[i + 1]; ++k) {
+        const double magnitude = std::hypot(scaled[2 * k], scaled[2 * k + 1]);
+        row_norm += magnitude * magnitude;
+        if (col[k] == i) diagonal = magnitude;
+      }
+      row_norm = std::sqrt(row_norm);
+      // the diagonal whenever it exists (a tiny diagonal is still the right scale of its
+      // row after a two-sided scaling), the row norm only where it is zero
+      const double pivot = diagonal > 1e-300 ? diagonal : row_norm;
+      d[static_cast<size_t>(i)] = pivot > 0.0 ? 1.0 / std::sqrt(pivot) : 1.0;
+    }
+    for (int64_t i = 0; i < n; ++i) {
+      for (int64_t k = row_ptr[i]; k < row_ptr[i + 1]; ++k) {
+        const double factor = d[static_cast<size_t>(i)] * d[static_cast<size_t>(col[k])];
+        scaled[2 * k] *= factor;
+        scaled[2 * k + 1] *= factor;
+      }
+    }
+    HPFEM_GPU_CUDA(solver, "allocate equilibration",
+                   solver->equilibration.reserve(n_size * sizeof(double)));
+    HPFEM_GPU_CUDA(solver, "upload equilibration",
+                   cudaMemcpy(solver->equilibration.ptr, d.data(), n_size * sizeof(double),
+                              cudaMemcpyHostToDevice));
+    solver->equilibrated = true;
+  }
+  return HPFEM_GPU_OK;
+}
+
+}  // namespace
+
 hpfem_gpu_status hpfem_gpu_factorize(hpfem_gpu_solver* solver, int64_t n, int64_t nnz,
                                      const int64_t* row_ptr, const int64_t* col,
                                      const double* values, hpfem_gpu_matrix_type type) {
@@ -223,61 +290,14 @@ hpfem_gpu_status hpfem_gpu_factorize(hpfem_gpu_solver* solver, int64_t n, int64_
   }
   solver->n = n;
   solver->nnz = nnz;
+  solver->host_row_ptr.assign(row_ptr, row_ptr + n + 1);
+  solver->host_col.assign(col, col + nnz);
 
   const size_t n_size = static_cast<size_t>(n);
   const size_t nnz_size = static_cast<size_t>(nnz);
-  // cuDSS judges "tiny" pivots by an absolute threshold, so SI-scaled systems (entries
-  // around 1e-15) would be perturbed wholesale; factorise scale * A with max |a_ij| = 1
-  // instead and undo the scale on every solution (x = scale * (scale A)^{-1} b)
-  double max_abs = 0.0;
-  for (size_t k = 0; k < nnz_size; ++k) {
-    max_abs = std::max(max_abs, std::hypot(values[2 * k], values[2 * k + 1]));
-  }
-  if (!(max_abs > 0.0) || !std::isfinite(max_abs)) {
-    return solver->fail(HPFEM_GPU_ERR_SINGULAR,
-                        "factorize: the matrix is zero or contains non-finite entries");
-  }
-  solver->scale = 1.0 / max_abs;
-  std::vector<double> scaled(2 * nnz_size);
-  for (size_t k = 0; k < 2 * nnz_size; ++k) scaled[k] = values[k] * solver->scale;
-  // diagonal equilibration D A D with d_i = 1 / sqrt(|a_ii|) (row 2-norm where the diagonal
-  // is tiny): keeps the complex symmetry and evens out the scales of edge and high-order
-  // interior functions, which cuDSS's static pivoting is sensitive to: on hp systems with
-  // hanging nodes it removes every perturbed pivot (ADR-0008). HPFEM_GPU_EQUILIBRATE=0
-  // switches it off for comparisons.
-  solver->equilibrated = false;
-  std::vector<double> d;
-  const char* equilibrate = std::getenv("HPFEM_GPU_EQUILIBRATE");
-  if (equilibrate == nullptr || *equilibrate != '0') {
-    d.assign(n_size, 1.0);
-    for (int64_t i = 0; i < n; ++i) {
-      double diagonal = 0.0;
-      double row_norm = 0.0;
-      for (int64_t k = row_ptr[i]; k < row_ptr[i + 1]; ++k) {
-        const double magnitude = std::hypot(scaled[2 * k], scaled[2 * k + 1]);
-        row_norm += magnitude * magnitude;
-        if (col[k] == i) diagonal = magnitude;
-      }
-      row_norm = std::sqrt(row_norm);
-      // the diagonal whenever it exists (a tiny diagonal is still the right scale of its
-      // row after a two-sided scaling), the row norm only where it is zero
-      const double pivot = diagonal > 1e-300 ? diagonal : row_norm;
-      d[static_cast<size_t>(i)] = pivot > 0.0 ? 1.0 / std::sqrt(pivot) : 1.0;
-    }
-    for (int64_t i = 0; i < n; ++i) {
-      for (int64_t k = row_ptr[i]; k < row_ptr[i + 1]; ++k) {
-        const double factor = d[static_cast<size_t>(i)] * d[static_cast<size_t>(col[k])];
-        scaled[2 * k] *= factor;
-        scaled[2 * k + 1] *= factor;
-      }
-    }
-    HPFEM_GPU_CUDA(solver, "factorize: allocate equilibration",
-                   solver->equilibration.reserve(n_size * sizeof(double)));
-    HPFEM_GPU_CUDA(solver, "factorize: upload equilibration",
-                   cudaMemcpy(solver->equilibration.ptr, d.data(), n_size * sizeof(double),
-                              cudaMemcpyHostToDevice));
-    solver->equilibrated = true;
-  }
+  std::vector<double> scaled;
+  const hpfem_gpu_status prepared = scale_and_equilibrate(solver, "factorize", values, scaled);
+  if (prepared != HPFEM_GPU_OK) return prepared;
   HPFEM_GPU_CUDA(solver, "factorize: allocate row pointer",
                  solver->row_ptr.reserve((n_size + 1) * sizeof(int64_t)));
   HPFEM_GPU_CUDA(solver, "factorize: allocate column indices",
@@ -428,6 +448,62 @@ hpfem_gpu_status hpfem_gpu_factorize(hpfem_gpu_solver* solver, int64_t n, int64_
   if (perturbed > 0) {
     return solver->fail(HPFEM_GPU_ERR_SINGULAR,
                         "factorize: " + std::to_string(perturbed) +
+                            " zero or tiny pivot(s) were perturbed; the matrix is singular or "
+                            "badly scaled");
+  }
+  solver->factorized = true;
+  solver->last_error.clear();
+  return HPFEM_GPU_OK;
+}
+
+hpfem_gpu_status hpfem_gpu_refactorize(hpfem_gpu_solver* solver, int64_t nnz,
+                                       const double* values) {
+  if (solver == nullptr) return HPFEM_GPU_ERR_INVALID_ARG;
+  if (!solver->factorized || solver->matrix == nullptr || solver->data == nullptr) {
+    return solver->fail(HPFEM_GPU_ERR_INVALID_ARG, "refactorize: no factorisation to reuse");
+  }
+  if (nnz != solver->nnz || (nnz > 0 && values == nullptr)) {
+    return solver->fail(HPFEM_GPU_ERR_INVALID_ARG,
+                        "refactorize: nnz differs from the analysed pattern");
+  }
+  solver->factorized = false;
+  const int64_t n = solver->n;
+  const size_t nnz_size = static_cast<size_t>(nnz);
+  std::vector<double> scaled;
+  const hpfem_gpu_status prepared = scale_and_equilibrate(solver, "refactorize", values, scaled);
+  if (prepared != HPFEM_GPU_OK) return prepared;
+  if (nnz > 0) {
+    HPFEM_GPU_CUDA(solver, "refactorize: upload values",
+                   cudaMemcpyAsync(solver->values.ptr, scaled.data(), nnz_size * 2 * sizeof(double),
+                                   cudaMemcpyHostToDevice, solver->stream));
+  }
+  // the CSR descriptor keeps pointing at the value buffer; the dense operands are not read
+  cudssMatrix_t x = nullptr;
+  cudssMatrix_t b = nullptr;
+  HPFEM_GPU_CUDSS(
+      solver, "refactorize: create dense operands",
+      cudssMatrixCreateDn(&x, n, 1, n, solver->solution.ptr, CUDSS_C_64F, CUDSS_LAYOUT_COL_MAJOR));
+  cudssStatus_t status =
+      cudssMatrixCreateDn(&b, n, 1, n, solver->rhs.ptr, CUDSS_C_64F, CUDSS_LAYOUT_COL_MAJOR);
+  if (status == CUDSS_STATUS_SUCCESS) {
+    status = cudssExecute(solver->handle, CUDSS_PHASE_REFACTORIZATION, solver->config, solver->data,
+                          solver->matrix, x, b);
+  }
+  const cudaError_t sync = cudaStreamSynchronize(solver->stream);
+  if (x != nullptr) cudssMatrixDestroy(x);
+  if (b != nullptr) cudssMatrixDestroy(b);
+  if (status == CUDSS_STATUS_ALLOC_FAILED) {
+    return solver->fail(HPFEM_GPU_ERR_OUT_OF_MEMORY, "refactorize: cuDSS ran out of memory");
+  }
+  if (status != CUDSS_STATUS_SUCCESS) return solver->fail_cudss("refactorize", status);
+  if (sync != cudaSuccess) return solver->fail_cuda("refactorize: synchronise", sync);
+  int perturbed = 0;
+  size_t written = 0;
+  if (cudssDataGet(solver->handle, solver->data, CUDSS_DATA_INFO, &perturbed, sizeof(perturbed),
+                   &written) == CUDSS_STATUS_SUCCESS &&
+      perturbed != 0) {
+    return solver->fail(HPFEM_GPU_ERR_SINGULAR,
+                        "refactorize: " + std::to_string(perturbed) +
                             " zero or tiny pivot(s) were perturbed; the matrix is singular or "
                             "badly scaled");
   }
