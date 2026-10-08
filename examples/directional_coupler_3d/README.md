@@ -30,6 +30,7 @@ cross-section at the same cell size and order. Results go to `directional_couple
 ```bash
 python examples/directional_coupler_3d/run.py --quick                       # CPU, < 1 min
 python examples/directional_coupler_3d/run.py --length 12 --order 2 --backend cudss
+python examples/directional_coupler_3d/run.py --length 30 --order 2 --cell 100 --cell-z 250 --backend cudss --ports full
 ```
 
 **Expected result.** The coupler is lossless between PEC walls: the four outgoing modal
