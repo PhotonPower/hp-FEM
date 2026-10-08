@@ -12,6 +12,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- Distribution (M15 F15): `.github/workflows/wheels.yml` builds the sdist, `manylinux_2_28`
+  x86_64 wheels (cibuildwheel) and Windows `win_amd64` wheels for the python.org CPython with
+  the MSYS2 UCRT64 GCC (SparseLU build, static GCC runtime) for CPython 3.10–3.13, attaches
+  them to `v*` releases; `pip install "hpfem[gui]"` (Streamlit, Gmsh, Matplotlib, meshio,
+  PyYAML) and the `hpfem-gui` entry point (`hpfem.gui`) that starts the Streamlit app with
+  the interpreter that has hpfem.
 - Conical resonances and the periodic-cell eigen front end (M15 F14):
   `physics::ConicalResonance` (`conical_resonance.hpp`: the pencil S(β) − k0² M with PEC,
   PML, Bloch constraints and the gradient kernel projected out, modes with complex ω, Q and

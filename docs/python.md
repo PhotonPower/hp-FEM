@@ -12,6 +12,19 @@ pip install -e ".[dev]"        # builds the extension with scikit-build-core (CM
 pytest python/tests
 ```
 
+**Wheels (M15 F15).** The workflow `.github/workflows/wheels.yml` builds binary wheels of the
+SparseLU build (self-contained, no MUMPS / cuDSS) for CPython 3.10–3.13: `manylinux_2_28`
+x86_64 wheels with cibuildwheel and Windows `win_amd64` wheels for the python.org CPython,
+compiled with the MSYS2 UCRT64 GCC (static GCC runtime, `pyproject.toml`
+`[tool.cibuildwheel]`), plus the sdist. It runs on `workflow_dispatch`, on tags `v*` (the
+wheels are attached to the GitHub release) and, with one Python version, on pull requests
+that touch the packaging files; the artefacts are downloadable from the run. Install a wheel
+with `pip install hpfem-<version>-<tag>.whl`; `pip install "hpfem[gui]"` adds Streamlit, Gmsh,
+Matplotlib, meshio and PyYAML for the GUI, and `hpfem-gui [fem_app.py] [streamlit args]`
+starts the Streamlit front end with this interpreter (the app comes from the argument, the
+environment variable `HPFEM_GUI_APP` or an installed package `hpfem_gui`; `--dry-run` prints
+the command). The MSYS2 build of the "Installation" section stays the developer path.
+
 For development against an existing CMake build: `cmake --preset python`,
 `cmake --build --preset python`, then copy `build/python/python/_hpfem*.{so,pyd}` next to
 `python/hpfem/__init__.py` (git ignores it) and run `pytest` from `python/`. On Windows

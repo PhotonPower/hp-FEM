@@ -1,0 +1,100 @@
+name: Wheels
+# Binary wheels of the SparseLU build (M15 F15): sdist, manylinux_2_28 x86_64 wheels with
+# cibuildwheel, Windows win_amd64 wheels for the python.org CPython compiled with the MSYS2
+# UCRT64 GCC (static GCC runtime, no MUMPS / cuDSS). Full matrix on workflow_dispatch and on
+# tags v* (attached to the release); one Python version on pull requests that touch the
+# packaging files.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - pyproject.toml
+      - .github/workflows/wheels.yml
+      - python/CMakeLists.txt
+      - CMakeLists.txt
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  sdist:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pipx run build --sdist
+      - uses: actions/upload-artifact@v4
+        with: { name: sdist, path: dist/*.tar.gz }
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pypa/cibuildwheel@v2.21
+        env:
+          # pull requests: one interpreter is enough to validate the build
+          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp312-*' || '' }}
+      - uses: actions/upload-artifact@v4
+        with: { name: wheels-linux, path: wheelhouse/*.whl }
+
+  windows:
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ${{ github.event_name == 'pull_request' && fromJSON('["3.12"]') || fromJSON('["3.10", "3.11", "3.12", "3.13"]') }}
+    defaults:
+      run: { shell: 'msys2 {0}' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        id: cpython
+        with: { python-version: '${{ matrix.python }}' }
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
+      - name: Build the wheel for the python.org CPython with the MinGW GCC
+        env:
+          CC: gcc
+          CXX: g++
+          CMAKE_GENERATOR: Ninja
+        run: |
+          export PATH="$(cygpath '${{ steps.cpython.outputs.python-path }}' | xargs dirname):$PATH"
+          python --version
+          python -m pip install --upgrade pip
+          python -m pip wheel . -w dist --no-deps -v \
+            --config-settings=cmake.define.HPFEM_ENABLE_MUMPS=OFF \
+            --config-settings=cmake.define.HPFEM_STATIC_RUNTIME=ON
+          ls -l dist
+      - name: Check the imports of the extension and test the wheel
+        run: |
+          export PATH="$(cygpath '${{ steps.cpython.outputs.python-path }}' | xargs dirname):$PATH"
+          python -m pip install dist/*.whl pytest scipy
+          python -m pip install delvewheel
+          python -m delvewheel show dist/*.whl
+          cd "$RUNNER_TEMP"
+          python -c "import hpfem; print(hpfem.__version__, hpfem.available_backends())"
+          python -m pytest "$GITHUB_WORKSPACE/python/tests/test_gui_entry.py" "$GITHUB_WORKSPACE/python/tests/test_progress.py" -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-${{ matrix.python }}
+          path: dist/*.whl
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [sdist, linux, windows]
+    runs-on: ubuntu-24.04
+    permissions: { contents: write }
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: artefacts, merge-multiple: true }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artefacts/*.whl
+            artefacts/*.tar.gz

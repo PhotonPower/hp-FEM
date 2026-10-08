@@ -25,7 +25,8 @@ See [docs/roadmap.md](docs/roadmap.md) and [CHANGELOG.md](CHANGELOG.md).
 ```bash
 ./scripts/setup-dev.sh                       # Ubuntu toolchain + pre-commit
 cmake --preset release && cmake --build --preset release && ctest --preset release
-pip install -e ".[dev]"                      # Python package
+pip install -e ".[dev]"                      # Python package (or a wheel from the wheels workflow)
+pip install "hpfem[gui]" && hpfem-gui app.py # Streamlit front end with this interpreter
 mkdocs serve                                 # documentation
 ```
 
