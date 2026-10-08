@@ -219,6 +219,9 @@ Integrated photonics beyond the effective-index model and the tools around the s
   convergence test `waveguide_port_3d` (rectangular waveguide TE10: S21 and |S11| decay
   with p), `PortModes3D` / `s_parameters` for `Scattering3D` in Python
 - [ ] the ring resonator with ports in 3D (SOI cross-section) as the example, S-parameters
+  (stage A in progress with the gpu agent: `examples/directional_coupler_3d` with the mesh /
+  port builder, the coupled-mode reference and the CPU regression test by dev; the GPU
+  production runs, the p-convergence table and `docs/validation.md` by gpu)
   of a directional coupler against coupled-mode theory (needs the GPU solver for the
   mesh sizes involved)
 - [x] modal expansion by Riesz projection on the resonance solver (`physics::RieszProjection`,

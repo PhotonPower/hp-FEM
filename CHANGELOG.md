@@ -12,6 +12,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- `examples/directional_coupler_3d` (M12, stage A of the 3D ring resonator with the gpu
+  agent): two SOI strip waveguides between four 3D modal ports on half faces, structured
+  box mesh with tagged cores, the coupled-mode reference κ = (β_even − β_odd) / 2 from
+  `PropagatingMode` on the two-core section, `run.py --length/--gap/--order/--cell/--backend`
+  with a results JSON, README and a quick CPU regression test (50 k DoFs, 3 s, lossless to
+  1e-5).
 - Shape derivatives by the discrete adjoint on the mesh (M12, ADR-0011,
   `physics/shape_sensitivity.hpp`): `shape_gradient` / `conical_shape_gradient` (dQ/dx of
   every geometry node by central differences of the element integrals, in parallel),
