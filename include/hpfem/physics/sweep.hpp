@@ -39,6 +39,11 @@ class ScatteringOperator {
       const assembly::ComplexVectorField<Dim>& current = {}) const;
   /// Solution of the problem's own setup.
   [[nodiscard]] ScatteringSolution<Dim> solve() const;
+  /// Solution for the unit excitation of mode `mode` of port `port` (and no other port
+  /// excitation, no incident field, no current): the load is @f$ 2 q_m @f$ of that mode on
+  /// the factorised operator, which already holds the port terms of all modes.
+  /// @throws InvalidArgument if the problem has no such port or mode.
+  [[nodiscard]] ScatteringSolution<Dim> solve_port(Index port, Index mode) const;
   /// Solutions for several incident fields (same current) with one batched triangular
   /// solve (`LinearSolver::solve_many`): the loads of all fields are assembled in one pass
   /// over the cells (`assembly::assemble_maxwell_loads`: geometry, quadrature and basis

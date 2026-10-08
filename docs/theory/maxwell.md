@@ -405,7 +405,10 @@ included see a PEC, so a port far enough from any scatterer needs only the guide
 a near field at the port is absorbed by adding evanescent modes (`num_modes`). After the
 solve, $b_m = c_m - a_m$; the power-normalised scattering matrix over the propagating
 channels $(p, m)$ is $S_{ij} = b_i\sqrt{P_i}/(a_j\sqrt{P_j})$ with the modal powers $P_m$
-(`s_parameters` solves once per channel with unit incoming amplitude on that channel).
+(`s_parameters` factorises the operator once — the modal boundary terms do not depend on
+the excitation — and solves once per channel with unit incoming amplitude on that channel,
+`ScatteringOperator::solve_port`; on the 3D coupler of `examples/directional_coupler_3d`
+that is 47 s instead of 167 s for four channels on cuDSS).
 
 **2D port modes.** For the in-plane field $E = (E_x, E_y)$ with $H_z$ out of plane the port
 is a straight chain of boundary edges with the cross-section coordinate $s$ (increasing

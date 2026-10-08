@@ -13,6 +13,7 @@
 #include "hpfem/core/log.hpp"
 #include "hpfem/core/progress.hpp"
 #include "hpfem/mesh/geometry.hpp"
+#include "hpfem/physics/sweep.hpp"
 #include "hpfem/pml/pml.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
 
@@ -495,21 +496,24 @@ SParameters s_parameters(const fespace::NedelecDofMap<Dim>& dofs, ScatteringSetu
   }
   const Index n = static_cast<Index>(out.channels.size());
   out.s = Matrix::Zero(n, n);
+  // one factorisation, one solve per channel (the port terms do not depend on the excitation)
+  const ScatteringOperator<Dim> factorised(reference);
   for (Index j = 0; j < n; ++j) {
     const PortChannel& source = out.channels[as_size(j)];
     ScatteringSetup<Dim> excited = setup;
     auto& amplitudes = excited.ports[as_size(source.port)].incident;
     amplitudes.assign(as_size(source.mode + 1), Complex{0.0, 0.0});
     amplitudes[as_size(source.mode)] = Complex{1.0, 0.0};
-    const Scattering<Dim> problem(dofs, excited);
-    const auto coefficients = problem.port_coefficients(problem.solve());
+    const Scattering<Dim> problem(dofs, excited);  // carries the incident amplitude
+    const auto coefficients =
+        problem.port_coefficients(factorised.solve_port(source.port, source.mode));
     for (Index i = 0; i < n; ++i) {
       const PortChannel& channel = out.channels[as_size(i)];
       out.s(i, j) = coefficients[as_size(channel.port)].outgoing[as_size(channel.mode)] *
                     std::sqrt(channel.power / source.power);
     }
   }
-  log().info("s_parameters<{}>: {} channels, {} solves", Dim, n, n);
+  log().info("s_parameters<{}>: {} channels, one factorisation, {} solves", Dim, n, n);
   return out;
 }
 

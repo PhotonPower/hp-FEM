@@ -19,6 +19,10 @@ ScatteringOperator<Dim>::ScatteringOperator(const Scattering<Dim>& problem) : pr
       dofs, [&problem](Index c) { return problem.form_of_cell(c); },
       problem.wavenumber() * problem.wavenumber(), setup.extra_quadrature_order,
       condensation_ ? &*condensation_ : nullptr);
+  if (!problem.setup().ports.empty()) {
+    Vector unused = Vector::Zero(dofs.num_dofs());
+    problem.add_port_terms(system.matrix, unused);
+  }
   SparseMatrix matrix = std::move(system.matrix);
   const bool constrained = !setup.periodic.empty() || !dofs.mesh().is_conforming();
   if (constrained) {
@@ -55,6 +59,33 @@ ScatteringSolution<Dim> ScatteringOperator<Dim>::solve(
   setup.incident = incident;
   setup.current = current;
   return solve_setup(setup);
+}
+
+template <int Dim>
+ScatteringSolution<Dim> ScatteringOperator<Dim>::solve_port(Index port, Index mode) const {
+  const auto& ports = problem_->setup().ports;
+  if (port < 0 || port >= static_cast<Index>(ports.size())) {
+    throw InvalidArgument(fmt::format("ScatteringOperator::solve_port: no port {}", port));
+  }
+  const PortModes<Dim>& modes = problem_->port_modes(port);
+  if (mode < 0 || mode >= modes.num_modes()) {
+    throw InvalidArgument(
+        fmt::format("ScatteringOperator::solve_port: port {} has no mode {}", port, mode));
+  }
+  // the load of the unit excitation (the operator's own setup has no incident field or
+  // current when it is used for S-parameters; otherwise their load adds to the excitation)
+  Vector full_load;
+  ScatteringSetup<Dim> setup = problem_->setup();
+  for (auto& other : setup.ports) other.incident.clear();
+  Vector load = reduced_load(setup, full_load);
+  Vector excitation = 2.0 * modes.functional(mode);
+  full_load += excitation;
+  // the Dirichlet values were applied once through `reduced_load`; the excitation is
+  // eliminated with zero values (its entries on the fixed DoFs are dropped)
+  assembly::DirichletData homogeneous = problem_->dirichlet();
+  homogeneous.values.setZero();
+  load += reduce_load(homogeneous, std::move(excitation));
+  return finish(solver_->solve(load), full_load, setup.formulation);
 }
 
 template <int Dim>
