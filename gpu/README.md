@@ -116,7 +116,10 @@ reuse after a failure). All solutions must agree with the reference to 1e-10.
 API version 5 adds `hpfem_gpu_refactorize(solver, nnz, values)`: the numerical
 refactorisation (`CUDSS_PHASE_REFACTORIZATION`) with new values on the pattern of the last
 `hpfem_gpu_factorize`, scaling and diagonal equilibration recomputed from the new values;
-`solvers::LinearSolver::refactorize` uses it for sweeps.
+`solvers::LinearSolver::refactorize` uses it for sweeps. Every solve runs cuDSS's iterative
+refinement (`CUDSS_CONFIG_IR_N_STEPS`, 3 steps by default, `HPFEM_GPU_IR_STEPS` overrides,
+0 switches it off): static pivoting on indefinite Maxwell systems with ports can leave a
+factorisation that is accurate only to a few digits.
 
 | Function | Purpose |
 |----------|---------|

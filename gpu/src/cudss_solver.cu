@@ -183,6 +183,18 @@ hpfem_gpu_status hpfem_gpu_create(hpfem_gpu_solver** out) {
   cudssStatus_t status = cudssCreate(&solver->handle);
   if (status == CUDSS_STATUS_SUCCESS) status = cudssSetStream(solver->handle, solver->stream);
   if (status == CUDSS_STATUS_SUCCESS) status = cudssConfigCreate(&solver->config);
+  if (status == CUDSS_STATUS_SUCCESS) {
+    // iterative refinement of every solve: static pivoting on indefinite Maxwell systems
+    // (ports, PML) can leave a factorisation that is only approximately accurate; a few
+    // refinement steps restore the residual to rounding at the cost of one matrix product
+    // per step. HPFEM_GPU_IR_STEPS overrides the default (0 switches it off).
+    int ir_steps = 3;
+    if (const char* env = std::getenv("HPFEM_GPU_IR_STEPS"); env != nullptr && *env != '\0') {
+      ir_steps = std::atoi(env);
+      if (ir_steps < 0) ir_steps = 0;
+    }
+    status = cudssConfigSet(solver->config, CUDSS_CONFIG_IR_N_STEPS, &ir_steps, sizeof(ir_steps));
+  }
   if (status != CUDSS_STATUS_SUCCESS) {
     hpfem_gpu_destroy(solver);
     return HPFEM_GPU_ERR_CUDSS;
