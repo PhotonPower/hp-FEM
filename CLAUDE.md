@@ -353,13 +353,27 @@ permittivity feedback loop with per-cell `MaterialMap` overrides), `hpfem.pv` (c
 generation profiles for device solvers) and the `solar_cell_texture` example;
 `docs/theory/multiphysics.md`. All roadmap milestones M0-M9 are done; what remains is the
 backlog (dual formulation, band structures, time domain, GPU assembly, MPI).
-**M10 (validation against the literature)** is complete apart from the blocked gold-dimer
-item: rib waveguide (Vassallo 1997), metallic lamellar grating (Granet & Guizal 1996), Mie
-sphere (Bohren & Huffman, with `physics::mie_sphere` and `mesh::box_with_ball`) and the
-slit–groove problem in silver (Besbes et al. 2007 / Burger et al. 2013) on the new layered
-background of the scattered-field formulation (ADR-0009, `physics::LayerStack`); results,
-deviations and the honest assessment of each are in `docs/validation.md`, the long local
-runs (ctest label `validation-long`) in `benchmarks/results/`.
+**M10 (validation against the literature)** is complete: rib waveguide (Vassallo 1997),
+metallic lamellar grating (Granet & Guizal 1996), Mie sphere (Bohren & Huffman, with
+`physics::mie_sphere` and `mesh::box_with_ball`) and the slit–groove problem in silver
+(Besbes et al. 2007 / Burger et al. 2013) on the layered background of the scattered-field
+formulation (ADR-0009, `physics::LayerStack`); the gold-dimer benchmark (Hoffmann et al. 2009)
+is computed under a documented permittivity assumption because the source does not state its
+ε (`examples/gold_dimer`, `docs/validation.md` G). Results, deviations and the honest
+assessment of each are in `docs/validation.md`, the long local runs (ctest label
+`validation-long`) in `benchmarks/results/`.
+**M15 (features requested by the GUI work)** is complete: hp-adaptivity for the conical
+solver with residual and goal-oriented estimators and the non-matching Bloch coupling
+(F1, F16), `hpfem.grating.solve` / `validate` with the unit-cell mesher, diagnostics,
+dispersive materials, flux balance and the scalar E_z path (F2, F6, F7, F13), the job runner
+`python -m hpfem.run` with progress, cancellation, timing and `estimate_memory` (F5, F9), the
+conical post-processing, resonances and bands (F10, F11, F14), field sampling, exact
+absorption, H field and sweep acceleration (F3, F4, F8, F12, gpu agent) and the wheels
+workflow with `hpfem-gui` (F15). **M12** is complete except the full ring in 3D: material and
+shape sensitivities by the adjoint solve (ADR-0011) and the 3D directional coupler with modal
+ports validated against coupled-mode theory on the cuDSS backend (`docs/validation.md` F).
+Open: the full ring resonator in 3D (backlog, beyond the GPU memory at useful accuracy) and
+the optional MPI item.
 See `docs/roadmap.md`.
 
 ## 13. Parallel agents on one machine

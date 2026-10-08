@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(hpfem
-  VERSION 0.3.0
+  VERSION 0.4.0
   DESCRIPTION "Adaptive hp-FEM suite for nano-optics (time-harmonic Maxwell)"
   LANGUAGES CXX)
 
