@@ -3,6 +3,7 @@
 // time through its C interface, gpu/include/hpfem_gpu.h. No CUDA header is needed here, so
 // the library builds and runs without a GPU; `available(kCudss)` reports whether the DLL
 // could be loaded and a device is present. See docs/adr/0008-gpu-backend.md.
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <mutex>
@@ -92,6 +93,7 @@ struct GpuApi {
   hpfem_gpu_solve_fn solve = nullptr;
   hpfem_gpu_factor_info_fn factor_info = nullptr;
   hpfem_gpu_factor_info2_fn factor_info2 = nullptr;  // API version 2 only
+  hpfem_gpu_refactorize_fn refactorize = nullptr;    // API version 5 only
   hpfem_gpu_last_error_fn last_error = nullptr;
   hpfem_gpu_matrix_create_fn matrix_create = nullptr;  // API version 3 only
   hpfem_gpu_matrix_destroy_fn matrix_destroy = nullptr;
@@ -163,6 +165,7 @@ GpuApi load_gpu_api() {
   api.solve = api.library.symbol<hpfem_gpu_solve_fn>("hpfem_gpu_solve");
   api.factor_info = api.library.symbol<hpfem_gpu_factor_info_fn>("hpfem_gpu_factor_info");
   api.factor_info2 = api.library.symbol<hpfem_gpu_factor_info2_fn>("hpfem_gpu_factor_info2");
+  api.refactorize = api.library.symbol<hpfem_gpu_refactorize_fn>("hpfem_gpu_refactorize");
   api.matrix_create = api.library.symbol<hpfem_gpu_matrix_create_fn>("hpfem_gpu_matrix_create");
   api.matrix_destroy = api.library.symbol<hpfem_gpu_matrix_destroy_fn>("hpfem_gpu_matrix_destroy");
   api.matrix_apply = api.library.symbol<hpfem_gpu_matrix_apply_fn>("hpfem_gpu_matrix_apply");
@@ -253,6 +256,13 @@ GpuApi load_gpu_api() {
                               api.path, api.api_version);
     return api;
   }
+  if (api.api_version < 5) {
+    api.refactorize = nullptr;
+  } else if (api.refactorize == nullptr) {
+    api.failure = fmt::format("{} claims API version {} but lacks hpfem_gpu_refactorize", api.path,
+                              api.api_version);
+    return api;
+  }
   api.version = version();
   char name[256] = "";
   std::size_t free_bytes = 0;
@@ -321,12 +331,9 @@ class CudssSolver final : public LinearSolver {
                               api_.last_error(solver_)));
     }
     ready_ = true;
-    info_ = hpfem_gpu_factor_info_t{};
-    if (api_.factor_info2 != nullptr) {
-      api_.factor_info2(solver_, &info_);
-    } else {
-      api_.factor_info(solver_, &info_.nnz_factors, &info_.device_bytes);
-    }
+    outer_.assign(csr->outerIndexPtr(), csr->outerIndexPtr() + csr->outerSize() + 1);
+    inner_.assign(csr->innerIndexPtr(), csr->innerIndexPtr() + csr->nonZeros());
+    read_factor_info();
     hybrid_ = info_.hybrid != 0;
     if (hybrid_) {
       static bool announced = false;  // once per process
@@ -359,6 +366,46 @@ class CudssSolver final : public LinearSolver {
                                          static_cast<double>(info_.device_estimate) / 1e6,
                                          static_cast<double>(info_.host_estimate) / 1e6)
                            : std::string());
+  }
+
+  /// Numerical refactorisation on the device (API version 5) when the entries sit on the
+  /// analysed pattern; otherwise a full factorisation.
+  void refactorize(const SparseMatrix& matrix) override {
+    if (api_.refactorize == nullptr || !ready_ || matrix.rows() != size_ ||
+        matrix.cols() != size_ || exploit_symmetry(symmetry_, matrix, "cuDSS") != symmetric_) {
+      factorize(matrix);
+      return;
+    }
+    const SparseMatrix* csr = &matrix;
+    SparseMatrix compressed;
+    if (symmetric_) {
+      compressed = upper_triangle(matrix);
+      csr = &compressed;
+    } else if (!matrix.isCompressed()) {
+      compressed = matrix;
+      compressed.makeCompressed();
+      csr = &compressed;
+    }
+    const bool same_pattern = static_cast<std::size_t>(csr->outerSize() + 1) == outer_.size() &&
+                              static_cast<std::size_t>(csr->nonZeros()) == inner_.size() &&
+                              std::equal(outer_.begin(), outer_.end(),
+                                         reinterpret_cast<const Index*>(csr->outerIndexPtr())) &&
+                              std::equal(inner_.begin(), inner_.end(),
+                                         reinterpret_cast<const Index*>(csr->innerIndexPtr()));
+    if (!same_pattern) {
+      factorize(matrix);
+      return;
+    }
+    ready_ = false;
+    const hpfem_gpu_status status = api_.refactorize(
+        solver_, csr->nonZeros(), reinterpret_cast<const double*>(csr->valuePtr()));
+    if (status != HPFEM_GPU_OK) {
+      throw Error(fmt::format("cuDSS: refactorisation of the {} x {} system failed: {}", size_,
+                              size_, api_.last_error(solver_)));
+    }
+    ready_ = true;
+    read_factor_info();
+    log().debug("cuDSS: refactorised {} unknowns on the analysed pattern", size_);
   }
 
   [[nodiscard]] Vector solve(const Vector& rhs) const override {
@@ -408,6 +455,16 @@ class CudssSolver final : public LinearSolver {
   Symmetry symmetry_;
   bool symmetric_ = false;
   bool hybrid_ = false;
+  void read_factor_info() {
+    info_ = hpfem_gpu_factor_info_t{};
+    if (api_.factor_info2 != nullptr) {
+      api_.factor_info2(solver_, &info_);
+    } else {
+      api_.factor_info(solver_, &info_.nnz_factors, &info_.device_bytes);
+    }
+  }
+  std::vector<Index> outer_;  ///< the factorised pattern, for refactorize
+  std::vector<Index> inner_;
   hpfem_gpu_factor_info_t info_{};
   hpfem_gpu_solver* solver_ = nullptr;
   bool ready_ = false;

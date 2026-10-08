@@ -50,12 +50,32 @@ class SparseLuSolver final : public LinearSolver {
     }
     ready_ = true;
     size_ = matrix.rows();
+    remember_pattern(column_major);
     log().info("SparseLU: factorised {} unknowns, {} nonzeros in L + U", size_,
                lu_.nnzL() + lu_.nnzU());
   }
 
   [[nodiscard]] Index factor_entries() const noexcept override {
     return ready_ ? static_cast<Index>(lu_.nnzL()) + static_cast<Index>(lu_.nnzU()) : Index{-1};
+  }
+
+  void refactorize(const SparseMatrix& matrix) override {
+    if (!ready_ || matrix.rows() != size_ || matrix.cols() != size_) {
+      factorize(matrix);
+      return;
+    }
+    const ColMajor column_major(matrix);
+    if (!same_pattern(column_major)) {
+      factorize(matrix);
+      return;
+    }
+    lu_.factorize(column_major);  // numerical phase with the analysed pattern
+    if (lu_.info() != Eigen::Success) {
+      ready_ = false;
+      throw Error(fmt::format("SparseLU: refactorisation of the {} x {} system failed ({})", size_,
+                              size_, lu_.lastErrorMessage()));
+    }
+    log().debug("SparseLU: refactorised {} unknowns with the previous pattern", size_);
   }
 
   [[nodiscard]] Vector solve(const Vector& rhs) const override {
@@ -87,6 +107,22 @@ class SparseLuSolver final : public LinearSolver {
   [[nodiscard]] Index size() const noexcept override { return size_; }
   [[nodiscard]] std::string name() const override { return "Eigen SparseLU (COLAMD)"; }
 
+ private:
+  void remember_pattern(const Eigen::SparseMatrix<Complex, Eigen::ColMajor, Index>& m) {
+    outer_.assign(m.outerIndexPtr(), m.outerIndexPtr() + m.outerSize() + 1);
+    inner_.assign(m.innerIndexPtr(), m.innerIndexPtr() + m.nonZeros());
+  }
+  [[nodiscard]] bool same_pattern(
+      const Eigen::SparseMatrix<Complex, Eigen::ColMajor, Index>& m) const {
+    return m.isCompressed() && static_cast<std::size_t>(m.outerSize() + 1) == outer_.size() &&
+           static_cast<std::size_t>(m.nonZeros()) == inner_.size() &&
+           std::equal(outer_.begin(), outer_.end(), m.outerIndexPtr()) &&
+           std::equal(inner_.begin(), inner_.end(), m.innerIndexPtr());
+  }
+  std::vector<Index> outer_;
+  std::vector<Index> inner_;
+
+ public:
  private:
   using ColMajor = Eigen::SparseMatrix<Complex, Eigen::ColMajor, Index>;
   Eigen::SparseLU<ColMajor, Eigen::COLAMDOrdering<Index>> lu_;
@@ -333,6 +369,13 @@ class AutoSolver final : public LinearSolver {
     } catch (...) {
       solver_.reset();
       throw;
+    }
+  }
+  void refactorize(const SparseMatrix& matrix) override {
+    if (solver_) {
+      solver_->refactorize(matrix);
+    } else {
+      factorize(matrix);
     }
   }
   [[nodiscard]] Vector solve(const Vector& rhs) const override {

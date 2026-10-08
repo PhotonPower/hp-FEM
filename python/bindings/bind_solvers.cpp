@@ -53,6 +53,10 @@ void bind_solvers(py::module_& m) {
   py::class_<solvers::LinearSolver, std::unique_ptr<solvers::LinearSolver>>(
       m, "LinearSolver", "Factorise once, solve for many right-hand sides")
       .def("factorize", &solvers::LinearSolver::factorize, py::arg("matrix"), Release())
+      .def("refactorize", &solvers::LinearSolver::refactorize, py::arg("matrix"), Release(),
+           "factorise a matrix on the pattern of the last one reusing the symbolic analysis "
+           "(MUMPS: numerical phase only, SparseLU: same column permutation); falls back to "
+           "factorize for a new pattern")
       .def("solve", &solvers::LinearSolver::solve, py::arg("rhs"), Release())
       .def("solve_many", &solvers::LinearSolver::solve_many, py::arg("rhs"), Release(),
            "Several right-hand sides at once, one per column (n x nrhs)")
