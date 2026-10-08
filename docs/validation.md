@@ -561,3 +561,78 @@ faces are no mirror images of each other, and the refinement left independent (n
 $\Delta R_{-1} = +2\cdot 10^{-6}$ and $\Delta R_0 = -2.2\cdot 10^{-4}$ at 110 k DoFs with $b = 0.61$, the same
 values and rate as the mirrored symmetric case (a): the coupling costs no accuracy and the
 mirroring is no longer needed.
+
+## F. Directional coupler in 3D with modal ports (M12 stage A, production runs on cuDSS)
+
+**Source.** The first 3D device of the port framework, the coupling element of ring
+resonators and interferometers: two parallel SOI strip waveguides (450 nm × 220 nm, silica
+cladding) at 1550 nm, gap 200 nm, with one two-mode port on each end face. Reference:
+coupled-mode theory in the supermode basis of the two-core cross-section,
+$P_{\mathrm{cross}} = \sin^2(\kappa L)$ with $\kappa = (\beta_e - \beta_o)/2$ from
+`hpfem.PropagatingMode` on the section at the same cell size and order (the two-mode picture
+is exact up to the mismatch between the launched single-core mode and the superposition of the
+supermodes). The example, mesh builder and CMT reference are
+`examples/directional_coupler_3d/run.py` (`--ports full`, PR #127); the convergence quantities
+of the 3D solver are the phase errors $|\arg t - \beta L|$ of the two supermode transmissions
+against the section solver's $\beta$ and the leakage between the supermodes.
+
+**Discretisation.** Structured tetrahedral mesh (`hpfem.box`, six tetrahedra per 100-nm
+cube, cores tagged by cell centroid), PEC walls at the cladding margins (750 nm beside,
+605 nm above and below the cores), modal ports with two modes on $z = 0$ and $z = L$;
+`physics::s_parameters` with one factorisation per S-matrix (`ScatteringOperator::solve_port`,
+PR #128) on cuDSS, LDLᵀ, diagonal equilibration, three steps of iterative refinement. The
+cross-section edges must lie on grid lines of the uniform box: with 100-nm cells this holds
+for the gap 200 nm (26 cells of exactly 100 nm across), not for 150 nm (26 cells of 98.1 nm,
+staircase cores that differ between the 3D end face and the 2D section: $|t| = 0.53$, leakage
+0.85) — a per-axis cell count from the edge lists is the proposed fix in the builder.
+
+**Results** (RTX 3090 with 24 GB, 128 GB host, 24 threads;
+`benchmarks/results/2026-10-08-VR-directional-coupler-3d.json`; the four solves of the
+S-matrix share one factorisation):
+
+| L [µm] | p | cell_z [nm] | DoFs | $|t_e|$, $|t_o|$ | phase error e / o [rad] | leakage | $P_{\mathrm{cross}}$ FEM | CMT | FEM − CMT | 4 solves [s] | factors |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2 | 1 | 100 | 50 k | 0.99702, 0.99780 | 2.4e-1 / 2.0e-1 | 6.4e-2 | 0.06262 | 0.05234 | +1.0e-2 | 14 | device |
+| 2 | 2 | 100 | 266 k | 1.00000, 1.00000 | 1.4e-2 / 1.5e-2 | 1.6e-3 | 0.02359 | 0.02338 | +2.1e-4 | 47 | 7.8 GB device |
+| 2 | 3 | 100 | 769 k | 1.00000, 1.00000 | 5.0e-4 / 5.7e-4 | 5.5e-5 | 0.02221 | 0.02220 | +1.0e-5 | 500 | hybrid: 15 GB device + 34 GB host |
+| 10 | 2 | 100 | 1318 k | 0.99997, 0.99997 | 6.8e-2 / 7.5e-2 | 7.3e-3 | 0.48553 | 0.48213 | +3.4e-3 | 166 | hybrid: 6 GB device + 26 GB host |
+| 20 | 2 | 150 | 1752 k | 0.99969, 0.99968 | 5.4e-1 / 5.8e-1 | 2.5e-2 | 0.99984 | 0.99872 | +1.1e-3 | 196 | hybrid: 7 GB device + 32 GB host |
+| 30 | 2 | 200 | 1976 k | 0.99947, 0.99947 | 1.8 / 1.9 | 3.3e-2 | 0.49614 | 0.55352 | −5.7e-2 | 212 | hybrid: 7 GB device + 36 GB host |
+
+The p = 2 row at L = 2 µm reproduces the MUMPS run of the example's README to all printed
+digits (293 s there for four factorisations). The phase error falls by a factor 27 from
+p = 2 to p = 3 and the leakage by 29 — the exponential p-convergence of the 3D solver at a
+fixed mesh — and grows linearly with the length at fixed p (1.4e-2 rad at 2 µm, 6.8e-2 at
+10 µm for the even supermode, i.e. a relative dispersion error of the 3D discretisation of
+$7\cdot 10^{-4}$ in $\beta_e$ at p = 2 on 100-nm cells). $P_{\mathrm{cross}}$ follows CMT to
+$10^{-5}$ at p = 3 (L = 2 µm) and to $3.4\cdot 10^{-3}$ at p = 2 over 10 µm, where the 3D
+phase error of 0.07 rad on each supermode is the whole deviation; the energy balance of the
+four channels closes to $10^{-9}$ and the reflection stays below $10^{-6}$ from p = 2 on.
+
+**Cost and limits.** On cuDSS a factorisation of 266 k DoFs (p = 2) takes 42 s with the
+factors on the device; from about 1 M DoFs the hybrid memory mode holds the factors in host
+memory (1.32 M DoFs at p = 2: 26 GB host, 165 s for factorisation and four solves; 2.0 M
+DoFs: 36 GB host, 212 s). The factors of p = 3 are much denser (769 k DoFs: 1.5 G entries,
+34 GB host, 500 s), and p = 4 at L = 2 µm (about 1.5 M DoFs) exceeded the 128 GB of host
+memory and was dropped. The 20 and 30 µm couplers were run under 2 M DoFs with a coarser
+axial cell (`--cell-z`, `Geometry.cell_z`), which is where the accuracy goes: the axial
+dispersion error scales like $h_z^{2p}$, so 150 nm instead of 100 nm costs a factor 5 and
+200 nm a factor 16 in the phase error per length — 0.54 rad over 20 µm and 1.8 rad over
+30 µm for the even supermode (against 0.07 rad over 10 µm at 100 nm), and the leakage
+grows to $3\cdot 10^{-2}$. $P_{\mathrm{cross}}$ depends only on the phase *difference* of
+the two supermodes, in which the dispersion errors largely cancel: it still follows CMT to
+$10^{-3}$ at 20 µm (near the full transfer, $L_c = 20.5$ µm) but is off by $6\cdot 10^{-2}$ at
+30 µm. A long coupler at p = 2 therefore needs the 100-nm axial cell (3.9 M DoFs at 30 µm,
+about 80 GB host) or p = 3 on the coarse axial mesh (1.98 M DoFs at p = 2 become about 5 M at
+p = 3, beyond this machine); the 3D coupler of 10 µm at p = 2 and 100 nm is the configuration
+that is both converged and affordable here.
+
+**Assessment.** With the ports, the operator reuse and the hybrid memory mode, a 3D coupler
+of 10 µm at p = 2 is a three-minute job on one workstation GPU, and the p-convergence at
+2 µm shows the solver reaching CMT to $10^{-5}$ in the cross power. The deviation that
+remains at p = 2 over 10 µm is the dispersion error of the 100-nm mesh along the guide, not
+the two-mode picture; coarsening that mesh to fit longer couplers into memory trades the
+phase accuracy away as $h_z^{2p}$. The roadmap item "ring resonator with ports in 3D" ends
+with this stage by the maintainer's decision; the full ring in 3D (stage B) goes to the
+backlog, and it would need p = 3 on an hp-mesh that is fine only across the cores and in the
+coupling region.
