@@ -793,6 +793,10 @@ void bind_physics(py::module_& m) {
                                py::return_value_policy::reference_internal)
         .def_property_readonly("wavenumber", &ConicalScattering::wavenumber)
         .def_property_readonly("beta", &ConicalScattering::beta)
+        .def_property_readonly("transverse_dofs", &ConicalScattering::transverse_dofs,
+                               py::return_value_policy::reference_internal)
+        .def_property_readonly("longitudinal_dofs", &ConicalScattering::longitudinal_dofs,
+                               py::return_value_policy::reference_internal)
         .def("background_material", &ConicalScattering::background_material, py::arg("cell"))
         .def("form_of_cell", &ConicalScattering::form_of_cell, py::arg("cell"))
         .def_property_readonly("free_dofs",

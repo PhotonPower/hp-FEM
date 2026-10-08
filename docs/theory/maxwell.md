@@ -774,6 +774,47 @@ $Q = 10.7$) in $p$ to the floor of about $1.5\cdot10^{-4}$ set by the PML's refl
 outward-growing quasi-normal mode. The periodic-cell front end is
 `hpfem.grating.resonances` / `bands` (docs/python.md).
 
+## Sensitivities by the adjoint solve (`physics/sensitivity.hpp`)
+
+For the discrete problem $A(\theta)\,e = b(\theta)$ and a linear goal $Q(e) = q^\top e$ (the
+functionals of the goal-oriented estimator, no conjugation) the derivative with respect to a
+parameter $\theta$ is
+
+$$
+\frac{dQ}{d\theta} = z^\top\Big(\frac{\partial b}{\partial\theta} - \frac{\partial A}{\partial\theta}\,e\Big),
+\qquad A^\top z = q ,
+$$
+
+one adjoint solve per goal, any number of parameters. With hanging-node and Bloch constraints
+the adjoint lives in the test space of the reduced system, $(P^\top A\bar P)\,z_r = P^\top q$,
+$z = \bar P z_r$, with homogeneous Dirichlet data on the PEC and incident facets, exactly as
+in `dwr_estimate` but on the primal space (`adjoint_solution`, `conical_adjoint_solution`).
+
+**Material derivatives.** For the relative permittivity of all cells of a tag (outside the
+PML) $\partial_\varepsilon A = -k_0^2 M_{\text{tag}}$ and, in the scattered-field
+formulation, $\partial_\varepsilon b = k_0^2\,\ell_{\text{tag}}(E^{inc})$ with
+$\ell_{\text{tag}}(v) = \int_{\text{tag}} E^{inc}\cdot v$, so
+
+$$
+\frac{dQ}{d\varepsilon_{\text{tag}}} = k_0^2\int_{\text{tag}} E_{\text{tot}}\cdot z\,dx
+= k_0^2\,z^\top\big(M_{\text{tag}}\,e + \ell_{\text{tag}}(E^{inc})\big)
+$$
+
+(`material_sensitivity`, `conical_material_sensitivity`; the conical block mass pairs the
+scaled longitudinal part as $\varepsilon_z v w$). The derivative is holomorphic in
+$\varepsilon$, so one complex number gives the sensitivities to the real and the imaginary
+part. It is the exact derivative of the *discrete* goal: `test_sensitivity.cpp` checks it
+against central finite differences to $10^{-6}$ for the in-plane solver (disc with PML), the
+conical solver at $\beta \ne 0$ and a Bloch-periodic strip with a current source; its
+convergence to the continuous derivative follows that of the primal and adjoint solutions.
+Quadratic observables follow by the chain rule from the complex amplitude: for the
+efficiency $R_m = c\,|A_m|^2$ of an order the linearised goal $Q = A_m\cdot\bar A_m/|A_m|$
+gives $dR_m = 2R_m\,\mathrm{Re}(dQ)/|A_m|$ (`hpfem.grating.sensitivity(result, tag, order)`
+returns $\partial R_m/\partial\mathrm{Re}\,\varepsilon$ and
+$\partial R_m/\partial\mathrm{Im}\,\varepsilon$, checked against finite differences of
+`grating.solve` to $10^{-3}$). Shape derivatives (Hadamard formula with the interface jumps)
+remain on the roadmap.
+
 ## Band structures (`physics/band_structure.hpp`)
 
 A photonic crystal is a lossless periodic structure with lattice vectors $a_j$. By Bloch's

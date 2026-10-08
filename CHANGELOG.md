@@ -12,6 +12,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- Material sensitivities by the adjoint solve (M12, `physics/sensitivity.hpp`):
+  `adjoint_solution` / `material_sensitivity` for `Scattering<Dim>` and
+  `conical_adjoint_solution` / `conical_material_sensitivity` for the conical solver, the
+  holomorphic derivative dQ/dε_tag = k0² ∫_tag E·z of any linear goal (constraints and PEC
+  handled as in the DWR estimator), verified against finite differences; Python bindings,
+  `grating.sensitivity(result, tag, order, side)` for the derivatives of an efficiency with
+  respect to Re ε and Im ε; `ConicalScattering.transverse_dofs` / `longitudinal_dofs`.
 - Scalar E_z path of the conical solver (`ConicalScatteringSetup::scalar_ez`): at β = 0 with
   an E_z-only excitation only the H1 block is constrained, factorised and solved (about a
   third of the DoFs), the in-plane coefficients are zero and all post-processing applies;

@@ -13,6 +13,7 @@
 #include "hpfem/adaptivity/smoothness.hpp"
 #include "hpfem/physics/conical_goal.hpp"
 #include "hpfem/physics/goal_oriented.hpp"
+#include "hpfem/physics/sensitivity.hpp"
 
 namespace hpfem::python {
 
@@ -122,6 +123,23 @@ void bind_adaptivity_dim(py::module_& m) {
         return physics::point_value_functional<Dim>(x, weight);
       },
       py::arg("x"), py::arg("weight"), "Q(E) = E(x) . w");
+  m.def(
+      "adjoint_solution",
+      [](const physics::Scattering<Dim>& problem, const Vector& q) {
+        return physics::adjoint_solution<Dim>(problem, q);
+      },
+      py::arg("problem"), py::arg("q"), Release(),
+      "adjoint z of the goal Q(e) = q^T e on the primal space (test space of the constrained "
+      "problem, homogeneous Dirichlet on PEC and incident facets)");
+  m.def(
+      "material_sensitivity",
+      [](const physics::Scattering<Dim>& problem, const physics::ScatteringSolution<Dim>& solution,
+         const Vector& adjoint, mesh::Tag tag) {
+        return physics::material_sensitivity<Dim>(problem, solution, adjoint, tag);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("adjoint"), py::arg("tag"), Release(),
+      "dQ/d(eps_r of the tag), the holomorphic derivative of the discrete goal: "
+      "k0^2 integral over the tag of E_total . z");
 }
 
 }  // namespace
@@ -266,6 +284,22 @@ void bind_adaptivity(py::module_& m) {
       py::arg("options") = adaptivity::EstimatorOptions{}, Release(),
       "DWR estimate of a goal of the conical solution (GoalEstimate); the functional maps "
       "(transverse, longitudinal) maps to the coefficient vectors (q_e, q_v)");
+  m.def(
+      "conical_adjoint_solution",
+      [](const physics::ConicalScattering& problem, const Vector& q_e, const Vector& q_v) {
+        const auto z = physics::conical_adjoint_solution(problem, q_e, q_v);
+        return std::make_pair(z.transverse, z.longitudinal);
+      },
+      py::arg("problem"), py::arg("q_e"), py::arg("q_v"), Release(),
+      "adjoint (z_e, z_v) of the goal q_e^T e + q_v^T v on the problem's maps");
+  m.def(
+      "conical_material_sensitivity",
+      [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,
+         const Vector& z_e, const Vector& z_v, mesh::Tag tag) {
+        return physics::conical_material_sensitivity(problem, solution, {z_e, z_v}, tag);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("z_e"), py::arg("z_v"), py::arg("tag"),
+      Release(), "dQ/d(eps_r of the tag) of the conical goal, holomorphic");
   m.def("conical_point_functional", &physics::conical_point_functional, py::arg("x"),
         py::arg("weight"), "Q(E) = E(x) . w of the physical field (E_z = i v), w not conjugated");
   m.def("conical_order_functional", &physics::conical_order_functional, py::arg("origin"),

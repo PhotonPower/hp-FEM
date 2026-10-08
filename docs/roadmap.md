@@ -227,8 +227,11 @@ Integrated photonics beyond the effective-index model and the tools around the s
   modes; verification against the direct solution and the micropillar Purcell spectrum)
   (`riesz_projection.hpp`, `test_riesz_projection.cpp`, `examples/micropillar_qd`,
   `docs/theory/maxwell.md#modal-expansion-by-riesz-projection`)
-- [ ] sensitivities: material derivatives of observables by the adjoint solve (`dwr` adjoint
-  reused), then shape derivatives (Hadamard formula with the interface jumps, ADR on the
+- [x] sensitivities, material derivatives of observables by the adjoint solve
+  (`physics/sensitivity.hpp`: `adjoint_solution` / `material_sensitivity` and the conical
+  pair, dQ/dε_tag = k0² ∫_tag E·z, holomorphic; `hpfem.grating.sensitivity` for the
+  efficiencies; verified against finite differences to 1e-6)
+- [ ] sensitivities, shape derivatives (Hadamard formula with the interface jumps, ADR on the
   geometry parametrisation); verification against finite differences
 
 ## M13 — Conical incidence and the E_z polarisation (2.5D)
