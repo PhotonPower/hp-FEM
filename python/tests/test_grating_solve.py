@@ -141,6 +141,35 @@ def test_material_sensitivity_matches_finite_differences():
         grating.sensitivity(result, RIDGE_TAG, order=0, side="X")
 
 
+def test_shape_sensitivity_of_the_ridge_height_matches_finite_differences():
+    mesh, pml = unit_cell()
+    glass = hpfem.Material.dielectric(1.5)
+    stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)
+    common = dict(order=3, pml={"top": pml, "bottom": pml}, orders_max=2, check=False)
+    # the ridge top (y = HEIGHT, |x| < RIDGE / 2) moves up: the velocity of its vertices
+    velocity = np.zeros((hpfem.num_geometry_nodes(mesh), 2))
+    for v in range(mesh.num_vertices):
+        x = mesh.vertex(v)
+        if abs(x[1] - HEIGHT) < 1e-12 and abs(x[0]) < RIDGE / 2 + 1e-12:
+            velocity[v, 1] = 1.0
+    assert velocity[:, 1].sum() >= 3
+
+    def solve(t):
+        moved = mesh.copy()
+        hpfem.move_nodes(moved, velocity, t)
+        return grating.solve(moved, {SUB: glass, RIDGE_TAG: glass}, stack, "s", 40 * units.deg,
+                             0.0, OMEGA, **common)  # fmt: skip
+
+    def order0(res):
+        return next(o for o in res.R_orders if o.m == 0).efficiency
+
+    result = solve(0.0)
+    derivative = grating.shape_sensitivity(result, velocity, order=0)
+    delta = 1e-11  # metres: 1e-4 of the 148 nm height
+    fd = (order0(solve(delta)) - order0(solve(-delta))) / (2 * delta)
+    assert abs(derivative - fd) < 1e-3 * abs(fd)
+
+
 def test_silver_grating_with_pec_bottom_absorbs_the_rest():
     mesh, pml = unit_cell()
     silver = hpfem.Material()

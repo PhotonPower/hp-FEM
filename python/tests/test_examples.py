@@ -50,6 +50,43 @@ def test_lamellar_grating_job_files_reproduce_the_rcwa_cases(tmp_path):
         assert abs(point["balance"]) < 1e-2
 
 
+def test_gold_dimer_gap_field_converges_in_p(tmp_path):
+    pytest.importorskip("gmsh")
+    example = load_example("gold_dimer")
+    r = example.run(quick=True, out=str(tmp_path / "dimer.json"))
+    assert r.cells > 500 and r.orders == [2, 3]
+    # the Johnson & Christy dimer at 632 nm: a gap enhancement of a few 1e5, converged in p
+    assert 1e5 < r.intensity[-1] < 1e6
+    assert abs(r.intensity[1] - r.intensity[0]) < 0.05 * r.intensity[1]
+    e = np.array([complex(*c) for c in r.components])
+    assert abs(e[1]) < 1e-3 * np.linalg.norm(e)  # E_y vanishes in the plane of incidence
+    assert abs(e[2]) > 0.9 * np.linalg.norm(e)  # the gap field is along the dimer axis
+    assert abs(r.deviation) < 0.6  # within the permittivity uncertainty (docs/validation.md G)
+
+
+def test_directional_coupler_3d_ports_are_lossless_and_follow_coupled_mode_theory(tmp_path):
+    example = load_example("directional_coupler_3d")
+    r = example.run(quick=True, out=str(tmp_path / "coupler.json"))
+    assert r.dofs > 10000 and r.kappa > 0 and 5e-6 < r.coupling_length < 50e-6
+    mean = 0.5 * (r.beta_even + r.beta_odd)  # the half-section port modes sit near the pair
+    assert all(abs(b - mean) < 0.05 * mean for b in r.port_beta)
+    # lossless coupler with PEC walls: the four outgoing powers sum to the input
+    assert abs(r.power_sum - 1.0) < 2e-2
+    assert r.reflection < 1e-2 and r.back_coupling < 1e-2
+    # p = 1 on 100 nm cells: the cross-coupled power follows coupled-mode theory within a
+    # factor two (the production convergence lives in docs/validation.md)
+    assert 0.5 * r.cross_cmt < r.cross_fem < 2.0 * r.cross_cmt
+    assert r.bar_fem > 0.8
+    assert (tmp_path / "coupler.json").stat().st_size > 200
+    # supermode ports: the S-matrix in the basis of the even / odd supermodes is unitary and
+    # nearly diagonal, the reconstructed cross power follows coupled-mode theory to 25 % at p = 1
+    f = example.run(quick=True, ports="full", out=None)
+    assert f.ports == "full" and abs(f.power_sum - 1.0) < 1e-2
+    assert abs(complex(*f.t_even)) > 0.99 and abs(complex(*f.t_odd)) > 0.99
+    assert f.mode_leakage < 0.1 and f.phase_error_even < 0.5 and f.phase_error_odd < 0.5
+    assert abs(f.cross_fem - f.cross_cmt) < 0.25 * f.cross_cmt
+
+
 def test_metasurface_unitcell_energy_balance_and_phase_coverage(tmp_path, monkeypatch):
     example = load_example("metasurface_unitcell")
     widths = np.array([0.25, 0.5, 0.75]) * example.PERIOD / example.units.nm

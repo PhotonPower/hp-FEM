@@ -43,6 +43,11 @@ void bind_mesh_dim(py::module_& m) {
           "Mesh from vertex coordinates (n, dim) and cells (c, dim + 1) as vertex indices; "
           "an optional material tag per cell")
       .def_property_readonly("dim", [](const M&) { return Dim; })
+      .def(
+          "copy", [](const M& mesh) { return M(mesh); }, "an independent copy of the mesh")
+      .def("__copy__", [](const M& mesh) { return M(mesh); })
+      .def(
+          "__deepcopy__", [](const M& mesh, py::dict) { return M(mesh); }, py::arg("memo"))
       .def_property_readonly("num_vertices", &M::num_vertices)
       .def_property_readonly("num_edges", &M::num_edges)
       .def_property_readonly("num_facets", &M::num_facets, "edges in 2D, faces in 3D")

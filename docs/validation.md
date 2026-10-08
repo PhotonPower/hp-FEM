@@ -636,3 +636,55 @@ phase accuracy away as $h_z^{2p}$. The roadmap item "ring resonator with ports i
 with this stage by the maintainer's decision; the full ring in 3D (stage B) goes to the
 backlog, and it would need p = 3 on an hp-mesh that is fine only across the cores and in the
 coupling region.
+
+## G. Gold sphere dimer, field in a 1 nm gap (Hoffmann et al. 2009)
+
+**Source.** Hoffmann, Hafner, Leidenberger, Hesselbarth, Burger, "Comparison of
+electromagnetic field solvers for the 3D analysis of plasmonic nano antennas", Proc. SPIE
+7390, 73900J (2009), arXiv:0907.3570: two gold spheres of 80 nm diameter, gap 1 nm, plane wave
+at 632 nm incident perpendicular to the dimer axis and polarised along it, $|E_{inc}| = 1$ V/m;
+the multiple-multipole reference (MaX-1, Mie expansion with four auxiliary multipoles) for
+$|E|^2$ at the gap centre is $5.47624\cdot10^5$ V²/m², "at least five digits correct";
+JCMsuite reaches $5.47347\cdot10^5$ at 216 k DoFs. **The permittivity of gold is not stated**
+("material parameters for a wavelength of 632 nm are defined in the GUI"); the maintainer
+decided on 2026-10-08 to compute the case with the library's Johnson & Christy data
+($\varepsilon = -11.685 + 1.267i$) as a documented assumption and to report the sensitivity
+instead of a five-digit comparison.
+
+**Discretisation** (`examples/gold_dimer/run.py`). Body of revolution: the incident wave is
+expanded in azimuthal orders (`oblique_plane_wave`, $\theta_i = 90^\circ$, p polarisation),
+and on the axis only $m = 0$ ($E_z$) and $m = \pm1$ ($E_x$, $E_y$) are non-zero, so three
+solves of `physics::AxisymmetricScattering` on the meridian mesh (cylindrical PML of 250 nm
+outside the 300 nm box, PEC wall) give the gap field; the field is evaluated at
+$r = 0.002$ nm on the symmetry plane. Gmsh meridian mesh, second-order elements on the sphere
+surfaces, graded from 0.1 nm at the gap to 25 nm in the box (6 715 cells; a coarser mesh with
+the sizes doubled, 1 843 cells, for the regression test).
+
+**Results** (`benchmarks/results/2026-10-08-validation-gold-dimer.json`).
+
+| mesh | p | DoFs (m = 0) | $|E|^2$ [V²/m²] |
+|---|---|---|---|
+| 1 843 cells | 2 / 3 | 13 k / 28 k | 2.97662e5 / 2.97242e5 |
+| 6 715 cells | 2 / 3 / 4 | 48 k / 101 k / 176 k | 2.97372e5 / 2.97239e5 / 2.97239e5 |
+
+The value is converged to five digits in $p$ and to $10^{-4}$ between the meshes:
+$2.9724\cdot10^5$, 45.7 % below the reference. The field at the centre is along the axis
+($|E_z| = 545$, $|E_x| \approx 10^{-4}$, $E_y = 0$ by symmetry). Sensitivity at the Johnson &
+Christy point: $\partial|E|^2/\partial\mathrm{Re}\,\varepsilon = +1.07\cdot10^5$ per unit
+($-4.2$ % per 1 % of $\mathrm{Re}\,\varepsilon$), $\partial|E|^2/\partial\mathrm{Im}\,\varepsilon
+= -2.11\cdot10^5$ per unit ($-0.9$ % per 1 %); a $\pm5$ % band in both parts spans
+$2.2\ldots3.7\cdot10^5$ and does not contain the reference. The dependence on
+$\mathrm{Re}\,\varepsilon$ is resonant: at $\mathrm{Im}\,\varepsilon \approx 1.1$–1.2 the gap
+intensity peaks at $3.74\cdot10^5$ near $\mathrm{Re}\,\varepsilon = -10.3$ and falls to
+$2.9\cdot10^5$ at $-9.0$; the reference is reached only with a lower loss, $\varepsilon \approx
+-10.3 + 0.8i$ giving $5.43\cdot10^5$ ($-10.3 + 0.6i$: $6.76\cdot10^5$; $-11.68 + 0.8i$:
+$4.23\cdot10^5$).
+
+**Assessment.** The solver's result for a given permittivity is converged (five digits in $p$,
+mesh-independent), and the deviation from the published number is governed by the material
+datum the paper does not give: Johnson & Christy gold at 632 nm has about 35 % more loss
+than the value that reproduces the reference, which lies in the range of single-crystal gold
+data (Olmon et al. 2012). The five-digit comparison therefore remains out of reach without
+the authors' $\varepsilon$; what is validated here is the order expansion, the cylindrical PML
+and the hp resolution of a 1 nm gap between curved metal surfaces, consistent with the
+dielectric Mie checks of the axisymmetric solver (C and `docs/theory/axisymmetric.md`).

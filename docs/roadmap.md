@@ -172,10 +172,15 @@ assessment: `docs/validation.md`.
       Proc. SPIE 8880, 88801Z, 2013): S/S₀ within 1.4·10⁻⁵ of Burger and 1.8·10⁻⁵ of Besbes,
       the 0.1 % difference between the sources is the substrate permittivity; the 10⁻⁶
       target is left by the surface-plasmon truncation of the PML — PRs #65, #68
-- [ ] gold sphere dimer (Hoffmann et al., Proc. SPIE 7390, 73900J, 2009; 80 nm spheres,
+- [x] gold sphere dimer (Hoffmann et al., Proc. SPIE 7390, 73900J, 2009; 80 nm spheres,
       1 nm gap, 632 nm, reference |E|² at the gap centre = 5.47624·10⁵ V²/m² for
-      |E_inc| = 1 V/m) — **blocked**: the permittivity of gold used in the source is not
-      stated; not to be attempted with a self-chosen ε
+      |E_inc| = 1 V/m) — computed under the documented assumption of Johnson & Christy gold
+      (the source does not state its ε): `examples/gold_dimer` with the axisymmetric solver
+      (orders m = 0, ±1), converged to five digits at 2.9724·10⁵ (−46 %); the ε scan shows the
+      reference reproduced for ε ≈ −10.3 + 0.8i, a gold with 35 % lower loss, so the
+      material datum, not the solver, sets the deviation — `docs/validation.md` G,
+      `benchmarks/results/2026-10-08-validation-gold-dimer.json` (maintainer's decision of
+      2026-10-08 to replace the five-digit comparison by the sensitivity statement)
 
 ## M11 — Axisymmetric (2.5D) solver (ADR-0010)
 Bodies of revolution on the meridian mesh, one 2D problem per azimuthal order m.
@@ -219,6 +224,9 @@ Integrated photonics beyond the effective-index model and the tools around the s
   convergence test `waveguide_port_3d` (rectangular waveguide TE10: S21 and |S11| decay
   with p), `PortModes3D` / `s_parameters` for `Scattering3D` in Python
 - [ ] the ring resonator with ports in 3D (SOI cross-section) as the example, S-parameters
+  (stage A in progress with the gpu agent: `examples/directional_coupler_3d` with the mesh /
+  port builder, the coupled-mode reference and the CPU regression test by dev; the GPU
+  production runs, the p-convergence table and `docs/validation.md` by gpu)
   of a directional coupler against coupled-mode theory (needs the GPU solver for the
   mesh sizes involved)
 - [x] modal expansion by Riesz projection on the resonance solver (`physics::RieszProjection`,
@@ -231,8 +239,10 @@ Integrated photonics beyond the effective-index model and the tools around the s
   (`physics/sensitivity.hpp`: `adjoint_solution` / `material_sensitivity` and the conical
   pair, dQ/dε_tag = k0² ∫_tag E·z, holomorphic; `hpfem.grating.sensitivity` for the
   efficiencies; verified against finite differences to 1e-6)
-- [ ] sensitivities, shape derivatives (Hadamard formula with the interface jumps, ADR on the
-  geometry parametrisation); verification against finite differences
+- [x] sensitivities, shape derivatives (ADR-0011: the discrete adjoint on the mesh,
+  `shape_gradient` / `shape_derivative` and the conical pair, parameters as mesh velocity
+  fields, `region_normal_velocity`, `move_nodes`; `hpfem.grating.shape_sensitivity`;
+  verified against finite differences of the solve on moved meshes in 2D, conical and 3D)
 
 ## M13 — Conical incidence and the E_z polarisation (2.5D)
 From the user test report of 5 October 2026 (`spec-m12-ez-polarisation-2d.md`): the missing

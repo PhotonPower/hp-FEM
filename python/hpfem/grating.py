@@ -570,11 +570,24 @@ def sensitivity(result: GratingResult, tag: int, order: int = 0, side: str = "R"
     one adjoint solve on the problem of ``result``: returns ``(dR/dRe eps, dR/dIm eps)``.
     The linearised goal is :math:`Q = A_m \\cdot \\bar A_m / |A_m|` (``conical_order_functional``)
     so that :math:`dR_m = 2 R_m\\,\\mathrm{Re}(dQ)/|A_m|`; the holomorphic derivative
-    ``dQ/d eps`` gives both directions. Raises ``ValueError`` for an order that is not in
-    the result, evanescent, or a tag inside the PML."""
-    orders = result.R_orders if side == "R" else result.T_orders
+    ``dQ/d eps`` gives both directions. Raises ``GratingError`` for an order that is not in
+    the result or evanescent, ``ValueError`` for a tag inside the PML."""
+    functional, scale = _order_functional(result, order, side)
+    if functional is None:
+        return 0.0, 0.0
+    problem = result.problem
+    q_e, q_v = functional(problem.transverse_dofs, problem.longitudinal_dofs)
+    z_e, z_v = hpfem.conical_adjoint_solution(problem, q_e, q_v)
+    dq = hpfem.conical_material_sensitivity(problem, result.solution, z_e, z_v, int(tag))
+    return scale * float(np.real(dq)), scale * float(np.real(1j * dq))
+
+
+def _order_functional(result: GratingResult, order: int, side: str):
+    """The linearised goal Q = A_m . conj(A_m) / |A_m| of an order of the result, its
+    efficiency scale 2 R_m / |A_m| and the C++ functional (``None`` for a zero amplitude)."""
     if side not in ("R", "T"):
         raise GratingError(f"side={side!r}: use 'R' or 'T'")
+    orders = result.R_orders if side == "R" else result.T_orders
     match = [o for o in orders if o.m == int(order)]
     if not match or not match[0].propagating:
         raise GratingError(f"order {order} is not a propagating {side} order of the result")
@@ -582,21 +595,31 @@ def sensitivity(result: GratingResult, tag: int, order: int = 0, side: str = "R"
     amplitude = np.asarray(o.amplitude, dtype=complex)
     norm = float(np.linalg.norm(amplitude))
     if norm == 0.0:
-        return 0.0, 0.0
+        return None, 0.0
     line = result.cover_line if side == "R" else result.substrate_line
-    direction = np.conj(amplitude) / norm
-    problem = result.problem
-    nd, h1 = problem.transverse_dofs, problem.longitudinal_dofs
     functional = hpfem.conical_order_functional(
         [result.x_min, line], [1.0, 0.0], result.period, result.wave.kx, int(order),
-        result.fourier_points, direction,
+        result.fourier_points, np.conj(amplitude) / norm,
     )  # fmt: skip
-    q_e, q_v = functional(nd, h1)
-    # (the incident wave subtracted from the reflected field is a constant: no derivative)
-    z_e, z_v = hpfem.conical_adjoint_solution(problem, q_e, q_v)
-    dq = hpfem.conical_material_sensitivity(problem, result.solution, z_e, z_v, int(tag))
-    scale = 2.0 * o.efficiency / norm
-    return scale * float(np.real(dq)), scale * float(np.real(1j * dq))
+    return functional, 2.0 * o.efficiency / norm
+
+
+def shape_sensitivity(result: GratingResult, velocity, order: int = 0, side: str = "R"):
+    """Derivative of the efficiency of the reflected (``"R"``) or transmitted (``"T"``) order
+    ``order`` with respect to a geometry parameter given by its mesh velocity ``velocity``
+    (array (num_geometry_nodes, 2): displacement of every vertex, then of every edge node of
+    a second-order mesh, per unit of the parameter; ``hpfem.region_normal_velocity`` builds
+    the uniform normal growth of a tagged region, e.g. a ridge; see
+    docs/theory/maxwell.md "Shape derivatives"), by one adjoint solve on the problem of
+    ``result``: :math:`dR_m/dp = 2 R_m\\,\\mathrm{Re}(dQ/dp)/|A_m|`. The velocity must vanish on
+    the Bloch faces and the top and bottom of the mesh; the measurement lines are allowed to
+    cross deforming cells (the derivative of the line functional is included)."""
+    functional, scale = _order_functional(result, order, side)
+    if functional is None:
+        return 0.0
+    velocity = np.asarray(velocity, dtype=float)
+    dq = hpfem.conical_shape_derivative(result.problem, result.solution, functional, velocity)
+    return scale * float(np.real(dq))
 
 
 def estimate_memory(mesh, order=4, solver=None):

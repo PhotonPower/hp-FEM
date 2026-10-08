@@ -28,3 +28,4 @@ Template:
 | 0008 | GPU backend: cuDSS direct solver behind `LinearSolver`, no GPU assembly | accepted |
 | 0009 | Layered background for the scattered-field formulation | accepted |
 | 0010 | Axisymmetric (body-of-revolution, 2.5D) Maxwell solver | accepted |
+| 0011 | Shape derivatives by the discrete adjoint on the mesh | accepted |

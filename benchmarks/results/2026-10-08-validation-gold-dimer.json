@@ -1,0 +1,126 @@
+{
+  "eps_gold": [
+    -11.68464578117579,
+    1.2671777755595646
+  ],
+  "orders": [
+    2,
+    3,
+    4
+  ],
+  "intensity": [
+    297371.99919087323,
+    297238.81759993755,
+    297238.67161649774
+  ],
+  "components": [
+    [
+      3.755289094981564e-05,
+      0.00011253865716686079
+    ],
+    [
+      0.0,
+      0.0
+    ],
+    [
+      121.42813730840464,
+      531.5015325342862
+    ]
+  ],
+  "dofs": [
+    47500,
+    101467,
+    175579
+  ],
+  "cells": 6715,
+  "seconds": {
+    "mesh": 0.44926959997974336,
+    "p2": 5.296325200004503,
+    "p3": 33.516022600000724,
+    "p4": 82.41986320004798,
+    "sensitivity": 474.0646601000335,
+    "total": 595.74644909997
+  },
+  "reference": 547624.0,
+  "sensitivity": {
+    "d_intensity_d_re_eps": 107101.08598490104,
+    "d_intensity_d_im_eps": -211045.254014261,
+    "relative_change_per_percent_re_eps": -0.04210213448024846,
+    "relative_change_per_percent_im_eps": -0.008997209349301611,
+    "five_percent_band": [
+      221295.16621464703,
+      373182.1770183485
+    ]
+  },
+  "deviation": -0.45722124739511466,
+  "notes": [
+    "permittivity of gold: Johnson & Christy 1972 (library), the source does not state its value",
+    "orders m = 0 and +-1 only (the others vanish on the axis); cylindrical PML, PEC outer wall",
+    "field evaluated at r = 0.002 nm, z = 0, phi = 0"
+  ],
+  "host": "VR",
+  "source": "examples/gold_dimer/run.py --orders 2 3 4 (size factor 1.0, Johnson & Christy gold)",
+  "permittivity_scan": {
+    "description": "p = 3 on the coarse mesh (size factor 2, 1843 cells; the mesh-converged values agree with the fine mesh to 1e-4)",
+    "points": [
+      {
+        "eps": [
+          -11.6846,
+          1.2672
+        ],
+        "intensity": 297242.1,
+        "note": "Johnson & Christy"
+      },
+      {
+        "eps": [
+          -10.5,
+          1.2
+        ],
+        "intensity": 374372.1
+      },
+      {
+        "eps": [
+          -9.6,
+          1.1
+        ],
+        "intensity": 352130.6
+      },
+      {
+        "eps": [
+          -9.0,
+          1.1
+        ],
+        "intensity": 289227.4
+      },
+      {
+        "eps": [
+          -10.3,
+          1.0
+        ],
+        "intensity": 445073.3
+      },
+      {
+        "eps": [
+          -10.3,
+          0.8
+        ],
+        "intensity": 543372.4,
+        "note": "closest to the reference 5.47624e5"
+      },
+      {
+        "eps": [
+          -10.3,
+          0.6
+        ],
+        "intensity": 675612.1
+      },
+      {
+        "eps": [
+          -11.68,
+          0.8
+        ],
+        "intensity": 422846.7
+      }
+    ]
+  }
+}

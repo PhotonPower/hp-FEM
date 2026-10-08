@@ -815,8 +815,38 @@ efficiency $R_m = c\,|A_m|^2$ of an order the linearised goal $Q = A_m\cdot\bar 
 gives $dR_m = 2R_m\,\mathrm{Re}(dQ)/|A_m|$ (`hpfem.grating.sensitivity(result, tag, order)`
 returns $\partial R_m/\partial\mathrm{Re}\,\varepsilon$ and
 $\partial R_m/\partial\mathrm{Im}\,\varepsilon$, checked against finite differences of
-`grating.solve` to $10^{-3}$). Shape derivatives (Hadamard formula with the interface jumps)
-remain on the roadmap.
+`grating.solve` to $10^{-3}$).
+
+### Shape derivatives
+
+The geometry enters the discrete problem only through the node coordinates $x$ of the mesh
+(vertices, and the edge nodes of second-order meshes), so the same adjoint gives the
+derivative with respect to every node (ADR-0011, `physics/shape_sensitivity.hpp`):
+
+$$
+\frac{\partial Q}{\partial x_{n,d}} = \sum_{K\ni n} z_K^\top\Big(\frac{\partial b_K}{\partial x_{n,d}}
+- \frac{\partial A_K}{\partial x_{n,d}}\,e_K\Big),
+\qquad \frac{dQ}{dp} = \sum_{n,d}\frac{\partial Q}{\partial x_{n,d}}\,V_{n,d}
++ \Big(\frac{\partial q}{\partial x}\cdot V\Big)^{\!\top} e ,
+$$
+
+with the element contributions differentiated by central differences of the element
+integrals (`shape_gradient`, `conical_shape_gradient`; step $10^{-6}$ cell diameters, in
+parallel over the cells) and a geometry parameter $p$ represented by its mesh velocity
+$V = \partial x/\partial p$ on the nodes (`region_normal_velocity` for the uniform normal
+growth of a tagged region, `move_nodes` to apply a step). `shape_derivative` /
+`conical_shape_derivative` add the derivative of the functional vector $q$ along $V$ (a point
+value or a line integral changes with the cells it lives in) and return the exact derivative
+of the discrete goal: `test_shape_sensitivity.cpp` compares it with finite differences of the
+solve on moved meshes for the radius of a disc (in-plane and conical solver, second-order
+mesh) and of a ball (3D). The discrete goal is smooth but, on coarse meshes with stretched
+cells next to the interface, strongly nonlinear in the node motion (a shift of $10^{-4}$
+changes those element matrices by per cents), so finite checks need steps well below the
+local cell size; the derivative is the limit. This is the discrete counterpart of the
+Hadamard formula, whose interface integrals of the coefficient jumps are the continuous limit.
+`hpfem.grating.shape_sensitivity(result, velocity, order)` gives $dR_m/dp$ of an efficiency
+for any node velocity (checked for the ridge height of the glass grating against finite
+differences to $10^{-3}$).
 
 ## Band structures (`physics/band_structure.hpp`)
 

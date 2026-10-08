@@ -19,3 +19,5 @@ runtime) and a driver. The M3–M5 examples are C++ programs (`main.cpp`, built 
 | `vcsel_cavity/`        | Laser resonator modes, Q-factor | M8 |
 | `quantum_dot_purcell/` | Purcell factor in a micropillar | M8 |
 | `solar_cell_texture/`  | Light trapping + heat (multiphysics) | M9 |
+| `directional_coupler_3d/` | SOI directional coupler with 3D modal ports vs coupled-mode theory | M12 |
+| `gold_dimer/`          | Plasmonic gap field of a gold sphere dimer (M10 benchmark, axisymmetric solver) | M10 |

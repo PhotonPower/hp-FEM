@@ -12,6 +12,29 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- `examples/gold_dimer` (M10 benchmark of Hoffmann et al. 2009 under the documented
+  Johnson & Christy assumption): the 80 nm gold dimer with a 1 nm gap on a Gmsh meridian mesh,
+  the axisymmetric solver for the orders m = 0, ±1 of the plane wave perpendicular to the
+  axis, |E|² at the gap centre converged to five digits in p (2.9724e5 against the published
+  5.47624e5), the permittivity sensitivity by finite differences and an ε scan locating the
+  reference at ε ≈ −10.3 + 0.8i; `docs/validation.md` section G, benchmark record,
+  regression test (needs gmsh).
+- `examples/directional_coupler_3d` (M12, stage A of the 3D ring resonator with the gpu
+  agent): two SOI strip waveguides between four 3D modal ports on half faces, structured
+  box mesh with tagged cores, the coupled-mode reference κ = (β_even − β_odd) / 2 from
+  `PropagatingMode` on the two-core section, `run.py --length/--gap/--order/--cell/--backend`
+  with a results JSON, README and a quick CPU regression test (50 k DoFs, 3 s, lossless to
+  1e-5).
+- Shape derivatives by the discrete adjoint on the mesh (M12, ADR-0011,
+  `physics/shape_sensitivity.hpp`): `shape_gradient` / `conical_shape_gradient` (dQ/dx of
+  every geometry node by central differences of the element integrals, in parallel),
+  `shape_derivative` / `conical_shape_derivative` (one adjoint solve, the gradient paired
+  with a mesh velocity, plus the derivative of the functional along it), parameters as mesh
+  velocity fields (`region_normal_velocity`, `move_nodes`, `num_geometry_nodes`),
+  `assembly::element_conical` factored out of the conical assembler; Python bindings and
+  `grating.shape_sensitivity(result, velocity, order)`; verified against finite differences
+  of the solve on moved meshes (disc radius in-plane and conical on a second-order mesh, ball
+  radius in 3D, ridge height of the glass grating).
 - Material sensitivities by the adjoint solve (M12, `physics/sensitivity.hpp`):
   `adjoint_solution` / `material_sensitivity` for `Scattering<Dim>` and
   `conical_adjoint_solution` / `conical_material_sensitivity` for the conical solver, the
