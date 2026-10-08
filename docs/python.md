@@ -305,6 +305,11 @@ pattern of the 2.5D field (F10 / F11); `conical_diffraction_orders` takes orders
 `OrderLine`, `to_literature_frame` converts the vector amplitudes to the x-period / y-invariant
 / z-normal frame of the grating literature.
 
+**Scalar E_z path.** For the s polarisation at `phi = 0` (`scalar="auto"`, the default)
+`grating.solve` lets `ConicalScattering` factorise only the H1 block (`setup.scalar_ez`), about
+a third of the unknowns with identical results; `result.scalar` says whether it was used,
+`scalar=False` forces the block solve.
+
 **Progress, cancellation, timing, memory (F9).** `solve(..., progress=callback,
 cancel=flag)` calls `callback(event)` with an `hpfem.ProgressEvent` (`phase`, `step`,
 `num_steps`, `seconds`) at the start of every phase of the solve (assembly, constraints,

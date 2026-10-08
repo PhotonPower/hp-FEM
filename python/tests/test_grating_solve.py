@@ -82,6 +82,33 @@ def test_glass_grating_matches_the_conical_rcwa(pol, theta_deg, phi_deg, r_ref, 
     assert result.substrate_line is not None and result.substrate_line < 0 < result.cover_line
 
 
+def test_scalar_ez_path_matches_the_block_solve():
+    mesh, pml = unit_cell()
+    glass = hpfem.Material.dielectric(1.5)
+    stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)
+    common = dict(order=3, pml={"top": pml, "bottom": pml}, orders_max=2)
+    scalar = grating.solve(mesh, {SUB: glass, RIDGE_TAG: glass}, stack, "s", 40 * units.deg, 0.0,
+                           OMEGA, **common)  # fmt: skip
+    full = grating.solve(mesh, {SUB: glass, RIDGE_TAG: glass}, stack, "s", 40 * units.deg, 0.0,
+                         OMEGA, scalar=False, **common)  # fmt: skip
+    assert scalar.scalar and not full.scalar
+    assert scalar.dofs == full.dofs  # the maps are the same; the solve took the H1 block
+    assert abs(scalar.R - full.R) < 1e-9 and abs(scalar.T - full.T) < 1e-9
+    for a, b in zip(scalar.R_orders, full.R_orders, strict=True):
+        assert np.allclose(a.amplitude, b.amplitude, atol=1e-9)
+    assert scalar.timing["solver.factorisation"] <= full.timing["solver.factorisation"]
+    # p polarisation and conical incidence stay on the block path; forcing raises
+    p = grating.solve(mesh, {SUB: glass, RIDGE_TAG: glass}, stack, "p", 40 * units.deg, 0.0,
+                      OMEGA, **common)  # fmt: skip
+    assert not p.scalar
+    with pytest.raises(grating.GratingError):
+        grating.solve(mesh, {SUB: glass, RIDGE_TAG: glass}, stack, "p", 40 * units.deg, 0.0,
+                      OMEGA, scalar=True, **common)  # fmt: skip
+    with pytest.raises(grating.GratingError):
+        grating.solve(mesh, {SUB: glass, RIDGE_TAG: glass}, stack, "s", 40 * units.deg, 0.0,
+                      OMEGA, scalar="yes", **common)  # fmt: skip
+
+
 def test_silver_grating_with_pec_bottom_absorbs_the_rest():
     mesh, pml = unit_cell()
     silver = hpfem.Material()

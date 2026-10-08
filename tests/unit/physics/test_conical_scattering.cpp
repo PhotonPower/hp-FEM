@@ -179,6 +179,54 @@ TEST_CASE("conical scattering: a homogeneous cell is trivial and the setup is ch
   REQUIRE_THROWS_AS(ConicalScattering(nd_m, h1_m, bad), hpfem::InvalidArgument);
 }
 
+TEST_CASE("conical scattering: the scalar E_z path reproduces the block solution",
+          "[physics][conical][scalar]") {
+  // a dielectric disc under an E_z plane wave (beta = 0): H1 block alone == full system
+  const Mesh<2> mesh = hpfem::mesh::square_with_disc(2, 0.25, 1.0, 1.5, 2);
+  const NedelecDofMap<2> nd(mesh, 2);
+  const DofMap<2> h1(mesh, 2);
+  ConicalScatteringSetup setup;
+  setup.omega = 5.0 * hpfem::constants::c0;
+  setup.beta = 0.0;
+  setup.materials.set(2, hpfem::materials::Material::dielectric(1.6));
+  setup.incident = conical_plane_wave(ConicalVector(0.0, 0.0, 1.0), Point<3>(5.0, 0.0, 0.0));
+  setup.pml = hpfem::pml::PmlBox<2>::uniform(Point<2>(-1.0, -1.0), Point<2>(1.0, 1.0), 0.5, 5.0,
+                                             1.0, hpfem::pml::PmlProfile{2, 1e-8});
+  setup.pec_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin, box_tag::kYMax};
+  const auto full = ConicalScattering(nd, h1, setup).solve();
+  setup.scalar_ez = true;
+  const auto scalar = ConicalScattering(nd, h1, setup).solve();
+  REQUIRE(scalar.transverse.norm() == 0.0);
+  REQUIRE(full.transverse.norm() < 1e-10 * full.longitudinal.norm());
+  REQUIRE((scalar.longitudinal - full.longitudinal).norm() < 1e-10 * full.longitudinal.norm());
+  // Bloch-periodic strip with PEC top and bottom at kx != 0: constraints on the H1 block
+  const Mesh<2> strip = hpfem::mesh::rectangle(4, 3, Point<2>(0.0, 0.0), Point<2>(1.0, 0.75));
+  const NedelecDofMap<2> nd_s(strip, 3);
+  const DofMap<2> h1_s(strip, 3);
+  ConicalScatteringSetup periodic;
+  periodic.omega = 4.0 * hpfem::constants::c0;
+  periodic.pec_tags = {box_tag::kYMin, box_tag::kYMax};
+  periodic.periodic = {hpfem::assembly::PeriodicPair<2>{
+      box_tag::kXMin, box_tag::kXMax, Point<2>(1.0, 0.0), std::exp(hpfem::kI * 1.3)}};
+  periodic.current = [](const Point<2>& x) {
+    return ConicalVector(0.0, 0.0, std::exp(hpfem::kI * 1.3 * x(0)) * x(1) * (0.75 - x(1)));
+  };
+  const auto full_p = ConicalScattering(nd_s, h1_s, periodic).solve();
+  periodic.scalar_ez = true;
+  const auto scalar_p = ConicalScattering(nd_s, h1_s, periodic).solve();
+  REQUIRE(full_p.longitudinal.norm() > 0.0);
+  REQUIRE((scalar_p.longitudinal - full_p.longitudinal).norm() <
+          1e-10 * full_p.longitudinal.norm());
+  REQUIRE(scalar_p.transverse.norm() == 0.0);
+  // errors: beta != 0, in-plane excitation
+  ConicalScatteringSetup bad = setup;
+  bad.beta = 0.3;
+  REQUIRE_THROWS_AS(ConicalScattering(nd, h1, bad), hpfem::InvalidArgument);
+  bad = setup;
+  bad.incident = conical_plane_wave(ConicalVector(0.0, 1.0, 0.0), Point<3>(5.0, 0.0, 0.0));
+  REQUIRE_THROWS_AS(ConicalScattering(nd, h1, bad), hpfem::InvalidArgument);
+}
+
 namespace {
 
 /// Weighted L2 error of the physical field against an exact (E_x, E_y, E_z) on all cells.

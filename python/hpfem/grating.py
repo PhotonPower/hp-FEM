@@ -68,6 +68,8 @@ class GratingResult:
     diagnostics: list = field(default_factory=list)
     """the warnings and infos of :func:`validate` (errors stop ``solve``)"""
     flux_balance: dict | None = None
+    scalar: bool = False
+    """solved on the scalar E_z path (H1 block only; s polarisation at phi = 0)"""
     """flux-based balance (``conical_power_balance``) through the PML boundaries: incident,
     reflected, transmitted, absorbed [W/m] and ``relative_residual``; ``None`` when the PML
     boundaries are no mesh lines (unstructured meshes)"""
@@ -643,6 +645,7 @@ def solve(
     check: bool = True,
     progress=None,
     cancel=None,
+    scalar="auto",
 ) -> GratingResult:
     """Solves the grating unit cell and returns a :class:`GratingResult`.
 
@@ -680,6 +683,11 @@ def solve(
     true. ``result.timing`` holds the seconds of the setup, the solve (with the phases as
     ``solver.<phase>``) and the post-processing. :func:`estimate_memory` predicts the sizes
     of the factorisation before a run.
+
+    ``scalar``: ``"auto"`` (default) takes the scalar E_z path of ``ConicalScattering``
+    (``scalar_ez``: only the H1 block is factorised, about a third of the DoFs, identical
+    results) for the s polarisation at ``phi = 0``; ``True`` / ``False`` force it on or off
+    (``True`` raises for other polarisations or azimuths). ``result.scalar`` says which.
     """
     from hpfem import diagnostics as dg
 
@@ -734,6 +742,11 @@ def solve(
         )
     ]
     setup.extra_quadrature_order = int(extra_quadrature_order)
+    if scalar == "auto":
+        scalar = _polarisation(polarisation) == hpfem.Polarisation.S and float(phi) == 0.0
+    elif scalar not in (True, False):
+        raise GratingError(f"scalar={scalar!r}: use 'auto', True or False")
+    setup.scalar_ez = bool(scalar)
     if solver is not None:
         setup.solver = solver
     if progress is not None or cancel is not None:
@@ -834,6 +847,7 @@ def solve(
         timing=timing,
         diagnostics=found,
         flux_balance=flux_balance,
+        scalar=bool(scalar),
         _locator=locator,
     )
 
