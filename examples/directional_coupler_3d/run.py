@@ -52,6 +52,8 @@ class Geometry:
     margin_y: float = 605 * NM  # cladding below and above the cores
     length: float = 2 * UM
     cell: float = 75 * NM  # target cell size; the grid lines hit the core edges
+    cell_z: float | None = None  # cell size along the guide (None: `cell`); the fields vary
+    # on the beat length there, so a coarser axial cell keeps long couplers affordable
 
     def x_edges(self):
         a0 = -self.gap / 2 - self.width
@@ -95,7 +97,7 @@ def coupler_mesh(geometry: Geometry, ports: str = "half"):
     """3D box mesh with tagged cores; ``ports="half"`` splits the end faces into the four port
     half faces, ``"full"`` keeps the box tags Z_MIN / Z_MAX for one two-mode port per face."""
     xs, ys = _grid(geometry.x_edges(), geometry.cell), _grid(geometry.y_edges(), geometry.cell)
-    nz = max(1, round(geometry.length / geometry.cell))
+    nz = max(1, round(geometry.length / (geometry.cell_z or geometry.cell)))
     lower, upper = [xs[0], ys[0], 0.0], [xs[-1], ys[-1], geometry.length]
     mesh = hpfem.box(len(xs) - 1, len(ys) - 1, nz, lower, upper)
     _tag_cores(mesh, geometry, np.asarray(mesh.cell_centroids))
@@ -145,6 +147,7 @@ class Result:
     gap: float
     order: int
     cell: float
+    cell_z: float
     backend: str
     ports: str
     dofs: int
@@ -178,6 +181,7 @@ def run(
     gap: float = 150 * NM,
     order: int = 1,
     cell: float = 75 * NM,
+    cell_z: float | None = None,
     backend=None,
     ports: str = "half",
     quick: bool = False,
@@ -195,7 +199,7 @@ def run(
         length, gap, order, cell = 2 * UM, 200 * NM, 1, 100 * NM
     if ports not in ("half", "full"):
         raise ValueError(f"ports={ports!r}: use 'half' or 'full'")
-    geometry = Geometry(length=length, gap=gap, cell=cell)
+    geometry = Geometry(length=length, gap=gap, cell=cell, cell_z=cell_z)
     solver = BACKENDS[backend if backend is None else str(backend).lower()]
     seconds = {}
     t0 = time.perf_counter()
@@ -271,6 +275,7 @@ def run(
         gap=gap,
         order=order,
         cell=cell,
+        cell_z=geometry.cell_z or geometry.cell,
         backend=hpfem.backend_name(setup.solver) if solver is not None else "auto",
         ports=ports,
         dofs=dofs.num_dofs,
@@ -301,6 +306,12 @@ def main(argv=None) -> int:
     parser.add_argument("--gap", type=float, default=150.0, help="gap between the cores [nm]")
     parser.add_argument("--order", type=int, default=1)
     parser.add_argument("--cell", type=float, default=75.0, help="target cell size [nm]")
+    parser.add_argument(
+        "--cell-z",
+        type=float,
+        default=None,
+        help="cell size along the guide [nm] (default: --cell)",
+    )
     parser.add_argument("--backend", default=None, help="auto, mumps, cudss or sparselu")
     parser.add_argument("--ports", default="half", help="half (single-core launch) or full")
     parser.add_argument("--out", default="directional_coupler_3d.json")
@@ -311,6 +322,7 @@ def main(argv=None) -> int:
         gap=args.gap * NM,
         order=args.order,
         cell=args.cell * NM,
+        cell_z=None if args.cell_z is None else args.cell_z * NM,
         backend=args.backend,
         ports=args.ports,
         quick=args.quick,
