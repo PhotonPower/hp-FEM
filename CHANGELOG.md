@@ -12,6 +12,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- Job files of the grating acceptance cases (`examples/lamellar_grating/jobs/`: Si TM 50°,
+  Si conical 50° / 40°, Ag TE 50° = case R1) with the RCWA references in the README and a
+  regression test; the Ag E_z case agrees to 3e-6 at uniform p = 4.
 - Distribution (M15 F15): `.github/workflows/wheels.yml` builds the sdist, `manylinux_2_28`
   x86_64 wheels (cibuildwheel) and Windows `win_amd64` wheels for the python.org CPython with
   the MSYS2 UCRT64 GCC (SparseLU build, static GCC runtime) for CPython 3.10–3.13, attaches

@@ -26,3 +26,19 @@ cmake --build --preset release --target example_lamellar_grating
 
 The same setup as a project file for the Python command line: `hpfem run examples/lamellar_grating/project.json`
 (see `docs/python.md`).
+
+## Job files of the acceptance cases (`jobs/`)
+
+The conical cases of `docs/gui-support-features.md` section 3 (period 400 nm, ridge 200 nm,
+height 148 nm, λ = 405 nm, substrate = ridge material, air above) as job files of the job
+runner, `python -m hpfem.run examples/lamellar_grating/jobs/<name>.json --out out`:
+
+| job | case | RCWA reference | uniform p of the job file |
+|---|---|---|---|
+| `si_tm_50deg.json` | Si (ε = 29.6345 + 2.7721i), TM (p), θ = 50°, φ = 0 | R0 0.143381, R−1 0.142382 | p = 3, 34 k DoFs, 0.6 s: R0 0.143345, R−1 0.142758 (4·10⁻⁴); energy balance 6·10⁻³ (absorbed power of the lossy substrate) |
+| `si_conical_50_40deg.json` | Si, TM, θ = 50°, φ = 40° (conical, β ≠ 0) | R0 0.142373, R−1 0.179169 | p = 3: R0 0.142011, R−1 0.179675 (5·10⁻⁴) |
+| `ag_te_50deg.json` | Ag (ε = −4.6631 + 0.2160i), TE (s), θ = 50°, φ = 0 (acceptance case R1) | R0 0.319215, R−1 0.643575, A 0.03721 | p = 4, 59 k DoFs, 1 s: R0 0.319216, R−1 0.643572, A 0.03721 (3·10⁻⁶, balance 2·10⁻⁶; in the E_z polarisation the metal corners carry no field singularity, unlike the TM case of the hp test `conical_grating_hp`) |
+
+Each job writes `results.json` (orders, absorption, balance, timing) and a field map
+`maps_0_0.npz`; `python/tests/test_examples.py` runs the Si and the Ag job against the
+references.
