@@ -30,8 +30,10 @@ jobs:
           - { os: ubuntu-24.04, cc: clang-18, cxx: clang++-18, preset: release,
               extra: "libomp-18-dev" }
           - { os: ubuntu-24.04, cc: gcc-13,  cxx: g++-13,     preset: asan }
+          # libopenblas-dev switches the BLAS alternative of Ubuntu's MUMPS from the reference
+          # BLAS to OpenBLAS: the test step dropped from 60-100 min to the release job's size
           - { os: ubuntu-24.04, cc: gcc-13,  cxx: g++-13,     preset: mumps,
-              extra: "libmumps-seq-dev libmumps-headers-dev" }
+              extra: "libmumps-seq-dev libmumps-headers-dev libopenblas-dev" }
     runs-on: ${{ matrix.os }}
     env:
       CC: ${{ matrix.cc }}

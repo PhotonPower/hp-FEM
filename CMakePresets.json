@@ -16,7 +16,7 @@
                           "CMAKE_CXX_FLAGS": "-march=native" } },
     { "name": "asan",    "inherits": "base", "displayName": "Debug + ASan/UBSan",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug",
-                          "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+                          "CMAKE_CXX_FLAGS": "-O1 -fsanitize=address,undefined -fno-omit-frame-pointer",
                           "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined" } },
     { "name": "coverage", "inherits": "base", "displayName": "Debug + coverage",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug",
