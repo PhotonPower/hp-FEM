@@ -165,17 +165,22 @@ void bind_physics_dim(py::module_& m) {
                      "waveguide ports (modal absorption and excitation; 2D)")
       .def_readwrite("solver", &ScatteringSetup<Dim>::solver)
       .def_readwrite("condense", &ScatteringSetup<Dim>::condense)
+      .def_readwrite("progress", &ScatteringSetup<Dim>::progress,
+                     "callback(event) -> bool at the start of every phase of solve and when "
+                     "done; False cancels (hpfem.Cancelled)")
       .def_readwrite("extra_quadrature_order", &ScatteringSetup<Dim>::extra_quadrature_order)
       .def_readwrite("pml_extra_quadrature_order",
                      &ScatteringSetup<Dim>::pml_extra_quadrature_order);
   py::class_<ScatteringSolution<Dim>>(m, named("ScatteringSolution", Dim).c_str(),
                                       "Coefficients of the unknown field (E or E_sc)")
       .def(py::init([](physics::Formulation f, Vector unknown) {
-             return ScatteringSolution<Dim>{f, std::move(unknown)};
+             return ScatteringSolution<Dim>{f, std::move(unknown), {}};
            }),
            py::arg("formulation"), py::arg("unknown"))
       .def_readwrite("formulation", &ScatteringSolution<Dim>::formulation)
-      .def_readwrite("unknown", &ScatteringSolution<Dim>::unknown);
+      .def_readwrite("unknown", &ScatteringSolution<Dim>::unknown)
+      .def_readonly("timing", &ScatteringSolution<Dim>::timing,
+                    "seconds per phase of solve and 'total'");
 
   py::class_<Scattering<Dim>>(
       m, named("Scattering", Dim).c_str(),
@@ -762,6 +767,9 @@ void bind_physics(py::module_& m) {
         .def_readwrite("current", &ConicalScatteringSetup::current,
                        "f = i omega mu0 J as (f_x, f_y, -i f_z) (total-field formulation)")
         .def_readwrite("solver", &ConicalScatteringSetup::solver)
+        .def_readwrite("progress", &ConicalScatteringSetup::progress,
+                       "callback(event) -> bool at the start of every phase of solve and when "
+                       "done; False cancels (hpfem.Cancelled)")
         .def_readwrite("extra_quadrature_order", &ConicalScatteringSetup::extra_quadrature_order)
         .def_readwrite("pml_extra_quadrature_order",
                        &ConicalScatteringSetup::pml_extra_quadrature_order);
@@ -769,7 +777,8 @@ void bind_physics(py::module_& m) {
         .def_readonly("beta", &ConicalSolution::beta)
         .def_readonly("scattered", &ConicalSolution::scattered)
         .def_readonly("transverse", &ConicalSolution::transverse)
-        .def_readonly("longitudinal", &ConicalSolution::longitudinal, "v = -i E_z coefficients");
+        .def_readonly("longitudinal", &ConicalSolution::longitudinal, "v = -i E_z coefficients")
+        .def_readonly("timing", &ConicalSolution::timing, "seconds per phase of solve and 'total'");
     py::class_<ConicalScattering>(m, "ConicalScattering",
                                   "Assembles S(beta) - k0^2 M with the constraints and solves; at "
                                   "beta = 0 with an E_z incident field this is the E_z (TE) solver")

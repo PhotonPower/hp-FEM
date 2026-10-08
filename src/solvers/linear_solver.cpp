@@ -55,6 +55,10 @@ class SparseLuSolver final : public LinearSolver {
                lu_.nnzL() + lu_.nnzU());
   }
 
+  [[nodiscard]] Index factor_entries() const noexcept override {
+    return ready_ ? static_cast<Index>(lu_.nnzL()) + static_cast<Index>(lu_.nnzU()) : Index{-1};
+  }
+
   void refactorize(const SparseMatrix& matrix) override {
     if (!ready_ || matrix.rows() != size_ || matrix.cols() != size_) {
       factorize(matrix);
@@ -387,6 +391,9 @@ class AutoSolver final : public LinearSolver {
     return solver_ ? fmt::format("auto: {}", solver_->name()) : "auto";
   }
   [[nodiscard]] std::string details() const override { return solver_ ? solver_->details() : ""; }
+  [[nodiscard]] Index factor_entries() const noexcept override {
+    return solver_ ? solver_->factor_entries() : Index{-1};
+  }
   [[nodiscard]] const LinearSolver* backend() const noexcept override { return solver_.get(); }
 
  private:

@@ -126,10 +126,25 @@ TEST_CASE("Scattering: zero contrast gives a zero scattered field, PEC data and 
   setup.incident = incident;
   setup.formulation = Formulation::kScatteredField;
   setup.incident_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin, box_tag::kYMax};
+  // progress callback: every phase once, in order, then "done"; timing per phase
+  std::vector<std::string> phases;
+  setup.progress = [&](const hpfem::ProgressEvent& e) {
+    phases.push_back(e.phase);
+    return true;
+  };
   const Scattering<2> problem(dofs, setup);
   const auto solution = problem.solve();
   REQUIRE(solution.formulation == Formulation::kScatteredField);
   REQUIRE(solution.unknown.norm() < 1e-12);
+  REQUIRE(phases == std::vector<std::string>{"assembly", "constraints", "factorisation", "solve",
+                                             "post", "done"});
+  REQUIRE(solution.timing.at("total") > 0.0);
+  REQUIRE(solution.timing.count("factorisation") == 1);
+  REQUIRE(solution.timing.size() == 6);
+  // cancellation before the factorisation
+  ScatteringSetup<2> cancelling = setup;
+  cancelling.progress = [](const hpfem::ProgressEvent& e) { return e.phase != "factorisation"; };
+  REQUIRE_THROWS_AS(Scattering<2>(dofs, cancelling).solve(), hpfem::Cancelled);
   const PointLocator<2> locator(m);
   const Point<2> x(0.37, 0.61);
   REQUIRE((*problem.total_field(solution, locator, x) - incident.value(x)).norm() < 1e-12);
@@ -162,7 +177,7 @@ TEST_CASE("Scattering: zero contrast gives a zero scattered field, PEC data and 
     }
     Vector unknown = Vector::Zero(dofs.num_dofs());
     for (Index i = 0; i < data.size(); ++i) unknown(data.dofs[as_size(i)]) = data.values(i);
-    const auto total = pec_problem.total_field({Formulation::kScatteredField, unknown}, c, xi);
+    const auto total = pec_problem.total_field({Formulation::kScatteredField, unknown, {}}, c, xi);
     Complex tangential = 0;
     for (int d = 0; d < 2; ++d) tangential += total(d) * tangent(d);
     REQUIRE(std::abs(tangential) < 1e-12);

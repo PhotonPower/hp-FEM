@@ -351,6 +351,9 @@ class CudssSolver final : public LinearSolver {
     log().info("cuDSS: factorised {} unknowns, {} nonzeros; {}", size_, csr->nonZeros(), details());
   }
 
+  [[nodiscard]] Index factor_entries() const noexcept override {
+    return ready_ ? static_cast<Index>(info_.nnz_factors) : Index{-1};
+  }
   [[nodiscard]] std::string details() const override {
     if (!ready_) return {};
     return fmt::format("factors {} entries, {:.1f} MB on the device{}{}", info_.nnz_factors,

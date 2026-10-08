@@ -168,6 +168,10 @@ class MumpsSolver final : public LinearSolver {
   [[nodiscard]] std::string name() const override {
     return fmt::format("MUMPS {} (sequential{})", MUMPS_VERSION, symmetric_ ? ", LDL^T" : "");
   }
+  [[nodiscard]] Index factor_entries() const noexcept override {
+    if (!ready_) return -1;
+    return static_cast<Index>(infog(29) > 0 ? infog(29) : infog(9));
+  }
   [[nodiscard]] std::string details() const override {
     if (!ready_) return {};
     // INFOG(29): entries in the factors (INFOG(9) if the 64-bit count is not set),

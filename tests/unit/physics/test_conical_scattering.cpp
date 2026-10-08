@@ -140,12 +140,24 @@ TEST_CASE("conical scattering: a homogeneous cell is trivial and the setup is ch
   const Point<3> k(1.0, 1.0, 0.7);
   setup.incident =
       conical_plane_wave(conical_polarisation(k, Point<3>(1.0, 0.0, 0.0), Polarisation::kP), k);
-  // no contrast: the scattered field vanishes
+  // no contrast: the scattered field vanishes; the progress callback sees every phase
+  std::vector<std::string> phases;
+  setup.progress = [&](const hpfem::ProgressEvent& e) {
+    phases.push_back(e.phase);
+    return true;
+  };
   const ConicalScattering problem(nd, h1, setup);
   const auto solution = problem.solve();
   REQUIRE(solution.scattered);
   REQUIRE(solution.transverse.norm() < 1e-14);
   REQUIRE(solution.longitudinal.norm() < 1e-14);
+  REQUIRE(phases == std::vector<std::string>{"assembly", "constraints", "factorisation", "solve",
+                                             "post", "done"});
+  REQUIRE(solution.timing.size() == 6);
+  REQUIRE(solution.timing.at("total") > 0.0);
+  ConicalScatteringSetup cancelling = setup;
+  cancelling.progress = [](const hpfem::ProgressEvent& e) { return e.step < 3; };
+  REQUIRE_THROWS_AS(ConicalScattering(nd, h1, cancelling).solve(), hpfem::Cancelled);
   const auto total = problem.total_field(solution, 0, Point<2>(0.2, 0.3));
   const auto incident =
       problem.incident_field(hpfem::mesh::cell_geometry(mesh, 0)->evaluate(Point<2>(0.2, 0.3)).x);

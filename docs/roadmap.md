@@ -316,7 +316,9 @@ faces" of M14-B.
   (`solution.sample(points)`, `solution.triangulate(subdivisions)`), for both solvers
 - [ ] F4 (P1) exact absorbed power per material tag and per cell (`absorbed_power`,
   `absorption_density`) by volume quadrature
-- [ ] F5 (P1) job runner / CLI with a stable JSON schema and JSON-lines events
+- [x] F5 (P1) job runner / CLI with a stable JSON schema and JSON-lines events
+  (`python -m hpfem.run`, `hpfem.run.run_job`, `hpfem.version_info`, schema version 1 for grating
+  jobs with sweeps, maps, cancellation; the six GUI presets are not in the repository)
   (`python -m hpfem.run job.json`), `hpfem.version_info()`
 - [x] F6 (P1) mesh module: unit-cell mesher (`hpfem.meshing`), `mesh.report()`,
   `mesh.check_periodic`, `read_gmsh` reading `$Periodic`
@@ -326,13 +328,15 @@ faces" of M14-B.
   material outside its data range, lossy incidence medium, PEC wall too close in a lossy substrate
 - [ ] F8 (P2) sweep acceleration: `LinearSolver.refactorize` reusing the symbolic analysis, affine
   assembly per material tag, `solve_sweep` with processes
-- [ ] F9 (P2) progress callback, cancellation, timing breakdown, `estimate_memory`
-- [ ] F10 (P2) conical equivalents of `diffraction_orders` / `power_balance` (flux based, complex
+- [x] F9 (P2) progress callback, cancellation, timing breakdown, `estimate_memory`
+- [x] F10 (P2) conical equivalents of `diffraction_orders` / `power_balance` (flux based, complex
   vector amplitudes)
-- [ ] F11 (P2) isolated scatterers for the conical solver: cross sections, far field, automatic
+- [x] F11 (P2) isolated scatterers for the conical solver: cross sections, far field, automatic
   closed measurement contour
 - [ ] F12 (P2) H field and Poynting vector of the conical solution
-- [ ] F13 (P2) dispersive materials directly in the setup (`setup.set_frequency`), explicit
+- [x] F13 (P2) dispersive materials directly in the setup (`materials.DispersiveMap.apply(setup,
+  omega)`, library names, numbers and core materials accepted; `grating.solve` takes dispersive
+  dicts), explicit
   out-of-range policy, Drude–Lorentz fit helper
 - [ ] F14 (P3) high-level eigenproblems on the periodic-cell front end (resonances, bands)
 - [ ] F15 (P3) distribution: Windows/Linux wheels, `pip install hpfem[gui]`, `hpfem-gui` entry point

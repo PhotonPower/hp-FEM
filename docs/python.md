@@ -81,6 +81,17 @@ database, CC0):
 setup.materials.set(2, materials.get("Au").at(omega))      # eps_r = (n + ik)^2, Im > 0
 ```
 
+Dispersive materials can also live in a `materials.DispersiveMap` (M15 F13):
+`dmap = DispersiveMap("air").set(2, "Ag").set(3, glass)` takes models, core materials, library
+names or numbers, `dmap.at(omega)` freezes them into a `MaterialMap`, and
+`dmap.apply(setup, omega)` sets `setup.omega` and `setup.materials` in one call, so a sweep is
+one line per frequency. Tabulated data outside its range raises by default; `out_of_range =
+"clamp"` (on the map or via `materials.with_policy(m, "clamp")`) uses the nearest sample and
+warns once. `materials.fit_drude_lorentz(m, (lam0, lam1, count), oscillators=n)` fits a
+passive Drude–Lorentz model to tabulated n, k over a wavelength range and returns the model
+with its maximal relative error of ε (silver over 350–800 nm with two poles: a few per cent);
+the fit is smooth in ω, for adaptive runs, resonances and sweeps beyond the samples.
+
 ## Project files and the command line
 
 A simulation can be described without Python in a JSON (or YAML) project file and run with
@@ -176,6 +187,27 @@ estimate = problem.estimate(solution)
 marked = hpfem.dorfler_marking(estimate.indicators, 0.5)
 ```
 
+## Job runner (`python -m hpfem.run`)
+
+`python -m hpfem.run job.json [--out DIR] [--cancel-file F] [--threads N] [--quiet]` runs a
+grating job described by a JSON document (schema version 1: `model` as a `UnitCell`, `mesh`
+as `structured` / `gmsh` / `file`, `materials` by library name or `{"eps"}` / `{"n"}`,
+`stack`, `incidence`, `sweep` over wavelengths or angles, `solver`, `maps`; the full example
+is in the module docstring) and streams JSON-lines events on stdout: `start` (with
+`version_info()`), `mesh` (the report), `diagnostics` (when they change), one `point` per
+sweep point with R, T, A, the balance, the orders and the timing, `map` per field map
+(`maps_<point>_<map>.npz` with `x`, `y`, `values`), `cancelled`, `error` and `done`; since F9
+also `estimate` (the predicted sizes of a factorisation, after `mesh`) and `progress` (`i`,
+`phase`, `step`, `num_steps`, `seconds` at the start of every phase of a solve), the point's
+`timing`, and cancellation between the phases of a solve as well as between points. The
+results go to `results.json`. SIGTERM / SIGINT or the appearance of the cancel file stop the
+run after the current point (exit code 2; 1 on an error). From Python,
+`hpfem.run.run_job(job, out_dir, emit, cancel)` does the same with callbacks;
+`hpfem.version_info()` reports version, platform, OpenMP, threads, backends and whether gmsh
+is importable. `hpfem.meshing.structured_unit_cell(cell, nx, rows)` meshes a `UnitCell`
+without Gmsh (columns over the period, rows of cells stacked from the bottom, tags by
+priority), which the runner uses for `"mesh": {"structured": ...}`.
+
 ## Diagnostics (`hpfem.diagnostics`)
 
 `hpfem.grating.validate(...)` (the arguments of `solve`) and
@@ -250,6 +282,27 @@ result = hpfem.grating.solve(mesh, {SUB: glass, RIDGE: glass}, stack, "p",
                              50 * units.deg, 30 * units.deg, omega, order=4)
 print({o.m: o.efficiency for o in result.R_orders if o.propagating}, result.power_balance_residual)
 ```
+
+`result.flux_balance` is the flux-based balance through the PML boundaries
+(`conical_power_balance`; `None` on meshes whose PML boundaries are no mesh lines), the
+cross-check of the order-based `power_balance_residual`. For isolated scatterers in the
+conical solver, `conical_cross_sections(problem, solution, surface)` and
+`ConicalFarField(problem, solution, surface)` give σ_sca / σ_abs / σ_ext and the far-field
+pattern of the 2.5D field (F10 / F11); `conical_diffraction_orders` takes orders on any
+`OrderLine`, `to_literature_frame` converts the vector amplitudes to the x-period / y-invariant
+/ z-normal frame of the grating literature.
+
+**Progress, cancellation, timing, memory (F9).** `solve(..., progress=callback,
+cancel=flag)` calls `callback(event)` with an `hpfem.ProgressEvent` (`phase`, `step`,
+`num_steps`, `seconds`) at the start of every phase of the solve (assembly, constraints,
+factorisation, solve, post) and when it is done, and polls `cancel()` at the same moments;
+a true value raises `hpfem.Cancelled`. The same callback is `setup.progress` of
+`Scattering2D` / `Scattering3D` / `ConicalScattering`, whose solutions carry `timing` (seconds
+per phase and total); `result.timing` of `grating.solve` adds them as `solver.<phase>`.
+`grating.estimate_memory(mesh, order, solver)` (or `hpfem.estimate_memory(mesh, order,
+backend, conical)` and the map-based overloads) predicts DoFs, matrix nonzeros, factor entries
+and bytes of the factorisation before the run; `LinearSolver.factor_entries` is the measured
+number after `factorize` (docs/theory/solvers.md, "Memory estimate").
 
 `python/tests/test_grating_solve.py` checks the glass grating of the conical validation
 against the conical RCWA (s 40°/30°, p 50°/30°, reflected and transmitted orders to 2e-3 at

@@ -11,6 +11,7 @@
 #include "hpfem/assembly/hanging_constraints.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/core/progress.hpp"
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/pml/pml.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
@@ -286,6 +287,9 @@ fespace::Constraints Scattering<Dim>::constraints() const {
 
 template <int Dim>
 ScatteringSolution<Dim> Scattering<Dim>::solve() const {
+  ProgressReporter progress(setup_.progress,
+                            {"assembly", "constraints", "factorisation", "solve", "post"});
+  progress.begin(0);
   const bool constrained = !setup_.periodic.empty() || !dofs_->mesh().is_conforming();
   std::optional<assembly::StaticCondensation> condensation;
   if (setup_.condense) condensation.emplace(dofs_->num_dofs());
@@ -299,35 +303,47 @@ ScatteringSolution<Dim> Scattering<Dim>::solve() const {
   log().info("Scattering<{}>: k0 = {:.6g} 1/m, {} DoFs ({} condensed), {} formulation", Dim, k0_,
              dofs_->num_dofs(), condensation ? condensation->num_interior() : 0,
              setup_.formulation == Formulation::kTotalField ? "total-field" : "scattered-field");
+  progress.begin(1);
+  SparseMatrix matrix;
+  Vector load;
+  std::optional<fespace::Constraints> c;
   if (!constrained) {
     assembly::apply_dirichlet(system.matrix, system.rhs, dirichlet());
-    return {setup_.formulation,
-            recover(solvers::solve_direct(system.matrix, system.rhs, setup_.solver,
-                                          solvers::Symmetry::kDetect))};
+    matrix = std::move(system.matrix);
+    load = std::move(system.rhs);
+  } else {
+    // constrained DoFs: reduce the raw system by P^H A P, then impose the Dirichlet data on
+    // the free DoFs (a constrained Dirichlet DoF follows from its masters, whose data is
+    // consistent)
+    c.emplace(constraints());
+    auto reduced_system = c->reduce(system.matrix, system.rhs);
+    matrix = std::move(reduced_system.first);
+    load = std::move(reduced_system.second);
+    const assembly::DirichletData full = dirichlet();
+    assembly::DirichletData data;
+    for (Index i = 0; i < full.size(); ++i) {
+      const Index dof = full.dofs[as_size(i)];
+      if (c->is_constrained(dof)) continue;
+      data.dofs.push_back(c->reduced_index(dof));
+    }
+    data.values.resize(data.size());
+    Index j = 0;
+    for (Index i = 0; i < full.size(); ++i) {
+      if (!c->is_constrained(full.dofs[as_size(i)])) data.values(j++) = full.values(i);
+    }
+    assembly::apply_dirichlet(matrix, load, data);
+    log().info("Scattering<{}>: {} constrained DoFs, {} free, {} Dirichlet", Dim,
+               c->num_constrained(), c->num_free(), data.size());
   }
-  // constrained DoFs: reduce the raw system by P^H A P, then impose the Dirichlet data on the
-  // free DoFs (a constrained Dirichlet DoF follows from its masters, whose data is consistent)
-  const fespace::Constraints c = constraints();
-  const auto [reduced, rhs] = c.reduce(system.matrix, system.rhs);
-  const assembly::DirichletData full = dirichlet();
-  assembly::DirichletData data;
-  for (Index i = 0; i < full.size(); ++i) {
-    const Index dof = full.dofs[as_size(i)];
-    if (c.is_constrained(dof)) continue;
-    data.dofs.push_back(c.reduced_index(dof));
-  }
-  data.values.resize(data.size());
-  Index j = 0;
-  for (Index i = 0; i < full.size(); ++i) {
-    if (!c.is_constrained(full.dofs[as_size(i)])) data.values(j++) = full.values(i);
-  }
-  auto matrix = reduced;
-  auto load = rhs;
-  assembly::apply_dirichlet(matrix, load, data);
-  log().info("Scattering<{}>: {} constrained DoFs, {} free, {} Dirichlet", Dim, c.num_constrained(),
-             c.num_free(), data.size());
-  return {setup_.formulation, recover(c.expand(solvers::solve_direct(matrix, load, setup_.solver,
-                                                                     solvers::Symmetry::kDetect)))};
+  progress.begin(2);
+  const auto solver = solvers::make_direct_solver(setup_.solver, solvers::Symmetry::kDetect);
+  solver->factorize(matrix);
+  progress.begin(3);
+  const Vector x = solver->solve(load);
+  progress.begin(4);
+  ScatteringSolution<Dim> out{setup_.formulation, recover(c ? c->expand(x) : x), {}};
+  out.timing = progress.finish();
+  return out;
 }
 
 template <int Dim>

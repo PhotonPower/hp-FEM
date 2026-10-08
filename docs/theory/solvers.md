@@ -443,6 +443,26 @@ nonzeros and cuts the SparseLU factorisation up to 9×; MUMPS factorises the 345
 16× faster than SparseLU. Solves take 10–100 ms. The Mie example (86k DoFs, p = 3) went
 from 5 s to 1.5 s with MUMPS and condensation.
 
+## Memory estimate (`solvers/memory_estimate.hpp`)
+
+`estimate_memory(dofs, backend, condensed, longitudinal)` and `estimate_memory(mesh, order,
+backend, conical)` predict the sizes of one factorisation from the DoF layout alone (M15 F9),
+so that a GUI can warn before a run: the DoFs after condensation, the nonzeros of the system
+matrix, the entries of the factors and the bytes of both. The nonzeros are
+$r_{d,p}\sum_K n_K^2$ with the overlap ratio of the H(curl) pattern,
+$r_{2,p} = 1 - 0.205/(p + 0.28)$ and $r_{3,p} = 1 - 0.86/(p + 1.08)$ (exact to 1 % on
+structured meshes). The factor entries follow the classical fill-in laws of the orderings:
+$4\,N\log_2 N$ in 2D and $17\,N^{4/3}$ in 3D for MUMPS (and cuDSS, whose factors live on
+the device), $c_p N^{1.25}$ in 2D with $c_{1..4} = 6.5, 8.5, 19, 34$ and $c_p N^{1.63}$ in 3D
+with $c_{1,2} = 2.4, 3.9$ for SparseLU with COLAMD. The constants are fits to
+`benchmarks/results/2026-10-08-fill-in.jsonl` (the Maxwell operator on `rectangle(n, n)`,
+p = 1..4, N up to 3.3·10⁵, and `box(n, n, n)`, p = 1..2, N up to 4.1·10⁴; SparseLU and MUMPS
+5.9 of this build); the measured factors lie within ±35 % of the fits on these meshes, locally
+refined or strongly anisotropic meshes deviate more. Bytes: 20 per matrix nonzero plus 24 per
+assembly triplet (alive together at the peak), 20 per SparseLU factor entry, 16 × 1.3 per MUMPS
+/ cuDSS entry (integer workspace). `LinearSolver::factor_entries()` reports the real number
+after `factorize`, which the unit test compares with the estimate.
+
 ## Eigenvalue solvers
 
 See [maxwell.md](maxwell.md#eigenproblems): Spectra's shift-invert Lanczos / Arnoldi on top

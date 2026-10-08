@@ -1,7 +1,8 @@
 hpfem_add_test(test_core unit
   core/test_version.cpp
   core/test_error.cpp
-  core/test_special_functions.cpp)
+  core/test_special_functions.cpp
+  core/test_progress.cpp)
 
 hpfem_add_test(test_mesh unit
   mesh/test_simplex_topology.cpp
@@ -85,7 +86,8 @@ hpfem_add_test(test_physics unit
   physics/test_axisymmetric_adaptive.cpp
   physics/test_waveguide_port.cpp
   physics/test_conical_scattering.cpp
-  physics/test_conical_layered.cpp)
+  physics/test_conical_layered.cpp
+  physics/test_conical_postprocess.cpp)
 
 # the M15 post-processing tests in their own binary: test_physics with them inside exceeds
 # what MinGW ld links (a 460 MB executable with debug info fails without a message)
@@ -116,4 +118,5 @@ hpfem_add_test(test_solvers unit
   solvers/test_refactorize.cpp
   solvers/test_eigen_solver.cpp
   solvers/test_generalized_eigen.cpp
-  solvers/test_complex_eigen.cpp)
+  solvers/test_complex_eigen.cpp
+  solvers/test_memory_estimate.cpp)

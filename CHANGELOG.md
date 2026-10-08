@@ -12,6 +12,37 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- Progress, cancellation, timing and memory estimate (M15 F9): `core/progress.hpp`
+  (`ProgressCallback`, `ProgressEvent`, `Timing`, `Cancelled`, `ProgressReporter`);
+  `ScatteringSetup::progress` / `ConicalScatteringSetup::progress` called at every phase of
+  `solve` (assembly, constraints, factorisation, solve, post, done), cancellation between the
+  phases, `solution.timing` with the seconds per phase; `solvers::estimate_memory` (DoFs,
+  nonzeros, factor entries and bytes from fitted fill-in laws, record
+  `benchmarks/results/2026-10-08-fill-in.jsonl`), `LinearSolver::factor_entries()`;
+  Python: `hpfem.ProgressEvent`, `hpfem.Cancelled`, `hpfem.estimate_memory`,
+  `grating.solve(progress=, cancel=)`, `grating.estimate_memory`, job-runner events
+  `estimate` and `progress`, cancellation inside a solve, `timing` per point.
+- Conical post-processing (M15 F10 / F11, `physics/conical_postprocess.hpp`):
+  `conical_diffraction_orders` on any `OrderLine`, `to_literature_frame` /
+  `from_literature_frame`, `conical_curl_of`, the flux-based `conical_power_balance`
+  (reflected field through a cover line, transmitted through a substrate line, volumetric
+  absorption; `grating.solve` reports it as `result.flux_balance`), `conical_cross_sections`
+  (σ_sca by flux, σ_abs volumetric, σ_ext) and `ConicalFarField` (far field of the 2.5D field
+  with the transverse wavenumber k_t, 3D Stratton–Chu integrated along z; equals `FarField<2>`
+  at β = 0 and the flux at β ≠ 0); Python bindings; convergence test `conical_cross_sections`
+  (Mie cylinder E_z and in-plane to the series by flux and far field).
+- Dispersive materials in the setup (M15 F13): `materials.DispersiveMap` (models, core
+  materials, library names or numbers by tag; `at(omega)` freezes a `MaterialMap`,
+  `apply(setup, omega)` sets frequency and materials in one call, `range` of the tabulated
+  data), the out-of-range policy of `Tabulated` (`"error"` / `"clamp"` with a warning,
+  `materials.with_policy`), and `materials.fit_drude_lorentz` (passive Drude + n Lorentz poles
+  fitted to tabulated n, k by least squares in log parameters, with the maximal relative error).
+- Job runner (M15 F5): `python -m hpfem.run job.json` runs a grating job from a JSON document
+  (schema version 1: model, mesh (structured / gmsh / file), materials, stack, incidence, sweep,
+  solver, maps) with JSON-lines events (start, mesh, diagnostics, point, map, cancelled, error,
+  done), `results.json` and `maps_<i>_<j>.npz`, cooperative cancellation by SIGTERM / SIGINT or a
+  cancel file; `hpfem.run.run_job` with callbacks, `hpfem.version_info()`, and
+  `hpfem.meshing.structured_unit_cell` (a Gmsh-free structured mesher of a `UnitCell`).
 - Structured diagnostics (M15 F7): `hpfem.diagnostics` with `Diagnostic(code, severity, text,
   hint)` and the checks of the GUI wish list (invalid curved cells, poor angles, untagged cells,
   tags without material, stack interfaces off the mesh lines, missing periodic partners and

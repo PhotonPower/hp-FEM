@@ -82,6 +82,9 @@ hpfem_add_test(convergence_conical_hp_corner convergence
 hpfem_add_test(convergence_conical_grating_hp convergence
   conical_grating_hp.cpp)
 
+hpfem_add_test(convergence_conical_cross_sections convergence
+  conical_cross_sections.cpp)
+
 hpfem_add_test(convergence_conical_goal_oriented convergence
   conical_goal_oriented.cpp)
 

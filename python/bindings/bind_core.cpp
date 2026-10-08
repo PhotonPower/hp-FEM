@@ -7,6 +7,7 @@
 #include "hpfem/core/constants.hpp"
 #include "hpfem/core/log.hpp"
 #include "hpfem/core/parallel.hpp"
+#include "hpfem/core/progress.hpp"
 #include "hpfem/core/version.hpp"
 
 namespace hpfem::python {
@@ -38,6 +39,18 @@ void bind_core(py::module_& m) {
       },
       py::arg("level"),
       "Log level of the library logger: 'trace', 'debug', 'info', 'warn', 'error' or 'off'");
+  py::class_<ProgressEvent>(m, "ProgressEvent",
+                            "A phase of a solve starting ('assembly', 'constraints', "
+                            "'factorisation', 'solve', 'post') or the solve being done "
+                            "('done', step == num_steps); passed to setup.progress")
+      .def_readonly("phase", &ProgressEvent::phase)
+      .def_readonly("step", &ProgressEvent::step)
+      .def_readonly("num_steps", &ProgressEvent::num_steps)
+      .def_readonly("seconds", &ProgressEvent::seconds, "wall-clock seconds since the solve began")
+      .def("__repr__", [](const ProgressEvent& e) {
+        return fmt::format("ProgressEvent('{}', {}/{}, {:.3f} s)", e.phase, e.step, e.num_steps,
+                           e.seconds);
+      });
 }
 
 }  // namespace hpfem::python

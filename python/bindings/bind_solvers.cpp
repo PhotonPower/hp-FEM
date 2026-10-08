@@ -9,6 +9,7 @@
 #include "hpfem/solvers/device_stepper.hpp"
 #include "hpfem/solvers/eigen_solver.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
+#include "hpfem/solvers/memory_estimate.hpp"
 #include "hpfem/solvers/reduced_basis.hpp"
 
 namespace hpfem::python {
@@ -63,6 +64,8 @@ void bind_solvers(py::module_& m) {
       .def_property_readonly("name", &solvers::LinearSolver::name)
       .def_property_readonly("details", &solvers::LinearSolver::details,
                              "backend facts about the factorisation (entries, memory, mode)")
+      .def_property_readonly("factor_entries", &solvers::LinearSolver::factor_entries,
+                             "entries of the factors (-1 before factorize or if unknown)")
       .def_property_readonly(
           "backend", &solvers::LinearSolver::backend, py::return_value_policy::reference_internal,
           "the solver doing the work (AUTO: the backend chosen in factorize, None before)");
@@ -197,6 +200,54 @@ void bind_solvers(py::module_& m) {
           py::arg("vector"), "V^H b")
       .def("lift", &solvers::ReducedBasis::lift, py::arg("y"), "V y")
       .def_property_readonly("basis", &solvers::ReducedBasis::basis, "V as a dense matrix");
+
+  // --- memory estimate (M15 F9) ---------------------------------------------------------
+  py::class_<solvers::MemoryEstimate>(
+      m, "MemoryEstimate",
+      "Predicted sizes of one factorisation: DoFs, matrix nonzeros, factor entries and bytes "
+      "(an estimate within about 35 % of the measured factors on structured meshes)")
+      .def_readonly("dofs", &solvers::MemoryEstimate::dofs)
+      .def_readonly("matrix_nonzeros", &solvers::MemoryEstimate::matrix_nonzeros)
+      .def_readonly("factor_entries", &solvers::MemoryEstimate::factor_entries)
+      .def_readonly("matrix_bytes", &solvers::MemoryEstimate::matrix_bytes)
+      .def_readonly("factor_bytes", &solvers::MemoryEstimate::factor_bytes)
+      .def_readonly("total_bytes", &solvers::MemoryEstimate::total_bytes)
+      .def_readonly("backend", &solvers::MemoryEstimate::backend)
+      .def("describe", &solvers::MemoryEstimate::describe)
+      .def("__repr__", &solvers::MemoryEstimate::describe);
+  m.def("format_bytes", &solvers::format_bytes, py::arg("bytes"));
+  m.def(
+      "estimate_memory",
+      [](const fespace::NedelecDofMap<2>& dofs, DirectSolverBackend backend, bool condensed,
+         const fespace::DofMap<2>* longitudinal) {
+        return solvers::estimate_memory<2>(dofs, backend, condensed, longitudinal);
+      },
+      py::arg("dofs"), py::arg("backend") = DirectSolverBackend::kAuto, py::arg("condensed") = true,
+      py::arg("longitudinal") = py::none(),
+      "Estimate for the in-plane operator on a Nedelec map (condensed as Scattering does) or, "
+      "with the H1 map `longitudinal` and condensed=False, for the conical system");
+  m.def(
+      "estimate_memory",
+      [](const fespace::NedelecDofMap<3>& dofs, DirectSolverBackend backend, bool condensed) {
+        return solvers::estimate_memory<3>(dofs, backend, condensed, nullptr);
+      },
+      py::arg("dofs"), py::arg("backend") = DirectSolverBackend::kAuto,
+      py::arg("condensed") = true);
+  m.def(
+      "estimate_memory",
+      [](const mesh::Mesh<2>& mesh, int order, DirectSolverBackend backend, bool conical) {
+        return solvers::estimate_memory<2>(mesh, order, backend, conical);
+      },
+      py::arg("mesh"), py::arg("order"), py::arg("backend") = DirectSolverBackend::kAuto,
+      py::arg("conical") = false,
+      "Estimate for a uniform order: the in-plane solver, or with conical=True the conical "
+      "solver (Nedelec + H1)");
+  m.def(
+      "estimate_memory",
+      [](const mesh::Mesh<3>& mesh, int order, DirectSolverBackend backend) {
+        return solvers::estimate_memory<3>(mesh, order, backend, false);
+      },
+      py::arg("mesh"), py::arg("order"), py::arg("backend") = DirectSolverBackend::kAuto);
 }
 
 }  // namespace hpfem::python

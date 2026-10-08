@@ -2,6 +2,7 @@ add_library(hpfem
   core/version.cpp
   core/error.cpp
   core/parallel.cpp
+  core/progress.cpp
   mesh/mesh.cpp
   mesh/generators.cpp
   mesh/gmsh.cpp
@@ -20,6 +21,7 @@ add_library(hpfem
   physics/waveguide_port.cpp
   physics/conical_scattering.cpp
   physics/conical_goal.cpp
+  physics/conical_postprocess.cpp
   physics/field_sampling.cpp
   physics/absorption.cpp
   physics/conical_sweep.cpp
@@ -53,6 +55,7 @@ add_library(hpfem
   solvers/eigen_solver.cpp
   solvers/complex_eigen_solver.cpp
   solvers/linear_solver.cpp
+  solvers/memory_estimate.cpp
   solvers/reduced_basis.cpp
   physics/sweep.cpp
   physics/resonance.cpp

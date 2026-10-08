@@ -18,6 +18,7 @@
 #include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/core/progress.hpp"
 #include "hpfem/fespace/h1_basis.hpp"
 #include "hpfem/fespace/nedelec_basis.hpp"
 #include "hpfem/mesh/geometry.hpp"
@@ -221,9 +222,13 @@ assembly::ConicalForm ConicalScattering::form_of_cell(Index cell) const {
 }
 
 ConicalSolution ConicalScattering::solve() const {
+  ProgressReporter progress(setup_.progress,
+                            {"assembly", "constraints", "factorisation", "solve", "post"});
+  progress.begin(0);
   const auto system = assembly::assemble_conical(
       *transverse_, *longitudinal_, setup_.beta, [this](Index c) { return form_of_cell(c); },
       setup_.extra_quadrature_order);
+  progress.begin(1);
   SparseMatrix a =
       assembly::extract(SparseMatrix(system.stiffness - (k0_ * k0_) * system.mass), free_, free_);
   a.makeCompressed();
@@ -234,7 +239,12 @@ ConicalSolution ConicalScattering::solve() const {
     a = std::move(reduced_system.first);
     rhs = std::move(reduced_system.second);
   }
-  const Vector reduced = solvers::solve_direct(a, rhs, setup_.solver, solvers::Symmetry::kDetect);
+  progress.begin(2);
+  const auto solver = solvers::make_direct_solver(setup_.solver, solvers::Symmetry::kDetect);
+  solver->factorize(a);
+  progress.begin(3);
+  const Vector reduced = solver->solve(rhs);
+  progress.begin(4);
   const Vector on_free = constraints_ ? constraints_->expand(reduced) : reduced;
   const Index n_e = transverse_->num_dofs();
   Vector full = Vector::Zero(n_e + longitudinal_->num_dofs());
@@ -244,7 +254,9 @@ ConicalSolution ConicalScattering::solve() const {
   out.scattered = static_cast<bool>(setup_.incident);
   out.transverse = full.head(n_e);
   out.longitudinal = full.tail(longitudinal_->num_dofs());
-  log().info("ConicalScattering: solved beta = {:.6g} ({} unknowns)", setup_.beta, reduced.size());
+  out.timing = progress.finish();
+  log().info("ConicalScattering: solved beta = {:.6g} ({} unknowns, {:.3f} s)", setup_.beta,
+             reduced.size(), out.timing.at("total"));
   return out;
 }
 adaptivity::Estimate ConicalScattering::estimate(
