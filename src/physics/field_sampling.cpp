@@ -213,6 +213,45 @@ class ConicalCellField {
   Real sign_ = 0.0;
 };
 
+/// A conical resonant mode: E from the block coefficients, H and S with the mode's complex ω.
+class ConicalModeCellField {
+ public:
+  using Value = ConicalVector;
+
+  [[nodiscard]] static Index components(SampledQuantity) noexcept { return 3; }
+
+  ConicalModeCellField(const ConicalResonance& problem, const ConicalResonantMode& mode,
+                       const SamplingOptions& options, Index cell)
+      : problem_(problem),
+        mode_(mode),
+        quantity_(options.quantity),
+        cell_(cell),
+        transverse_(problem.transverse_dofs(), mode.transverse, cell),
+        longitudinal_(problem.longitudinal_dofs(), mode.longitudinal, cell) {
+    if (options.scattered) {
+      throw InvalidArgument("sample_field: a resonant mode has no scattered part");
+    }
+  }
+
+  [[nodiscard]] Value operator()(const Point<2>& xi) {
+    if (quantity_ == SampledQuantity::kMagnetic) return problem_.h_field(mode_, cell_, xi);
+    if (quantity_ == SampledQuantity::kPoynting) {
+      return problem_.poynting(mode_, cell_, xi).cast<Complex>();
+    }
+    const auto& g = transverse_.geometry(xi);
+    const assembly::ComplexVector<2> t = transverse_(xi, g);
+    return Value(t(0), t(1), kI * longitudinal_(xi));
+  }
+
+ private:
+  const ConicalResonance& problem_;
+  const ConicalResonantMode& mode_;
+  SampledQuantity quantity_;
+  Index cell_;
+  NedelecCellEvaluator<2> transverse_;
+  H1CellEvaluator<2> longitudinal_;
+};
+
 /// One periodic direction prepared for wrapping: unit direction, shift length, the extent
 /// of the mesh along it and the Bloch phase of one shift.
 template <int Dim>
@@ -419,6 +458,21 @@ TriangulatedField<2> triangulate_field(const ConicalScattering& problem,
                                        const SamplingOptions& options) {
   return triangulate<2, ConicalCellField>(problem.transverse_dofs().mesh(), subdivisions, options,
                                           problem, solution);
+}
+
+SampledField sample_field(const ConicalResonance& problem, const ConicalResonantMode& mode,
+                          const mesh::PointLocator<2>& locator, std::span<const Point<2>> points,
+                          const SamplingOptions& options) {
+  const Sampler<2> sampler(problem.transverse_dofs().mesh(), locator, problem.setup().periodic,
+                           options);
+  return sampler.run<ConicalModeCellField>(points, problem, mode);
+}
+
+TriangulatedField<2> triangulate_field(const ConicalResonance& problem,
+                                       const ConicalResonantMode& mode, int subdivisions,
+                                       const SamplingOptions& options) {
+  return triangulate<2, ConicalModeCellField>(problem.transverse_dofs().mesh(), subdivisions,
+                                              options, problem, mode);
 }
 
 template struct TriangulatedField<2>;

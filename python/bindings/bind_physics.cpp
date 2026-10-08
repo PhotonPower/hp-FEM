@@ -8,6 +8,7 @@
 #include "hpfem/adaptivity/residual_estimator.hpp"
 #include "hpfem/physics/axisymmetric.hpp"
 #include "hpfem/physics/band_structure.hpp"
+#include "hpfem/physics/conical_resonance.hpp"
 #include "hpfem/physics/conical_scattering.hpp"
 #include "hpfem/physics/conical_sweep.hpp"
 #include "hpfem/physics/field_sampling.hpp"
@@ -922,6 +923,107 @@ void bind_physics(py::module_& m) {
                                       "L2 norms of the field and conical-curl errors")
         .def_readonly("l2", &physics::ConicalError::l2)
         .def_readonly("curl", &physics::ConicalError::curl);
+    // --- conical resonances (M15 F14) -----------------------------------------------------
+    using physics::ConicalResonance;
+    using physics::ConicalResonanceResult;
+    using physics::ConicalResonanceSetup;
+    using physics::ConicalResonantMode;
+    py::class_<ConicalResonanceSetup>(
+        m, "ConicalResonanceSetup",
+        "Conical resonance (quasi-normal mode) problem: target angular frequency (search centre "
+        "and PML design frequency), beta, materials, PEC facets, PML, Bloch pairs with phases")
+        .def(py::init<>())
+        .def_readwrite("target_omega", &ConicalResonanceSetup::target_omega)
+        .def_readwrite("beta", &ConicalResonanceSetup::beta)
+        .def_readwrite("materials", &ConicalResonanceSetup::materials)
+        .def_readwrite("pec_tags", &ConicalResonanceSetup::pec_tags)
+        .def_readwrite("pml", &ConicalResonanceSetup::pml)
+        .def_readwrite("periodic", &ConicalResonanceSetup::periodic)
+        .def_readwrite("num_modes", &ConicalResonanceSetup::num_modes)
+        .def_readwrite("krylov_dimension", &ConicalResonanceSetup::krylov_dimension)
+        .def_readwrite("tolerance", &ConicalResonanceSetup::tolerance)
+        .def_readwrite("max_iterations", &ConicalResonanceSetup::max_iterations)
+        .def_readwrite("remove_gradients", &ConicalResonanceSetup::remove_gradients,
+                       "project the gradient kernel out of the Krylov space (default)")
+        .def_readwrite("solver", &ConicalResonanceSetup::solver)
+        .def_readwrite("extra_quadrature_order", &ConicalResonanceSetup::extra_quadrature_order)
+        .def_readwrite("pml_extra_quadrature_order",
+                       &ConicalResonanceSetup::pml_extra_quadrature_order)
+        .def_readwrite("progress", &ConicalResonanceSetup::progress,
+                       "callback(event) -> bool for the phases assembly, constraints, "
+                       "eigensolve, post; False cancels (hpfem.Cancelled)");
+    py::class_<ConicalResonantMode>(m, "ConicalResonantMode",
+                                    "One conical resonance: complex omega (Im < 0 decaying), "
+                                    "wavelength, Q, residual, beta and the block coefficients")
+        .def_readonly("omega", &ConicalResonantMode::omega)
+        .def_readonly("wavelength", &ConicalResonantMode::wavelength)
+        .def_readonly("quality", &ConicalResonantMode::quality)
+        .def_readonly("residual", &ConicalResonantMode::residual)
+        .def_readonly("beta", &ConicalResonantMode::beta)
+        .def_readonly("transverse", &ConicalResonantMode::transverse)
+        .def_readonly("longitudinal", &ConicalResonantMode::longitudinal)
+        .def("solution", &ConicalResonantMode::solution,
+             "the mode as a ConicalSolution for the coefficient-based post-processing");
+    py::class_<ConicalResonanceResult>(m, "ConicalResonanceResult")
+        .def_readonly("modes", &ConicalResonanceResult::modes)
+        .def_readonly("timing", &ConicalResonanceResult::timing);
+    py::class_<ConicalResonance>(
+        m, "ConicalResonance",
+        "Assembles S(beta) - k0^2 M with PEC, PML and Bloch constraints and finds the complex "
+        "eigenfrequencies closest to the target (both polarisations at beta = 0)")
+        .def(py::init<const ND&, const H1&, ConicalResonanceSetup>(), py::arg("transverse"),
+             py::arg("longitudinal"), py::arg("setup"), py::keep_alive<1, 2>(),
+             py::keep_alive<1, 3>(), Release())
+        .def_property_readonly("setup", &ConicalResonance::setup,
+                               py::return_value_policy::reference_internal)
+        .def_property_readonly("wavenumber", &ConicalResonance::wavenumber, "target k0")
+        .def_property_readonly("free_dofs",
+                               [](const ConicalResonance& p) { return to_array(p.free_dofs()); })
+        .def("form_of_cell", &ConicalResonance::form_of_cell, py::arg("cell"))
+        .def("solve", &ConicalResonance::solve, Release(),
+             "ConicalResonanceResult: modes ordered by the distance of omega to the target")
+        .def(
+            "field",
+            [](const ConicalResonance& p, const ConicalResonantMode& mode, Index c,
+               const Point<2>& xi) { return p.field(mode, c, xi); },
+            py::arg("mode"), py::arg("cell"), py::arg("xi"), "physical (E_x, E_y, E_z)")
+        .def(
+            "h_field",
+            [](const ConicalResonance& p, const ConicalResonantMode& mode, Index c,
+               const Point<2>& xi) { return p.h_field(mode, c, xi); },
+            py::arg("mode"), py::arg("cell"), py::arg("xi"), "H with the mode's complex omega")
+        .def(
+            "poynting",
+            [](const ConicalResonance& p, const ConicalResonantMode& mode, Index c,
+               const Point<2>& xi) { return p.poynting(mode, c, xi); },
+            py::arg("mode"), py::arg("cell"), py::arg("xi"))
+        .def(
+            "sample",
+            [](const ConicalResonance& p, const ConicalResonantMode& mode,
+               const mesh::PointLocator<2>& locator, const RealArray& points, bool bloch_wrap,
+               int interface_side, const std::string& quantity) {
+              const auto pts = array_to_points<2>(points);
+              const auto options = sampling_options(false, bloch_wrap, interface_side, quantity);
+              physics::SampledField field;
+              {
+                py::gil_scoped_release release;
+                field = physics::sample_field(p, mode, locator, pts, options);
+              }
+              return sampled_to_python(field);
+            },
+            py::arg("mode"), py::arg("locator"), py::arg("points"), py::arg("bloch_wrap") = true,
+            py::arg("interface_side") = 0, py::arg("quantity") = "E",
+            "the mode (E, H or S) at points (n, 2): (values (n, 3) complex, cells (n,)); Bloch "
+            "wrapping with the phases of the setup, NaN outside")
+        .def(
+            "triangulate",
+            [](const ConicalResonance& p, const ConicalResonantMode& mode, int subdivisions,
+               const std::string& quantity) {
+              return physics::triangulate_field(p, mode, subdivisions,
+                                                sampling_options(false, true, 0, quantity));
+            },
+            py::arg("mode"), py::arg("subdivisions") = 2, py::arg("quantity") = "E", Release(),
+            "the mode on the subdivided mesh as a TriangulatedField2D");
     m.def("conical_poynting_flux", &physics::conical_poynting_flux, py::arg("transverse"),
           py::arg("longitudinal"), py::arg("e"), py::arg("v"), py::arg("beta"), py::arg("omega"),
           py::arg("materials"), py::arg("surface"), py::arg("order") = 8, Release(),

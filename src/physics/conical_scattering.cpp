@@ -87,9 +87,7 @@ assembly::ConicalForm conical_pml_form(const pml::PmlBox<2>& box,
   return form;
 }
 
-namespace {
-
-assembly::ConicalForm material_form(const materials::Material& material) {
+assembly::ConicalForm conical_material_form(const materials::Material& material) {
   assembly::ConicalForm form;
   const Complex inv_mu = 1.0 / material.mu_r;
   const Complex eps = material.eps_r;
@@ -97,8 +95,6 @@ assembly::ConicalForm material_form(const materials::Material& material) {
   form.permittivity = [eps](const Point<2>&) { return ConicalVector::Constant(eps); };
   return form;
 }
-
-}  // namespace
 
 ConicalScattering::ConicalScattering(const fespace::NedelecDofMap<2>& transverse,
                                      const fespace::DofMap<2>& longitudinal,
@@ -206,7 +202,7 @@ assembly::ConicalForm ConicalScattering::form_of_cell(Index cell) const {
     const int p = transverse_->cell_order(cell);
     form = conical_pml_form(*setup_.pml, material, 2 * p + setup_.pml_extra_quadrature_order);
   } else {
-    form = material_form(material);
+    form = conical_material_form(material);
   }
   if (setup_.current) {
     form.source = setup_.current;
