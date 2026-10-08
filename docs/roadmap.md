@@ -223,12 +223,13 @@ Integrated photonics beyond the effective-index model and the tools around the s
   n × (μ⁻¹ curl E) = (∇ₜE_z − iβEₜ)/μᵣ, modal powers, orientation-independent signs);
   convergence test `waveguide_port_3d` (rectangular waveguide TE10: S21 and |S11| decay
   with p), `PortModes3D` / `s_parameters` for `Scattering3D` in Python
-- [ ] the ring resonator with ports in 3D (SOI cross-section) as the example, S-parameters
-  (stage A in progress with the gpu agent: `examples/directional_coupler_3d` with the mesh /
-  port builder, the coupled-mode reference and the CPU regression test by dev; the GPU
-  production runs, the p-convergence table and `docs/validation.md` by gpu)
-  of a directional coupler against coupled-mode theory (needs the GPU solver for the
-  mesh sizes involved)
+- [x] the ring resonator with ports in 3D (SOI cross-section): stage A done as the 3D
+  directional coupler against coupled-mode theory (`examples/directional_coupler_3d`: mesh /
+  port builder, supermode ports, coupled-mode reference, CPU regression test by dev; the
+  cuDSS production runs up to 2 M DoFs with `--cell-z`, the p-convergence table and
+  `docs/validation.md` F by gpu; p = 3 at L = 2 µm: phase error 5e-4 rad, P_cross to 4e-4).
+  Stage B, the full ring with bus in 3D, is beyond the RTX 3090 at useful accuracy (5–10 M
+  DoFs at p = 2) and goes to the backlog (maintainer's decision of 2026-10-08)
 - [x] modal expansion by Riesz projection on the resonance solver (`physics::RieszProjection`,
   `AxisymmetricRieszProjection`: residues of the resolvent on circles around the
   quasi-normal modes plus a background contour, spectra of linear observables as sums over
@@ -395,5 +396,8 @@ faces" of M14-B.
   factorisations with iterative refinement had lost accuracy at 2 639 pivots. The refusal of
   perturbed factorisations and the CPU fallback stay as the safety net; a residual-checked
   acceptance remains the option should future systems still trip the static pivoting.
+- [ ] full ring resonator with bus and ports in 3D (SOI): 5–10 M DoFs at p = 2 for a 2.5 µm
+  ring, beyond the GPU memory of the development machine; needs the MPI / out-of-core path or
+  a larger device (deferred from M12 on 2026-10-08)
 - [x] `physics::PropagatingMode<2>` on adaptive meshes: apply the hanging-node constraints
   as `Resonance` does (found during M10 validation; fixed in PR #63)

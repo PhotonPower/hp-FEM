@@ -2,6 +2,26 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+
+## [0.4.0] — 2026-10-08
+Fourth release: the GUI support milestone M15 complete, the sensitivities of M12, and the
+distribution. Highlights: hp-adaptivity for the conical solver with the residual and the
+goal-oriented (dual-weighted residual) estimators, Bloch-periodic coupling of non-matching
+meshes (`assembly::bloch_constraints`: the coarse trace truncated to the common order,
+the fine side interpolated), and the Ag
+grating of the acceptance test at 5·10⁻⁴ (F1, F16); the one-call grating API
+`hpfem.grating.solve` with PML design, snapping, diagnostics, flux balance, dispersive
+materials and the scalar E_z path, the unit-cell mesher on Gmsh, the job runner with a JSON
+schema and JSON-lines events, progress callbacks, cancellation, timing and a memory estimate
+(F2, F5–F7, F9, F13); the conical post-processing (orders on any line, cross-sections, far
+field) and the conical resonances with the periodic-cell eigen front end (F10, F11, F14);
+the field sampling, exact absorption, H field / Poynting vector and the sweep acceleration
+of the gpu agent (F3, F4, F8, F12); material and shape sensitivities by the adjoint solve
+(ADR-0011, verified against finite differences); the 3D directional coupler with modal
+ports against coupled-mode theory on the cuDSS backend; the gold-dimer benchmark under the
+documented Johnson & Christy assumption; and the wheels workflow (manylinux and Windows
+wheels for the python.org CPython, `pip install hpfem[gui]`, `hpfem-gui`). CI runs in about
+30 minutes with OpenBLAS for MUMPS and `-O1` under ASan.
 ### Changed
 - The Gauss-law terms of the three residual estimators (`residual_estimate`,
   `axisymmetric_residual_estimate`, `conical_residual_estimate`) are multiplied by the
