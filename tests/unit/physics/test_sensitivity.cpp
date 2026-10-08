@@ -121,7 +121,10 @@ TEST_CASE("material sensitivity of the conical solver matches finite differences
   };
   const auto functional = hpfem::physics::conical_point_functional(
       Point<2>(0.6, 0.35), ConicalVector(1.0, Complex{0.0, 0.5}, 0.7));
-  const auto [q_e, q_v] = functional(nd, h1);
+  // no structured binding: clang's OpenMP mode cannot capture one in the goal lambda
+  const auto q_pair = functional(nd, h1);
+  const Vector& q_e = q_pair.first;
+  const Vector& q_v = q_pair.second;
   const auto goal = [&](Complex e) {
     const hpfem::physics::ConicalScattering problem(nd, h1, make_setup(e));
     const auto s = problem.solve();
@@ -171,7 +174,10 @@ TEST_CASE("material sensitivity with Bloch constraints and a current source",
   };
   const auto functional = hpfem::physics::conical_point_functional(
       Point<2>(0.9, 0.6), ConicalVector(0.2, 1.0, Complex{0.0, -0.4}));
-  const auto [q_e, q_v] = functional(nd, h1);
+  // no structured binding: clang's OpenMP mode cannot capture one in the goal lambda
+  const auto q_pair = functional(nd, h1);
+  const Vector& q_e = q_pair.first;
+  const Vector& q_v = q_pair.second;
   const auto goal = [&](Complex e) {
     const hpfem::physics::ConicalScattering problem(nd, h1, make_setup(e));
     const auto s = problem.solve();
