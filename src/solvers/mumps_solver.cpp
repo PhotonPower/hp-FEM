@@ -85,6 +85,44 @@ class MumpsSolver final : public LinearSolver {
                infog(29) > 0 ? infog(29) : infog(9));
   }
 
+  /// Numerical phase only (job 2) when the entries sit on the analysed pattern.
+  void refactorize(const SparseMatrix& matrix) override {
+    if (!ready_ || matrix.rows() != size_ || matrix.cols() != size_ ||
+        exploit_symmetry(symmetry_, matrix, "MUMPS") != symmetric_) {
+      factorize(matrix);
+      return;
+    }
+    const SparseMatrix* input = &matrix;
+    SparseMatrix upper;
+    if (symmetric_) {
+      upper = upper_triangle(matrix);
+      input = &upper;
+    }
+    if (static_cast<std::size_t>(input->nonZeros()) != rows_.size()) {
+      factorize(matrix);
+      return;
+    }
+    std::size_t k = 0;
+    for (Index row = 0; row < input->outerSize(); ++row) {
+      for (SparseMatrix::InnerIterator it(*input, row); it; ++it, ++k) {
+        if (rows_[k] != static_cast<MUMPS_INT>(it.row() + 1) ||
+            cols_[k] != static_cast<MUMPS_INT>(it.col() + 1)) {
+          factorize(matrix);
+          return;
+        }
+        values_[k].r = it.value().real();
+        values_[k].i = it.value().imag();
+      }
+    }
+    ready_ = false;
+    id_.a = values_.data();
+    id_.job = 2;  // numerical factorisation on the analysed pattern
+    zmumps_c(&id_);
+    check("refactorisation");
+    ready_ = true;
+    log().debug("MUMPS: refactorised {} unknowns with the previous analysis", size_);
+  }
+
   [[nodiscard]] Vector solve(const Vector& rhs) const override {
     if (rhs.size() != size_) {
       throw InvalidArgument(

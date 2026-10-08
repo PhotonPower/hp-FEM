@@ -147,6 +147,11 @@ class ConicalScattering {
   [[nodiscard]] assembly::ConicalForm form_of_cell(Index cell) const;
   /// Free block DoFs after the PEC elimination (Nédélec first, then H1).
   [[nodiscard]] const std::vector<Index>& free_dofs() const noexcept { return free_; }
+  /// Hanging-node and Bloch constraints on the free block DoFs (none on a conforming mesh
+  /// without periodic directions).
+  [[nodiscard]] const std::optional<fespace::Constraints>& constraints() const noexcept {
+    return constraints_;
+  }
   /// @throws Error if the factorisation fails.
   [[nodiscard]] ConicalSolution solve() const;
   /// Element indicators of a solution (`adaptivity::conical_residual_estimate` with the

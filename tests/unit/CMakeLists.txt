@@ -90,7 +90,8 @@ hpfem_add_test(test_physics unit
 hpfem_add_test(test_physics_postprocessing unit
   physics/test_field_sampling.cpp
   physics/test_absorption.cpp
-  physics/test_conical_h_field.cpp)
+  physics/test_conical_h_field.cpp
+  physics/test_conical_sweep.cpp)
 
 hpfem_add_test(test_hanging unit
   assembly/test_interpolation.cpp
@@ -110,6 +111,7 @@ hpfem_add_test(test_adaptivity unit
 
 hpfem_add_test(test_solvers unit
   solvers/test_linear_solver.cpp
+  solvers/test_refactorize.cpp
   solvers/test_eigen_solver.cpp
   solvers/test_generalized_eigen.cpp
   solvers/test_complex_eigen.cpp)

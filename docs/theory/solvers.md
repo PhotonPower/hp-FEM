@@ -391,6 +391,34 @@ one-shot pipeline; a basis of five frequency snapshots ($k = 2 \dots 4$ on a $6 
 $p = 3$ box with the exact trace) reproduces full solutions at four other frequencies
 within $10^{-2}$ and the snapshot frequencies to $10^{-8}$.
 
+### Frequency sweeps of the conical solver (`physics/conical_sweep.hpp`, M15 F8)
+
+The system of `ConicalScattering` is $A(\omega, \beta) = S(\beta) - k_0^2 M(\varepsilon)$ with
+$S(\beta) = S_0 + \beta S_1 + \beta^2 S_2$ — the gradient kernel of the conical forms is
+quadratic in $\beta$ — and $M = \sum_g \varepsilon_g M_g$ over the groups of cells that share
+a material. `ConicalSweep` assembles $S_0$, $S_1$, $S_2$ (from $S(0)$ and $S(\pm k_0)$) and
+the unit-permittivity masses $M_g$ of the cells outside the PML once; a point of the sweep
+then costs the sparse combination, the assembly of the PML cells (their stretch depends on
+$\omega$) and of the source cells (the load), the constraint reduction and a
+*refactorisation*: `LinearSolver::refactorize(matrix)` factorises a matrix with the pattern
+of the previous one reusing its symbolic analysis — MUMPS runs its numerical phase only
+(job 2), SparseLU keeps the column permutation, cuDSS runs `CUDSS_PHASE_REFACTORIZATION`
+through `hpfem_gpu_refactorize` (GPU library API version 5, scaling and equilibration
+recomputed from the new values) — and falls back to `factorize` for a new pattern. Every
+point may change $\omega$, $\beta$, the materials of the groups (dispersion), the incident
+field and the Bloch phases; mesh, orders, PEC tags, periodic pairs, PML geometry and the
+cell-to-material grouping stay. Results agree with `ConicalScattering::solve` to rounding
+amplified by the conditioning (measured $10^{-13}$ to $5\cdot10^{-9}$).
+
+Two changes made along the way help every conical solve: `assembly::assemble_conical` runs
+in parallel over the cells (per-thread triplet buffers) and takes an optional cell subset,
+and `fespace::Constraints::reduce` computes $P^H A P$ in one scatter pass over the nonzeros
+instead of two sparse products (on a 100 k-DoF Bloch-periodic system the products cost more
+than the factorisation). `hpfem.sweep.solve_sweep(task, values, processes)` spreads the
+points of any sweep over worker processes with one hpfem thread each, for solvers that scale
+poorly with threads. Measured: `benchmarks/conical_sweep.cpp` and the entries of
+`benchmarks/results/`.
+
 ## Measured (`benchmarks/results/2026-10-02-VR.json`)
 
 Maxwell plane wave on the unit square, MSYS2 GCC 16 release build, 24 cores, MUMPS 5.9

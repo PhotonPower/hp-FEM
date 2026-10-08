@@ -21,6 +21,7 @@ add_library(hpfem
   physics/conical_goal.cpp
   physics/field_sampling.cpp
   physics/absorption.cpp
+  physics/conical_sweep.cpp
   physics/postprocess.cpp
   physics/mie.cpp
   physics/layer_stack.cpp
