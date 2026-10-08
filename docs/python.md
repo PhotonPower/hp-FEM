@@ -176,6 +176,35 @@ estimate = problem.estimate(solution)
 marked = hpfem.dorfler_marking(estimate.indicators, 0.5)
 ```
 
+## Gratings in one call (`hpfem.grating.solve`)
+
+`hpfem.grating.solve(mesh, materials, stack, polarisation, theta, phi, omega, order=4, *,
+pml=None, bottom="pml", orders_max=3, ...)` runs the conical solver on a grating unit cell
+(period along x, stack normal along y, Bloch faces tagged `box_tag.X_MIN` / `X_MAX`, PML
+regions at the top and bottom of the mesh) and returns a `GratingResult`: `R_orders` and
+`T_orders` (per order: efficiency, complex vector amplitude, tangential and normal
+wavenumber, propagating flag), the sums `R`, `T`, the absorbed fraction `A` with `A_by_tag`,
+`power_balance_residual = R + T + A − 1`, the bare-stack `wave`, the `problem` and `solution`,
+`field(points)` (vectorised sampling of E, H or S) and a `timing` dict. It snaps mesh
+vertices onto the stack interfaces (`snap_tolerance` × period), designs the PML from the
+largest propagating-order angle in cover and substrate (`PmlProfile.for_angle`, reference
+index `min(n_cover, n_substrate)`, thickness half a local wavelength rounded to whole cells,
+or `pml={"top": t, "bottom": t}`), places the measurement lines between the structure and
+the PML, and raises `GratingError` with a hint for cells straddling an interface or bad
+options. `bottom="pec"` ends a thick lossy substrate on the PEC wall without a bottom PML
+(no transmitted orders).
+
+```python
+stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)   # air over glass
+result = hpfem.grating.solve(mesh, {SUB: glass, RIDGE: glass}, stack, "p",
+                             50 * units.deg, 30 * units.deg, omega, order=4)
+print({o.m: o.efficiency for o in result.R_orders if o.propagating}, result.power_balance_residual)
+```
+
+`python/tests/test_grating_solve.py` checks the glass grating of the conical validation
+against the conical RCWA (s 40°/30°, p 50°/30°, reflected and transmitted orders to 2e-3 at
+p = 3), the silver grating with the PEC bottom and the absorbed power, and the snapping.
+
 The loop is also available as a generator, `hpfem.adaptive_solve`, which streams one
 `AdaptiveStep` per iteration (DoFs, `eta`, observables and their change, goal value and
 estimated goal error) and stops on a tolerance:
@@ -189,8 +218,7 @@ def factory(mesh, orders):
 
 goal = lambda p, s: hpfem.conical_dwr_estimate(p, s, functional)   # DWR of an order amplitude
 for step in hpfem.adaptive_solve(adaptive, factory, observe=orders_of, goal=goal,
-                                 tolerance=1e-4, max_dofs=100_000,
-                                 periodic_pairs=[(X_MIN, X_MAX, [period, 0.0])]):
+                                 tolerance=1e-4, max_dofs=100_000):
     print(step.dofs, step.eta, step.observables, step.goal_error, step.converged)
 ```
 
@@ -200,8 +228,8 @@ with `e = conj(A_m) / |A_m|` of the current amplitude linearises the efficiency 
 
 The hp loop (`tests/convergence/adaptive_hp_refinement.cpp`) reads the same in Python, and
 with `ConicalScattering` in place of `Scattering2D` (its `estimate` / `error` take the
-`ConicalSolution`, both DoF maps get the same `orders`; `AdaptiveMesh2D.set_periodic` keeps
-the Bloch faces of a grating mirrored):
+`ConicalSolution`, both DoF maps get the same `orders`; the Bloch faces may be refined
+independently, `AdaptiveMesh2D.set_periodic` keeps them mirrored if wanted):
 
 ```python
 adaptive = hpfem.AdaptiveMesh2D(root_mesh)

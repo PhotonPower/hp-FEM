@@ -333,6 +333,15 @@ Index Mesh<Dim>::facet_id(FacetVertices vertices) const {
 }
 
 template <int Dim>
+void Mesh<Dim>::set_vertex(Index v, const Vertex& x) {
+  if (v < 0 || v >= num_vertices()) {
+    throw InvalidArgument(
+        fmt::format("Mesh::set_vertex: vertex {} outside 0..{}", v, num_vertices() - 1));
+  }
+  vertices_[as_size(v)] = x;
+}
+
+template <int Dim>
 void Mesh<Dim>::set_facet_tags(std::span<const FacetVertices> facets, std::span<const Tag> tags) {
   if (facets.size() != tags.size()) {
     throw InvalidArgument(

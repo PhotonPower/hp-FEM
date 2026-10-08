@@ -15,16 +15,20 @@
 /// Gauss-law terms (`EstimatorOptions::length_scale`): @f$ \nabla\cdot d @f$ carries one inverse
 /// length more than @f$ R_K @f$, so without @f$ \ell @f$ the published form holds only for lengths
 /// of order one and the Gauss-law terms dominate SI-scale problems by @f$ 1/(kh)^2 @f$. Interior
-/// facets only (hanging child facets against the cell of their parent): PEC facets carry no
-/// residual, natural (PMC) and periodic facets are not yet accounted for. Complex coefficients and
+/// facets (hanging child facets against the cell of their parent) and, with `periodic`, the
+/// Bloch slave facets, whose jump is taken against the phase-shifted master cells
+/// (`assembly::PeriodicLocator`) and credited to both sides; PEC facets carry no residual,
+/// natural (PMC) facets are not accounted for. Complex coefficients and
 /// PML cells enter through the per-cell form, so the estimator measures the residual of the
 /// equation actually solved. Convention exp(-iωt) as everywhere. See
 /// docs/theory/error-estimation.md.
 
+#include <span>
 #include <type_traits>
 #include <vector>
 
 #include "hpfem/assembly/maxwell_forms.hpp"
+#include "hpfem/assembly/periodic.hpp"
 #include "hpfem/core/types.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 
@@ -76,7 +80,8 @@ template <int Dim>
 [[nodiscard]] Estimate residual_estimate(
     const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h, Real k_squared,
     const std::type_identity_t<assembly::CellFormFactory<Dim>>& form_of_cell,
-    const EstimatorOptions& options = {});
+    const EstimatorOptions& options = {},
+    std::span<const assembly::PeriodicPair<Dim>> periodic = {});
 
 /// Weighted residual for goal-oriented estimation: the cell contributions
 /// @f$ r_K(w) = \int_K R_K\cdot w + \tfrac12\sum_{F\subset\partial K}\int_F
@@ -106,9 +111,11 @@ extern template std::vector<Complex> weighted_residual<3>(const fespace::Nedelec
 
 extern template Estimate residual_estimate<2>(const fespace::NedelecDofMap<2>&, const Vector&, Real,
                                               const assembly::CellFormFactory<2>&,
-                                              const EstimatorOptions&);
+                                              const EstimatorOptions&,
+                                              std::span<const assembly::PeriodicPair<2>>);
 extern template Estimate residual_estimate<3>(const fespace::NedelecDofMap<3>&, const Vector&, Real,
                                               const assembly::CellFormFactory<3>&,
-                                              const EstimatorOptions&);
+                                              const EstimatorOptions&,
+                                              std::span<const assembly::PeriodicPair<3>>);
 
 }  // namespace hpfem::adaptivity

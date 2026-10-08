@@ -12,6 +12,26 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- `hpfem.grating.solve` (M15 F2), the one-call periodic scattering API on the conical solver:
+  snapping of the stack interfaces onto mesh vertices (`Mesh::set_vertex`, bound as
+  `set_vertex`), PML designed from the largest propagating-order angle (`PmlProfile.for_angle`,
+  reference index `min(n_cover, n_substrate)`), measurement lines between structure and PML,
+  `GratingResult` with reflected / transmitted orders (efficiencies, vector amplitudes,
+  wavenumbers), absorbed power per tag, power-balance residual, `field(points)` and timing;
+  `GratingError` names straddling cells and bad options; `python/tests/test_grating_solve.py`.
+- Non-matching Bloch-periodic coupling (M15 F16 stage 2): `assembly::bloch_constraints` no
+  longer requires identical meshes on the two sides. Facets are grouped by overlap after the
+  shift; the coarser facet of a group carries the trace of the coupled space truncated to the
+  lowest order in the group (minimum rule), its surplus modes are zero and the finer facets'
+  DoFs interpolate the trace, which is exact for different orders and for one-sided refinement
+  (either side finer); unrelated layouts fall back to interpolation of the master trace (warning).
+  `assembly::PeriodicLocator` finds the master cell under a point of a slave facet, and the
+  residual estimators (`residual_estimate`, `conical_residual_estimate`, new `periodic`
+  argument passed by `Scattering::estimate` / `ConicalScattering::estimate`) include the jump
+  across the Bloch faces, credited to both sides. `AdaptiveMesh::set_periodic` is now optional;
+  the grating hp test runs case (d) with the ridge 25 nm off centre and independently refined
+  faces, and `hpfem.adaptive_solve` drops the order equalisation. A shift that moves the
+  slave facets off the master line is still rejected.
 - Goal-oriented hp-adaptivity for the conical solver (M15 F1 stage 2):
   `physics::conical_dwr_estimate` (DWR with the adjoint of the enriched coupled system, Bloch
   and hanging constraints, PEC) with `conical_point_functional` and `conical_order_functional`
@@ -148,6 +168,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   bindings (`PortModes3D`, `transverse_field`) and test, theory section.
 
 ### Fixed
+- The MinGW Python extension is linked without debug info (`-Wl,--strip-debug`): with the
+  release-with-asserts flags the module had grown past half a gigabyte and the Windows loader
+  refused it ("not a valid Win32 application"); it is now 17 MB.
 - A layered background rejected meshes whose lines sit on the interface only up to rounding
   (defect D2 of the user report): the interface tolerance of `Scattering` and
   `ConicalScattering` was relative to the stack thickness, which is zero for a bare substrate;

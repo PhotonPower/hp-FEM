@@ -251,3 +251,20 @@ TEST_CASE("accessors assert on out-of-range indices", "[mesh]") {
   REQUIRE_THROWS_AS(m.edge_vertices(3), hpfem::Error);
 }
 #endif
+
+TEST_CASE("Mesh::set_vertex moves a vertex and rejects bad indices", "[mesh]") {
+  hpfem::mesh::Mesh<2> mesh = hpfem::mesh::rectangle(2, 2);
+  // the vertex closest to the centre
+  hpfem::Index centre = 0;
+  for (hpfem::Index i = 0; i < mesh.num_vertices(); ++i) {
+    if ((mesh.vertex(i) - hpfem::Point<2>(0.5, 0.5)).norm() <
+        (mesh.vertex(centre) - hpfem::Point<2>(0.5, 0.5)).norm()) {
+      centre = i;
+    }
+  }
+  mesh.set_vertex(centre, hpfem::Point<2>(0.52, 0.47));
+  REQUIRE(mesh.vertex(centre)(0) == 0.52);
+  REQUIRE(mesh.vertex(centre)(1) == 0.47);
+  REQUIRE_THROWS_AS(mesh.set_vertex(mesh.num_vertices(), hpfem::Point<2>(0.0, 0.0)),
+                    hpfem::InvalidArgument);
+}

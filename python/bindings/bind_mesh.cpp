@@ -60,6 +60,10 @@ void bind_mesh_dim(py::module_& m) {
           "vertex", [](const M& mesh, Index v) -> Point<Dim> { return mesh.vertex(v); },
           py::arg("v"))
       .def(
+          "set_vertex", [](M& mesh, Index v, const Point<Dim>& x) { mesh.set_vertex(v, x); },
+          py::arg("v"), py::arg("x"),
+          "moves a vertex (snapping onto an interface); locators built before are stale")
+      .def(
           "cell_vertices", [](const M& mesh, Index c) { return mesh.cell_vertices(c); },
           py::arg("c"))
       .def(

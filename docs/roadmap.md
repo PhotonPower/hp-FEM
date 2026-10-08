@@ -283,10 +283,14 @@ faces" of M14-B.
 - [x] F16 stage 1 (P1): symmetric refinement across a Bloch pair in the adaptive mesh
   (`AdaptiveMesh::set_periodic`, mirrored after the closure in `refine` / `hp_refine`; 2D
   and 3D unit tests, Python `set_periodic`)
-- [ ] F16 stage 2 (P1): non-matching (mortar-type) Bloch coupling for the Nédélec and H1 traces
-  with different levels and orders on the two faces, and the periodic facets in the residual
-  estimator. Observed before stage 1: `bloch_constraints: 14 master facets but 16 slave
-  facets` after a closure refinement on an unstructured Gmsh mesh
+- [x] F16 stage 2 (P1): non-matching Bloch coupling for the Nédélec and H1 traces (facets
+  grouped by overlap; the coarser facet carries the trace truncated to the common order, the
+  finer facets interpolate it, exact for different levels and orders on the two faces; unrelated
+  layouts by interpolation with a warning), `assembly::PeriodicLocator`, and the Bloch facets in
+  the residual estimators (`periodic` argument); `test_periodic_nonmatching.cpp`, case (d) of
+  `conical_grating_hp` (ridge off centre, faces refined independently). Observed before stage
+  1: `bloch_constraints: 14 master facets but 16 slave facets` after a closure refinement on an
+  unstructured Gmsh mesh
 - [x] F1 stage 1 (P1) hp-adaptivity for `ConicalScattering`: `adaptivity::conical_residual_estimate`
   (residual of the coupled system with the β terms, PML tensors and the E_z / εE_z interface
   conditions), `ConicalScattering::estimate` / `error`, Python bindings and hp loop; convergence
@@ -302,8 +306,12 @@ faces" of M14-B.
 - [x] dimensionally consistent Gauss-law terms in the three residual estimators
   (`EstimatorOptions::length_scale`, default ℓ = 1/k; in SI units the unscaled terms dominated η
   by 1/(kh)², docs/validation.md E)
-- [ ] F2 (P1) one-call periodic scattering API (`hpfem.grating.solve`: stack interfaces snapped to
-  mesh lines, PML from the largest order angle, orders in cover and substrate, power balance)
+- [x] F2 (P1) one-call periodic scattering API: `hpfem.grating.solve` (interfaces snapped onto
+  mesh vertices with `Mesh::set_vertex`, PML from the largest propagating-order angle, measurement
+  lines between structure and PML, reflected / transmitted orders with vector amplitudes,
+  absorbed power per tag, power balance, `field(points)`, timing, `GratingError` diagnostics);
+  `test_grating_solve.py` against the conical RCWA references. The six GUI presets of
+  `fem_worker.py` are not in this repository; the worker can be reduced to JSON handling on top
 - [ ] F3 (P1) vectorised field sampling and triangulated field export as NumPy
   (`solution.sample(points)`, `solution.triangulate(subdivisions)`), for both solvers
 - [ ] F4 (P1) exact absorbed power per material tag and per cell (`absorbed_power`,

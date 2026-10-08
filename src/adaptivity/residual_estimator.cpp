@@ -4,11 +4,14 @@
 #include <cmath>
 #include <map>
 #include <memory>
+#include <optional>
+#include <tuple>
 #include <vector>
 
 #include <Eigen/Geometry>
 #include <fmt/format.h>
 
+#include "hpfem/assembly/periodic.hpp"
 #include "hpfem/assembly/quadrature.hpp"
 #include "hpfem/assembly/sparse_assembler.hpp"
 #include "hpfem/core/error.hpp"
@@ -280,7 +283,8 @@ template <int Dim>
 Estimate residual_estimate(const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h,
                            Real k_squared,
                            const std::type_identity_t<assembly::CellFormFactory<Dim>>& form_of_cell,
-                           const EstimatorOptions& options) {
+                           const EstimatorOptions& options,
+                           std::span<const assembly::PeriodicPair<Dim>> periodic) {
   if (e_h.size() != dofs.num_dofs()) {
     throw InvalidArgument("residual_estimate: coefficient vector does not match the DoF map");
   }
@@ -324,57 +328,103 @@ Estimate residual_estimate(const fespace::NedelecDofMap<Dim>& dofs, const Vector
     parts.divergence = options.divergence_terms ? gauss_scale * weight * divergence : 0.0;
   });
 
-  // --- facet jumps (per facet, accumulated into the two cells afterwards) ---------------------
+  // --- facet jumps (per facet, accumulated into the two cells afterwards); Bloch slave
+  // facets take the jump against the phase-shifted partner cells of the master side -------
+  std::optional<assembly::PeriodicLocator<Dim>> locator;
+  if (!periodic.empty()) locator.emplace(mesh, periodic);
   const Index num_facets = mesh.num_facets();
   std::vector<Real> tangential(as_size(num_facets), 0.0);
   std::vector<Real> normal_flux(as_size(num_facets), 0.0);
   std::vector<Real> weights(as_size(num_facets), 0.0);
   std::vector<FacetSides> sides(as_size(num_facets));
+  std::vector<std::vector<std::tuple<Index, Real, Real>>> partner_share(as_size(num_facets));
   parallel_for(num_facets, [&](Index f, int thread) {
     sides[as_size(f)] = facet_sides(mesh, f);
     const FacetSides& side = sides[as_size(f)];
-    if (side.skip || side.boundary) return;
+    if (side.skip) return;
+    const bool bloch = side.boundary && locator && locator->is_slave(f);
+    if (side.boundary && !bloch) return;
     const Index c0 = side.c0;
-    const Index c1 = side.c1;
     const LocalIndex k0 = mesh.facet_local_indices(f)[0];
     CellSampler<Dim> sample0(dofs, e_h, c0, form_of_cell(c0), k_squared);
-    CellSampler<Dim> sample1(dofs, e_h, c1, form_of_cell(c1), k_squared);
-    const int p_f = std::max(dofs.cell_order(c0), dofs.cell_order(c1));
+    std::map<Index, CellSampler<Dim>> partners;  // Bloch: the master cells met by the points
+    const auto partner_sampler = [&](Index c) -> CellSampler<Dim>& {
+      auto it = partners.find(c);
+      if (it == partners.end()) {
+        it = partners.emplace(c, CellSampler<Dim>(dofs, e_h, c, form_of_cell(c), k_squared)).first;
+      }
+      return it->second;
+    };
+    int p_f = dofs.cell_order(c0);
+    if (!bloch) {
+      p_f = std::max(p_f, dofs.cell_order(side.c1));
+      partner_sampler(side.c1);
+    }
     const auto& rule = rules.facet(
         thread, 2 * p_f + options.extra_order + (sample0.geometry().is_affine() ? 0 : 2));
     const Point<Dim> centroid0 = mesh::affine_map(mesh, c0).centroid();
     Real t_sum = 0;
     Real n_sum = 0;
+    std::map<Index, std::pair<Real, Real>> shares;
     for (std::size_t q = 0; q < rule.size(); ++q) {
       Point<Dim> xi0;
       Point<Dim> n;
       Real measure = 0;
       facet_point<Dim>(sample0.geometry(), k0, centroid0, rule, q, xi0, n, measure);
       const Sample<Dim> s0 = sample0(xi0);
-      const Sample<Dim> s1 = sample1(sample1.geometry().to_reference(s0.x));
-      const Real ds = rule.weights[q] * measure;
-      const Curl<Dim> jump_w = s0.w - s1.w;
-      if constexpr (Dim == 2) {
-        t_sum += ds * jump_w.squaredNorm();  // |n × (w ẑ)| = |w|
+      Index c1 = side.c1;
+      Complex phase{1.0, 0.0};
+      Point<Dim> xi1;
+      if (bloch) {
+        const auto partner = locator->partner(f, s0.x);
+        if (!partner) continue;  // no master cell under this point (unrelated layouts)
+        c1 = partner->cell;
+        xi1 = partner->xi;
+        phase = partner->phase;
       } else {
-        t_sum += ds * cross(n.template cast<Complex>(), jump_w).squaredNorm();
+        xi1 = partner_sampler(c1).geometry().to_reference(s0.x);
       }
-      const Vec<Dim> jump_d = s0.d - s1.d;
-      n_sum += ds * std::norm(n.template cast<Complex>().dot(jump_d));
+      const Sample<Dim> s1 = partner_sampler(c1)(xi1);
+      const Real ds = rule.weights[q] * measure;
+      const Curl<Dim> jump_w = s0.w - phase * s1.w;
+      Real t = 0;
+      if constexpr (Dim == 2) {
+        t = ds * jump_w.squaredNorm();  // |n × (w ẑ)| = |w|
+      } else {
+        t = ds * cross(n.template cast<Complex>(), jump_w).squaredNorm();
+      }
+      const Vec<Dim> jump_d = s0.d - phase * s1.d;
+      const Real nn = ds * std::norm(n.template cast<Complex>().dot(jump_d));
+      t_sum += t;
+      n_sum += nn;
+      if (bloch) {
+        auto& share = shares[c1];
+        share.first += t;
+        share.second += nn;
+      }
     }
     tangential[as_size(f)] = t_sum;
     normal_flux[as_size(f)] = n_sum;
     weights[as_size(f)] = facet_diameter(mesh, f) / (2.0 * p_f);
+    for (const auto& [c1, share] : shares) {
+      partner_share[as_size(f)].emplace_back(c1, share.first, share.second);
+    }
   });
   for (Index f = 0; f < num_facets; ++f) {
     const FacetSides& side = sides[as_size(f)];
-    if (side.skip || side.boundary) continue;
-    for (const Index c : {side.c0, side.c1}) {
+    if (side.skip) continue;
+    const bool bloch = side.boundary && locator && locator->is_slave(f);
+    if (side.boundary && !bloch) continue;
+    const auto add = [&](Index c, Real t, Real nn) {
       auto& parts = out.parts[as_size(c)];
-      parts.tangential_jump += weights[as_size(f)] * tangential[as_size(f)];
-      if (options.divergence_terms) {
-        parts.normal_jump += gauss_scale * weights[as_size(f)] * normal_flux[as_size(f)];
-      }
+      parts.tangential_jump += weights[as_size(f)] * t;
+      if (options.divergence_terms) parts.normal_jump += gauss_scale * weights[as_size(f)] * nn;
+    };
+    add(side.c0, tangential[as_size(f)], normal_flux[as_size(f)]);
+    if (bloch) {
+      for (const auto& [c1, t, nn] : partner_share[as_size(f)]) add(c1, t, nn);
+    } else {
+      add(side.c1, tangential[as_size(f)], normal_flux[as_size(f)]);
     }
   }
 
@@ -491,10 +541,10 @@ template std::vector<Complex> weighted_residual<3>(const fespace::NedelecDofMap<
                                                    const fespace::NedelecDofMap<3>&, const Vector&,
                                                    const EstimatorOptions&);
 template Estimate residual_estimate<2>(const fespace::NedelecDofMap<2>&, const Vector&, Real,
-                                       const assembly::CellFormFactory<2>&,
-                                       const EstimatorOptions&);
+                                       const assembly::CellFormFactory<2>&, const EstimatorOptions&,
+                                       std::span<const assembly::PeriodicPair<2>>);
 template Estimate residual_estimate<3>(const fespace::NedelecDofMap<3>&, const Vector&, Real,
-                                       const assembly::CellFormFactory<3>&,
-                                       const EstimatorOptions&);
+                                       const assembly::CellFormFactory<3>&, const EstimatorOptions&,
+                                       std::span<const assembly::PeriodicPair<3>>);
 
 }  // namespace hpfem::adaptivity
