@@ -109,6 +109,38 @@ def test_scalar_ez_path_matches_the_block_solve():
                       OMEGA, scalar="yes", **common)  # fmt: skip
 
 
+def test_material_sensitivity_matches_finite_differences():
+    mesh, pml = unit_cell()
+    stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], hpfem.Material.dielectric(1.5))
+    common = dict(order=3, pml={"top": pml, "bottom": pml}, orders_max=2, check=False)
+
+    def solve(eps):
+        ridge = hpfem.Material()
+        ridge.eps_r = eps
+        return grating.solve(mesh, {SUB: hpfem.Material.dielectric(1.5), RIDGE_TAG: ridge}, stack,
+                             "s", 40 * units.deg, 0.0, OMEGA, **common)  # fmt: skip
+
+    def order0(res, side="R"):
+        orders = res.R_orders if side == "R" else res.T_orders
+        return next(o for o in orders if o.m == 0).efficiency
+
+    eps = 2.25 + 0.05j
+    result = solve(eps)
+    d_re, d_im = grating.sensitivity(result, RIDGE_TAG, order=0)
+    delta = 1e-3
+    fd_re = (order0(solve(eps + delta)) - order0(solve(eps - delta))) / (2 * delta)
+    fd_im = (order0(solve(eps + 1j * delta)) - order0(solve(eps - 1j * delta))) / (2 * delta)
+    assert abs(d_re - fd_re) < 1e-3 * abs(fd_re)
+    assert abs(d_im - fd_im) < 1e-3 * abs(fd_im)
+    d_re_t, _ = grating.sensitivity(result, RIDGE_TAG, order=0, side="T")
+    fd_t = (order0(solve(eps + delta), "T") - order0(solve(eps - delta), "T")) / (2 * delta)
+    assert abs(d_re_t - fd_t) < 1e-3 * abs(fd_t)
+    with pytest.raises(grating.GratingError):
+        grating.sensitivity(result, RIDGE_TAG, order=7)
+    with pytest.raises(grating.GratingError):
+        grating.sensitivity(result, RIDGE_TAG, order=0, side="X")
+
+
 def test_silver_grating_with_pec_bottom_absorbs_the_rest():
     mesh, pml = unit_cell()
     silver = hpfem.Material()

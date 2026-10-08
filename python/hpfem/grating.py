@@ -70,6 +70,9 @@ class GratingResult:
     flux_balance: dict | None = None
     scalar: bool = False
     """solved on the scalar E_z path (H1 block only; s polarisation at phi = 0)"""
+    period: float = 0.0
+    x_min: float = 0.0
+    fourier_points: int = 256
     """flux-based balance (``conical_power_balance``) through the PML boundaries: incident,
     reflected, transmitted, absorbed [W/m] and ``relative_residual``; ``None`` when the PML
     boundaries are no mesh lines (unstructured meshes)"""
@@ -561,6 +564,41 @@ def bands(
     return out
 
 
+def sensitivity(result: GratingResult, tag: int, order: int = 0, side: str = "R"):
+    """Derivative of the efficiency of the reflected (``side="R"``) or transmitted (``"T"``)
+    order ``order`` with respect to the relative permittivity of the cells tagged ``tag``, by
+    one adjoint solve on the problem of ``result``: returns ``(dR/dRe eps, dR/dIm eps)``.
+    The linearised goal is :math:`Q = A_m \\cdot \\bar A_m / |A_m|` (``conical_order_functional``)
+    so that :math:`dR_m = 2 R_m\\,\\mathrm{Re}(dQ)/|A_m|`; the holomorphic derivative
+    ``dQ/d eps`` gives both directions. Raises ``ValueError`` for an order that is not in
+    the result, evanescent, or a tag inside the PML."""
+    orders = result.R_orders if side == "R" else result.T_orders
+    if side not in ("R", "T"):
+        raise GratingError(f"side={side!r}: use 'R' or 'T'")
+    match = [o for o in orders if o.m == int(order)]
+    if not match or not match[0].propagating:
+        raise GratingError(f"order {order} is not a propagating {side} order of the result")
+    o = match[0]
+    amplitude = np.asarray(o.amplitude, dtype=complex)
+    norm = float(np.linalg.norm(amplitude))
+    if norm == 0.0:
+        return 0.0, 0.0
+    line = result.cover_line if side == "R" else result.substrate_line
+    direction = np.conj(amplitude) / norm
+    problem = result.problem
+    nd, h1 = problem.transverse_dofs, problem.longitudinal_dofs
+    functional = hpfem.conical_order_functional(
+        [result.x_min, line], [1.0, 0.0], result.period, result.wave.kx, int(order),
+        result.fourier_points, direction,
+    )  # fmt: skip
+    q_e, q_v = functional(nd, h1)
+    # (the incident wave subtracted from the reflected field is a constant: no derivative)
+    z_e, z_v = hpfem.conical_adjoint_solution(problem, q_e, q_v)
+    dq = hpfem.conical_material_sensitivity(problem, result.solution, z_e, z_v, int(tag))
+    scale = 2.0 * o.efficiency / norm
+    return scale * float(np.real(dq)), scale * float(np.real(1j * dq))
+
+
 def estimate_memory(mesh, order=4, solver=None):
     """Predicted sizes of the factorisation of :func:`solve` on ``mesh`` with the polynomial
     ``order`` (``hpfem.MemoryEstimate``: DoFs, nonzeros, factor entries, bytes, backend);
@@ -848,6 +886,9 @@ def solve(
         diagnostics=found,
         flux_balance=flux_balance,
         scalar=bool(scalar),
+        period=period,
+        x_min=x_min,
+        fourier_points=int(fourier_points),
         _locator=locator,
     )
 
