@@ -25,6 +25,34 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `PropagatingMode` on the two-core section, `run.py --length/--gap/--order/--cell/--backend`
   with a results JSON, README and a quick CPU regression test (50 k DoFs, 3 s, lossless to
   1e-5).
+- Production runs of the 3D directional coupler on cuDSS and their validation (M12 stage A,
+  `docs/validation.md` section F, `benchmarks/results/2026-10-08-VR-directional-coupler-3d.json`):
+  p = 1–3 at 2 µm and p = 2 at 10, 20 and 30 µm against coupled-mode theory (P_cross to 1e-5 at
+  p = 3, supermode phase errors 5e-4 rad; 1.3–2 M DoFs in the hybrid memory mode);
+  `run.py --cell-z` / `Geometry.cell_z` for a separate axial cell size (the phase error of the
+  coarse axial mesh grows as h_z^(2p)).
+- `physics::s_parameters` with one factorisation per S-matrix:
+  `ScatteringOperator::solve_port(port, mode)` (the port terms are part of the operator,
+  `Scattering::add_port_terms` is public), 3.5× faster on the coupler; iterative refinement in
+  the cuDSS solve (`CUDSS_CONFIG_IR_N_STEPS`, env `HPFEM_GPU_IR_STEPS`, GPU API v5 with
+  `hpfem_gpu_refactorize`).
+- Sweep acceleration (M15 F8): `LinearSolver::refactorize` reusing the symbolic analysis
+  (SparseLU `analyzePattern`, MUMPS job 2, cuDSS refactorisation phase), `physics::ConicalSweep`
+  (affine assembly per material tag on a cached union pattern, PML map and reduced scatter
+  targets, parallel `assemble_conical` over cells, scatter-based `Constraints::reduce`),
+  `hpfem.sweep.solve_sweep`; 2.1× over 50 frequency points (197 k DoFs, cuDSS).
+- H field and Poynting vector of the conical solution (M15 F12): `curl_field`, `h_field`,
+  `poynting`, `incident_curl` / `incident_h_field` of the conical plane wave and of the
+  layered conical wave (`LayeredConicalWave::field_curl`), `ConicalScatteringSetup::incident_curl`.
+- Exact absorbed power per tag and per cell (M15 F4, `physics/absorption.hpp`):
+  `absorbed_power_by_tag` (`AbsorbedPower{total, by_tag, per_cell, of_tag()}`),
+  `absorption_density` (`AbsorptionDensity<Dim>`) by volume quadrature; Python
+  `solution.absorbed_power(by_tag=, per_cell=)`.
+- Vectorised field sampling and triangulated export (M15 F3, `physics/field_sampling.hpp`):
+  `sample_field` (`SamplingOptions{quantity, scattered, bloch_wrap, interface_side}` for E, H
+  and the Poynting vector, points grouped per cell, allocation-free kernels) and
+  `triangulate_field` (`TriangulatedField<Dim>`); Python `solution.sample(points)` /
+  `solution.triangulate(subdivisions)` returning NumPy arrays.
 - Shape derivatives by the discrete adjoint on the mesh (M12, ADR-0011,
   `physics/shape_sensitivity.hpp`): `shape_gradient` / `conical_shape_gradient` (dQ/dx of
   every geometry node by central differences of the element integrals, in parallel),
