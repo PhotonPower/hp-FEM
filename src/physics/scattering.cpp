@@ -1,7 +1,5 @@
 #include "hpfem/physics/scattering.hpp"
 
-#include "hpfem/physics/sweep.hpp"
-
 #include <algorithm>
 #include <limits>
 #include <optional>
@@ -15,6 +13,7 @@
 #include "hpfem/core/log.hpp"
 #include "hpfem/core/progress.hpp"
 #include "hpfem/mesh/geometry.hpp"
+#include "hpfem/physics/sweep.hpp"
 #include "hpfem/pml/pml.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
 
