@@ -245,7 +245,9 @@ polarisation of the 2D solver and the longitudinal wavenumber for the microscope
 - [x] Python bindings (`ConicalScattering`, `layered_conical_wave`, orders); the project-file
   keys for the conical case are superseded by `hpfem.grating.solve` and the job runner
   (`hpfem.run`, M15 F2 / F5: `"polarisation": "s" | "p"`, `theta_deg`, `phi_deg`)
-- [ ] example (Si ridge in E_z, the R1 Ag case) as a job file under `examples/`
+- [x] example (Si ridge in E_z, the R1 Ag case) as a job file under `examples/`
+  (`examples/lamellar_grating/jobs/`: Si TM, Si conical, Ag TE = R1; regression test in
+  `test_examples.py`)
 - [x] conical grating validation at β ≠ 0 against the conical RCWA of the GUI work
   (`conical_grating_validation`: glass lamellar grating, s at θ = 40°, φ = 30° and p at
   θ = 50°, φ = 30° with the order m = −2 evanescent in air; 3.5e-5 and 4e-6 at p = 4,

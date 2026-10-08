@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "name": "Si lamellar grating, TM (p), 50 deg, in-plane",
+  "problem": "grating",
+  "unit": 1e-9,
+  "model": {
+    "period": 400,
+    "y_bottom": -800,
+    "y_top": 950,
+    "background_tag": 1,
+    "slabs": [{"tag": 2, "y0": -800, "y1": 0}],
+    "shapes": [
+      {"kind": "rectangle", "tag": 3, "params": {"x": -100, "y": 0, "width": 200, "height": 148}}
+    ]
+  },
+  "mesh": {"structured": {"nx": 16, "rows": [[-800, 0, 32], [0, 148, 6], [148, 950, 32]]}},
+  "materials": {
+    "1": {"eps": [1.0, 0.0]},
+    "2": {"eps": [29.6345, 2.7721]},
+    "3": {"eps": [29.6345, 2.7721]}
+  },
+  "stack": {"incidence": {"eps": [1.0, 0.0]}, "substrate": {"eps": [29.6345, 2.7721]}, "layers": [], "top": 0},
+  "incidence": {"polarisation": "p", "theta_deg": 50, "phi_deg": 0, "wavelength": 405},
+  "solver": {"order": 3, "pml": {"top": 419, "bottom": 419}, "orders_max": 2},
+  "maps": [{"quantity": "E", "x": [-200, 200, 81], "y": [-300, 400, 141]}]
+}

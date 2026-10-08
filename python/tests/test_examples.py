@@ -2,6 +2,7 @@
 physically consistent results (regression layer of CLAUDE.md §8 for the M8 examples)."""
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -26,6 +27,27 @@ def load_example(name: str):
 @pytest.fixture(autouse=True)
 def quiet():
     hpfem.set_log_level("warn")
+
+
+def test_lamellar_grating_job_files_reproduce_the_rcwa_cases(tmp_path):
+    from hpfem import run as runner
+
+    jobs = EXAMPLES / "lamellar_grating" / "jobs"
+    expected = {
+        "si_tm_50deg.json": ({0: 0.143381, -1: 0.142382}, 1e-3),
+        "ag_te_50deg.json": ({0: 0.319215, -1: 0.643575}, 1e-4),
+    }
+    for name, (reference, tolerance) in expected.items():
+        job = json.loads((jobs / name).read_text(encoding="utf-8"))
+        job["maps"] = []
+        results = runner.run_job(job, tmp_path / name[:-5], base=jobs)
+        point = results["points"][0]
+        r = {o["m"]: o["efficiency"] for o in point["R_orders"] if o["propagating"]}
+        for m, value in reference.items():
+            assert abs(r[m] - value) < tolerance, (name, m, r[m], value)
+        assert point["T"] == 0.0 and 0.0 < point["A"] < 1.0
+        # the absorbed power of the lossy Si substrate at uniform p = 3 is good to 1e-2
+        assert abs(point["balance"]) < 1e-2
 
 
 def test_metasurface_unitcell_energy_balance_and_phase_coverage(tmp_path, monkeypatch):
