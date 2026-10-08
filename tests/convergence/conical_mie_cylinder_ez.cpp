@@ -87,13 +87,14 @@ Real series_scattering_width() {
 
 struct Result {
   Index dofs;
-  Real width;      // from the surface in the vacuum
-  Real interface;  // from the cylinder surface
-  Real absorbed;   // total-field flux into the measurement region (zero if lossless)
-  Real in_plane;   // norm of the in-plane coefficients relative to the longitudinal ones
+  Real width;          // from the surface in the vacuum
+  Real interface;      // from the cylinder surface
+  Real absorbed;       // total-field flux into the measurement region (zero if lossless)
+  Real in_plane;       // norm of the in-plane coefficients relative to the longitudinal ones
+  Real factorisation;  // seconds of the factorisation phase
 };
 
-Result solve(Index n, int p) {
+Result solve(Index n, int p, bool scalar_ez = false) {
   Mesh<2> mesh = square_with_disc(n, kRadius, kHalfWidth, kHalfWidth + kPml, kDisc);
   for (Index c = 0; c < mesh.num_cells(); ++c) {
     if (mesh.cell_tag(c) != kDisc &&
@@ -113,6 +114,7 @@ Result solve(Index n, int p) {
       PmlBox<2>::uniform(Point<2>(-kHalfWidth, -kHalfWidth), Point<2>(kHalfWidth, kHalfWidth), kPml,
                          kWavenumber, 1.0, PmlProfile{2, kR0});
   setup.pec_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin, box_tag::kYMax};
+  setup.scalar_ez = scalar_ez;
   const ConicalScattering problem(nd, h1, setup);
   const auto solution = problem.solve();
   const Real intensity = 1.0 / (2.0 * hpfem::constants::Z0);
@@ -141,8 +143,12 @@ Result solve(Index n, int p) {
               [&](const Point<2>& x) { return setup.incident(x)(2); }));
   const Real absorbed = -hpfem::physics::conical_poynting_flux(nd, h1, total_e, total_v, 0.0,
                                                                setup.omega, setup.materials, outer);
-  return {nd.num_dofs() + h1.num_dofs(), power / intensity, interface / intensity,
-          absorbed / intensity, solution.transverse.norm() / solution.longitudinal.norm()};
+  return {nd.num_dofs() + h1.num_dofs(),
+          power / intensity,
+          interface / intensity,
+          absorbed / intensity,
+          solution.transverse.norm() / solution.longitudinal.norm(),
+          solution.timing.at("factorisation")};
 }
 
 }  // namespace
@@ -175,4 +181,14 @@ TEST_CASE("E_z Mie cylinder: the scattering width converges to the series value"
   }
   REQUIRE(last < 5e-4);
   REQUIRE(last_absorbed < 1e-3);
+  // the scalar E_z path (H1 block only) gives the same discrete solution at a fraction of
+  // the factorisation cost
+  const Result full = solve(4, 3);
+  const Result scalar = solve(4, 3, true);
+  fmt::print(
+      "scalar E_z path at n = 4, p = 3: sigma_sca {:.10f} vs {:.10f} (full), "
+      "factorisation {:.3f} s vs {:.3f} s\n",
+      scalar.width, full.width, scalar.factorisation, full.factorisation);
+  REQUIRE(std::abs(scalar.width - full.width) < 1e-9 * full.width);
+  REQUIRE(scalar.in_plane == 0.0);
 }

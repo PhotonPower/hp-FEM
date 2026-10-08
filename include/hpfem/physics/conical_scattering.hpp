@@ -107,6 +107,13 @@ struct ConicalScatteringSetup {
   /// Called when a phase of `solve` starts (assembly, constraints, factorisation, solve,
   /// post) and when it is done; returning false cancels the solve (`Cancelled`). Optional.
   ProgressCallback progress;
+  /// Scalar E_z path: at β = 0 the block system decouples and an E_z-only excitation (the s
+  /// polarisation at φ = 0, or a current along z) leaves the in-plane field zero, so only
+  /// the H1 block (about a third of the DoFs) is factorised and solved; the in-plane
+  /// coefficients of the solution are zero and every post-processing applies unchanged.
+  /// The constructor checks β = 0 and that the incident field / current has no in-plane
+  /// components. Opt-in; `hpfem.grating.solve` sets it automatically for s at φ = 0.
+  bool scalar_ez = false;
 };
 
 /// Error of a conical field against an exact one: @f$ \|e\|^2 = \int |e_x|^2 + |e_y|^2 + |e_z|^2
@@ -226,6 +233,8 @@ class ConicalScattering {
   Real k0_ = 0;
   std::vector<Index> free_;
   std::optional<fespace::Constraints> constraints_;  ///< hanging + Bloch, restricted to `free_`
+  std::vector<Index> scalar_dofs_;  ///< the free H1 block DoFs (offset by the Nédélec count)
+  std::optional<fespace::Constraints> h1_constraints_;  ///< the H1 part, for `scalar_ez`
 };
 
 /// Physical field (E_x, E_y, E_z) of the coefficients (e, v) of a conical field at reference

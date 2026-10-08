@@ -773,7 +773,10 @@ void bind_physics(py::module_& m) {
                        "done; False cancels (hpfem.Cancelled)")
         .def_readwrite("extra_quadrature_order", &ConicalScatteringSetup::extra_quadrature_order)
         .def_readwrite("pml_extra_quadrature_order",
-                       &ConicalScatteringSetup::pml_extra_quadrature_order);
+                       &ConicalScatteringSetup::pml_extra_quadrature_order)
+        .def_readwrite("scalar_ez", &ConicalScatteringSetup::scalar_ez,
+                       "solve only the H1 block (E_z) at beta = 0 with an E_z-only excitation; "
+                       "the in-plane coefficients of the solution are zero");
     py::class_<ConicalSolution>(m, "ConicalSolution", "Coefficients of the unknown conical field")
         .def_readonly("beta", &ConicalSolution::beta)
         .def_readonly("scattered", &ConicalSolution::scattered)

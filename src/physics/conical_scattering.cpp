@@ -171,6 +171,30 @@ ConicalScattering::ConicalScattering(const fespace::NedelecDofMap<2>& transverse
   const std::vector<Index> free_h1 = assembly::free_dofs(longitudinal.num_dofs(), h1_fixed);
   for (const Index d : free_nd) free_.push_back(d);
   for (const Index d : free_h1) free_.push_back(n_e + d);
+  for (const Index d : free_h1) scalar_dofs_.push_back(n_e + d);
+  if (setup_.scalar_ez) {
+    if (setup_.beta != 0.0) {
+      throw InvalidArgument(
+          "ConicalScattering: scalar_ez needs beta = 0 (the block system "
+          "decouples only at in-plane incidence)");
+    }
+    // the excitation must have no in-plane components: sampled at the cell centroids
+    const ConicalField& excitation = setup_.incident ? setup_.incident : setup_.current;
+    Real in_plane = 0;
+    Real longitudinal_norm = 0;
+    const Index step = std::max<Index>(1, mesh.num_cells() / 64);
+    for (Index c = 0; c < mesh.num_cells(); c += step) {
+      const ConicalVector f = excitation(mesh::affine_map(mesh, c).centroid());
+      in_plane = std::max(in_plane, std::hypot(std::abs(f(0)), std::abs(f(1))));
+      longitudinal_norm = std::max(longitudinal_norm, std::abs(f(2)));
+    }
+    if (in_plane > 1e-10 * std::max(longitudinal_norm, std::numeric_limits<Real>::min())) {
+      throw InvalidArgument(fmt::format(
+          "ConicalScattering: scalar_ez needs an E_z-only excitation (s polarisation at phi = "
+          "0 or a current along z); the in-plane part is {:.3g} of the longitudinal one",
+          in_plane / std::max(longitudinal_norm, std::numeric_limits<Real>::min())));
+    }
+  }
   // hanging-node constraints followed by the Bloch constraints, both spaces, on the free DoFs
   if (!mesh.is_conforming() || !setup_.periodic.empty()) {
     fespace::Constraints nd_c = assembly::hanging_constraints(transverse);
@@ -179,14 +203,16 @@ ConicalScattering::ConicalScattering(const fespace::NedelecDofMap<2>& transverse
       nd_c.append(assembly::bloch_constraints<2>(transverse, setup_.periodic));
       h1_c.append(assembly::bloch_constraints<2>(longitudinal, setup_.periodic));
     }
+    h1_constraints_ = assembly::restrict_constraints(h1_c, free_h1);
     constraints_ = assembly::block_constraints(assembly::restrict_constraints(nd_c, free_nd),
-                                               assembly::restrict_constraints(h1_c, free_h1));
+                                               *h1_constraints_);
   }
   log().info(
       "ConicalScattering: k0 = {:.6g}, beta = {:.6g}, {} free of {} block DoFs, {} "
-      "constrained, PML {}",
+      "constrained, PML {}{}",
       k0_, setup_.beta, free_.size(), n_e + longitudinal.num_dofs(),
-      constraints_ ? constraints_->num_constrained() : 0, setup_.pml ? "yes" : "no");
+      constraints_ ? constraints_->num_constrained() : 0, setup_.pml ? "yes" : "no",
+      setup_.scalar_ez ? fmt::format(", scalar E_z path ({} H1 DoFs)", scalar_dofs_.size()) : "");
 }
 
 const materials::Material& ConicalScattering::background_material(Index cell) const {
@@ -225,13 +251,17 @@ ConicalSolution ConicalScattering::solve() const {
       *transverse_, *longitudinal_, setup_.beta, [this](Index c) { return form_of_cell(c); },
       setup_.extra_quadrature_order);
   progress.begin(1);
+  // the scalar E_z path takes the H1 block alone (zero coupling at beta = 0)
+  const std::vector<Index>& dofs = setup_.scalar_ez ? scalar_dofs_ : free_;
+  const std::optional<fespace::Constraints>& constraints =
+      setup_.scalar_ez ? h1_constraints_ : constraints_;
   SparseMatrix a =
-      assembly::extract(SparseMatrix(system.stiffness - (k0_ * k0_) * system.mass), free_, free_);
+      assembly::extract(SparseMatrix(system.stiffness - (k0_ * k0_) * system.mass), dofs, dofs);
   a.makeCompressed();
-  Vector rhs(static_cast<Index>(free_.size()));
-  for (Index j = 0; j < rhs.size(); ++j) rhs(j) = system.rhs(free_[as_size(j)]);
-  if (constraints_) {
-    auto reduced_system = constraints_->reduce(a, rhs);
+  Vector rhs(static_cast<Index>(dofs.size()));
+  for (Index j = 0; j < rhs.size(); ++j) rhs(j) = system.rhs(dofs[as_size(j)]);
+  if (constraints) {
+    auto reduced_system = constraints->reduce(a, rhs);
     a = std::move(reduced_system.first);
     rhs = std::move(reduced_system.second);
   }
@@ -241,18 +271,18 @@ ConicalSolution ConicalScattering::solve() const {
   progress.begin(3);
   const Vector reduced = solver->solve(rhs);
   progress.begin(4);
-  const Vector on_free = constraints_ ? constraints_->expand(reduced) : reduced;
+  const Vector on_free = constraints ? constraints->expand(reduced) : reduced;
   const Index n_e = transverse_->num_dofs();
   Vector full = Vector::Zero(n_e + longitudinal_->num_dofs());
-  for (Index j = 0; j < on_free.size(); ++j) full(free_[as_size(j)]) = on_free(j);
+  for (Index j = 0; j < on_free.size(); ++j) full(dofs[as_size(j)]) = on_free(j);
   ConicalSolution out;
   out.beta = setup_.beta;
   out.scattered = static_cast<bool>(setup_.incident);
   out.transverse = full.head(n_e);
   out.longitudinal = full.tail(longitudinal_->num_dofs());
   out.timing = progress.finish();
-  log().info("ConicalScattering: solved beta = {:.6g} ({} unknowns, {:.3f} s)", setup_.beta,
-             reduced.size(), out.timing.at("total"));
+  log().info("ConicalScattering: solved beta = {:.6g} ({} unknowns{}, {:.3f} s)", setup_.beta,
+             reduced.size(), setup_.scalar_ez ? ", scalar E_z" : "", out.timing.at("total"));
   return out;
 }
 adaptivity::Estimate ConicalScattering::estimate(

@@ -546,6 +546,18 @@ per unit length with the conical curl, `conical_fourier_coefficients` samples a 
 along any line and `conical_diffraction_efficiencies` gives
 $\eta_m = \mathrm{Re}(k_{n,m})|A_m|^2/(k_n^{inc}|E_0|^2)$ with
 $k_{n,m} = \sqrt{k_0^2n^2 - k_{t,m}^2 - \beta^2}$ and the complex vector amplitudes $A_m$.
+**Scalar E_z path** (`ConicalScatteringSetup::scalar_ez`). At $\beta = 0$ the block system
+decouples and an E_z-only excitation (the s polarisation at $\varphi = 0$, or a current
+along $z$) leaves the in-plane block without a source, so its solution is zero. With
+`scalar_ez` the solver assembles the block system as before but extracts, constrains
+(hanging nodes and Bloch phases of the H1 space) and factorises only the H1 block, about a
+third of the DoFs: the discrete solution is identical (unit test: $10^{-10}$ on a disc and on
+a Bloch strip; the E_z Mie test prints both factorisation times), the in-plane coefficients
+are returned as zeros, and every post-processing, estimator and sampler applies unchanged.
+The constructor checks $\beta = 0$ and that the excitation has no in-plane components at the
+cell centroids. `hpfem.grating.solve` takes the path automatically for s at $\varphi = 0$.
+This replaces the separately planned scalar `ScatteringEz` solver.
+
 **Post-processing of isolated and periodic structures** (`physics/conical_postprocess.hpp`,
 M15 F10 / F11). `conical_diffraction_orders(field, line, k_0, n, k_{t0}, β, k_n^{inc}, incident)`
 takes the orders of `field − incident` on any `OrderLine` with the composite Gauss–Legendre

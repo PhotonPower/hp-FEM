@@ -12,6 +12,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- Scalar E_z path of the conical solver (`ConicalScatteringSetup::scalar_ez`): at β = 0 with
+  an E_z-only excitation only the H1 block is constrained, factorised and solved (about a
+  third of the DoFs), the in-plane coefficients are zero and all post-processing applies;
+  `hpfem.grating.solve(scalar="auto")` takes it for s at φ = 0 (`result.scalar`). Replaces
+  the planned scalar `ScatteringEz` solver.
 - Job files of the grating acceptance cases (`examples/lamellar_grating/jobs/`: Si TM 50°,
   Si conical 50° / 40°, Ag TE 50° = case R1) with the RCWA references in the README and a
   regression test; the Ag E_z case agrees to 3e-6 at uniform p = 4.

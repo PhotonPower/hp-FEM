@@ -221,10 +221,12 @@ Integrated photonics beyond the effective-index model and the tools around the s
 - [ ] the ring resonator with ports in 3D (SOI cross-section) as the example, S-parameters
   of a directional coupler against coupled-mode theory (needs the GPU solver for the
   mesh sizes involved)
-- [ ] modal expansion by Riesz projection on the resonance solver (`physics::RieszProjection`,
+- [x] modal expansion by Riesz projection on the resonance solver (`physics::RieszProjection`,
   `AxisymmetricRieszProjection`: residues of the resolvent on circles around the
   quasi-normal modes plus a background contour, spectra of linear observables as sums over
   modes; verification against the direct solution and the micropillar Purcell spectrum)
+  (`riesz_projection.hpp`, `test_riesz_projection.cpp`, `examples/micropillar_qd`,
+  `docs/theory/maxwell.md#modal-expansion-by-riesz-projection`)
 - [ ] sensitivities: material derivatives of observables by the adjoint solve (`dwr` adjoint
   reused), then shape derivatives (Hadamard formula with the interface jumps, ADR on the
   geometry parametrisation); verification against finite differences
@@ -259,7 +261,9 @@ polarisation of the 2D solver and the longitudinal wavenumber for the microscope
 - [x] hp-adaptivity for the conical solver (M15 F1: residual and goal-oriented estimators of
   the coupled system), E_z resonances and the open-cell band structure (M15 F14,
   `physics::ConicalResonance`, `grating.resonances` / `bands`)
-- [ ] later: scalar `ScatteringEz` (H1 only) when the DoF count matters
+- [x] scalar E_z path (`ConicalScatteringSetup::scalar_ez`: the H1 block alone at β = 0 with
+  an E_z-only excitation, identical solution, `grating.solve(scalar="auto")`) in place of a
+  separate `ScatteringEz` solver
 
 ## M14 — Accuracy infrastructure for oblique incidence and gratings
 From the same report (`spec-m14a/b/c`); A and C by the gpu agent, B by dev.
