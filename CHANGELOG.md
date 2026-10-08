@@ -12,6 +12,24 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- Structured diagnostics (M15 F7): `hpfem.diagnostics` with `Diagnostic(code, severity, text,
+  hint)` and the checks of the GUI wish list (invalid curved cells, poor angles, untagged cells,
+  tags without material, stack interfaces off the mesh lines, missing periodic partners and
+  non-identical faces, under-resolved or thin PML, too few elements per wavelength for the
+  order, tabulated materials outside their range, lossy incidence medium, grazing orders, a PEC
+  wall within six decay lengths in a lossy substrate); `grating.validate` and
+  `diagnostics.validate_scattering` run them, `grating.solve` runs them first (`check`) and
+  keeps the warnings in `result.diagnostics`; dispersive materials are accepted by
+  `grating.solve`.
+- Mesh module (M15 F6): `hpfem.meshing` builds grating / metasurface unit cells with the Gmsh
+  Python API (`UnitCell` with slabs and rectangle / trapezoid / ellipse / polygon shapes copied
+  by the period and clipped, material tags by priority, side physical groups, `$Periodic`,
+  element sizes per tag from the wavelength and the metal decay length, interface refinement,
+  curved cells for ellipses); `mesh::report` / `mesh_report` (counts, angles, aspect ratio,
+  edge lengths, invalid curved cells, untagged cells, tags, hanging entities) and
+  `mesh::check_periodic`; `read_gmsh_with_periodic` / `read_gmsh_periodic` read the `$Periodic`
+  section into (master, slave, shift) links. `gmsh` is a dev extra; the meshing test skips
+  without it.
 - `hpfem.grating.solve` (M15 F2), the one-call periodic scattering API on the conical solver:
   snapping of the stack interfaces onto mesh vertices (`Mesh::set_vertex`, bound as
   `set_vertex`), PML designed from the largest propagating-order angle (`PmlProfile.for_angle`,

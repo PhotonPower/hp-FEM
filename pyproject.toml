@@ -15,7 +15,8 @@ dependencies = ["numpy>=1.24", "scipy>=1.10"]
 hpfem = "hpfem.cli:main"
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff", "pre-commit", "meshio", "matplotlib", "pyyaml"]
+dev = ["pytest", "ruff", "pre-commit", "meshio", "matplotlib", "pyyaml", "gmsh"]
+meshing = ["gmsh"]
 yaml = ["pyyaml"]
 docs = ["mkdocs-material", "pymdown-extensions"]
 

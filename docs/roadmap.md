@@ -318,9 +318,10 @@ faces" of M14-B.
   `absorption_density`) by volume quadrature
 - [ ] F5 (P1) job runner / CLI with a stable JSON schema and JSON-lines events
   (`python -m hpfem.run job.json`), `hpfem.version_info()`
-- [ ] F6 (P1) mesh module: unit-cell mesher (`hpfem.meshing`), `mesh.report()`,
+- [x] F6 (P1) mesh module: unit-cell mesher (`hpfem.meshing`), `mesh.report()`,
   `mesh.check_periodic`, `read_gmsh` reading `$Periodic`
-- [ ] F7 (P1) structured diagnostics (`problem.validate()`): interface off the mesh lines, untagged
+- [x] F7 (P1) structured diagnostics (`hpfem.diagnostics`, `grating.validate`, run by
+  `grating.solve`): interface off the mesh lines, untagged
   cells, missing periodic partner, under-resolved or thin PML, too few elements per wavelength,
   material outside its data range, lossy incidence medium, PEC wall too close in a lossy substrate
 - [ ] F8 (P2) sweep acceleration: `LinearSolver.refactorize` reusing the symbolic analysis, affine

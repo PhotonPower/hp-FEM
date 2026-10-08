@@ -109,6 +109,14 @@ struct GmshFile {
     std::vector<std::size_t> node_tags;
   };
   std::vector<Element> elements;  ///< all simplex elements of dimension ≥ 1
+  struct Periodic {
+    int dim;
+    int entity, master;
+    bool has_affine = false;
+    std::array<Real, 3> translation{};
+    std::vector<std::pair<std::size_t, std::size_t>> nodes;  ///< (node tag, master node tag)
+  };
+  std::vector<Periodic> periodic;
 
   [[nodiscard]] Tag physical_of(int dim, int entity) const {
     const auto it = entity_physical.find({dim, entity});
@@ -246,6 +254,31 @@ void parse_elements(std::istream& in, GmshFile& file, int mesh_dim) {
   expect(in, "$EndElements");
 }
 
+void parse_periodic(std::istream& in, GmshFile& file) {
+  const auto count = read<std::size_t>(in, "number of periodic links");
+  for (std::size_t i = 0; i < count; ++i) {
+    GmshFile::Periodic link;
+    link.dim = read<int>(in, "periodic entity dimension");
+    link.entity = read<int>(in, "periodic entity tag");
+    link.master = read<int>(in, "periodic master entity tag");
+    const auto num_affine = read<std::size_t>(in, "number of affine values");
+    std::vector<Real> affine;
+    for (std::size_t k = 0; k < num_affine; ++k) affine.push_back(read<Real>(in, "affine value"));
+    if (num_affine == 16) {
+      link.has_affine = true;
+      link.translation = {affine[3], affine[7], affine[11]};
+    }
+    const auto num_nodes = read<std::size_t>(in, "number of corresponding nodes");
+    for (std::size_t k = 0; k < num_nodes; ++k) {
+      const auto node = read<std::size_t>(in, "periodic node tag");
+      const auto master = read<std::size_t>(in, "periodic master node tag");
+      link.nodes.emplace_back(node, master);
+    }
+    file.periodic.push_back(std::move(link));
+  }
+  expect(in, "$EndPeriodic");
+}
+
 void skip_section(std::istream& in, const std::string& name) {
   const std::string end = "$End" + name.substr(1);
   std::string token;
@@ -278,6 +311,8 @@ GmshFile parse(std::istream& in, int mesh_dim) {
       if (!has_nodes) throw InvalidArgument("Gmsh: $Elements must come after $Nodes");
       parse_elements(in, file, mesh_dim);
       has_elements = true;
+    } else if (line == "$Periodic") {
+      parse_periodic(in, file);
     } else if (line.front() == '$') {
       skip_section(in, line);
     } else {
@@ -408,6 +443,75 @@ Mesh<Dim> read_gmsh(std::istream& in, Real scale) {
   return build<Dim>(parse(in, Dim), scale);
 }
 
+namespace {
+
+template <int Dim>
+std::vector<PeriodicLink<Dim>> periodic_links(const GmshFile& file, Real scale) {
+  std::vector<PeriodicLink<Dim>> links;
+  for (const auto& p : file.periodic) {
+    if (p.dim != Dim - 1) continue;
+    const Tag slave = file.physical_of(p.dim, p.entity);
+    const Tag master = file.physical_of(p.dim, p.master);
+    if (slave == kNoTag || master == kNoTag) {
+      throw InvalidArgument(fmt::format(
+          "Gmsh: periodic entity {} (master {}) of dimension {} has no physical group; give both "
+          "sides physical groups so that their facets are tagged",
+          p.entity, p.master, p.dim));
+    }
+    std::array<Real, 3> translation = p.translation;
+    if (!p.has_affine) {
+      if (p.nodes.empty()) {
+        throw InvalidArgument(fmt::format(
+            "Gmsh: periodic entity {} has neither an affine transform nor corresponding nodes",
+            p.entity));
+      }
+      const auto& [node, master_node] = p.nodes.front();
+      const auto index = [&](std::size_t tag) {
+        if (tag >= file.node_index.size() || file.node_index[tag] == kInvalidIndex) {
+          throw InvalidArgument(fmt::format("Gmsh: periodic node {} is unknown", tag));
+        }
+        return as_size(file.node_index[tag]);
+      };
+      const auto& a = file.coordinates[index(node)];
+      const auto& b = file.coordinates[index(master_node)];
+      translation = {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+    }
+    PeriodicLink<Dim> link;
+    link.master = master;
+    link.slave = slave;
+    for (int d = 0; d < Dim; ++d) link.shift(d) = translation[as_size(d)] * scale;
+    bool merged = false;
+    for (auto& existing : links) {
+      if (existing.master == master && existing.slave == slave &&
+          (existing.shift - link.shift).norm() <= 1e-9 * (link.shift.norm() + 1e-300)) {
+        merged = true;
+      }
+    }
+    if (!merged) links.push_back(link);
+  }
+  return links;
+}
+
+}  // namespace
+
+template <int Dim>
+GmshMesh<Dim> read_gmsh_with_periodic(std::istream& in, Real scale) {
+  const GmshFile file = parse(in, Dim);
+  GmshMesh<Dim> out{build<Dim>(file, scale), periodic_links<Dim>(file, scale)};
+  log().info("Gmsh: {} periodic direction(s)", out.periodic.size());
+  return out;
+}
+
+template <int Dim>
+GmshMesh<Dim> read_gmsh_with_periodic(const std::filesystem::path& file, Real scale) {
+  std::ifstream in(file);
+  if (!in) {
+    throw InvalidArgument(fmt::format("Gmsh: cannot open '{}'", file.string()));
+  }
+  log().info("Gmsh: reading {}", file.string());
+  return read_gmsh_with_periodic<Dim>(in, scale);
+}
+
 template <int Dim>
 Mesh<Dim> read_gmsh(const std::filesystem::path& file, Real scale) {
   std::ifstream in(file);
@@ -418,6 +522,14 @@ Mesh<Dim> read_gmsh(const std::filesystem::path& file, Real scale) {
   return read_gmsh<Dim>(in, scale);
 }
 
+template struct PeriodicLink<2>;
+template struct PeriodicLink<3>;
+template struct GmshMesh<2>;
+template struct GmshMesh<3>;
+template GmshMesh<2> read_gmsh_with_periodic<2>(std::istream&, Real);
+template GmshMesh<3> read_gmsh_with_periodic<3>(std::istream&, Real);
+template GmshMesh<2> read_gmsh_with_periodic<2>(const std::filesystem::path&, Real);
+template GmshMesh<3> read_gmsh_with_periodic<3>(const std::filesystem::path&, Real);
 template Mesh<2> read_gmsh<2>(std::istream&, Real);
 template Mesh<3> read_gmsh<3>(std::istream&, Real);
 template Mesh<2> read_gmsh<2>(const std::filesystem::path&, Real);

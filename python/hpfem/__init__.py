@@ -28,6 +28,7 @@ Typical use::
 from hpfem import (  # noqa: E402  (after the core names)
     _hpfem,
     adaptive,
+    diagnostics,
     grating,
     interop,
     materials,
@@ -48,6 +49,7 @@ __all__ = [name for name in dir(_hpfem) if not name.startswith("_")] + [
     "pv",
     "sweep",
     "adaptive",
+    "diagnostics",
     "grating",
     "AdaptiveStep",
     "adaptive_solve",

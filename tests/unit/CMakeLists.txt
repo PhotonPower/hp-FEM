@@ -10,6 +10,7 @@ hpfem_add_test(test_mesh unit
   mesh/test_tags.cpp
   mesh/test_generators.cpp
   mesh/test_gmsh.cpp
+  mesh/test_report.cpp
   mesh/test_geometry.cpp
   mesh/test_curved_geometry.cpp
   mesh/test_point_location.cpp

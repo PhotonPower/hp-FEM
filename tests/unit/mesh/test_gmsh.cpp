@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include <fmt/format.h>
@@ -17,6 +18,7 @@
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/mesh/gmsh.hpp"
 
+using Catch::Approx;
 using Catch::Matchers::ContainsSubstring;
 using hpfem::as_size;
 using hpfem::Index;
@@ -388,4 +390,39 @@ TEST_CASE("Gmsh 4.1: second-order triangles and tetrahedra become edge nodes", "
   std::istringstream in{std::string(kCurvedTet)};
   const Mesh<3> scaled = hpfem::mesh::read_gmsh<3>(in, 2.0);
   REQUIRE((scaled.edge_node(scaled.edge_id(1, 2)) - Point<3>(2 * s, 2 * s, 0.0)).norm() < 1e-14);
+}
+
+TEST_CASE("read_gmsh_with_periodic: the $Periodic section gives the pairs and the shift",
+          "[mesh][gmsh][periodic]") {
+  // right curve (entity 2, physical 2) = left curve (entity 4, physical 4) + (1, 0): the
+  // affine transform carries the translation, the node pairs are listed as Gmsh writes them
+  const std::string with_affine =
+      std::string(kSquare) +
+      "$Periodic\n1\n1 2 4\n16 1 0 0 1 0 1 0 0 0 0 1 0 0 0 0 1\n2\n2 1\n3 4\n"
+      "$EndPeriodic\n";
+  std::istringstream in(with_affine);
+  const auto result = hpfem::mesh::read_gmsh_with_periodic<2>(in, 2.0);
+  REQUIRE(result.mesh.num_cells() == 2);
+  REQUIRE(result.periodic.size() == 1);
+  REQUIRE(result.periodic[0].master == 4);
+  REQUIRE(result.periodic[0].slave == 2);
+  REQUIRE(result.periodic[0].shift(0) == Approx(2.0));  // scaled
+  REQUIRE(result.periodic[0].shift(1) == Approx(0.0));
+  // without an affine transform the shift comes from the first node pair; point links are
+  // ignored; a merged second curve link with the same tags does not duplicate the pair
+  const std::string from_nodes =
+      std::string(kSquare) +
+      "$Periodic\n3\n0 2 1\n0\n1\n2 1\n1 2 4\n0\n2\n2 1\n3 4\n1 2 4\n0\n1\n3 4\n"
+      "$EndPeriodic\n";
+  std::istringstream in2(from_nodes);
+  const auto result2 = hpfem::mesh::read_gmsh_with_periodic<2>(in2, 1.0);
+  REQUIRE(result2.periodic.size() == 1);
+  REQUIRE(result2.periodic[0].shift(0) == Approx(1.0));
+  // an entity without a physical group is an error
+  const std::string bad = std::string(kSquare) + "$Periodic\n1\n1 2 9\n0\n1\n2 1\n$EndPeriodic\n";
+  std::istringstream in3(bad);
+  REQUIRE_THROWS_AS(hpfem::mesh::read_gmsh_with_periodic<2>(in3, 1.0), hpfem::InvalidArgument);
+  // plain read_gmsh still skips the section
+  std::istringstream in4(with_affine);
+  REQUIRE(read_gmsh<2>(in4, 1.0).num_cells() == 2);
 }
