@@ -242,16 +242,22 @@ polarisation of the 2D solver and the longitudinal wavenumber for the microscope
   manufactured solutions, flat interface under conical incidence vs the stack), convergence
   tests `conical_mie_cylinder_ez` (series) and `conical_lamellar_grating_ez` (in-test TE RCWA,
   layered background); theory section `docs/theory/maxwell.md#conical-incidence`
-- [ ] Python bindings (`ConicalScattering`, `layered_conical_wave`, orders), `hpfem.project` keys
-  `"polarisation": "Ez" | "Hz"` and `"azimuth"` (conical), example (Si ridge in E_z, R1 Ag case)
+- [x] Python bindings (`ConicalScattering`, `layered_conical_wave`, orders); the project-file
+  keys for the conical case are superseded by `hpfem.grating.solve` and the job runner
+  (`hpfem.run`, M15 F2 / F5: `"polarisation": "s" | "p"`, `theta_deg`, `phi_deg`)
+- [ ] example (Si ridge in E_z, the R1 Ag case) as a job file under `examples/`
 - [x] conical grating validation at β ≠ 0 against the conical RCWA of the GUI work
   (`conical_grating_validation`: glass lamellar grating, s at θ = 40°, φ = 30° and p at
   θ = 50°, φ = 30° with the order m = −2 evanescent in air; 3.5e-5 and 4e-6 at p = 4,
   energy balance 1e-6)
-- [ ] the acceptance case R1 of the report (Ag lamellar grating, 50°, TE, and the conical
+- [x] the acceptance case R1 of the report (Ag lamellar grating, 50°, TE, and the conical
   Ag / Si cases of `gui-support-features.md` section 3) as a `validation-long` test
-- [ ] later: hp-adaptivity for the conical solver (estimator of the mode equation), E_z
-  resonances and band structures, scalar `ScatteringEz` (H1 only) when the DoF count matters
+  (`conical_grating_hp`, cases (a) TM Ag, (b) TE Ag, (c) conical Si, M15 F1 stage 2;
+  `docs/validation.md` section E)
+- [x] hp-adaptivity for the conical solver (M15 F1: residual and goal-oriented estimators of
+  the coupled system), E_z resonances and the open-cell band structure (M15 F14,
+  `physics::ConicalResonance`, `grating.resonances` / `bands`)
+- [ ] later: scalar `ScatteringEz` (H1 only) when the DoF count matters
 
 ## M14 — Accuracy infrastructure for oblique incidence and gratings
 From the same report (`spec-m14a/b/c`); A and C by the gpu agent, B by dev.
@@ -260,8 +266,9 @@ From the same report (`spec-m14a/b/c`); A and C by the gpu agent, B by dev.
   `Scattering`, R0^(cos θ / 2) documented in `docs/theory/pml.md`; convergence test
   `flat_surface_fresnel`: Si and Ag half spaces at 10-70° against Fresnel; Python / project
   keys `theta_max` / `target`)
-- [ ] M14-B hp-adaptivity on a plasmonic grating (Bloch + layered background + PML): marking
-  symmetrised across periodic faces, estimator options, convergence test on the Ag grating
+- [x] M14-B hp-adaptivity on a plasmonic grating (Bloch + layered background + PML): done as
+  M15 F1 stage 2 (`conical_grating_hp`, estimator options, the Ag grating to the hp reference)
+  with M15 F16 (non-matching Bloch coupling) in place of the symmetrised marking
 - [x] M14-C post-processing for gratings (`diffraction_orders` on an `OrderLine` of any
   orientation with the incident wave subtracted, complex vector amplitudes; `power_balance` /
   `absorbed_power(problem, solution)` of the total field; `Surface::plane`; `total_field` on
