@@ -175,6 +175,9 @@ values, cells = problem.sample(solution, locator, points)   # (n, 2) complex, (n
 h_z, _ = problem.sample(solution, locator, points, quantity="H")   # "E" (default), "H" or "S" (Poynting)
 tri = problem.triangulate(solution, subdivisions=3)         # points, simplices, values, cell, tag
 absorbed = hpfem.absorbed_power_by_tag(problem, solution)   # .total, .by_tag {tag: W/m}, .per_cell
+sweep = hpfem.ConicalSweep(nd, h1, setup0)                  # affine operator: one analysis per sweep
+solutions = [sweep.solve(setup_at(w)) for w in wavelengths]  # omega, beta, materials, incident may change
+results = hpfem.sweep.solve_sweep(point, wavelengths, processes=4)   # any task over worker processes
 density = hpfem.absorption_density(problem, solution)       # Joule heating at the quadrature points
 # matplotlib.tri.Triangulation(tri.points[:, 0], tri.points[:, 1], tri.simplices)
 hpfem.FieldExporter2D(mesh, 3).hcurl("E", dofs, solution.unknown).write("mie.vtu")

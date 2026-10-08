@@ -27,10 +27,11 @@ extern "C" {
 
 /* Bumped whenever the ABI changes. Version 2 adds hpfem_gpu_factor_info2() and the hybrid
  * memory mode, version 3 the device-resident matrices and the time stepper, version 4
- * rectangular matrices and the Arnoldi object with the Krylov basis on the device;
- * everything of the earlier versions is unchanged, so an older library still works with a
- * loader that knows a newer version (without the newer functions). */
-#define HPFEM_GPU_API_VERSION 4
+ * rectangular matrices and the Arnoldi object with the Krylov basis on the device, version 5
+ * the numerical refactorisation on the analysed pattern; everything of the earlier versions
+ * is unchanged, so an older library still works with a loader that knows a newer version
+ * (without the newer functions). */
+#define HPFEM_GPU_API_VERSION 5
 
 #if defined(_WIN32)
 #if defined(HPFEM_GPU_BUILD)
@@ -82,6 +83,13 @@ HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_factorize(hpfem_gpu_solver* solver, int
                                                    const int64_t* row_ptr, const int64_t* col,
                                                    const double* values,
                                                    hpfem_gpu_matrix_type type);
+
+/* API version 5: numerical refactorisation with new values on the pattern of the last
+ * hpfem_gpu_factorize (same n, nnz, row pointer, columns and matrix type): the analysis
+ * (ordering, symbolic factorisation) is reused, the scaling and equilibration are recomputed
+ * from the new values. Fails if nothing was factorised or nnz differs. */
+HPFEM_GPU_API hpfem_gpu_status hpfem_gpu_refactorize(hpfem_gpu_solver* solver, int64_t nnz,
+                                                     const double* values);
 
 /* Solve A X = B for nrhs right-hand sides (n x nrhs column major, interleaved complex).
  * `x` may alias `b`. */
@@ -210,6 +218,7 @@ typedef hpfem_gpu_status (*hpfem_gpu_factor_info_fn)(const hpfem_gpu_solver*, in
 typedef const char* (*hpfem_gpu_last_error_fn)(const hpfem_gpu_solver*);
 typedef hpfem_gpu_status (*hpfem_gpu_factor_info2_fn)(const hpfem_gpu_solver*,
                                                       hpfem_gpu_factor_info_t*);
+typedef hpfem_gpu_status (*hpfem_gpu_refactorize_fn)(hpfem_gpu_solver*, int64_t, const double*);
 typedef hpfem_gpu_status (*hpfem_gpu_matrix_create_fn)(hpfem_gpu_matrix**, int64_t, int64_t,
                                                        const int64_t*, const int64_t*,
                                                        const double*);

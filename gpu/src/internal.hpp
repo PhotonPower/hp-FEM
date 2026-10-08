@@ -61,10 +61,12 @@ struct hpfem_gpu_solver {
   DeviceBuffer row_ptr;
   DeviceBuffer col;
   DeviceBuffer values;
-  DeviceBuffer input;     // host right-hand sides land here
-  DeviceBuffer rhs;       // D * input, what cuDSS reads
-  DeviceBuffer solution;  // what cuDSS writes
-  DeviceBuffer output;    // scale * D * solution, what the host receives
+  DeviceBuffer input;                 // host right-hand sides land here
+  DeviceBuffer rhs;                   // D * input, what cuDSS reads
+  DeviceBuffer solution;              // what cuDSS writes
+  DeviceBuffer output;                // scale * D * solution, what the host receives
+  std::vector<int64_t> host_row_ptr;  // the analysed pattern, kept for refactorisation
+  std::vector<int64_t> host_col;
 
   std::string last_error;
 
