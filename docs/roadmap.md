@@ -172,10 +172,15 @@ assessment: `docs/validation.md`.
       Proc. SPIE 8880, 88801Z, 2013): S/S₀ within 1.4·10⁻⁵ of Burger and 1.8·10⁻⁵ of Besbes,
       the 0.1 % difference between the sources is the substrate permittivity; the 10⁻⁶
       target is left by the surface-plasmon truncation of the PML — PRs #65, #68
-- [ ] gold sphere dimer (Hoffmann et al., Proc. SPIE 7390, 73900J, 2009; 80 nm spheres,
+- [x] gold sphere dimer (Hoffmann et al., Proc. SPIE 7390, 73900J, 2009; 80 nm spheres,
       1 nm gap, 632 nm, reference |E|² at the gap centre = 5.47624·10⁵ V²/m² for
-      |E_inc| = 1 V/m) — **blocked**: the permittivity of gold used in the source is not
-      stated; not to be attempted with a self-chosen ε
+      |E_inc| = 1 V/m) — computed under the documented assumption of Johnson & Christy gold
+      (the source does not state its ε): `examples/gold_dimer` with the axisymmetric solver
+      (orders m = 0, ±1), converged to five digits at 2.9724·10⁵ (−46 %); the ε scan shows the
+      reference reproduced for ε ≈ −10.3 + 0.8i, a gold with 35 % lower loss, so the
+      material datum, not the solver, sets the deviation — `docs/validation.md` F,
+      `benchmarks/results/2026-10-08-validation-gold-dimer.json` (maintainer's decision of
+      2026-10-08 to replace the five-digit comparison by the sensitivity statement)
 
 ## M11 — Axisymmetric (2.5D) solver (ADR-0010)
 Bodies of revolution on the meridian mesh, one 2D problem per azimuthal order m.

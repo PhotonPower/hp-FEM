@@ -12,6 +12,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   measure and the marking weighs the Maxwell and Gauss residuals alike.
 
 ### Added
+- `examples/gold_dimer` (M10 benchmark of Hoffmann et al. 2009 under the documented
+  Johnson & Christy assumption): the 80 nm gold dimer with a 1 nm gap on a Gmsh meridian mesh,
+  the axisymmetric solver for the orders m = 0, ±1 of the plane wave perpendicular to the
+  axis, |E|² at the gap centre converged to five digits in p (2.9724e5 against the published
+  5.47624e5), the permittivity sensitivity by finite differences and an ε scan locating the
+  reference at ε ≈ −10.3 + 0.8i; `docs/validation.md` section F, benchmark record,
+  regression test (needs gmsh).
 - `examples/directional_coupler_3d` (M12, stage A of the 3D ring resonator with the gpu
   agent): two SOI strip waveguides between four 3D modal ports on half faces, structured
   box mesh with tagged cores, the coupled-mode reference κ = (β_even − β_odd) / 2 from

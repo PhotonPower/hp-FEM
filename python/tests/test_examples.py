@@ -50,6 +50,20 @@ def test_lamellar_grating_job_files_reproduce_the_rcwa_cases(tmp_path):
         assert abs(point["balance"]) < 1e-2
 
 
+def test_gold_dimer_gap_field_converges_in_p(tmp_path):
+    pytest.importorskip("gmsh")
+    example = load_example("gold_dimer")
+    r = example.run(quick=True, out=str(tmp_path / "dimer.json"))
+    assert r.cells > 500 and r.orders == [2, 3]
+    # the Johnson & Christy dimer at 632 nm: a gap enhancement of a few 1e5, converged in p
+    assert 1e5 < r.intensity[-1] < 1e6
+    assert abs(r.intensity[1] - r.intensity[0]) < 0.05 * r.intensity[1]
+    e = np.array([complex(*c) for c in r.components])
+    assert abs(e[1]) < 1e-3 * np.linalg.norm(e)  # E_y vanishes in the plane of incidence
+    assert abs(e[2]) > 0.9 * np.linalg.norm(e)  # the gap field is along the dimer axis
+    assert abs(r.deviation) < 0.6  # within the permittivity uncertainty (docs/validation.md F)
+
+
 def test_directional_coupler_3d_ports_are_lossless_and_follow_coupled_mode_theory(tmp_path):
     example = load_example("directional_coupler_3d")
     r = example.run(quick=True, out=str(tmp_path / "coupler.json"))
