@@ -10,7 +10,7 @@ $|E|^2 = 5.47624\cdot10^5\ \mathrm{V^2/m^2}$ at the gap centre for $|E_{inc}| = 
 632 nm, "at least five digits correct". **The paper does not state the permittivity of gold
 it used.** This example takes the Johnson & Christy data of the material library
 ($\varepsilon_{\mathrm{Au}}(632\,\mathrm{nm}) = -11.685 + 1.267i$) as a documented assumption
-and reports how the result depends on $\varepsilon$ (see `docs/validation.md`, section F).
+and reports how the result depends on $\varepsilon$ (see `docs/validation.md`, section G).
 
 **What the program does.** The dimer is a body of revolution. The incident wave (perpendicular
 to the axis, polarised along it) is expanded in azimuthal orders (`hpfem.oblique_plane_wave`,

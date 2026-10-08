@@ -17,7 +17,7 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   the axisymmetric solver for the orders m = 0, ±1 of the plane wave perpendicular to the
   axis, |E|² at the gap centre converged to five digits in p (2.9724e5 against the published
   5.47624e5), the permittivity sensitivity by finite differences and an ε scan locating the
-  reference at ε ≈ −10.3 + 0.8i; `docs/validation.md` section F, benchmark record,
+  reference at ε ≈ −10.3 + 0.8i; `docs/validation.md` section G, benchmark record,
   regression test (needs gmsh).
 - `examples/directional_coupler_3d` (M12, stage A of the 3D ring resonator with the gpu
   agent): two SOI strip waveguides between four 3D modal ports on half faces, structured

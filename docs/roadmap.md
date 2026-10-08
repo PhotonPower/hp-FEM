@@ -178,7 +178,7 @@ assessment: `docs/validation.md`.
       (the source does not state its ε): `examples/gold_dimer` with the axisymmetric solver
       (orders m = 0, ±1), converged to five digits at 2.9724·10⁵ (−46 %); the ε scan shows the
       reference reproduced for ε ≈ −10.3 + 0.8i, a gold with 35 % lower loss, so the
-      material datum, not the solver, sets the deviation — `docs/validation.md` F,
+      material datum, not the solver, sets the deviation — `docs/validation.md` G,
       `benchmarks/results/2026-10-08-validation-gold-dimer.json` (maintainer's decision of
       2026-10-08 to replace the five-digit comparison by the sensitivity statement)
 

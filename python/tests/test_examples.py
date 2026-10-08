@@ -61,7 +61,7 @@ def test_gold_dimer_gap_field_converges_in_p(tmp_path):
     e = np.array([complex(*c) for c in r.components])
     assert abs(e[1]) < 1e-3 * np.linalg.norm(e)  # E_y vanishes in the plane of incidence
     assert abs(e[2]) > 0.9 * np.linalg.norm(e)  # the gap field is along the dimer axis
-    assert abs(r.deviation) < 0.6  # within the permittivity uncertainty (docs/validation.md F)
+    assert abs(r.deviation) < 0.6  # within the permittivity uncertainty (docs/validation.md G)
 
 
 def test_directional_coupler_3d_ports_are_lossless_and_follow_coupled_mode_theory(tmp_path):

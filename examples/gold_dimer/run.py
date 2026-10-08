@@ -6,7 +6,7 @@ squared electric field at the centre of the gap, whose MMP reference is
 gold it used; this example takes the library's Johnson & Christy data (eps = -11.685 + 1.267i
 at 632 nm) as a documented assumption and reports the sensitivity of the result to eps by
 finite differences, so the comparison is "agreement within the eps uncertainty", not a
-five-digit validation (docs/validation.md, section F).
+five-digit validation (docs/validation.md, section G).
 
 Method: the dimer is a body of revolution; the incident wave is expanded in azimuthal orders
 (`hpfem.oblique_plane_wave`, theta_i = 90 deg, p polarisation = along the axis) and every order

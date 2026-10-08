@@ -562,7 +562,7 @@ $\Delta R_{-1} = +2\cdot 10^{-6}$ and $\Delta R_0 = -2.2\cdot 10^{-4}$ at 110 k 
 values and rate as the mirrored symmetric case (a): the coupling costs no accuracy and the
 mirroring is no longer needed.
 
-## F. Gold sphere dimer, field in a 1 nm gap (Hoffmann et al. 2009)
+## G. Gold sphere dimer, field in a 1 nm gap (Hoffmann et al. 2009)
 
 **Source.** Hoffmann, Hafner, Leidenberger, Hesselbarth, Burger, "Comparison of
 electromagnetic field solvers for the 3D analysis of plasmonic nano antennas", Proc. SPIE
