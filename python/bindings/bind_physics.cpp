@@ -343,6 +343,10 @@ void bind_physics_dim(py::module_& m) {
           },
           py::arg("incident"), py::arg("current") = py::none(), Release(),
           "solution for another incident field (and current)")
+      .def("solve_port", &ScatteringOperator<Dim>::solve_port, py::arg("port"), py::arg("mode"),
+           Release(),
+           "solution for the unit excitation of one port mode on the factorised operator (the "
+           "port terms are part of the operator); what s_parameters uses per channel")
       .def(
           "solve_many",
           [](const ScatteringOperator<Dim>& op, const std::vector<IncidentField<Dim>>& incidents,

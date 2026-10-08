@@ -17,6 +17,7 @@
 #include "hpfem/mesh/generators.hpp"
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/physics/scattering.hpp"
+#include "hpfem/physics/sweep.hpp"
 #include "hpfem/physics/waveguide_port.hpp"
 
 using Catch::Approx;
@@ -177,6 +178,33 @@ TEST_CASE("straight parallel plate: S-parameters are transmission phases without
   const hpfem::Matrix identity = hpfem::Matrix::Identity(4, 4);
   CHECK((s.s - s.s.transpose()).norm() < 1e-5);
   CHECK((s.s.adjoint() * s.s - identity).norm() < 1e-4);
+}
+
+TEST_CASE("ScatteringOperator::solve_port equals the per-problem port excitation",
+          "[physics][port]") {
+  // s_parameters factorises once and excites the modes on the factorised operator; the
+  // solution must equal the one of a problem that carries the excitation in its setup
+  const Real k0 = 5.0;
+  const Mesh<2> mesh = hpfem::mesh::rectangle(6, 6, Point<2>(0.0, 0.0), Point<2>(1.0, 1.0));
+  const NedelecDofMap<2> dofs(mesh, 3);
+  const ScatteringSetup<2> base = strip_setup(k0, 2);
+  const hpfem::physics::Scattering<2> reference(dofs, base);
+  const hpfem::physics::ScatteringOperator<2> factorised(reference);
+  for (Index port = 0; port < 2; ++port) {
+    for (Index mode = 0; mode < 2; ++mode) {
+      ScatteringSetup<2> excited = base;
+      excited.ports[as_size(port)].incident.assign(as_size(mode + 1), Complex{0.0, 0.0});
+      excited.ports[as_size(port)].incident[as_size(mode)] = Complex{1.0, 0.0};
+      const hpfem::physics::Scattering<2> problem(dofs, excited);
+      const auto direct = problem.solve();
+      const auto via_operator = factorised.solve_port(port, mode);
+      INFO("port " << port << " mode " << mode);
+      REQUIRE(direct.unknown.norm() > 0);
+      REQUIRE((via_operator.unknown - direct.unknown).norm() < 1e-9 * direct.unknown.norm());
+    }
+  }
+  REQUIRE_THROWS_AS(factorised.solve_port(2, 0), hpfem::InvalidArgument);
+  REQUIRE_THROWS_AS(factorised.solve_port(0, 5), hpfem::InvalidArgument);
 }
 
 TEST_CASE("straight slab guide: the guided mode passes with |S21| = 1 and the phase beta L",

@@ -139,6 +139,11 @@ class Scattering {
   [[nodiscard]] std::vector<PortCoefficients> port_coefficients(
       const ScatteringSolution<Dim>& solution) const;
 
+  /// Adds the port terms to an assembled system: the modal boundary operator of every port
+  /// mode to the matrix (independent of the excitation) and @f$ 2 a_m q_m @f$ of the incident
+  /// amplitudes to the load (`ScatteringOperator` factorises the matrix once and excites the
+  /// modes one by one, `s_parameters`).
+  void add_port_terms(SparseMatrix& matrix, Vector& rhs) const;
   /// The incident wave at x: `setup.incident_wave` if given, else `setup.incident` (zero
   /// without an incident field).
   [[nodiscard]] assembly::ComplexVector<Dim> incident_wave(const Point<Dim>& x) const;
@@ -183,7 +188,6 @@ class Scattering {
  private:
   /// Adds the modal port terms @f$ \sum_m q_mq_m^\top/N_m @f$ and the excitation
   /// @f$ 2\sum_m a_mq_m @f$ of every port to the assembled operator and load.
-  void add_port_terms(SparseMatrix& matrix, Vector& rhs) const;
   std::vector<PortModes<Dim>> port_modes_;
   [[nodiscard]] std::vector<Index> facets(const std::vector<mesh::Tag>& tags) const;
 
