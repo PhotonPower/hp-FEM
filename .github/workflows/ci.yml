@@ -30,10 +30,8 @@ jobs:
           - { os: ubuntu-24.04, cc: clang-18, cxx: clang++-18, preset: release,
               extra: "libomp-18-dev" }
           - { os: ubuntu-24.04, cc: gcc-13,  cxx: g++-13,     preset: asan }
-          # libopenblas-dev switches the BLAS alternative of Ubuntu's MUMPS from the reference
-          # BLAS to OpenBLAS: the test step dropped from 60-100 min to the release job's size
           - { os: ubuntu-24.04, cc: gcc-13,  cxx: g++-13,     preset: mumps,
-              extra: "libmumps-seq-dev libmumps-headers-dev libopenblas-dev" }
+              extra: "libmumps-seq-dev libmumps-headers-dev" }
     runs-on: ${{ matrix.os }}
     env:
       CC: ${{ matrix.cc }}
@@ -41,7 +39,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Dependencies
-        run: sudo apt-get update && sudo apt-get install -y ninja-build libeigen3-dev ${{ matrix.cxx }} ${{ matrix.extra }}
+        # libopenblas-dev switches the BLAS alternative of Ubuntu's MUMPS from the reference BLAS
+        # to OpenBLAS (test step 10 min instead of 60-100); installed here so that the job name,
+        # which is a required check of the protected main branch, stays unchanged
+        run: sudo apt-get update && sudo apt-get install -y ninja-build libeigen3-dev ${{ matrix.cxx }} ${{ matrix.extra }} ${{ matrix.preset == 'mumps' && 'libopenblas-dev' || '' }}
       - name: Configure
         run: cmake --preset ${{ matrix.preset }} ${{ matrix.configure }}
       - name: Build
