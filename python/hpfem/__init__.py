@@ -34,11 +34,8 @@ from hpfem import (  # noqa: E402  (after the core names)
     materials,
     project,
     pv,
-<<<<<<< HEAD
     run,
-=======
     sweep,
->>>>>>> origin/main
     units,
 )
 from hpfem._hpfem import *  # noqa: F401, F403  (the bound API)
