@@ -23,6 +23,7 @@
 /// exp(-iωt). See docs/theory/maxwell.md#conical-incidence.
 #include <functional>
 #include <optional>
+#include <span>
 #include <vector>
 
 #include <Eigen/Core>
@@ -59,13 +60,16 @@ struct ConicalSystem {
   Index num_h1 = 0;
 };
 
-/// Assembles the forms for the longitudinal wavenumber β over all cells with rules exact for
-/// degree `2 p_c + extra_order` (plus 2 on curved cells).
-/// @throws InvalidArgument if the maps belong to different meshes.
+/// Assembles the forms for the longitudinal wavenumber β over all cells (or over `cells`
+/// only, the rest contributing nothing) with rules exact for degree `2 p_c + extra_order`
+/// (plus 2 on curved cells), in parallel over the cells with per-thread buffers.
+/// @throws InvalidArgument if the maps belong to different meshes or a cell index is out of
+///         range.
 [[nodiscard]] ConicalSystem assemble_conical(const fespace::NedelecDofMap<2>& nedelec,
                                              const fespace::DofMap<2>& h1, Real beta,
                                              const ConicalFormFactory& form_of_cell,
-                                             int extra_order = 2);
+                                             int extra_order = 2,
+                                             std::span<const Index> cells = {});
 
 /// Gradient of the block space: @f$ K_\beta = [G;\ \beta I] @f$ maps the H1 coefficients of ψ
 /// to the block coefficients of @f$ \nabla(\psi e^{i\beta z}) @f$. Columns: `h1.num_dofs()`.
