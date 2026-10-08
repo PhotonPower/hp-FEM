@@ -13,17 +13,34 @@ dependencies = ["numpy>=1.24", "scipy>=1.10"]
 
 [project.scripts]
 hpfem = "hpfem.cli:main"
+hpfem-gui = "hpfem.gui:main"
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff", "pre-commit", "meshio", "matplotlib", "pyyaml", "gmsh"]
 meshing = ["gmsh"]
 yaml = ["pyyaml"]
+gui = ["streamlit>=1.30", "gmsh", "matplotlib", "meshio", "pyyaml"]
 docs = ["mkdocs-material", "pymdown-extensions"]
 
 [tool.scikit-build]
-cmake.args = ["-DHPFEM_BUILD_PYTHON=ON", "-DHPFEM_BUILD_TESTS=OFF"]
+# distribution builds: warnings of other compiler versions must not stop an installation
+cmake.args = ["-DHPFEM_BUILD_PYTHON=ON", "-DHPFEM_BUILD_TESTS=OFF", "-DHPFEM_BUILD_EXAMPLES=OFF", "-DHPFEM_WARNINGS_AS_ERRORS=OFF"]
 cmake.build-type = "Release"
 wheel.packages = ["python/hpfem"]
+sdist.exclude = ["build/", "benchmarks/results/", "docs/", "examples/*/output/", "site/", ".claude/", ".github/"]
+
+# wheels (M15 F15, .github/workflows/wheels.yml): SparseLU build, self-contained; the direct
+# solver backends MUMPS and cuDSS stay with the source build (licence and size)
+[tool.cibuildwheel]
+build = "cp310-* cp311-* cp312-* cp313-*"
+skip = "*-musllinux_* *_i686 *-win32 pp*"
+build-verbosity = 1
+test-requires = ["pytest", "scipy"]
+test-command = "pytest {project}/python/tests/test_gui_entry.py {project}/python/tests/test_progress.py -q"
+
+[tool.cibuildwheel.linux]
+manylinux-x86_64-image = "manylinux_2_28"
+archs = ["x86_64"]
 
 [tool.ruff]
 line-length = 100

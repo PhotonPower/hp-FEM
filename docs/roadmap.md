@@ -339,7 +339,7 @@ faces" of M14-B.
   dicts), explicit
   out-of-range policy, Drude–Lorentz fit helper
 - [x] F14 (P3) high-level eigenproblems on the periodic-cell front end (resonances, bands)
-- [ ] F15 (P3) distribution: Windows/Linux wheels, `pip install hpfem[gui]`, `hpfem-gui` entry point
+- [x] F15 (P3) distribution: Windows/Linux wheels, `pip install hpfem[gui]`, `hpfem-gui` entry point
 
 ## Backlog / ideas
 - [x] dual H-formulation for guaranteed error bounds (`adaptivity::dual_solution` on the
