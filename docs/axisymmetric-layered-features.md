@@ -83,11 +83,13 @@ normalised by the incident intensity n_inc |E0|² / (2 Z0):
    a hole the body is lossless air; the meaningful quantity is the *change* of the absorption in
    the surrounding lossy layer: absorption of the total field in a bounded region around the hole
    minus that of the stack field in the same cells (Δσ_abs, can be negative).
-   **Review:** the axisymmetric solver has no absorbed-power routine at all yet (the 2D / 3D
-   `absorbed_power_by_tag` add the incident or background field to the unknown per quadrature
-   point; there is no helper named `combined_field`). S2 first adds the axisymmetric absorbed power
-   — the orders are orthogonal in φ, so the power is the sum over m of the per-order integrals with
-   the factor 2π — and then the variant with the analytic stack field per quadrature point.
+   **Review:** the axisymmetric solver has no absorbed-power routine at all yet. In 2D / 3D,
+   `absorbed_power_by_tag` adds the incident or background field to the unknown per quadrature
+   point, and `combined_field` (`physics/postprocess.hpp`, ADR-0009 §5) does the same for
+   surface fields (fluxes) — both for `Scattering<Dim>`, not for the orders of the axisymmetric
+   solver. S2 first adds the axisymmetric absorbed power — the orders are orthogonal in φ, so the
+   power is the sum over m of the per-order integrals with the factor 2π — and then the variant
+   with the analytic stack field per quadrature point.
 3. **Extinction**: σ_abs + σ_sca (the homogeneous optical theorem does not hold; the generalised
    version with the specular directions of the stack is out of scope).
 4. **Far field per half-space** (S3): dP/dΩ in the cover and in a lossless substrate by
