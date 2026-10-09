@@ -1435,5 +1435,39 @@ incidence to $10^{-9}$, at 45° to $5\cdot10^{-3}$; beyond the light cone nothin
 and the energy balance (delivered = fluxes + absorbed to 1 %) on a lossy ridge. Near grazing
 directions the PML limits the accuracy: at 67° a PML of 1 µm (in a medium of index 1.5 at
 1 µm) still reflects 0.8 % back onto the source, 0.5 µm 1.7 %; the PML thickness, not the mesh,
-has to grow there. Stages C (reciprocity) and B (array scanning with the guided-mode poles) are
-the next steps of M17.
+has to grow there.
+
+**Stage C, angle-resolved emission by reciprocity** (`hpfem.grating.emission_pattern`, M17
+S2, ADR-0013 §6). Lorentz reciprocity between the emitter and a distant dipole $p_2 \parallel
+\hat e$ in the direction $\hat r$ (medium of index $n$) gives the far-field amplitude of the
+emitter in that direction and polarisation, $\hat e\cdot F = \frac{i\omega\mu_0}{4\pi}\,
+p\cdot E_{pw}(x_0)$, with $E_{pw}$ the total field of the unit plane wave incident from
+$\hat r$ (travelling along $-\hat r$) with polarisation $\hat e$; hence
+
+$$
+\frac{dP}{d\Omega}(\hat r, \hat e) = \frac{n k_0^2 Z_0}{32\pi^2}
+\left|p\cdot\langle E_{pw}\rangle_g\right|^2 ,
+\qquad \langle E_{pw}\rangle_g = e^{-\sigma^2\beta^2/2}\int g_2\,E_{pw}\,dA ,
+$$
+
+the field averaged over the dipole's Gaussian: in-plane by a tensor Gauss–Hermite rule on the
+solved field, along $z$ by the Fourier factor of the direction's β. In a homogeneous medium
+$E_{pw} = \hat e\,e^{ik\cdot x}$, the sum over s and p gives
+$n k_0^2 Z_0 |p_\perp|^2 e^{-(nk_0\sigma)^2}/(32\pi^2)$, and its integral over the sphere is
+$P_{bulk} = $ `dipole_vacuum_power` $\cdot\, n\, e^{-(nk_0\sigma)^2}$ — the constant needs no
+further calibration. A direction $(\theta, \varphi)$ into the cover is
+$\hat r = (\sin\theta\cos\varphi, \cos\theta, \sin\theta\sin\varphi)$ (the specular direction of
+a wave incident at $(\theta, \varphi)$), so the plane wave is `grating.solve` at
+$(\theta, \varphi + \pi)$; directions into a lossless substrate are solved on the problem
+mirrored at $y = 0$ (mesh, stack, PML, $p_y \to -p_y$). One solve per direction and
+polarisation, no singularities; Stage C gives the radiated part only. By the array scanning a
+Floquet order of Stage A maps to the same quantity,
+$dP/d\Omega = \frac{P}{4\pi^2}(nk_0)^2\cos\theta\,P_m(k_x, \beta)$ with
+$(k_x + 2\pi m/P, \beta) = nk_0\sin\theta\,(\cos\varphi, \sin\varphi)$.
+`python/tests/test_emission_pattern.py` checks a homogeneous cell against the closed form per
+direction and the integral over a spherical 3-design (the eight cube corners) against
+$P_{bulk}$ (both to $10^{-6}$), a dipole above glass against the plane-wave Fresnel far field
+computed independently (direct and reflected wave in air, transmitted wave in glass, also
+beyond the critical angle; $10^{-6}$), and a glass ridge against the $m = 0$ order of Stage A at
+$(k_x, \beta) = (0.3, 0.2)\,k_0$ ($2\cdot10^{-5}$; the opposite direction differs by a factor of
+three). Stage B (array scanning with the guided-mode poles) is the next step of M17.
