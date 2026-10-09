@@ -115,6 +115,16 @@ def test_values_match_a_plain_solve_and_the_jacobian_matches_finite_differences(
             result.jacobian[:, j],
             fd,
         )
+    # away from the reference (all geometry parameters changed at once, as in a fit): the
+    # Jacobian uses the velocities at that point (the morph is nonlinear in the parameters)
+    away = {"cd": WIDTH + 6 * NM, "height": HEIGHT - 9 * NM, "angle": math.pi / 2 - 0.05,
+            "eps_line": 3.2}  # fmt: skip
+    shifted = ev(away, jacobian=True)
+    for j, name in enumerate(ev.names[:3]):
+        plus = ev({**away, name: away[name] + steps[name]}).values
+        minus = ev({**away, name: away[name] - steps[name]}).values
+        fd = (plus - minus) / (2 * steps[name])
+        assert np.abs(shifted.jacobian[:, j] - fd).max() < 1e-5 * np.abs(fd).max(), name
     # a lower order as fidelity
     low = ev(REFERENCE, fidelity={"order": 2})
     assert low.meta["order"] == 2 and np.abs(low.values - result.values).max() < 0.05

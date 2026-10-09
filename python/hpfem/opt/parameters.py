@@ -156,9 +156,11 @@ def trapezoid_parameters(
     """The scatterometry triple of a ``"trapezoid"`` shape: the mid-height width ``cd``
     (critical dimension), the ``height`` and the side-wall ``angle`` (radians, 90° for
     vertical walls), each changed with the other two fixed (centre ``x`` and base ``y``
-    fixed). Bounds are ``(lower, upper)`` pairs; names ``prefix + "cd"`` etc."""
+    fixed). Bounds are ``(lower, upper)`` pairs; names ``prefix + "cd"`` etc. The typical
+    magnitude (normalisation, difference steps) is the bound range, else the period for the
+    lengths and 1 rad for the angle."""
 
-    def make(name, index, bounds):
+    def make(name, index, bounds, scale=None):
         def getter(params):
             return _trapezoid_to_cd(params)[index]
 
@@ -167,9 +169,14 @@ def trapezoid_parameters(
             values[index] = float(value)
             return _trapezoid_from_cd(params, *values)
 
-        return GeometryParameter(prefix + name, shape, getter, setter, *bounds)
+        return GeometryParameter(prefix + name, shape, getter, setter, *bounds, scale)
 
-    return [make("cd", 0, cd), make("height", 1, height), make("angle", 2, angle)]
+    unbounded_angle = not all(math.isfinite(b) for b in angle)
+    return [
+        make("cd", 0, cd),
+        make("height", 1, height),
+        make("angle", 2, angle, 1.0 if unbounded_angle else None),
+    ]
 
 
 # --- geometry nodes and mesh velocities ------------------------------------------------------
@@ -323,16 +330,82 @@ def cell_quality(mesh) -> np.ndarray:
     return 16.0 * area * np.abs(area) / ((a_ + b_ + c_) * a_ * b_ * c_)
 
 
+class _ShapeNodes:
+    """The nodes on the boundary of one shape (one periodic copy) with their coordinates on
+    it: edge index and fraction for a polygon, the angle for an ellipse — so that they can be
+    put on the same place of a changed shape."""
+
+    def __init__(self, shape: Shape, x: np.ndarray, shift: float, tol: float):
+        self.kind = shape.kind
+        self.shift = np.array([shift, 0.0])
+        xs = x - self.shift
+        if shape.kind == "ellipse":
+            p = shape.params
+            u = (xs[:, 0] - p["x"]) / p["rx"]
+            w = (xs[:, 1] - p["y"]) / p["ry"]
+            on = np.abs(np.hypot(u, w) - 1.0) < tol / min(p["rx"], p["ry"])
+            self.nodes = np.flatnonzero(on)
+            self.angle = np.arctan2(w, u)[on]
+            return
+        corners = np.asarray(shape.polygon(), dtype=float)
+        n = len(corners)
+        edge = np.full(len(x), -1)
+        fraction = np.zeros(len(x))
+        for i in range(n):
+            c0, c1 = corners[i], corners[(i + 1) % n]
+            d = c1 - c0
+            length2 = float(d @ d)
+            if length2 == 0.0:
+                continue
+            t = ((xs - c0) @ d) / length2
+            dist = np.linalg.norm(xs - (c0 + np.outer(t, d)), axis=1)
+            slack = tol / math.sqrt(length2)
+            hit = (t >= -slack) & (t <= 1 + slack) & (dist < tol) & (edge < 0)
+            edge[hit] = i
+            fraction[hit] = np.clip(t[hit], 0.0, 1.0)
+        self.nodes = np.flatnonzero(edge >= 0)
+        self.edge = edge[self.nodes]
+        self.fraction = fraction[self.nodes][:, None]
+
+    def positions(self, shape: Shape) -> np.ndarray:
+        """The nodes' places on ``shape`` (the same shape changed, same kind and corners)."""
+        if self.kind == "ellipse":
+            p = shape.params
+            local = np.column_stack(
+                [p["x"] + p["rx"] * np.cos(self.angle), p["y"] + p["ry"] * np.sin(self.angle)]
+            )
+            return local + self.shift
+        corners = np.asarray(shape.polygon(), dtype=float)
+        c0 = corners[self.edge]
+        c1 = corners[(self.edge + 1) % len(corners)]
+        return (1 - self.fraction) * c0 + self.fraction * c1 + self.shift
+
+
 class Morph:
     """A reference mesh of ``cell`` moved to new values of the geometry ``parameters``.
 
-    ``mesh_at(values)`` returns a moved copy, ``x = x_ref + Σ (p - p_ref) V_p`` with the
-    velocities of :func:`shape_velocity`, after checking it (:meth:`check`); parameters
-    missing from ``values`` keep their reference values. ``cell_at(values)`` is the exact
-    geometry (for a remesh). The velocities are those the derivatives need
-    (``grating.jacobian(result, [("shape", morph.velocity(name)), ...])``). ``band =
-    (y_low, y_high)`` keeps every node outside that height range fixed (see
-    :func:`shape_velocity`; put the measurement lines and the PML outside it)."""
+    ``mesh_at(values)`` returns a moved copy after checking it (:meth:`check`): the nodes on
+    the boundary of every shape a parameter changes (and of its copies shifted by ± period)
+    go to the same place on the changed shape (edge and fraction along it for a polygon, the
+    angle for an ellipse) — the exact geometry of ``cell_at(values)``, for any combination of
+    parameter values —, the cell boundary and the other material interfaces stay fixed, the
+    remaining vertices follow by the harmonic extension (graph Laplacian of the mesh edges,
+    factorised once), edge nodes of a second-order mesh off the shapes by the mean of their
+    vertices. Same topology, tags and DoF numbering everywhere, so the objective is a smooth
+    function of the parameters. Parameters missing from ``values`` keep their reference
+    values. ``velocity_at(values, name)`` is the mesh velocity :math:`V = \\partial x /
+    \\partial p` there (central differences of this node map, step ``step`` times the
+    parameter's typical magnitude), the one the derivatives need at that point
+    (``grating.jacobian(result, [("shape", morph.velocity_at(values, name)), ...])``);
+    ``velocity(name)`` is the one at the reference (equal to :func:`shape_velocity`).
+    ``band = (y_low, y_high)`` keeps every vertex on and beyond the band's edges fixed (see
+    :func:`shape_velocity`; put the measurement lines and the PML outside it). Raises
+    ``ValueError`` if a parameter moves nodes on the cell boundary or outside the band.
+
+    (A linear morph :math:`x_{ref} + \\sum (p - p_{ref}) V_p` would be exact for each
+    parameter alone but not jointly: the wall of a trapezoid moves with
+    :math:`h \\cot\\alpha`, and the cross term of height and side-wall angle shifted the
+    corners of a reconstructed line by 0.25 nm, a bias of 2.5 standard errors.)"""
 
     def __init__(self, cell: UnitCell, mesh, parameters: Sequence[GeometryParameter],
                  quality_threshold: float = 0.3, step: float = 1e-6,
@@ -349,37 +422,127 @@ class Morph:
         self.step = float(step)
         self.band = None if band is None else (float(band[0]), float(band[1]))
         self.reference = {p.name: p.get(cell) for p in self.parameters}
-        self._velocity = {
-            p.name: shape_velocity(cell, mesh, p, step, self.band) for p in self.parameters
-        }
+        self._x = _geometry_nodes(mesh)
+        self._build(cell, mesh)
+        self._velocity = {p.name: self.velocity_at({}, p.name) for p in self.parameters}
+        self._check_velocities()
         self._quality = cell_quality(mesh)
         if np.any(self._quality == 0):
             raise ValueError("Morph: the reference mesh has degenerate cells")
 
+    def _build(self, cell: UnitCell, mesh) -> None:
+        x, n_v = self._x, int(mesh.num_vertices)
+        tol = 1e-9 * cell.period
+        self._shapes = sorted({p.shape for p in self.parameters})
+        self._on_shape: list[tuple[int, _ShapeNodes]] = []
+        on = np.zeros(len(x), dtype=bool)
+        for s in self._shapes:
+            shape = next(p for p in self.parameters if p.shape == s)._shape(cell)
+            for k in (-1, 0, 1):
+                nodes = _ShapeNodes(shape, x, k * cell.period, tol)
+                if len(nodes.nodes):
+                    self._on_shape.append((s, nodes))
+                    on[nodes.nodes] = True
+        boundary = np.zeros(n_v, dtype=bool)
+        for f in mesh.boundary_facets:
+            boundary[list(mesh.facet_vertices(int(f)))] = True
+        fixed = on[:n_v] | boundary
+        self._outside = np.zeros(n_v, dtype=bool)
+        if self.band is not None:
+            y_low, y_high = self.band
+            if not y_low < y_high:
+                raise ValueError(f"Morph: empty band {self.band}")
+            self._outside = (x[:n_v, 1] <= y_low + tol) | (x[:n_v, 1] >= y_high - tol)
+            fixed |= self._outside
+        tags = np.asarray(mesh.cell_tags)
+        for f in range(mesh.num_facets):
+            cells = list(mesh.facet_cells(f))
+            if len(cells) == 2 and min(cells) >= 0 and tags[cells[0]] != tags[cells[1]]:
+                fixed[list(mesh.facet_vertices(f))] = True
+        self._on, self._boundary, self._n_v = on, boundary, n_v
+        self._free = np.flatnonzero(~fixed)
+        self._fixed = np.flatnonzero(fixed)
+        if len(self._free):
+            edges = np.asarray(mesh.edges, dtype=int)
+            a, b = edges[:, 0], edges[:, 1]
+            ones = np.ones(len(edges))
+            adjacency = scipy.sparse.coo_matrix(
+                (np.concatenate([ones, ones]), (np.concatenate([a, b]), np.concatenate([b, a]))),
+                shape=(n_v, n_v),
+            ).tocsr()
+            laplacian = (
+                scipy.sparse.diags(np.asarray(adjacency.sum(axis=1)).ravel()) - adjacency
+            ).tocsr()
+            self._l_fb = laplacian[self._free][:, self._fixed]
+            self._l_ff = scipy.sparse.linalg.splu(laplacian[self._free][:, self._free].tocsc())
+        self._edges = np.asarray(mesh.edges, dtype=int) if mesh.geometry_order == 2 else None
+
+    def _displacement(self, values: Mapping[str, float]) -> np.ndarray:
+        """Displacement of every geometry node from the reference to ``values``."""
+        cell = self.cell_at(values)
+        d = np.zeros_like(self._x)
+        for s, nodes in self._on_shape:
+            d[nodes.nodes] = nodes.positions(cell.shapes[s]) - self._x[nodes.nodes]
+        n_v = self._n_v
+        if len(self._free):
+            rhs = -(self._l_fb @ d[:n_v][self._fixed])
+            d[:n_v][self._free] = np.column_stack([self._l_ff.solve(rhs[:, i]) for i in range(2)])
+        if self._edges is not None:
+            mean = 0.5 * (d[self._edges[:, 0]] + d[self._edges[:, 1]])
+            off = ~self._on[n_v:]
+            d[n_v:][off] = mean[off]
+        return d
+
+    def _check_velocities(self) -> None:
+        n_v = self._n_v
+        for p in self.parameters:
+            moving = np.linalg.norm(self._velocity[p.name][:n_v], axis=1) > 0
+            if np.any(moving & self._on[:n_v] & self._boundary):
+                raise ValueError(
+                    f"Morph: parameter {p.name} moves nodes on the cell boundary (the shape "
+                    "touches the Bloch faces, the top or the bottom)"
+                )
+            if np.any(moving & self._on[:n_v] & self._outside):
+                raise ValueError(
+                    f"Morph: parameter {p.name} moves nodes outside the band {self.band}"
+                )
+
     def velocity(self, name: str) -> np.ndarray:
+        """Mesh velocity of ``name`` at the reference values."""
         return self._velocity[name]
 
-    def _deltas(self, values: Mapping[str, float]) -> dict[str, float]:
+    def velocity_at(self, values: Mapping[str, float], name: str) -> np.ndarray:
+        """Mesh velocity :math:`\\partial x / \\partial p` of ``name`` at ``values`` (array
+        ``(num_geometry_nodes, 2)``), by central differences of the node map."""
+        parameter = next((p for p in self.parameters if p.name == name), None)
+        if parameter is None:
+            raise ValueError(f"Morph: unknown parameter {name!r}")
+        full = self._values(values)
+        h = self.step * parameter.typical(self.cell)
+        plus = self._displacement({**full, name: full[name] + h})
+        minus = self._displacement({**full, name: full[name] - h})
+        return (plus - minus) / (2 * h)
+
+    def _values(self, values: Mapping[str, float]) -> dict[str, float]:
+        """Every parameter's value: ``values`` where given, else the reference."""
         unknown = set(values) - set(self.reference)
         if unknown:
             raise ValueError(f"Morph: unknown parameters {sorted(unknown)}")
-        return {n: float(values.get(n, ref)) - ref for n, ref in self.reference.items()}
+        return {n: float(values.get(n, ref)) for n, ref in self.reference.items()}
 
     def mesh_at(self, values: Mapping[str, float]):
         """The reference mesh moved to ``values``; raises :class:`MeshQualityError`."""
         moved = self.mesh.copy()
-        for name, delta in self._deltas(values).items():
-            if delta != 0.0:
-                hpfem.move_nodes(moved, self._velocity[name], delta)
+        hpfem.move_nodes(moved, self._displacement(values), 1.0)
         self.check(moved)
         return moved
 
     def cell_at(self, values: Mapping[str, float]) -> UnitCell:
         """The unit cell with the parameters set to ``values`` (the exact geometry)."""
         cell = self.cell
-        deltas = self._deltas(values)
+        full = self._values(values)
         for p in self.parameters:
-            cell = p.apply(cell, self.reference[p.name] + deltas[p.name])
+            cell = p.apply(cell, full[p.name])
         return cell
 
     def check(self, mesh) -> float:
