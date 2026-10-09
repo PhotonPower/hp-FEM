@@ -81,6 +81,18 @@ Vector adjoint_solution(const Scattering<Dim>& problem, const Vector& q) {
 }
 
 template <int Dim>
+Vector adjoint_solution(const Scattering<Dim>& problem, const ScatteringSolution<Dim>& solution,
+                        const Vector& q) {
+  if (!solution.factorisation) return adjoint_solution<Dim>(problem, q);
+  if (q.size() != problem.dofs().num_dofs() ||
+      solution.factorisation->num_dofs() != problem.dofs().num_dofs()) {
+    throw InvalidArgument(
+        "adjoint_solution: the functional or the kept factorisation does not match the DoF map");
+  }
+  return solution.factorisation->solve_adjoint(q);
+}
+
+template <int Dim>
 Complex material_sensitivity(const Scattering<Dim>& problem,
                              const ScatteringSolution<Dim>& solution, const Vector& adjoint,
                              mesh::Tag tag) {
@@ -155,6 +167,23 @@ ConicalAdjoint conical_adjoint_solution(const ConicalScattering& problem, const 
   return {z.head(n_e), z.tail(h1.num_dofs())};
 }
 
+ConicalAdjoint conical_adjoint_solution(const ConicalScattering& problem,
+                                        const ConicalSolution& solution, const Vector& q_e,
+                                        const Vector& q_v) {
+  if (!solution.factorisation) return conical_adjoint_solution(problem, q_e, q_v);
+  const Index n_e = problem.transverse_dofs().num_dofs();
+  const Index n_v = problem.longitudinal_dofs().num_dofs();
+  if (q_e.size() != n_e || q_v.size() != n_v || solution.factorisation->num_dofs() != n_e + n_v) {
+    throw InvalidArgument(
+        "conical_adjoint_solution: the functional or the kept factorisation does not match the "
+        "maps");
+  }
+  Vector q(n_e + n_v);
+  q << q_e, q_v;
+  const Vector z = solution.factorisation->solve_adjoint(q);
+  return {z.head(n_e), z.tail(n_v)};
+}
+
 Complex conical_material_sensitivity(const ConicalScattering& problem,
                                      const ConicalSolution& solution, const ConicalAdjoint& adjoint,
                                      mesh::Tag tag) {
@@ -194,6 +223,10 @@ Complex conical_material_sensitivity(const ConicalScattering& problem,
 
 template Vector adjoint_solution<2>(const Scattering<2>&, const Vector&);
 template Vector adjoint_solution<3>(const Scattering<3>&, const Vector&);
+template Vector adjoint_solution<2>(const Scattering<2>&, const ScatteringSolution<2>&,
+                                    const Vector&);
+template Vector adjoint_solution<3>(const Scattering<3>&, const ScatteringSolution<3>&,
+                                    const Vector&);
 template Complex material_sensitivity<2>(const Scattering<2>&, const ScatteringSolution<2>&,
                                          const Vector&, mesh::Tag);
 template Complex material_sensitivity<3>(const Scattering<3>&, const ScatteringSolution<3>&,

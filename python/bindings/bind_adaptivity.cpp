@@ -133,6 +133,13 @@ void bind_adaptivity_dim(py::module_& m) {
       "adjoint z of the goal Q(e) = q^T e on the primal space (test space of the constrained "
       "problem, homogeneous Dirichlet on PEC and incident facets)");
   m.def(
+      "adjoint_solution",
+      [](const physics::Scattering<Dim>& problem, const physics::ScatteringSolution<Dim>& solution,
+         const Vector& q) { return physics::adjoint_solution<Dim>(problem, solution, q); },
+      py::arg("problem"), py::arg("solution"), py::arg("q"), Release(),
+      "the adjoint on the factorisation kept by the solve (setup.keep_factorisation): one "
+      "transposed solve; assembles and factorises if the solution keeps none");
+  m.def(
       "material_sensitivity",
       [](const physics::Scattering<Dim>& problem, const physics::ScatteringSolution<Dim>& solution,
          const Vector& adjoint, mesh::Tag tag) {
@@ -330,6 +337,16 @@ void bind_adaptivity(py::module_& m) {
       },
       py::arg("problem"), py::arg("q_e"), py::arg("q_v"), Release(),
       "adjoint (z_e, z_v) of the goal q_e^T e + q_v^T v on the problem's maps");
+  m.def(
+      "conical_adjoint_solution",
+      [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,
+         const Vector& q_e, const Vector& q_v) {
+        const auto z = physics::conical_adjoint_solution(problem, solution, q_e, q_v);
+        return std::make_pair(z.transverse, z.longitudinal);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("q_e"), py::arg("q_v"), Release(),
+      "the adjoint on the factorisation kept by the solve (setup.keep_factorisation): one "
+      "transposed solve; assembles and factorises if the solution keeps none");
   m.def(
       "conical_material_sensitivity",
       [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,

@@ -1,6 +1,7 @@
 /// Bindings of `physics`: analytic incident fields, the scattering problem (setup, solve,
 /// field evaluation, errors, estimator), parameter sweeps and waveguide modes.
 #include <functional>
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -12,6 +13,7 @@
 #include "hpfem/physics/conical_scattering.hpp"
 #include "hpfem/physics/conical_sweep.hpp"
 #include "hpfem/physics/field_sampling.hpp"
+#include "hpfem/physics/kept_factorisation.hpp"
 #include "hpfem/physics/propagating_mode.hpp"
 #include "hpfem/physics/resonance.hpp"
 #include "hpfem/physics/riesz_projection.hpp"
@@ -166,6 +168,10 @@ void bind_physics_dim(py::module_& m) {
                      "waveguide ports (modal absorption and excitation; 2D)")
       .def_readwrite("solver", &ScatteringSetup<Dim>::solver)
       .def_readwrite("condense", &ScatteringSetup<Dim>::condense)
+      .def_readwrite(
+          "keep_factorisation", &ScatteringSetup<Dim>::keep_factorisation,
+          "keep the factorised system in the solution (solution.factorisation) for adjoint and "
+          "tangent solves of the sensitivities; holds the factors while the solution lives")
       .def_readwrite("progress", &ScatteringSetup<Dim>::progress,
                      "callback(event) -> bool at the start of every phase of solve and when "
                      "done; False cancels (hpfem.Cancelled)")
@@ -175,13 +181,19 @@ void bind_physics_dim(py::module_& m) {
   py::class_<ScatteringSolution<Dim>>(m, named("ScatteringSolution", Dim).c_str(),
                                       "Coefficients of the unknown field (E or E_sc)")
       .def(py::init([](physics::Formulation f, Vector unknown) {
-             return ScatteringSolution<Dim>{f, std::move(unknown), {}};
+             return ScatteringSolution<Dim>{f, std::move(unknown), {}, nullptr};
            }),
            py::arg("formulation"), py::arg("unknown"))
       .def_readwrite("formulation", &ScatteringSolution<Dim>::formulation)
       .def_readwrite("unknown", &ScatteringSolution<Dim>::unknown)
       .def_readonly("timing", &ScatteringSolution<Dim>::timing,
-                    "seconds per phase of solve and 'total'");
+                    "seconds per phase of solve and 'total'")
+      .def_property_readonly(
+          "factorisation",
+          [](const ScatteringSolution<Dim>& s) {
+            return std::const_pointer_cast<physics::KeptFactorisation>(s.factorisation);
+          },
+          "the kept factorised system (KeptFactorisation) or None");
 
   py::class_<Scattering<Dim>>(
       m, named("Scattering", Dim).c_str(),
@@ -709,6 +721,25 @@ void bind_riesz_common(py::module_& m) {
 }  // namespace
 
 void bind_physics(py::module_& m) {
+  py::class_<physics::KeptFactorisation, std::shared_ptr<physics::KeptFactorisation>>(
+      m, "KeptFactorisation",
+      "Factorised system of a solve kept for tangent (A s = r) and adjoint (A^T z = q) solves "
+      "on full-size vectors (ADR-0012); the adjoint is the exact transpose of the solve")
+      .def("solve", &physics::KeptFactorisation::solve, py::arg("load"), Release(),
+           "s = A^-1 r for a full-size load, homogeneous Dirichlet data")
+      .def("solve_many", &physics::KeptFactorisation::solve_many, py::arg("loads"), Release(),
+           "several loads at once (n x m)")
+      .def("solve_adjoint", &physics::KeptFactorisation::solve_adjoint, py::arg("functional"),
+           Release(), "z = A^-T q for a full-size functional vector (adjoint of Q = q^T e)")
+      .def("solve_adjoint_many", &physics::KeptFactorisation::solve_adjoint_many,
+           py::arg("functionals"), Release(), "several functionals at once (n x m)")
+      .def_property_readonly("num_dofs", &physics::KeptFactorisation::num_dofs,
+                             "size of the full vectors")
+      .def_property_readonly("size", &physics::KeptFactorisation::size,
+                             "unknowns of the factorised system")
+      .def_property_readonly(
+          "solver_name", [](const physics::KeptFactorisation& k) { return k.solver().name(); },
+          "backend of the factorisation");
   {
     using physics::ConicalScattering;
     using physics::ConicalScatteringSetup;
@@ -780,13 +811,23 @@ void bind_physics(py::module_& m) {
                        &ConicalScatteringSetup::pml_extra_quadrature_order)
         .def_readwrite("scalar_ez", &ConicalScatteringSetup::scalar_ez,
                        "solve only the H1 block (E_z) at beta = 0 with an E_z-only excitation; "
-                       "the in-plane coefficients of the solution are zero");
+                       "the in-plane coefficients of the solution are zero")
+        .def_readwrite(
+            "keep_factorisation", &ConicalScatteringSetup::keep_factorisation,
+            "keep the factorised system in the solution (solution.factorisation) for adjoint and "
+            "tangent solves of the sensitivities; holds the factors while the solution lives");
     py::class_<ConicalSolution>(m, "ConicalSolution", "Coefficients of the unknown conical field")
         .def_readonly("beta", &ConicalSolution::beta)
         .def_readonly("scattered", &ConicalSolution::scattered)
         .def_readonly("transverse", &ConicalSolution::transverse)
         .def_readonly("longitudinal", &ConicalSolution::longitudinal, "v = -i E_z coefficients")
-        .def_readonly("timing", &ConicalSolution::timing, "seconds per phase of solve and 'total'");
+        .def_readonly("timing", &ConicalSolution::timing, "seconds per phase of solve and 'total'")
+        .def_property_readonly(
+            "factorisation",
+            [](const ConicalSolution& s) {
+              return std::const_pointer_cast<physics::KeptFactorisation>(s.factorisation);
+            },
+            "the kept factorised system on (E_x, E_y | v) (KeptFactorisation) or None");
     py::class_<ConicalScattering>(m, "ConicalScattering",
                                   "Assembles S(beta) - k0^2 M with the constraints and solves; at "
                                   "beta = 0 with an E_z incident field this is the E_z (TE) solver")

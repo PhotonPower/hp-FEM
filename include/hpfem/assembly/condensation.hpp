@@ -48,6 +48,16 @@ class StaticCondensation {
   [[nodiscard]] Vector condense_load(const Vector& load) const;
   /// Interior recovery for a solution of the condensed system with `load`.
   [[nodiscard]] Vector recover(const Vector& solution, const Vector& load) const;
+  /// Condensed right-hand side of the transposed system @f$ K^\top z = q @f$ (the adjoint of
+  /// the sensitivities): @f$ \tilde q_E = q_E - (K_{BB}^{-1}K_{BE})^\top q_B @f$, interior entries
+  /// zero. The condensed matrix of the transposed system is the transpose of @f$ \tilde K_{EE}
+  /// @f$, so its solution is a transposed solve with the factors of the condensed system.
+  /// @throws InvalidArgument if the size does not match.
+  [[nodiscard]] Vector condense_load_transposed(const Vector& functional) const;
+  /// Interior recovery of the transposed system: @f$ z_B = K_{BB}^{-\top}(q_B - K_{EB}^\top z_E)
+  /// @f$ for a solution of the condensed transposed system with right-hand side `functional`.
+  /// @throws InvalidArgument if the sizes do not match.
+  [[nodiscard]] Vector recover_transposed(const Vector& solution, const Vector& functional) const;
 
   [[nodiscard]] Index num_dofs() const noexcept { return num_dofs_; }
   [[nodiscard]] Index num_interior() const noexcept { return num_interior_; }

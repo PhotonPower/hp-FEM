@@ -170,6 +170,38 @@ def test_shape_sensitivity_of_the_ridge_height_matches_finite_differences():
     assert abs(derivative - fd) < 1e-3 * abs(fd)
 
 
+def test_kept_factorisation_gives_the_same_sensitivities():
+    mesh, pml = unit_cell()
+    glass = hpfem.Material.dielectric(1.5)
+    stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)
+    ridge = hpfem.Material()
+    ridge.eps_r = 2.25 + 0.05j
+    args = (mesh, {SUB: glass, RIDGE_TAG: ridge}, stack, "p", 40 * units.deg, 20 * units.deg, OMEGA)
+    common = dict(order=3, pml={"top": pml, "bottom": pml}, orders_max=2, check=False)
+    plain = grating.solve(*args, **common)
+    kept = grating.solve(*args, keep_factorisation=True, **common)
+    assert plain.solution.factorisation is None
+    factorisation = kept.solution.factorisation
+    assert factorisation is not None and factorisation.size > 0 and factorisation.solver_name
+    assert abs(kept.R - plain.R) < 1e-12
+    for side in ("R", "T"):
+        a = grating.sensitivity(plain, RIDGE_TAG, order=0, side=side)
+        b = grating.sensitivity(kept, RIDGE_TAG, order=0, side=side)
+        assert np.allclose(a, b, rtol=1e-8, atol=1e-14)
+    velocity = hpfem.region_normal_velocity(mesh, RIDGE_TAG)
+    a = grating.shape_sensitivity(plain, velocity, order=0)
+    b = grating.shape_sensitivity(kept, velocity, order=0)
+    assert abs(a - b) < 1e-8 * abs(a)
+    # the adjoint on the kept factorisation is the transpose of its tangent solve
+    rng = np.random.default_rng(5)
+    n = factorisation.num_dofs
+    r = rng.normal(size=n) + 1j * rng.normal(size=n)
+    q = rng.normal(size=n) + 1j * rng.normal(size=n)
+    forward = q @ factorisation.solve(r)
+    backward = factorisation.solve_adjoint(q) @ r
+    assert abs(forward - backward) < 1e-10 * abs(forward)
+
+
 def test_silver_grating_with_pec_bottom_absorbs_the_rest():
     mesh, pml = unit_cell()
     silver = hpfem.Material()

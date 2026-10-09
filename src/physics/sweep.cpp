@@ -124,7 +124,7 @@ ScatteringSolution<Dim> ScatteringOperator<Dim>::finish(Vector x, const Vector& 
                                                         Formulation formulation) const {
   if (constraints_) x = constraints_->expand(x);
   if (condensation_) x = condensation_->recover(x, full_load);
-  return {formulation, std::move(x), {}};
+  return {formulation, std::move(x), {}, nullptr};
 }
 
 template <int Dim>

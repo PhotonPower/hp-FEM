@@ -228,7 +228,7 @@ Complex shape_derivative(const Scattering<Dim>& problem, const ScatteringSolutio
                          Real relative_step, Real functional_step) {
   const auto& dofs = problem.dofs();
   const Vector q = functional(dofs);
-  const Vector z = adjoint_solution<Dim>(problem, q);
+  const Vector z = adjoint_solution<Dim>(problem, solution, q);
   const ComplexNodeField gradient = shape_gradient<Dim>(problem, solution, z, relative_step);
   Complex total = shape_sensitivity(gradient, velocity);
   // the functional on the moved meshes: (dq/dx . V)^T e
@@ -253,7 +253,7 @@ Complex conical_shape_derivative(const ConicalScattering& problem, const Conical
   const auto& nd = problem.transverse_dofs();
   const auto& h1 = problem.longitudinal_dofs();
   const auto [q_e, q_v] = functional(nd, h1);
-  const ConicalAdjoint z = conical_adjoint_solution(problem, q_e, q_v);
+  const ConicalAdjoint z = conical_adjoint_solution(problem, solution, q_e, q_v);
   const ComplexNodeField gradient = conical_shape_gradient(problem, solution, z, relative_step);
   Complex total = shape_sensitivity(gradient, velocity);
   const Real step = functional_step * largest_diameter(nd.mesh());

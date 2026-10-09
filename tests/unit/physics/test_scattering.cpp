@@ -177,7 +177,8 @@ TEST_CASE("Scattering: zero contrast gives a zero scattered field, PEC data and 
     }
     Vector unknown = Vector::Zero(dofs.num_dofs());
     for (Index i = 0; i < data.size(); ++i) unknown(data.dofs[as_size(i)]) = data.values(i);
-    const auto total = pec_problem.total_field({Formulation::kScatteredField, unknown, {}}, c, xi);
+    const auto total =
+        pec_problem.total_field({Formulation::kScatteredField, unknown, {}, nullptr}, c, xi);
     Complex tangential = 0;
     for (int d = 0; d < 2; ++d) tangential += total(d) * tangent(d);
     REQUIRE(std::abs(tangential) < 1e-12);

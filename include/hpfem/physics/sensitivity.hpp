@@ -37,6 +37,15 @@ namespace hpfem::physics {
 /// @throws InvalidArgument if q does not match the DoF map.
 template <int Dim>
 [[nodiscard]] Vector adjoint_solution(const Scattering<Dim>& problem, const Vector& q);
+/// The same on the factorisation the solve kept (`ScatteringSetup::keep_factorisation`): one
+/// transposed solve (`KeptFactorisation::solve_adjoint`) instead of an assembly and a
+/// factorisation, the exact transpose of the system that was solved (ports, condensation and
+/// constraints included). Falls back to `adjoint_solution(problem, q)` when the solution
+/// carries no factorisation.
+/// @throws InvalidArgument if q or the kept factorisation do not match the DoF map.
+template <int Dim>
+[[nodiscard]] Vector adjoint_solution(const Scattering<Dim>& problem,
+                                      const ScatteringSolution<Dim>& solution, const Vector& q);
 
 /// @f$ dQ/d\varepsilon_{\text{tag}} @f$ of the goal whose adjoint is `adjoint`, for the
 /// solution of the problem (scattered or total field as the formulation requires).
@@ -57,6 +66,12 @@ struct ConicalAdjoint {
 /// `ConicalFunctional` evaluated on the problem's maps.
 /// @throws InvalidArgument if the vectors do not match the maps.
 [[nodiscard]] ConicalAdjoint conical_adjoint_solution(const ConicalScattering& problem,
+                                                      const Vector& q_e, const Vector& q_v);
+/// The same on the factorisation the solve kept (`ConicalScatteringSetup::keep_factorisation`, also
+/// on the scalar E_z path), falling back to the assembling version without one.
+/// @throws InvalidArgument if the vectors or the kept factorisation do not match the maps.
+[[nodiscard]] ConicalAdjoint conical_adjoint_solution(const ConicalScattering& problem,
+                                                      const ConicalSolution& solution,
                                                       const Vector& q_e, const Vector& q_v);
 
 /// @f$ dQ/d\varepsilon_{\text{tag}} @f$ for the conical solver: @f$ k_0^2 \big[(z_e, z_v)^\top

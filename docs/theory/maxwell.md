@@ -848,6 +848,43 @@ Hadamard formula, whose interface integrals of the coefficient jumps are the con
 for any node velocity (checked for the ridge height of the glass grating against finite
 differences to $10^{-3}$).
 
+### Kept factorisation
+
+`adjoint_solution(problem, q)` assembles and factorises the adjoint system anew. With
+`setup.keep_factorisation = true` (`ScatteringSetup`, `ConicalScatteringSetup`,
+`hpfem.grating.solve(..., keep_factorisation=True)`) the solve hands its factorised system to
+the solution (`solution.factorisation`, a `physics::KeptFactorisation`, ADR-0012 §4), and
+every further solve with the same operator is a pair of triangular solves:
+
+- the **tangent** (direct) solve $s = A^{-1} r$ of a full-size residual $r$ — the solution
+  change $de/d\theta = A^{-1}(\partial_\theta b - \partial_\theta A\,e)$ of one parameter;
+- the **adjoint** solve $z = A^{-\top} q$ of a full-size functional vector — one goal.
+
+The forward solve reaches the factorised matrix in fixed steps: static condensation of the
+interior DoFs ($\tilde f_E = f_E - K_{EB}K_{BB}^{-1}f_B$), selection of the unknowns (the
+conical solver drops its Dirichlet DoFs, the scalar $E_z$ path keeps the H1 block),
+constraints ($P^H$), zero data on the eliminated Dirichlet unknowns; back through $P$ and the
+interior recovery $u_B = K_{BB}^{-1}(f_B - K_{BE}u_E)$. The adjoint applies the transposes:
+
+$$
+\tilde q_E = q_E - (K_{BB}^{-1}K_{BE})^\top q_B,\quad
+y_r = (P^H \tilde A P)^{-\top} P^\top \tilde q,\quad
+z_E = \bar P y_r,\quad
+z_B = K_{BB}^{-\top}(q_B - K_{EB}^\top z_E),
+$$
+
+the middle one a transposed solve on the forward factors (`LinearSolver::solve_transposed`;
+the LDLᵀ paths solve with $A$ itself, see [solvers](solvers.md)). The result is the exact
+transpose of the discrete solution operator, $q^\top s = z^\top r$ to round-off for every
+pair, so the adjoint includes everything the solve included — ports, condensation, Bloch and
+hanging-node constraints. Verified in `test_kept_factorisation.cpp` (disc with PML, PEC and
+condensation at order 3; the Bloch strip of the conical solver; the scalar $E_z$ path against
+the full block system): the identity to $10^{-10}$, the tangent solve against the assembled
+equations, and adjoints and material sensitivities equal to the assembling path to
+$10^{-9}$; `test_grating_solve.py` checks that `grating.sensitivity` and
+`grating.shape_sensitivity` are unchanged. The factors stay in memory as long as the solution
+lives (`estimate_memory` predicts their size); `keep_factorisation` is therefore opt-in.
+
 ## Band structures (`physics/band_structure.hpp`)
 
 A photonic crystal is a lossless periodic structure with lattice vectors $a_j$. By Bloch's

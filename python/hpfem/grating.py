@@ -567,7 +567,9 @@ def bands(
 def sensitivity(result: GratingResult, tag: int, order: int = 0, side: str = "R"):
     """Derivative of the efficiency of the reflected (``side="R"``) or transmitted (``"T"``)
     order ``order`` with respect to the relative permittivity of the cells tagged ``tag``, by
-    one adjoint solve on the problem of ``result``: returns ``(dR/dRe eps, dR/dIm eps)``.
+    one adjoint solve on the problem of ``result`` (a transposed solve on the kept
+    factorisation with ``solve(..., keep_factorisation=True)``): returns
+    ``(dR/dRe eps, dR/dIm eps)``.
     The linearised goal is :math:`Q = A_m \\cdot \\bar A_m / |A_m|` (``conical_order_functional``)
     so that :math:`dR_m = 2 R_m\\,\\mathrm{Re}(dQ)/|A_m|`; the holomorphic derivative
     ``dQ/d eps`` gives both directions. Raises ``GratingError`` for an order that is not in
@@ -577,7 +579,7 @@ def sensitivity(result: GratingResult, tag: int, order: int = 0, side: str = "R"
         return 0.0, 0.0
     problem = result.problem
     q_e, q_v = functional(problem.transverse_dofs, problem.longitudinal_dofs)
-    z_e, z_v = hpfem.conical_adjoint_solution(problem, q_e, q_v)
+    z_e, z_v = hpfem.conical_adjoint_solution(problem, result.solution, q_e, q_v)
     dq = hpfem.conical_material_sensitivity(problem, result.solution, z_e, z_v, int(tag))
     return scale * float(np.real(dq)), scale * float(np.real(1j * dq))
 
@@ -707,6 +709,7 @@ def solve(
     progress=None,
     cancel=None,
     scalar="auto",
+    keep_factorisation: bool = False,
 ) -> GratingResult:
     """Solves the grating unit cell and returns a :class:`GratingResult`.
 
@@ -749,6 +752,11 @@ def solve(
     (``scalar_ez``: only the H1 block is factorised, about a third of the DoFs, identical
     results) for the s polarisation at ``phi = 0``; ``True`` / ``False`` force it on or off
     (``True`` raises for other polarisations or azimuths). ``result.scalar`` says which.
+
+    ``keep_factorisation=True`` keeps the factorised system in ``result.solution``
+    (``solution.factorisation``, ADR-0012): :func:`sensitivity` and :func:`shape_sensitivity`
+    then cost one transposed solve each instead of an assembly and a factorisation, at the
+    price of holding the factors while the result lives.
     """
     from hpfem import diagnostics as dg
 
@@ -808,6 +816,7 @@ def solve(
     elif scalar not in (True, False):
         raise GratingError(f"scalar={scalar!r}: use 'auto', True or False")
     setup.scalar_ez = bool(scalar)
+    setup.keep_factorisation = bool(keep_factorisation)
     if solver is not None:
         setup.solver = solver
     if progress is not None or cancel is not None:

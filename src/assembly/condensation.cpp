@@ -96,6 +96,41 @@ Vector StaticCondensation::condense_load(const Vector& load) const {
   return out;
 }
 
+Vector StaticCondensation::condense_load_transposed(const Vector& functional) const {
+  if (functional.size() != num_dofs_) {
+    throw InvalidArgument(
+        fmt::format("StaticCondensation::condense_load_transposed: {} values for {} DoFs",
+                    functional.size(), num_dofs_));
+  }
+  Vector out = functional;
+  for (const Cell& cell : cells_) {
+    const Vector qb = gather(functional, cell.interior);
+    const Vector correction = cell.kbb_inv_kbe.transpose() * qb;
+    for (std::size_t i = 0; i < cell.exterior.size(); ++i) {
+      out(cell.exterior[i]) -= correction(static_cast<Index>(i));
+    }
+    for (const Index dof : cell.interior) out(dof) = 0.0;
+  }
+  return out;
+}
+
+Vector StaticCondensation::recover_transposed(const Vector& solution,
+                                              const Vector& functional) const {
+  if (solution.size() != num_dofs_ || functional.size() != num_dofs_) {
+    throw InvalidArgument("StaticCondensation::recover_transposed: sizes do not match");
+  }
+  Vector out = solution;
+  for (const Cell& cell : cells_) {
+    const Vector ze = gather(solution, cell.exterior);
+    const Vector qb = gather(functional, cell.interior);
+    const Vector zb = cell.kbb_inverse.transpose() * (qb - cell.keb.transpose() * ze);
+    for (std::size_t i = 0; i < cell.interior.size(); ++i) {
+      out(cell.interior[i]) = zb(static_cast<Index>(i));
+    }
+  }
+  return out;
+}
+
 Vector StaticCondensation::recover(const Vector& solution, const Vector& load) const {
   if (solution.size() != num_dofs_ || load.size() != num_dofs_) {
     throw InvalidArgument("StaticCondensation::recover: sizes do not match");
