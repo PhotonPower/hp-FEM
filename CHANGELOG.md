@@ -31,6 +31,14 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `trapezoid_parameters`: CD, height, side-wall angle), `shape_velocity` (exact boundary
   motion of a shape, fixed interfaces, harmonic extension), `Morph` (reference mesh moved to
   new parameter values, `cell_quality` guard with `MeshQualityError`).
+- Frequency and angle derivatives (M16 S1, `physics/parameter_sensitivity.hpp`):
+  `conical_parameter_tangent` (de/dθ for a parameter of the whole setup from the problems at
+  θ ± h: residual derivative along the transported coefficients plus the derivative of the
+  Bloch constraints (∂P)ᴴρ₀, one solve on the kept factorisation), `conical_residual`,
+  `conical_transported_solution`, `KeptFactorisation::solve_many(loads, system_loads)`,
+  `ConicalScattering::system_dofs` / `system_constraints`; `hpfem.grating.jacobian` columns
+  `"theta"`, `"phi"`, `"omega"`, `"wavelength"` (with the explicit dependence of the order
+  post-processing and dispersive materials), `GratingResult.inputs`.
 
 ## [0.4.0] — 2026-10-08
 Fourth release: the GUI support milestone M15 complete, the sensitivities of M12, and the

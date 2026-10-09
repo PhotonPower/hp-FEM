@@ -254,9 +254,8 @@ ConicalSolution ConicalScattering::solve() const {
       setup_.extra_quadrature_order);
   progress.begin(1);
   // the scalar E_z path takes the H1 block alone (zero coupling at beta = 0)
-  const std::vector<Index>& dofs = setup_.scalar_ez ? scalar_dofs_ : free_;
-  const std::optional<fespace::Constraints>& constraints =
-      setup_.scalar_ez ? h1_constraints_ : constraints_;
+  const std::vector<Index>& dofs = system_dofs();
+  const std::optional<fespace::Constraints>& constraints = system_constraints();
   SparseMatrix a =
       assembly::extract(SparseMatrix(system.stiffness - (k0_ * k0_) * system.mass), dofs, dofs);
   a.makeCompressed();

@@ -291,7 +291,7 @@ def shape_velocity(cell: UnitCell, mesh, parameter: GeometryParameter, step: flo
 
 
 def cell_quality(mesh) -> np.ndarray:
-    """Signed shape quality of every cell (ADR-0012 §3): the ratio of the inscribed to the
+    r"""Signed shape quality of every cell (ADR-0012 §3): the ratio of the inscribed to the
     circumscribed radius of the vertex triangle, normalised by its equilateral value,
     :math:`2 r / R = 16 A^2 / (s\,abc)` with the perimeter s and the edge lengths a, b, c (1 for
     the equilateral triangle, 0 for a degenerate one), with the sign of the area (negative for
