@@ -373,6 +373,57 @@ faces" of M14-B.
 - [x] F14 (P3) high-level eigenproblems on the periodic-cell front end (resonances, bands)
 - [x] F15 (P3) distribution: Windows/Linux wheels, `pip install hpfem[gui]`, `hpfem-gui` entry point
 
+## M16 — Optimisation, calibration and uncertainty quantification
+Proposal of 9 October 2026, revised after the review of PR #134; scope, rationale, API sketches
+and validation plan in [`optimisation-uq-features.md`](optimisation-uq-features.md) (IDs S0–S9
+as there). The adjoint sensitivities of M12 (material and shape) are the foundation. Everything
+is Python (`hpfem.opt`) on the existing C++ core, except the eigenvalue derivatives of S4. Own
+code only where the project has an advantage (gradients, Laplace via the Jacobian, DWR);
+gradient-enhanced / multi-fidelity / multi-objective BO, NUTS and further UQ methods come from
+mature libraries as optional extras (BoTorch, emcee, SALib) with an ADR note. Flagship
+problems: a 2D grating and a metasurface unit cell (the 3D ring later). Priorities P1 > P2 > P3;
+effort in focused sessions.
+- [ ] S0 (P1, ≈ 1) ADR-0012: scope of `hpfem.opt`, dependencies (NumPy/SciPy required, own
+  light Gaussian-process code, BoTorch / emcee / SALib only optional), study file format,
+  the evaluator contract and the **morphing-versus-remeshing strategy**: a reference mesh is
+  morphed with `move_nodes` within a parameter range, remeshing only when the quality guard
+  trips, so that the objective stays consistent with the adjoint gradient
+- [ ] S1 (P1, ≈ 4) gradient infrastructure: geometry parameters (radius, width, height,
+  position) mapped to mesh velocity fields; Jacobian of several observables in the **direct
+  (tangent) mode** (one solve per parameter) and the **adjoint mode** (one solve per
+  observable) on the same factorisation, the cheaper one chosen from the counts; derivatives
+  with respect to frequency and angle; mesh-quality guard; finite-difference checks on the
+  morphed mesh
+- [ ] S2 (P1, ≈ 3) study framework: design space (continuous, integer, categorical,
+  constraints), evaluation cache, resume, JSON-lines result store, job-runner integration with
+  events and cancellation; batch proposals are evaluated sequentially, several processes only
+  with an explicit thread budget (OpenMP, one cuDSS GPU, per-process factorisations on Windows)
+- [ ] S3 (P1, ≈ 4) classical optimisers and the Laplace approximation: L-BFGS-B with
+  gradients, Nelder–Mead, differential evolution (SciPy wrappers), Gauss–Newton /
+  Levenberg–Marquardt with the Jacobian of S1, parameter covariance from the Fisher
+  information; end-to-end showcase: Si-grating reconstruction (CD, height, side-wall angle)
+  with uncertainties from synthetic data
+- [ ] S4 (P2, ≈ 3–4) eigenvalue derivatives of resonances and bands (C++): non-Hermitian
+  problem with PML and losses (left eigenvector; with Bloch / conical incidence the solution
+  at −k), nonlinear eigenproblem for dispersive ε(ω) (extra dε/dω term), complex Q;
+  verified against finite differences
+- [ ] S5 (P2, ≈ 3) Bayesian optimisation: own light Gaussian process (Matérn ARD, noise),
+  expected improvement and LCB, constraints, gradient-enhanced GP with the adjoint
+  derivatives; multi-fidelity and multi-objective via the optional BoTorch extra. The DWR
+  estimate is used as a fidelity indicator or for adaptive refinement until the error is small
+  against the noise, **not** as independent GP noise (hypothesis, tested in S8)
+- [ ] S6 (P2, ≈ 2) parameter retrieval beyond Laplace: Bayesian least squares on the surrogate,
+  MCMC through the optional emcee extra (posterior against the Laplace result)
+- [ ] S7 (P2, ≈ 2) uncertainty propagation and sensitivity analysis: linearised propagation
+  from the Jacobian (own), Monte Carlo on the surrogate, Sobol' indices by one route (GP
+  surrogate, SALib optional), fabrication-tolerance example
+- [ ] S8 (P2, ongoing) validation: Branin / Rosenbrock for BO, Ishigami for Sobol', NIST MGH17
+  for the reconstruction uncertainties, linear-Gaussian problems (MCMC = Laplace), gradient-based
+  against gradient-free BO on the 2D grating and the metasurface unit cell, test of the DWR
+  hypothesis (fidelity indicator against independent noise)
+- [ ] S9 (P3, ≈ 3) GUI and job schema: tasks `optimize`, `reconstruct`, `uq`; study view in
+  `hpfem-gui` (history, Pareto front, Sobol' bars)
+
 ## Backlog / ideas
 - [ ] the full ring resonator with ports in 3D (M12 stage B): needs an hp-mesh that is fine
   only across the cores and in the coupling region, p = 3 there for the resonance widths
