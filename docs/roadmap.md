@@ -435,6 +435,30 @@ effort in focused sessions.
 - [ ] S9 (P3, ≈ 3) GUI and job schema: tasks `optimize`, `reconstruct`, `uq`; study view in
   `hpfem-gui` (history, Pareto front, Sobol' bars)
 
+## M17 — Dipole emitters in periodic structures (ADR-0013)
+Proposal of 9 October 2026 from the GUI work, reviewed the same day; physics, conventions, stages,
+tests and the GUI interface in [`dipole-emitters-features.md`](dipole-emitters-features.md) (IDs
+S0–S4 as there). A single point dipole in a 1D-periodic structure by array scanning over the
+Bloch wavenumber kx and the out-of-plane wavenumber β of the conical solver: Purcell factor,
+radiated power into cover and substrate per direction, guided and absorbed power. Order A
+(phased array) → C (reciprocity) → B (array scanning, the hard part).
+- [x] S0: ADR-0013 (accepted, `docs/adr/0013-dipole-emitters-in-periodic-structures.md`): the
+  M11 Gaussian dipole by array scanning over kx and β (z-smearing as a factor per β sample,
+  β and kx symmetries), the delivered power as the volume integral of J*·E, guided-mode poles
+  subtracted with β_g(kx) by Newton on the bands and the group velocity of M16 S4 (complex β
+  deferred), cost model with the three orientations as right-hand sides of one factorisation
+- [ ] S1: `conical_gaussian_dipole`, `grating.emit` (Bloch-periodic emitter array: power per cell
+  through a closed surface around a tagged source box, orders up / down with power, absorbed,
+  guided remainder); tests: homogeneous cell, 2D line-source limit
+- [ ] S2: `grating.emission_pattern` by reciprocity; test against a planar-stack reference (and
+  later the far field of S3)
+- [ ] S3: `grating.dipole_emission` (array scanning, guided-mode poles, parallel samples on
+  ConicalSweep, cost estimate before the run); tests: mirror, planar multilayer (Sommerfeld),
+  period independence, plasmonic film, reciprocity against S2
+- [ ] S4: job-runner task `emitter` (schema 2), events, cost estimate; docs (maxwell.md "Dipole
+  emitters in periodic structures", python.md), example `examples/grating_emitter` (quantum dot
+  on a dielectric grating, LED extraction)
+
 ## Backlog / ideas
 - [ ] the full ring resonator with ports in 3D (M12 stage B): needs an hp-mesh that is fine
   only across the cores and in the coupling region, p = 3 there for the resonance widths

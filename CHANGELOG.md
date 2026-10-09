@@ -3,6 +3,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Milestone M17 (dipole emitters in periodic structures: Purcell factor, emission into orders
+  and guided modes by array scanning over kx and β) in the roadmap, with the reviewed
+  specification `docs/dipole-emitters-features.md` (S0–S4).
+- ADR-0013 (M17 S0): dipole emitters in periodic structures — the M11 Gaussian dipole by array
+  scanning of the conical cell problem over kx and β (z-smearing as a factor per β sample),
+  the delivered power of a sample as the volume integral of J*·E, guided-mode poles subtracted
+  with β_g(kx) from the bands, cost model.
 - Milestone M16 (optimisation, calibration and uncertainty quantification) in the roadmap,
   with the specification `docs/optimisation-uq-features.md` (S0–S9).
 - ADR-0012 (M16 S0): scope of `hpfem.opt` (NumPy/SciPy required; BoTorch, emcee, SALib as

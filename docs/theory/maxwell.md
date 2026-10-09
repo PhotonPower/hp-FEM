@@ -1395,4 +1395,6 @@ volume integral of the total field (energy balance).
   normal energy flow of the exact stack wave, $-(1 - R)\,I\cos\theta$ above and
   $-T\,I\cos\theta$ below, to $10^{-9}$ in s and p.
 
-Planned: Purcell factor $F_P = P_{\mathrm{emitted}}/P_{\mathrm{bulk}}$ for a point dipole.
+Planned: Purcell factor $F_P = P_{\mathrm{emitted}}/P_{\mathrm{bulk}}$ for a point dipole in a periodic
+structure: milestone M17 (ADR-0013, `docs/dipole-emitters-features.md`), by array scanning of
+the cell problem over the Bloch wavenumber $k_x$ and the out-of-plane wavenumber $\beta$.
