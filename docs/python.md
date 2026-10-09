@@ -514,6 +514,28 @@ incidence (project files: `pml.profile.theta_max` and `target`), `dwr_estimate` 
 `point_value_functional` or a Python functional for goal-oriented estimation, `VtkWriter2D`
 for meshes with data arrays. `help(hpfem.<name>)` shows the bound signature and docstring.
 
+**Band derivatives and group velocity.** With `setup.keep_modes = True` a
+`BandStructure2D/3D` keeps the eigenvectors in `Bands.modes`, and the bands can be
+differentiated without another eigensolve: `band_permittivity_derivative(problem, bands, tag)`
+and `band_permeability_derivative` for the material of a tag, `band_shape_derivative(problem,
+bands, velocity)` for a mesh velocity (e.g. `region_normal_velocity(mesh, tag)` for a rod
+radius; it must vanish on the periodic faces) and `band_wave_vector_derivative(problem, bands,
+direction)` along k. Each returns a `BandDerivative` with `eigenvalue` (d k0²/dp), `wavenumber`
+(d k0/dp, NaN at k0 = 0), `angular_frequency` (c0 d k0/dp) and `multiplicity`; degenerate bands
+(relative gap below `degeneracy_tolerance`, 1e-6) are resolved as a cluster.
+`group_velocity(problem, bands)` returns dω/dk in m/s as an array (num_bands, Dim):
+
+```python
+setup.keep_modes = True
+crystal = hpfem.BandStructure2D(nd, h1, setup)
+bands = crystal.bands([1.3, 0.6])
+v_g = hpfem.group_velocity(crystal, bands)                         # (num_bands, 2) [m/s]
+d_eps = hpfem.band_permittivity_derivative(crystal, bands, 2).wavenumber
+d_r = hpfem.band_shape_derivative(crystal, bands, hpfem.region_normal_velocity(mesh, 2))
+```
+
+See docs/theory/maxwell.md, "Band derivatives and group velocity".
+
 ## GPU backend
 
 With the separately built GPU library (`gpu/README.md`, `HPFEM_ENABLE_CUDA`) the direct
