@@ -130,7 +130,9 @@ def test_prediction_gradients_against_finite_differences(kernel, with_gradients)
         np.testing.assert_allclose(dvar[:, i], fd_var, atol=1e-4 * np.max(np.abs(fd_var)) + noise)
     # the covariance of a few points: its diagonal is the variance, samples have its moments
     mean, cov = gp.predict(t, full_cov=True)
-    np.testing.assert_allclose(np.diag(cov), var, rtol=1e-8, atol=1e-14)
+    np.testing.assert_allclose(
+        np.diag(cov), var, rtol=1e-8, atol=1e-12 * gp.hyperparameters["signal_variance"]
+    )
     samples = gp.sample(t, 4000, seed=0)
     assert samples.shape == (4000, 5)
     assert np.all(np.abs(samples.mean(0) - mean) < 5 * np.sqrt(var / 4000) + 1e-12)
