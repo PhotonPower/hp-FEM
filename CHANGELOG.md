@@ -27,6 +27,10 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   functional term (`functional_shape_derivative`, conical), so that de/dp = A⁻¹r on the kept
   factorisation; `hpfem.grating.jacobian(result, parameters, observables, mode)` with the
   automatic choice between direct and adjoint mode.
+- `hpfem.opt` (M16 S1, ADR-0012 §3): `MaterialParameter`, `GeometryParameter` (`field`,
+  `trapezoid_parameters`: CD, height, side-wall angle), `shape_velocity` (exact boundary
+  motion of a shape, fixed interfaces, harmonic extension), `Morph` (reference mesh moved to
+  new parameter values, `cell_quality` guard with `MeshQualityError`).
 
 ## [0.4.0] — 2026-10-08
 Fourth release: the GUI support milestone M15 complete, the sensitivities of M12, and the

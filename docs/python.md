@@ -335,6 +335,29 @@ observable, `"auto"` picks the cheaper. The building blocks are
 `KeptFactorisation.solve_many` / `solve_adjoint_many` (ADR-0012, docs/theory/maxwell.md
 "Direct mode").
 
+**Design parameters and mesh morphing (`hpfem.opt`, M16).** `import hpfem.opt` (not imported
+by `import hpfem`). A `MaterialParameter(name, tag, part="re" | "im", lower, upper)` is a part
+of the permittivity of a tag (`get(materials)`, `apply(materials, value)`); a
+`GeometryParameter` is a scalar of one `Shape` of a `meshing.UnitCell`:
+`GeometryParameter.field(name, shape, "height")` for an entry of the shape's `params`, and
+`trapezoid_parameters(shape)` for the scatterometry triple mid-height width `cd`, `height`
+and side-wall `angle` (radians), each changed with the other two fixed.
+`shape_velocity(cell, mesh, parameter)` is the mesh velocity of a geometry parameter: the
+nodes on the shape's boundary (and on its copies shifted by a period) move exactly with it,
+the cell boundary and every other material interface stay fixed, the rest follows by the
+harmonic extension of the mesh graph; it raises if the shape touches the cell boundary.
+`Morph(cell, mesh, parameters, quality_threshold=0.3)` keeps the reference mesh:
+`mesh_at({name: value})` moves it, `x = x_ref + Σ (p - p_ref) V_p` (same topology, tags and
+DoF numbering, so the objective is smooth and consistent with the shape derivatives),
+`cell_at(values)` is the exact geometry for a remesh, `velocity(name)` goes into
+`grating.jacobian(result, [("shape", morph.velocity(name)), ...])`. `check(mesh)` compares
+the signed cell quality (`cell_quality`: inscribed over circumscribed radius, 1 for the
+equilateral triangle) with the reference and raises `MeshQualityError` (`ratio`,
+`inverted`) for inverted cells or a ratio below the threshold — the signal to remesh
+(ADR-0012 §3). `python/tests/test_opt_parameters.py` checks that the morphed boundary lies on
+the new trapezoid (exact for CD and height, second order for the angle) and the derivatives
+along the velocities against finite differences of solves on morphed meshes.
+
 **Scalar E_z path.** For the s polarisation at `phi = 0` (`scalar="auto"`, the default)
 `grating.solve` lets `ConicalScattering` factorise only the H1 block (`setup.scalar_ez`), about
 a third of the unknowns with identical results; `result.scalar` says whether it was used,
