@@ -51,6 +51,23 @@ parameter velocities linearly; the missing cross term of height and side-wall an
 the SWA by 2.5 standard errors in every realisation (ADR-0012 §3, amendment). The exact
 morph removed it.
 
+**Posterior (`--posterior`, M16 S6).** `hpfem.opt.sample` (optional extra `opt-mcmc`, emcee)
+builds a gradient-enhanced surrogate of the 14 reflectances from 9 evaluations with the
+Jacobian in $\hat p \pm 4$ standard errors (the optimum and 8 Latin-hypercube points) and
+checks it at 5 further evaluations, then runs 24 walkers × 3000 steps on it:
+
+| | Laplace estimate | Laplace std | posterior mean | posterior std | shift / std | std ratio |
+|---|---|---|---|---|---|---|
+| CD [nm] | 100.004 | 0.105 | 99.999 | 0.105 | −0.05 | 1.00 |
+| height [nm] | 119.956 | 0.295 | 119.959 | 0.297 | 0.01 | 1.01 |
+| SWA [°] | 85.920 | 0.133 | 85.920 | 0.131 | 0.00 | 0.98 |
+
+Surrogate error at the validation points 0.0022 noise standard deviations, acceptance 0.65,
+autocorrelation time 39 steps (2250 steps after burn-in). Within ±4 standard errors the
+problem is linear enough that the posterior is the Laplace Gaussian: the sampled means and
+standard deviations agree to a few per cent of a standard error, which confirms the Laplace
+uncertainties of the fit independently of the linearisation.
+
 **Runtime.** About 5 minutes for the full run (14 solves per evaluation, the synthetic data at
 order 4 included) on the development machine; `--quick` (3 wavelengths, $p = 2$ for the
 model and $p = 3$ for the data, 15k DoFs) takes about 40 s and is the regression test in
@@ -58,7 +75,11 @@ model and $p = 3$ for the data, 15k DoFs) takes about 40 s and is the regression
 quick run the model error (1.7·10⁻³) is of the size of the noise, so its estimates are less
 accurate than the standard errors suggest.
 
+`--posterior` adds the 14 surrogate evaluations (the 9 training points with the Jacobian)
+and about a minute of sampling; the full run with it took 25 minutes on the development
+machine while the test suite ran alongside.
+
 ```bash
-pip install -e ".[dev]"
-python examples/grating_reconstruction/run.py [--quick]
+pip install -e ".[dev]"          # the dev extra includes emcee
+python examples/grating_reconstruction/run.py [--quick] [--posterior]
 ```

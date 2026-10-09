@@ -211,3 +211,21 @@ def test_grating_reconstruction_recovers_the_geometry_within_its_uncertainty(tmp
     assert saved["estimate"] == pytest.approx(result.estimate)
     lines = (tmp_path / "grating_reconstruction.study.jsonl").read_text(encoding="utf-8")
     assert lines.count('"type": "evaluation"') >= result.evaluations
+
+
+def test_fabrication_tolerance_propagates_and_ranks_the_tolerances(tmp_path):
+    example = load_example("fabrication_tolerance")
+    result = example.run(quick=True, out=tmp_path)
+    lin, mc = np.array(result.linear_std), np.array(result.mc_std)
+    assert lin.shape == (4,) and np.all(lin > 0)
+    # tolerances of a few nm: Monte Carlo on the surrogate close to the linearised value
+    np.testing.assert_allclose(mc, lin, rtol=0.15)
+    band = np.array(result.mc_band)
+    nominal = np.array(result.nominal)
+    assert np.all(band[:, 0] < nominal) and np.all(nominal < band[:, 1])
+    first, total = np.array(result.sobol_first), np.array(result.sobol_total)
+    assert np.all(first <= total + 0.05) and np.all(first.sum(axis=1) <= 1.05)
+    assert result.parameters[int(np.argmax(total[0]))] == "cd"  # s, 450 nm: the CD dominates
+    assert result.evaluations == result.surrogate_points + 1
+    saved = json.loads((tmp_path / "fabrication_tolerance.json").read_text(encoding="utf-8"))
+    assert saved["linear_std"] == pytest.approx(result.linear_std)
