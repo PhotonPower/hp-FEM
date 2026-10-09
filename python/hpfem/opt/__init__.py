@@ -11,9 +11,29 @@ constraints and studies with an evaluation cache and a resumable JSON-lines stor
 (:func:`minimize`); :mod:`hpfem.opt.lsq` — Gauss–Newton / Levenberg–Marquardt reconstruction
 (:func:`fit`) and the Laplace approximation of the parameter uncertainties (:func:`laplace`);
 :mod:`hpfem.opt.scatterometry` — the efficiencies of a grating under several measurement
-configurations as an evaluator of its geometry and material parameters.
+configurations as an evaluator of its geometry and material parameters; :mod:`hpfem.opt.gp` —
+a light Gaussian process (Matérn / squared-exponential ARD kernels, noise, derivative
+observations); :mod:`hpfem.opt.bo` — Bayesian optimisation driving a study
+(:func:`bayesian_optimize`: expected improvement or lower confidence bound, known and outcome
+constraints, gradient-enhanced surrogate), the Pareto front of a study and, with the optional
+extra ``opt-bo`` (BoTorch), multi-objective and multi-fidelity Bayesian optimisation.
 """
 
+from hpfem.opt.bo import (
+    BOResult,
+    OutcomeConstraint,
+    ParetoFront,
+    ParetoResult,
+    bayesian_optimize,
+    expected_improvement,
+    log_expected_improvement,
+    log_probability_of_feasibility,
+    lower_confidence_bound,
+    multi_fidelity_optimize,
+    non_dominated,
+    pareto_front,
+    pareto_optimize,
+)
 from hpfem.opt.evaluator import (
     Evaluation,
     Evaluator,
@@ -22,6 +42,7 @@ from hpfem.opt.evaluator import (
     complex_names,
     split_complex,
 )
+from hpfem.opt.gp import GaussianProcess, MultiOutputGP
 from hpfem.opt.lsq import FitResult, IdentifiabilityWarning, Laplace, fit, laplace
 from hpfem.opt.optimize import OptimizeResult, minimize
 from hpfem.opt.parameters import (
@@ -48,6 +69,7 @@ from hpfem.opt.study import (
 )
 
 __all__ = [
+    "BOResult",
     "Categorical",
     "Configuration",
     "Continuous",
@@ -57,6 +79,7 @@ __all__ = [
     "Evaluator",
     "FitResult",
     "FunctionEvaluator",
+    "GaussianProcess",
     "GeometryParameter",
     "GratingEvaluator",
     "History",
@@ -67,16 +90,29 @@ __all__ = [
     "MaterialParameter",
     "MeshQualityError",
     "Morph",
+    "MultiOutputGP",
     "NonlinearConstraint",
     "OptimizeResult",
+    "OutcomeConstraint",
+    "ParetoFront",
+    "ParetoResult",
     "Study",
     "StudyError",
     "as_evaluation",
+    "bayesian_optimize",
     "cell_quality",
     "complex_names",
+    "expected_improvement",
     "fit",
     "laplace",
+    "log_expected_improvement",
+    "log_probability_of_feasibility",
+    "lower_confidence_bound",
     "minimize",
+    "multi_fidelity_optimize",
+    "non_dominated",
+    "pareto_front",
+    "pareto_optimize",
     "shape_velocity",
     "split_complex",
     "trapezoid_parameters",

@@ -484,6 +484,60 @@ cancellation and resume, failures, constraints, remesh) and `python/tests/test_o
 (an exact linear model, NIST StRD MGH17 from both starts — parameters and standard deviations
 to `1e-6` of the certified values —, weights, bounds, non-identifiability, study integration).
 
+**Bayesian optimisation (`hpfem.opt`, M16 S5).** `bayesian_optimize(study, objective,
+acquisition="ei" | "lcb", use_gradients=False, constraints=(), max_evaluations=50, seed=0)`
+drives a `Study` like `minimize` (same objective forms, `fixed`, `maximize`, `fidelity`, unit-cube
+coordinates of the free parameters): an initial design of `n_initial = 2(d + 1)` points
+(`initial="lhs"` or `"sobol"` from `DesignSpace.sample`, seeded, plus `initial_points`), then one
+point per iteration, proposed by maximising the acquisition on a Gaussian-process surrogate of
+the objective fitted to every successful evaluation of the study with the same fixed values and
+fidelity. Acquisitions: expected improvement in a numerically stable log form (LogEI; `xi`) and
+the lower confidence bound `μ − κσ` (`kappa=2`), maximised from Sobol' and local candidates by
+multi-start L-BFGS-B with the analytic gradients of the GP prediction. Known constraints of the
+design space restrict the candidates and the local search (SLSQP); unknown, expensive ones are
+`OutcomeConstraint(observable_or_function, lower, upper)` on the observables, each with its own
+GP, entering as `log EI + Σ log P(feasible)`. `use_gradients=True` evaluates with the Jacobian
+and fits the gradient-enhanced GP (values and partial derivatives chain-ruled to the unit cube).
+Stopping: `max_evaluations` (initial design and cache hits included), `patience`, `tol` on the
+predicted gain, `max_failures`, `callback(info)`. Failed evaluations stay in the surrogate with
+the worst successful value and are never proposed again; remeshes are counted, the surrogate
+keeps every point (its learned noise absorbs the jump). `Evaluation.error` (the DWR estimate) is
+not used: it is not observation noise (ADR-0012 §6). A `state` checkpoint after every iteration
+(seed, counts, hyperparameters of the surrogates, incumbent) lets a cancelled run resume on the
+stored study exactly where it stopped: the open proposal is evaluated first and every random
+choice is seeded by `(seed, iteration)`, so the resumed run proposes the same points as an
+uninterrupted one. The `BOResult` extends `OptimizeResult` by `gp`, `constraint_gps`,
+`acquisition` (predicted gain per iteration), `remeshes` and `feasible`.
+
+```python
+res = opt.bayesian_optimize(study, "R0", maximize=True, use_gradients=True,
+                            constraints=[opt.OutcomeConstraint("T0", upper=0.05)],
+                            max_evaluations=30, seed=1)
+mean, var, dmean, dvar = res.gp.predict(u, grad=True)  # u: (q, d) unit-cube points
+front = opt.pareto_front(study, ["R0", "A"], maximize=[True, False])
+```
+
+The surrogate is `GaussianProcess(kernel="matern52" | "matern32" | "se", mean="constant",
+noise="learn" | variance)` (NumPy/SciPy only, dense, up to a few hundred points; with
+derivatives `n(d + 1)` observations): ARD length scales, signal variance and noise from the log
+marginal likelihood with analytic gradients (multi-start L-BFGS-B in log space, weak log-normal
+priors, bounds for unit-cube inputs and standardised outputs), Cholesky with jitter escalation,
+`fit(x, y, dy=None)` with optional partial derivatives (NaN entries left out),
+`predict(x, grad=..., full_cov=...)`, `sample`, `log_marginal_likelihood(theta, gradient=True)`;
+`MultiOutputGP` fits one process per output. `pareto_front(study, objectives, maximize=...)` and
+`non_dominated(values)` give the non-dominated evaluations of any study. With the optional extra
+`opt-bo` (BoTorch, imported lazily, an `ImportError` names the extra), `pareto_optimize` runs
+multi-objective BO (qLogNEHVI) and `multi_fidelity_optimize(study, objective, fidelities=[...],
+costs=...)` cost-aware multi-fidelity BO (multi-fidelity knowledge gradient over discrete
+fidelity levels) on the same study. These two BoTorch drivers are **experimental**: BoTorch is
+not installed on the development machine nor in CI, so they have not been run yet (their
+tests skip without it). Tests: `python/tests/test_opt_gp.py` (interpolation, the
+likelihood and prediction gradients against finite differences, hyperparameter recovery, the
+gradient-enhanced process) and `python/tests/test_opt_bo.py` (EI/LCB/feasibility formulas,
+Branin to `1e-3` within 40 evaluations with EI and LCB, gradient-enhanced against plain BO on
+Hartmann-3, known and outcome constraints, cancellation and exact resume, failures, remeshes,
+the DWR estimate ignored, Pareto front; the BoTorch tests skip without BoTorch).
+
 **Scatterometry evaluator (`hpfem.opt`, M16 S3).** `GratingEvaluator(morph, materials, stack,
 configurations, material_parameters=(), order=3, pml=None, mesher=None, solve_options=None)`
 is the evaluator of a grating measurement: the parameters are the geometry parameters of the
@@ -537,6 +591,22 @@ complex band structure of the open cell; closed photonic crystals stay with
 `"sweep": {"kx_over_g": ...}` emit `mode` and `point` events and write the maps per mode.
 `python/tests/test_grating_resonances.py` checks the Fabry–Pérot slab against the exact complex
 wavenumber through the front end and the runner.
+
+**Resonance derivatives and dispersive resonances (M16 S4).**
+`grating.resonance_sensitivity(result, mode, [("eps", tag), ("shape", velocity), "beta",
+"kx"])` returns `{label: hpfem.ResonanceDerivative}` with `domega` (complex: the real part
+moves the resonance, the imaginary part its width), `dquality`, `dwavelength` and `dlambda`,
+from the left eigenvector of the Bloch-reduced pencil (`hpfem.conical_resonance_adjoint`) —
+no further eigensolve; `"eps"` gives the entries `eps[tag].re` and `eps[tag].im`. Dispersive
+models in `materials` are evaluated at the target by `resonances`;
+`grating.refine_resonance(result, mode)` solves for the self-consistent resonance (Newton on
+`λ̂(ω) = (ω/c0)²` with ε at the mode's own complex ω — the analytic continuation of
+`DrudeLorentz` and `Constant`, the real part of ω for tabulated data) and marks the result
+`self_consistent`; its derivatives then carry the `dε/dω` term. The building blocks
+(`resonance_adjoint`, `resonance_material_derivative`, `resonance_shape_derivative` for
+`Resonance2D` / `3D`; `conical_resonance_*_derivative`; `resonance_derivative_from`) are bound
+as well (docs/theory/maxwell.md, "Resonance derivatives"). `python/tests/test_resonance_sensitivity.py`
+checks them on the Fabry–Pérot slab against the exact derivatives and re-solved resonances.
 
 `python/tests/test_grating_solve.py` checks the glass grating of the conical validation
 against the conical RCWA (s 40°/30°, p 50°/30°, reflected and transmitted orders to 2e-3 at
@@ -599,6 +669,28 @@ Floquet–Bloch bands of a unit cell, `ScatteringOperator2D` /
 incidence (project files: `pml.profile.theta_max` and `target`), `dwr_estimate` with
 `point_value_functional` or a Python functional for goal-oriented estimation, `VtkWriter2D`
 for meshes with data arrays. `help(hpfem.<name>)` shows the bound signature and docstring.
+
+**Band derivatives and group velocity.** With `setup.keep_modes = True` a
+`BandStructure2D/3D` keeps the eigenvectors in `Bands.modes`, and the bands can be
+differentiated without another eigensolve: `band_permittivity_derivative(problem, bands, tag)`
+and `band_permeability_derivative` for the material of a tag, `band_shape_derivative(problem,
+bands, velocity)` for a mesh velocity (e.g. `region_normal_velocity(mesh, tag)` for a rod
+radius; it must vanish on the periodic faces) and `band_wave_vector_derivative(problem, bands,
+direction)` along k. Each returns a `BandDerivative` with `eigenvalue` (d k0²/dp), `wavenumber`
+(d k0/dp, NaN at k0 = 0), `angular_frequency` (c0 d k0/dp) and `multiplicity`; degenerate bands
+(relative gap below `degeneracy_tolerance`, 1e-6) are resolved as a cluster.
+`group_velocity(problem, bands)` returns dω/dk in m/s as an array (num_bands, Dim):
+
+```python
+setup.keep_modes = True
+crystal = hpfem.BandStructure2D(nd, h1, setup)
+bands = crystal.bands([1.3, 0.6])
+v_g = hpfem.group_velocity(crystal, bands)                         # (num_bands, 2) [m/s]
+d_eps = hpfem.band_permittivity_derivative(crystal, bands, 2).wavenumber
+d_r = hpfem.band_shape_derivative(crystal, bands, hpfem.region_normal_velocity(mesh, 2))
+```
+
+See docs/theory/maxwell.md, "Band derivatives and group velocity".
 
 ## GPU backend
 

@@ -410,15 +410,18 @@ effort in focused sessions.
   information; end-to-end showcase: Si-grating reconstruction (CD, height, side-wall angle)
   with uncertainties from synthetic data (`hpfem.opt.minimize` / `fit` / `laplace`, MGH17 to
   1e-6; `GratingEvaluator`; `examples/grating_reconstruction`)
-- [ ] S4 (P2, ≈ 3–4) eigenvalue derivatives of resonances and bands (C++): non-Hermitian
+- [x] S4 (P2, ≈ 3–4) eigenvalue derivatives of resonances and bands (C++): non-Hermitian
   problem with PML and losses (left eigenvector; with Bloch / conical incidence the solution
   at −k), nonlinear eigenproblem for dispersive ε(ω) (extra dε/dω term), complex Q;
-  verified against finite differences
-- [ ] S5 (P2, ≈ 3) Bayesian optimisation: own light Gaussian process (Matérn ARD, noise),
+  verified against finite differences (`physics/eigen_sensitivity.hpp`,
+  `grating.resonance_sensitivity` / `refine_resonance`, `physics/band_sensitivity.hpp`,
+  `group_velocity`)
+- [x] S5 (P2, ≈ 3) Bayesian optimisation: own light Gaussian process (Matérn ARD, noise),
   expected improvement and LCB, constraints, gradient-enhanced GP with the adjoint
   derivatives; multi-fidelity and multi-objective via the optional BoTorch extra. The DWR
   estimate is used as a fidelity indicator or for adaptive refinement until the error is small
-  against the noise, **not** as independent GP noise (hypothesis, tested in S8)
+  against the noise, **not** as independent GP noise (hypothesis, tested in S8) (`hpfem.opt.gp`,
+  `hpfem.opt.bo`; the BoTorch drivers are experimental, not run yet)
 - [ ] S6 (P2, ≈ 2) parameter retrieval beyond Laplace: Bayesian least squares on the surrogate,
   MCMC through the optional emcee extra (posterior against the Laplace result)
 - [ ] S7 (P2, ≈ 2) uncertainty propagation and sensitivity analysis: linearised propagation

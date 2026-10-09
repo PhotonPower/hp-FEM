@@ -21,6 +21,8 @@ meshing = ["gmsh"]
 yaml = ["pyyaml"]
 gui = ["streamlit>=1.30", "gmsh", "matplotlib", "meshio", "pyyaml"]
 docs = ["mkdocs-material", "pymdown-extensions"]
+# hpfem.opt: multi-objective and multi-fidelity Bayesian optimisation (experimental)
+opt-bo = ["botorch>=0.10"]
 
 [tool.scikit-build]
 # distribution builds: warnings of other compiler versions must not stop an installation
