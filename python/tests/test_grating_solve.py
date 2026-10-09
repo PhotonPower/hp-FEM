@@ -183,15 +183,19 @@ def test_kept_factorisation_gives_the_same_sensitivities():
     assert plain.solution.factorisation is None
     factorisation = kept.solution.factorisation
     assert factorisation is not None and factorisation.size > 0 and factorisation.solver_name
-    assert abs(kept.R - plain.R) < 1e-12
+    # two separate solves: the parallel assembly sums duplicate entries in the order of the
+    # dynamic thread schedule (docs/theory/solvers.md, parallel assembly), so the two systems
+    # differ at round-off, amplified by the conditioning of the PML cell (5e-8 relative in R
+    # on the 4-thread CI runner, 2e-13 locally); 1e-6 still separates a wrong adjoint
+    assert abs(kept.R - plain.R) < 1e-6 * plain.R
     for side in ("R", "T"):
         a = grating.sensitivity(plain, RIDGE_TAG, order=0, side=side)
         b = grating.sensitivity(kept, RIDGE_TAG, order=0, side=side)
-        assert np.allclose(a, b, rtol=1e-8, atol=1e-14)
+        assert np.allclose(a, b, rtol=1e-6, atol=1e-6 * np.abs(a).max())
     velocity = hpfem.region_normal_velocity(mesh, RIDGE_TAG)
     a = grating.shape_sensitivity(plain, velocity, order=0)
     b = grating.shape_sensitivity(kept, velocity, order=0)
-    assert abs(a - b) < 1e-8 * abs(a)
+    assert abs(a - b) < 1e-6 * abs(a)
     # the adjoint on the kept factorisation is the transpose of its tangent solve
     rng = np.random.default_rng(5)
     n = factorisation.num_dofs
