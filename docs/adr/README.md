@@ -30,3 +30,4 @@ Template:
 | 0010 | Axisymmetric (body-of-revolution, 2.5D) Maxwell solver | accepted |
 | 0011 | Shape derivatives by the discrete adjoint on the mesh | accepted |
 | 0012 | Optimisation, calibration and UQ in `hpfem.opt` on the discrete sensitivities | accepted |
+| 0013 | Dipole emitters in periodic structures by array scanning of the conical cell problem | proposed |
