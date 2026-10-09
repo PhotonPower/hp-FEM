@@ -49,6 +49,43 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   evaluation, proposal, state, remesh and note lines), resume without re-evaluation,
   recorded failures, progress events and cancellation (`hpfem.Cancelled`), history and best
   point.
+- Optimisers and least-squares reconstruction (`hpfem.opt`, M16 S3): `minimize` runs
+  L-BFGS-B (with the gradient from the evaluator's Jacobian), Nelder–Mead and seeded
+  differential evolution on a `Study` (points cached, stored and replayed; cancel and resume
+  from `state` checkpoints; failed points get a failure value; a remesh restarts L-BFGS-B);
+  `fit` is our own Levenberg–Marquardt / Gauss–Newton on `W^{1/2}(y − y_meas)` with bounds by
+  active set and projection; `laplace` gives the Laplace covariance `(JᵀWJ)⁻¹` (scaled by
+  χ²_red when σ is unknown), standard errors, correlations and an `IdentifiabilityWarning`
+  for rank-deficient or ill-conditioned problems, all in SI. Validated on NIST StRD MGH17
+  from both starts: parameters and certified standard deviations to 1e-6.
+- Scatterometry evaluator (`hpfem.opt.GratingEvaluator`, `Configuration`, M16 S3): the
+  efficiencies of a grating under several measurement configurations as an evaluator of the
+  `Morph` geometry parameters and `MaterialParameter`s, with the Jacobian along the morph
+  velocities on the kept factorisation; PML boxes and measurement lines fixed on the
+  reference mesh, a frequency-dependent stack, optional remeshing, the order as fidelity.
+- `examples/grating_reconstruction` (M16 S3 showcase): CD, height and side-wall angle of a
+  silicon line grating reconstructed from synthetic spectroscopic R0 data (s and p, 65°,
+  400–700 nm, noise 0.002; data one order higher on a mesh at the true geometry) by
+  Levenberg–Marquardt with Laplace uncertainties; README and regression test.
+
+### Fixed
+- Shape derivatives of grating efficiencies along a mesh velocity that deforms the cells at a
+  measurement line lying on mesh facets (the default midway line of structured cells): the
+  order amplitude sampled on facets is not differentiable there (the normal Nédélec
+  component jumps across facets), the Jacobian of a p-polarised line grating was off by a
+  factor of ten for the height and by 1e-3 for the side-wall angle. `shape_velocity` / `Morph`
+  take `band=(y_low, y_high)` to keep the lines and the PML out of the deformation;
+  `grating.jacobian` and `grating.shape_sensitivity` refuse such velocities
+  (`grating.deformed_line_cells`). The S1 morph test now uses the band and checks the
+  derivatives to 1e-6 instead of 1e-3 (the "flaky" failure under load was this).
+- `hpfem.opt.Morph` was linear in the parameters (`x_ref + Σ (p − p_ref) V_p`, ADR-0012 §3):
+  exact for each parameter alone but not jointly (the wall of a trapezoid moves with
+  `h cot α`), which biased the side-wall angle of the reconstruction showcase by 2.5 standard
+  errors for every noise realisation. The boundary nodes now go to their place on the exact
+  changed shape and the rest follows by the same harmonic extension; `velocity_at(values,
+  name)` is the velocity at the evaluated point (used by `GratingEvaluator`); ADR-0012 §3
+  amended. An unbounded side-wall angle gets the typical magnitude 1 rad (the period made its
+  difference step 4e-13 rad, lost in the round-off of the node coordinates).
 
 ## [0.4.0] — 2026-10-08
 Fourth release: the GUI support milestone M15 complete, the sensitivities of M12, and the

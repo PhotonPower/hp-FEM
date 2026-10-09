@@ -888,14 +888,57 @@ def shape_sensitivity(result: GratingResult, velocity, order: int = 0, side: str
     the uniform normal growth of a tagged region, e.g. a ridge; see
     docs/theory/maxwell.md "Shape derivatives"), by one adjoint solve on the problem of
     ``result``: :math:`dR_m/dp = 2 R_m\\,\\mathrm{Re}(dQ/dp)/|A_m|`. The velocity must vanish on
-    the Bloch faces and the top and bottom of the mesh; the measurement lines are allowed to
-    cross deforming cells (the derivative of the line functional is included)."""
+    the Bloch faces and the top and bottom of the mesh; the measurement lines may cross
+    deforming cells transversally (the derivative of the line functional is included), but a
+    line that lies on mesh facets must not touch deforming cells: the order amplitude sampled
+    on facets is not differentiable along such a velocity (the normal Nédélec component jumps
+    across facets, the located cell changes; ``GratingError``). Keep those cells fixed, e.g.
+    ``hpfem.opt.Morph(..., band=...)`` one cell row inside the lines, or move the lines off
+    the mesh lines."""
     functional, scale = _order_functional(result, order, side)
     if functional is None:
         return 0.0
     velocity = np.asarray(velocity, dtype=float)
+    _check_lines_fixed(result, velocity)
     dq = hpfem.conical_shape_derivative(result.problem, result.solution, functional, velocity)
     return scale * float(np.real(dq))
+
+
+def deformed_line_cells(mesh, velocity, line: float, tolerance: float) -> int:
+    """Number of cells with a vertex on the horizontal line ``y = line`` (a measurement line
+    on mesh facets) that the mesh ``velocity`` deforms (any of their vertices moves)."""
+    y = np.asarray(mesh.vertices, dtype=float)[:, 1]
+    on = np.abs(y - line) <= tolerance
+    if not on.any():
+        return 0
+    moving = np.linalg.norm(np.asarray(velocity, dtype=float)[: len(y)], axis=1) > 0.0
+    count = 0
+    for c in range(mesh.num_cells):
+        vertices = [int(v) for v in mesh.cell_vertices(c)][:3]
+        if on[vertices].any() and moving[vertices].any():
+            count += 1
+    return count
+
+
+def _check_lines_fixed(result: GratingResult, velocity: np.ndarray) -> None:
+    """Raises if the velocity deforms a cell on a measurement line that lies on mesh facets."""
+    tol = 1e-9 * result.period
+    for name, line in (
+        ("cover_line", result.cover_line),
+        ("substrate_line", result.substrate_line),
+    ):
+        if line is None:
+            continue
+        count = deformed_line_cells(result.mesh, velocity, line, tol)
+        if count:
+            raise GratingError(
+                f"the velocity deforms {count} cells at the {name} (y = {line:.6g} m), which "
+                "lies on mesh facets: the order amplitude sampled on the facets is not "
+                "differentiable along such a velocity (the normal Nédélec component jumps "
+                "across facets, the located cell changes); keep the cells at the measurement "
+                "lines fixed (hpfem.opt.Morph(..., band=(y_low, y_high)) at least one cell row "
+                "inside the lines) or put the lines off the mesh lines"
+            )
 
 
 _SETUP_PARAMETERS = {"theta": 1e-6, "phi": 1e-6, "omega": 1e-7, "wavelength": 1e-7}
@@ -989,7 +1032,7 @@ def jacobian(result: GratingResult, parameters, observables=None, mode: str = "a
     - ``("eps", tag)``: the relative permittivity of the cells with ``tag`` (two columns,
       d/dRe eps and d/dIm eps);
     - ``("shape", velocity)``: a geometry parameter by its mesh velocity, as
-      :func:`shape_sensitivity` (one column);
+      :func:`shape_sensitivity` (one column; the same condition on the measurement lines);
     - ``"theta"``, ``"phi"`` [1/rad], ``"omega"`` [1/(rad/s)] or ``"wavelength"`` (vacuum,
       [1/m]), also as ``(name, step)``: a parameter of the whole setup (one column). It moves
       the incident wave, the Bloch phases, beta, k0 and the dispersive materials (the
@@ -1045,6 +1088,7 @@ def jacobian(result: GratingResult, parameters, observables=None, mode: str = "a
             columns += [f"eps[{int(value)}].re", f"eps[{int(value)}].im"]
         elif kind == "shape":
             velocity = np.asarray(value, dtype=float)
+            _check_lines_fixed(result, velocity)
             kinds.append(("shape", len(residuals), velocity))
             residuals.append(hpfem.conical_shape_residual_derivative(problem, solution, velocity))
             columns.append(f"shape[{j}]")

@@ -916,6 +916,21 @@ Hadamard formula, whose interface integrals of the coefficient jumps are the con
 for any node velocity (checked for the ridge height of the glass grating against finite
 differences to $10^{-3}$).
 
+One exception to the smoothness: a goal sampled on mesh facets. The discrete Nédélec field
+is only tangentially continuous, its normal component jumps across facets, and a point on a
+facet is evaluated in one of the two cells. When the velocity deforms the cells at such a
+point, the sampled value is not differentiable in $p$ — the one-sided changes differ, and
+a difference quotient grows like the jump over the step. This is the case for the order
+amplitudes of a grating whose measurement line lies on a row of mesh facets (the default line
+midway between the structure and the PML often does on structured cells): the Jacobian of a
+p-polarised line grating along a morph velocity that reached the line was off by a factor of
+ten for the line height. Lines that cross cells transversally are fine (a point stays in its
+cell for small steps). `hpfem.grating.jacobian` / `shape_sensitivity` therefore refuse a
+velocity that deforms a cell with a vertex on a measurement line, and
+`hpfem.opt.Morph(..., band=(y_low, y_high))` keeps everything on and beyond the band edges
+fixed, so that the measurement lines and the PML stay outside the deformation; with the band
+the derivatives match finite differences of the solve to $10^{-8}$.
+
 ### Kept factorisation
 
 `adjoint_solution(problem, q)` assembles and factorises the adjoint system anew. With
