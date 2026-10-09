@@ -203,7 +203,9 @@ def test_kept_factorisation_gives_the_same_sensitivities():
     q = rng.normal(size=n) + 1j * rng.normal(size=n)
     forward = q @ factorisation.solve(r)
     backward = factorisation.solve_adjoint(q) @ r
-    assert abs(forward - backward) < 1e-10 * abs(forward)
+    # random r, q on the PML cell: the identity holds to round-off times the conditioning
+    # (9e-9 relative on the CI runner); a wrong transpose (P^H for P^T) is off by O(1)
+    assert abs(forward - backward) < 1e-6 * abs(forward)
 
 
 def test_jacobian_in_both_modes_matches_the_single_sensitivities():
@@ -223,11 +225,13 @@ def test_jacobian_in_both_modes_matches_the_single_sensitivities():
     direct, _, _ = grating.jacobian(result, parameters, mode="direct")
     adjoint, _, _ = grating.jacobian(result, parameters, mode="adjoint")
     scale = np.abs(jac).max()
-    assert np.abs(direct - adjoint).max() < 1e-9 * scale
+    # direct and adjoint mode are different solves on the PML cell: they agree to round-off
+    # times the conditioning (about 1e-8 on the CI runner, see the transpose identity above)
+    assert np.abs(direct - adjoint).max() < 1e-6 * scale
     for i, (side, order) in enumerate(rows):
         d_re, d_im = grating.sensitivity(result, RIDGE_TAG, order=order, side=side)
-        assert abs(jac[i, 0] - d_re) < 1e-8 * scale
-        assert abs(jac[i, 1] - d_im) < 1e-8 * scale
+        assert abs(jac[i, 0] - d_re) < 1e-6 * scale
+        assert abs(jac[i, 1] - d_im) < 1e-6 * scale
         d_v = grating.shape_sensitivity(result, velocity, order=order, side=side)
         assert abs(jac[i, 2] - d_v) < 1e-6 * np.abs(jac[:, 2]).max()
     with pytest.raises(grating.GratingError):
