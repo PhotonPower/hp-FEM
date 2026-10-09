@@ -203,7 +203,9 @@ def test_kept_factorisation_gives_the_same_sensitivities():
     q = rng.normal(size=n) + 1j * rng.normal(size=n)
     forward = q @ factorisation.solve(r)
     backward = factorisation.solve_adjoint(q) @ r
-    assert abs(forward - backward) < 1e-10 * abs(forward)
+    # random r, q on the PML cell: the identity holds to round-off times the conditioning
+    # (9e-9 relative on the CI runner); a wrong transpose (P^H for P^T) is off by O(1)
+    assert abs(forward - backward) < 1e-6 * abs(forward)
 
 
 def test_silver_grating_with_pec_bottom_absorbs_the_rest():
