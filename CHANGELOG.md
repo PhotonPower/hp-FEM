@@ -21,6 +21,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `conical_adjoint_solution` overloads with the solution, used by the shape derivatives and
   `grating.sensitivity`; `StaticCondensation::condense_load_transposed` /
   `recover_transposed`.
+- Direct mode of the sensitivities (M16 S1, ADR-0012): residual derivatives at fixed
+  coefficients for materials (`material_residual_derivative`, conical) and shapes
+  (`shape_residual_derivative`, conical: one directional difference per moving cell) and the
+  functional term (`functional_shape_derivative`, conical), so that de/dp = A⁻¹r on the kept
+  factorisation; `hpfem.grating.jacobian(result, parameters, observables, mode)` with the
+  automatic choice between direct and adjoint mode.
 
 ## [0.4.0] — 2026-10-08
 Fourth release: the GUI support milestone M15 complete, the sensitivities of M12, and the

@@ -321,6 +321,20 @@ solve on the problem of the result (`hpfem.conical_adjoint_solution`,
 `hpfem.conical_material_sensitivity`; `adjoint_solution` / `material_sensitivity` for
 `Scattering2D` / `3D` with any `Functional`; docs/theory/maxwell.md, "Sensitivities").
 
+**Jacobians (M16 S1).** `grating.solve(..., keep_factorisation=True)` keeps the factorised
+system in `result.solution.factorisation`; `grating.sensitivity` and
+`grating.shape_sensitivity` then cost one transposed solve each, and
+`grating.jacobian(result, [("eps", tag), ("shape", velocity), ...], observables=None,
+mode="auto")` returns `(J, rows, columns)` with the derivatives of several efficiencies
+(default: every propagating R and T order) with respect to several parameters (two columns
+for the real and imaginary part of a permittivity, one per mesh velocity) from one
+multi-right-hand-side solve: `"direct"` solves once per parameter, `"adjoint"` once per
+observable, `"auto"` picks the cheaper. The building blocks are
+`conical_material_residual_derivative`, `conical_shape_residual_derivative` and
+`conical_functional_shape_derivative` (and their `Scattering2D` / `3D` counterparts) with
+`KeptFactorisation.solve_many` / `solve_adjoint_many` (ADR-0012, docs/theory/maxwell.md
+"Direct mode").
+
 **Scalar E_z path.** For the s polarisation at `phi = 0` (`scalar="auto"`, the default)
 `grating.solve` lets `ConicalScattering` factorise only the H1 block (`setup.scalar_ez`), about
 a third of the unknowns with identical results; `result.scalar` says whether it was used,

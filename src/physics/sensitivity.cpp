@@ -96,9 +96,19 @@ template <int Dim>
 Complex material_sensitivity(const Scattering<Dim>& problem,
                              const ScatteringSolution<Dim>& solution, const Vector& adjoint,
                              mesh::Tag tag) {
+  if (adjoint.size() != problem.dofs().num_dofs()) {
+    throw InvalidArgument("material_sensitivity: the vectors do not match the DoF map");
+  }
+  const Vector r = material_residual_derivative<Dim>(problem, solution, tag);
+  return (adjoint.transpose() * r).value();  // z^T r without conjugation
+}
+
+template <int Dim>
+Vector material_residual_derivative(const Scattering<Dim>& problem,
+                                    const ScatteringSolution<Dim>& solution, mesh::Tag tag) {
   const auto& dofs = problem.dofs();
   const auto& mesh = dofs.mesh();
-  if (solution.unknown.size() != dofs.num_dofs() || adjoint.size() != dofs.num_dofs()) {
+  if (solution.unknown.size() != dofs.num_dofs()) {
     throw InvalidArgument("material_sensitivity: the vectors do not match the DoF map");
   }
   const std::vector<bool> tagged = tagged_cells<Dim>(problem, mesh, tag, "material_sensitivity");
@@ -122,9 +132,8 @@ Complex material_sensitivity(const Scattering<Dim>& problem,
   };
   const auto system =
       assembly::assemble_maxwell<Dim>(dofs, form_of_cell, problem.setup().extra_quadrature_order);
-  const Vector pairing = system.mass * solution.unknown + system.rhs;
   const Real k2 = problem.wavenumber() * problem.wavenumber();
-  return k2 * (adjoint.transpose() * pairing).value();  // z^T (.) without conjugation
+  return k2 * (system.mass * solution.unknown + system.rhs);
 }
 
 ConicalAdjoint conical_adjoint_solution(const ConicalScattering& problem, const Vector& q_e,
@@ -187,12 +196,24 @@ ConicalAdjoint conical_adjoint_solution(const ConicalScattering& problem,
 Complex conical_material_sensitivity(const ConicalScattering& problem,
                                      const ConicalSolution& solution, const ConicalAdjoint& adjoint,
                                      mesh::Tag tag) {
+  const Index n_e = problem.transverse_dofs().num_dofs();
+  const Index n_v = problem.longitudinal_dofs().num_dofs();
+  if (adjoint.transverse.size() != n_e || adjoint.longitudinal.size() != n_v) {
+    throw InvalidArgument("conical_material_sensitivity: the vectors do not match the maps");
+  }
+  Vector z(n_e + n_v);
+  z << adjoint.transverse, adjoint.longitudinal;
+  const Vector r = conical_material_residual_derivative(problem, solution, tag);
+  return (z.transpose() * r).value();
+}
+
+Vector conical_material_residual_derivative(const ConicalScattering& problem,
+                                            const ConicalSolution& solution, mesh::Tag tag) {
   const auto& nd = problem.transverse_dofs();
   const auto& h1 = problem.longitudinal_dofs();
   const auto& mesh = nd.mesh();
   const Index n_e = nd.num_dofs();
-  if (solution.transverse.size() != n_e || solution.longitudinal.size() != h1.num_dofs() ||
-      adjoint.transverse.size() != n_e || adjoint.longitudinal.size() != h1.num_dofs()) {
+  if (solution.transverse.size() != n_e || solution.longitudinal.size() != h1.num_dofs()) {
     throw InvalidArgument("conical_material_sensitivity: the vectors do not match the maps");
   }
   const std::vector<bool> tagged =
@@ -214,11 +235,8 @@ Complex conical_material_sensitivity(const ConicalScattering& problem,
       assembly::assemble_conical(nd, h1, setup.beta, form_of_cell, setup.extra_quadrature_order);
   Vector e(n_e + h1.num_dofs());
   e << solution.transverse, solution.longitudinal;
-  Vector z(n_e + h1.num_dofs());
-  z << adjoint.transverse, adjoint.longitudinal;
-  const Vector pairing = system.mass * e + system.rhs;
   const Real k2 = problem.wavenumber() * problem.wavenumber();
-  return k2 * (z.transpose() * pairing).value();
+  return k2 * (system.mass * e + system.rhs);
 }
 
 template Vector adjoint_solution<2>(const Scattering<2>&, const Vector&);
@@ -231,5 +249,9 @@ template Complex material_sensitivity<2>(const Scattering<2>&, const ScatteringS
                                          const Vector&, mesh::Tag);
 template Complex material_sensitivity<3>(const Scattering<3>&, const ScatteringSolution<3>&,
                                          const Vector&, mesh::Tag);
+template Vector material_residual_derivative<2>(const Scattering<2>&, const ScatteringSolution<2>&,
+                                                mesh::Tag);
+template Vector material_residual_derivative<3>(const Scattering<3>&, const ScatteringSolution<3>&,
+                                                mesh::Tag);
 
 }  // namespace hpfem::physics

@@ -56,6 +56,19 @@ template <int Dim>
                                            const ScatteringSolution<Dim>& solution,
                                            const Vector& adjoint, mesh::Tag tag);
 
+/// Derivative of the full residual @f$ R = b - A e @f$ with respect to the relative
+/// permittivity of the cells with `tag` at fixed coefficients e:
+/// @f$ r_\varepsilon = k_0^2\big(M_{\text{tag}}\,e + \ell_{\text{tag}}(E^{inc})\big) @f$
+/// (full size, on `problem.dofs()`). The adjoint mode pairs it with the adjoint,
+/// @f$ dQ/d\varepsilon = z^\top r_\varepsilon @f$ (`material_sensitivity`); the direct mode
+/// solves @f$ de/d\varepsilon = A^{-1} r_\varepsilon @f$ on the kept factorisation
+/// (`KeptFactorisation::solve`) for every observable at once (ADR-0012).
+/// @throws InvalidArgument as `material_sensitivity`.
+template <int Dim>
+[[nodiscard]] Vector material_residual_derivative(const Scattering<Dim>& problem,
+                                                  const ScatteringSolution<Dim>& solution,
+                                                  mesh::Tag tag);
+
 /// Adjoint of the conical solver as block coefficients (in-plane and scaled longitudinal).
 struct ConicalAdjoint {
   Vector transverse;
@@ -73,6 +86,13 @@ struct ConicalAdjoint {
 [[nodiscard]] ConicalAdjoint conical_adjoint_solution(const ConicalScattering& problem,
                                                       const ConicalSolution& solution,
                                                       const Vector& q_e, const Vector& q_v);
+
+/// `material_residual_derivative` of the conical solver, stacked as (in-plane | scaled
+/// longitudinal), the ordering of `ConicalSolution::factorisation`.
+/// @throws InvalidArgument as `conical_material_sensitivity`.
+[[nodiscard]] Vector conical_material_residual_derivative(const ConicalScattering& problem,
+                                                          const ConicalSolution& solution,
+                                                          mesh::Tag tag);
 
 /// @f$ dQ/d\varepsilon_{\text{tag}} @f$ for the conical solver: @f$ k_0^2 \big[(z_e, z_v)^\top
 /// M_{\text{tag}}(e, v) + (z_e, z_v)^\top\ell_{\text{tag}}\big] @f$ with the block mass of the

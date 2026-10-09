@@ -149,6 +149,35 @@ void bind_adaptivity_dim(py::module_& m) {
       "dQ/d(eps_r of the tag), the holomorphic derivative of the discrete goal: "
       "k0^2 integral over the tag of E_total . z");
   m.def(
+      "material_residual_derivative",
+      [](const physics::Scattering<Dim>& problem, const physics::ScatteringSolution<Dim>& solution,
+         mesh::Tag tag) {
+        return physics::material_residual_derivative<Dim>(problem, solution, tag);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("tag"), Release(),
+      "d(b - A e)/d(eps_r of the tag) at fixed e (full size): the direct mode solves "
+      "solution.factorisation.solve(r), the adjoint mode pairs z^T r");
+  m.def(
+      "shape_residual_derivative",
+      [](const physics::Scattering<Dim>& problem, const physics::ScatteringSolution<Dim>& solution,
+         const physics::NodeField& velocity, Real relative_step) {
+        return physics::shape_residual_derivative<Dim>(problem, solution, velocity, relative_step);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("velocity"), py::arg("relative_step") = 1e-6,
+      Release(),
+      "directional derivative of b - A e along the mesh velocity V at fixed e (full size), one "
+      "central difference per moving cell");
+  m.def(
+      "functional_shape_derivative",
+      [](const fespace::NedelecDofMap<Dim>& dofs, const physics::Functional<Dim>& functional,
+         const physics::NodeField& velocity, Real functional_step) {
+        return physics::functional_shape_derivative<Dim>(dofs, functional, velocity,
+                                                         functional_step);
+      },
+      py::arg("dofs"), py::arg("functional"), py::arg("velocity"),
+      py::arg("functional_step") = 1e-6, Release(),
+      "dq/dx . V of the functional vector (the term (dq/dx . V)^T e of a shape derivative)");
+  m.def(
       "shape_gradient",
       [](const physics::Scattering<Dim>& problem, const physics::ScatteringSolution<Dim>& solution,
          const Vector& adjoint, Real relative_step) {
@@ -355,6 +384,35 @@ void bind_adaptivity(py::module_& m) {
       },
       py::arg("problem"), py::arg("solution"), py::arg("z_e"), py::arg("z_v"), py::arg("tag"),
       Release(), "dQ/d(eps_r of the tag) of the conical goal, holomorphic");
+  m.def(
+      "conical_material_residual_derivative",
+      [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,
+         mesh::Tag tag) {
+        return physics::conical_material_residual_derivative(problem, solution, tag);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("tag"), Release(),
+      "d(b - A e)/d(eps_r of the tag) of the conical solver, stacked (in-plane | v)");
+  m.def(
+      "conical_shape_residual_derivative",
+      [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,
+         const physics::NodeField& velocity, Real relative_step) {
+        return physics::conical_shape_residual_derivative(problem, solution, velocity,
+                                                          relative_step);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("velocity"), py::arg("relative_step") = 1e-6,
+      Release(),
+      "directional derivative of b - A e along V for the conical solver, stacked (in-plane | v)");
+  m.def(
+      "conical_functional_shape_derivative",
+      [](const fespace::NedelecDofMap<2>& transverse, const fespace::DofMap<2>& longitudinal,
+         const physics::ConicalFunctional& functional, const physics::NodeField& velocity,
+         Real functional_step) {
+        return physics::conical_functional_shape_derivative(transverse, longitudinal, functional,
+                                                            velocity, functional_step);
+      },
+      py::arg("transverse"), py::arg("longitudinal"), py::arg("functional"), py::arg("velocity"),
+      py::arg("functional_step") = 1e-6, Release(),
+      "dq/dx . V of a conical functional, stacked (in-plane | v)");
   m.def(
       "conical_shape_gradient",
       [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,

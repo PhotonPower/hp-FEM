@@ -624,6 +624,85 @@ def shape_sensitivity(result: GratingResult, velocity, order: int = 0, side: str
     return scale * float(np.real(dq))
 
 
+def jacobian(result: GratingResult, parameters, observables=None, mode: str = "auto"):
+    """Jacobian of diffraction efficiencies with respect to several parameters on the
+    factorisation kept by :func:`solve` (``keep_factorisation=True``, ADR-0012).
+
+    ``parameters`` is a sequence of ``("eps", tag)`` (the relative permittivity of the cells
+    with ``tag``: two columns, d/dRe eps and d/dIm eps) and ``("shape", velocity)`` (a
+    geometry parameter by its mesh velocity, as :func:`shape_sensitivity`: one column).
+    ``observables`` is a sequence of ``(side, order)`` with ``side`` ``"R"`` or ``"T"``
+    (default: every propagating order of the result). ``mode`` ``"direct"`` solves once per
+    parameter (:math:`de/dp = A^{-1} r_p`), ``"adjoint"`` once per observable
+    (:math:`z = A^{-T} q`), ``"auto"`` (default) takes the one with fewer solves; both are
+    one multi-right-hand-side solve on the kept factors and give the same matrix up to
+    round-off. Returns ``(J, rows, columns)``: ``J[i, j] = dR_i/dp_j`` (real, shape
+    (observables, columns)), ``rows`` the ``(side, order)`` pairs, ``columns`` labels such as
+    ``"eps[3].re"``, ``"eps[3].im"``, ``"shape[0]"``. Raises ``GratingError`` without a kept
+    factorisation, for an unknown parameter kind or mode, or an order that is not
+    propagating."""
+    kept = result.solution.factorisation
+    if kept is None:
+        raise GratingError(
+            "jacobian needs the kept factorisation: solve(..., keep_factorisation=True)"
+        )
+    if mode not in ("auto", "direct", "adjoint"):
+        raise GratingError(f"mode={mode!r}: use 'auto', 'direct' or 'adjoint'")
+    problem, solution = result.problem, result.solution
+    nd, h1 = problem.transverse_dofs, problem.longitudinal_dofs
+    if observables is None:
+        observables = [("R", o.m) for o in result.R_orders if o.propagating]
+        observables += [("T", o.m) for o in result.T_orders if o.propagating]
+    rows = [(str(side), int(order)) for side, order in observables]
+    functionals, scales, q = [], [], np.zeros((kept.num_dofs, len(rows)), dtype=complex)
+    for i, (side, order) in enumerate(rows):
+        functional, scale = _order_functional(result, order, side)
+        functionals.append(functional)
+        scales.append(scale)
+        if functional is not None:
+            q_e, q_v = functional(nd, h1)
+            q[:, i] = np.concatenate([q_e, q_v])
+    residuals, columns, kinds = [], [], []
+    for j, parameter in enumerate(parameters):
+        kind, value = parameter
+        if kind == "eps":
+            residuals.append(
+                hpfem.conical_material_residual_derivative(problem, solution, int(value))
+            )
+            columns += [f"eps[{int(value)}].re", f"eps[{int(value)}].im"]
+            kinds.append(("eps", None))
+        elif kind == "shape":
+            velocity = np.asarray(value, dtype=float)
+            residuals.append(hpfem.conical_shape_residual_derivative(problem, solution, velocity))
+            columns.append(f"shape[{j}]")
+            kinds.append(("shape", velocity))
+        else:
+            raise GratingError(f"parameter kind {kind!r}: use 'eps' or 'shape'")
+    r = np.column_stack(residuals) if residuals else np.zeros((kept.num_dofs, 0), dtype=complex)
+    if mode == "auto":
+        mode = "direct" if r.shape[1] <= len(rows) else "adjoint"
+    if mode == "direct":
+        dq = q.T @ kept.solve_many(r)  # (observables, parameters), complex
+    else:
+        dq = kept.solve_adjoint_many(q).T @ r
+    e = np.concatenate([solution.transverse, solution.longitudinal])
+    jac = np.zeros((len(rows), len(columns)))
+    for i in range(len(rows)):
+        if functionals[i] is None:
+            continue
+        col = 0
+        for j, (kind, velocity) in enumerate(kinds):
+            if kind == "eps":
+                jac[i, col] = scales[i] * np.real(dq[i, j])
+                jac[i, col + 1] = scales[i] * np.real(1j * dq[i, j])
+                col += 2
+            else:
+                term = hpfem.conical_functional_shape_derivative(nd, h1, functionals[i], velocity)
+                jac[i, col] = scales[i] * np.real(dq[i, j] + term @ e)
+                col += 1
+    return jac, rows, columns
+
+
 def estimate_memory(mesh, order=4, solver=None):
     """Predicted sizes of the factorisation of :func:`solve` on ``mesh`` with the polynomial
     ``order`` (``hpfem.MemoryEstimate``: DoFs, nonzeros, factor entries, bytes, backend);

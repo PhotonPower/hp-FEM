@@ -90,6 +90,7 @@ hpfem_add_test(test_physics unit
   physics/test_conical_postprocess.cpp
   physics/test_conical_resonance.cpp
   physics/test_kept_factorisation.cpp
+  physics/test_residual_derivative.cpp
   physics/test_sensitivity.cpp
   physics/test_shape_sensitivity.cpp)
 

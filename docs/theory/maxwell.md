@@ -885,6 +885,44 @@ $10^{-9}$; `test_grating_solve.py` checks that `grating.sensitivity` and
 `grating.shape_sensitivity` are unchanged. The factors stay in memory as long as the solution
 lives (`estimate_memory` predicts their size); `keep_factorisation` is therefore opt-in.
 
+### Direct mode
+
+With a kept factorisation the derivative of the solution with respect to one parameter is a
+single tangent solve, $de/d\theta = A^{-1} r_\theta$, with the residual derivative at fixed
+coefficients
+
+$$
+r_\theta = \frac{\partial}{\partial\theta}\big(b - A e\big)\Big|_{e\ \text{fixed}},
+\qquad \frac{dQ_k}{d\theta} = q_k^\top\frac{de}{d\theta}
++ \Big(\frac{\partial q_k}{\partial\theta}\Big)^{\!\top} e ,
+$$
+
+for every observable $k$ at once — the adjoint mode $z_k^\top r_\theta$ with one solve per
+observable gives the same numbers. The residual derivatives (full size, on the DoF map; the
+conical ones stacked as in-plane | scaled longitudinal):
+
+- material: $r_\varepsilon = k_0^2\big(M_{\text{tag}}\,e + \ell_{\text{tag}}(E^{inc})\big)$
+  (`material_residual_derivative`, `conical_material_residual_derivative`);
+- shape: one central difference of the element residuals $b_K - A_K e_K$ per cell whose nodes
+  move, along the mesh velocity $V$ with the largest node displacement $10^{-6}$ cell
+  diameters (`shape_residual_derivative`, `conical_shape_residual_derivative`), and the
+  functional term $\partial q/\partial x\cdot V$ from `functional_shape_derivative` /
+  `conical_functional_shape_derivative` (as in `shape_derivative`). A directional difference
+  per cell is $2\,\dim$ (nodes per cell) times cheaper than the node gradient of the adjoint
+  mode.
+
+The cheaper mode follows from the counts per factorisation: $n$ parameters cost $n$ tangent
+solves, $m$ observables $m$ adjoint solves (`hpfem.grating.jacobian` picks
+$\min(n, m)$; scatterometry with many orders and few parameters is the direct case).
+Parameters that change the constraints or the Dirichlet data — the frequency and the angles
+of a Bloch-periodic problem, whose phases depend on $k_x$ — need the derivative of $P$ as
+well and are not covered by these residuals. `test_residual_derivative.cpp` checks the
+direct against the adjoint mode for the disc permittivity (to $10^{-9}$) and the disc radius
+(to $10^{-6}$, two different central differences) in the in-plane and the conical solver,
+$z^\top r_V$ against the node-gradient pairing of ADR-0011, and a $2\times 2$ Jacobian in both
+modes; `test_grating_solve.py` checks `grating.jacobian` in both modes against
+`grating.sensitivity` and `grating.shape_sensitivity` entry by entry.
+
 ## Band structures (`physics/band_structure.hpp`)
 
 A photonic crystal is a lossless periodic structure with lattice vectors $a_j$. By Bloch's
