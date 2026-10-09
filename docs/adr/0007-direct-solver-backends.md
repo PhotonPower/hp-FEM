@@ -1,6 +1,8 @@
 # 0007 — Direct solver backends behind one interface
 **Status:** accepted, amended by [0008](0008-gpu-backend.md) (GPU backend behind the same
-interface; `LinearSolver::solve_many` for several right-hand sides at once) ·
+interface; `LinearSolver::solve_many` for several right-hand sides at once) and by
+[0012](0012-optimisation-and-uq.md) (`LinearSolver::solve_transposed`, kept factorisation for
+the sensitivities) ·
 **Date:** 2026-10-02
 
 ## Decision
