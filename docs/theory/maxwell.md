@@ -914,14 +914,60 @@ conical ones stacked as in-plane | scaled longitudinal):
 The cheaper mode follows from the counts per factorisation: $n$ parameters cost $n$ tangent
 solves, $m$ observables $m$ adjoint solves (`hpfem.grating.jacobian` picks
 $\min(n, m)$; scatterometry with many orders and few parameters is the direct case).
-Parameters that change the constraints or the Dirichlet data — the frequency and the angles
-of a Bloch-periodic problem, whose phases depend on $k_x$ — need the derivative of $P$ as
-well and are not covered by these residuals. `test_residual_derivative.cpp` checks the
+Parameters that change the constraints — the frequency and the angles of a Bloch-periodic
+problem, whose phases depend on $k_x$ — need the derivative of $P$ as well (next section).
+`test_residual_derivative.cpp` checks the
 direct against the adjoint mode for the disc permittivity (to $10^{-9}$) and the disc radius
 (to $10^{-6}$, two different central differences) in the in-plane and the conical solver,
 $z^\top r_V$ against the node-gradient pairing of ADR-0011, and a $2\times 2$ Jacobian in both
 modes; `test_grating_solve.py` checks `grating.jacobian` in both modes against
 `grating.sensitivity` and `grating.shape_sensitivity` entry by entry.
+
+### Frequency and angle derivatives
+
+The frequency $\omega$ and the angles $\theta$, $\varphi$ of the incident wave are parameters
+of the whole conical setup (`physics/parameter_sensitivity.hpp`): they change $k_0^2$,
+$\beta = k_z$, dispersive permittivities, the incident field of the scattered-field
+formulation and the Bloch phases $e^{ik_x a}$ of the constraints $P$ — the solution space
+itself. With the reduced coefficients $u$ (the constraint masters) the discrete equations are
+$G(u,\theta) = P^H(b - A P u) = 0$; differentiating at the solution gives
+
+$$
+P^H A P\,\frac{du}{d\theta} = P^H\rho' + (\partial_\theta P)^H\rho_0,
+\qquad
+\frac{de}{d\theta} = P\,\frac{du}{d\theta} + (\partial_\theta P)\,u ,
+$$
+
+with the full residual of the solution $\rho_0 = b - Ae$ (only $P^H\rho_0$ vanishes; the rows
+of the Bloch slaves carry the reaction of the periodic coupling) and the residual derivative
+along the transported coefficients $\rho' = \tfrac{d}{d\theta}\big[b - A P u\big]_{u\ \text{fixed}}$.
+`conical_parameter_tangent` takes the problems at $\theta\pm h$ on the same DoF maps and forms
+$\rho'$, $(\partial_\theta P)^H\rho_0$ and $(\partial_\theta P)u$ as central differences (the
+slaves recomputed with the neighbour's phases, `conical_transported_solution`; the residuals
+by `conical_residual`, one assembly each). No solve is repeated: the tangent is one solve on
+the kept factorisation with the extra term added after the constraints
+(`KeptFactorisation::solve_many(loads, system_loads)`). The differences are of assembled
+residuals, smooth in $\theta$ and free of solver noise, so $h = 10^{-6}$ (relative for
+$\omega$) is accurate to $O(h^2)$; the round-off of the parallel assembly, amplified by
+$1/2h$, leaves about $10^{-8}$ relative. An observable $Q(e,\theta)$ — a diffraction
+efficiency depends on $\theta$ also through the order directions, the Fourier kernel and the
+incident power — has
+
+$$
+\frac{dQ}{d\theta} = \partial_e Q\cdot\frac{de}{d\theta} + \partial_\theta Q\big|_e ,
+$$
+
+the explicit term again a central difference of the post-processing at fixed $e$.
+`hpfem.grating.jacobian` takes `"theta"`, `"phi"`, `"omega"` and `"wavelength"` columns this
+way (always in the direct mode; at a fixed PML box and fixed measurement lines; dispersive
+materials given as models are evaluated at the new frequency). Without the constraint term
+the tangent misses the change of the solution space and is wrong at the percent level
+(checked in the test). `test_parameter_sensitivity.cpp` checks $de/dt$ for a parameter that
+moves the Bloch phase, $\omega$, $\beta$ and the source at once against central differences
+of full solves (to $3\cdot 10^{-7}$, the $O(h^2)$ of the reference) on the vector and the
+scalar $E_z$ path; `test_grating_solve.py` checks the $\theta$, $\varphi$ and wavelength
+columns of a conical grating with a dispersive ridge against differences of full solves at the
+same PML box (deviations $10^{-6}$–$10^{-5}$, shrinking as $h^2$ of the reference).
 
 ## Band structures (`physics/band_structure.hpp`)
 

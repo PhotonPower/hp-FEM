@@ -727,8 +727,9 @@ void bind_physics(py::module_& m) {
       "on full-size vectors (ADR-0012); the adjoint is the exact transpose of the solve")
       .def("solve", &physics::KeptFactorisation::solve, py::arg("load"), Release(),
            "s = A^-1 r for a full-size load, homogeneous Dirichlet data")
-      .def("solve_many", &physics::KeptFactorisation::solve_many, py::arg("loads"), Release(),
-           "several loads at once (n x m)")
+      .def("solve_many",
+           py::overload_cast<const Matrix&>(&physics::KeptFactorisation::solve_many, py::const_),
+           py::arg("loads"), Release(), "several loads at once (n x m)")
       .def("solve_adjoint", &physics::KeptFactorisation::solve_adjoint, py::arg("functional"),
            Release(), "z = A^-T q for a full-size functional vector (adjoint of Q = q^T e)")
       .def("solve_adjoint_many", &physics::KeptFactorisation::solve_adjoint_many,

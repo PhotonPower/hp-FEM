@@ -176,6 +176,15 @@ class ConicalScattering {
   [[nodiscard]] const std::optional<fespace::Constraints>& constraints() const noexcept {
     return constraints_;
   }
+  /// The unknowns `solve` factorises before the constraints: `free_dofs()`, or the free H1
+  /// block DoFs (offset by the Nédélec count) on the scalar E_z path.
+  [[nodiscard]] const std::vector<Index>& system_dofs() const noexcept {
+    return setup_.scalar_ez ? scalar_dofs_ : free_;
+  }
+  /// The constraints on `system_dofs()` (`constraints()`, or their H1 part on the scalar path).
+  [[nodiscard]] const std::optional<fespace::Constraints>& system_constraints() const noexcept {
+    return setup_.scalar_ez ? h1_constraints_ : constraints_;
+  }
   /// @throws Error if the factorisation fails.
   [[nodiscard]] ConicalSolution solve() const;
   /// Element indicators of a solution (`adaptivity::conical_residual_estimate` with the

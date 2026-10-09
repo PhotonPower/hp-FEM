@@ -334,6 +334,16 @@ observable, `"auto"` picks the cheaper. The building blocks are
 `conical_functional_shape_derivative` (and their `Scattering2D` / `3D` counterparts) with
 `KeptFactorisation.solve_many` / `solve_adjoint_many` (ADR-0012, docs/theory/maxwell.md
 "Direct mode").
+The parameters `"theta"`, `"phi"` (per radian), `"omega"` (per rad/s) and `"wavelength"`
+(vacuum, per metre), also as `(name, step)`, are columns for the incidence and the frequency:
+they move the incident wave, the Bloch phases, β, k0 and the dispersive materials (models in
+the `materials` given to `solve` are evaluated at the new frequency) at a fixed PML box and
+fixed measurement lines, by the tangent with the derivative of the Bloch constraints plus the
+explicit dependence of the order post-processing (`hpfem.conical_parameter_tangent`,
+`conical_residual`, `conical_transported_solution`; docs/theory/maxwell.md "Frequency and
+angle derivatives"). They are always computed in the direct mode, cost two assemblies and two
+post-processings each and need no further factorisation; `"phi"` needs the vector path
+(`solve(..., scalar=False)`). `result.inputs` keeps what `solve` was called with for this.
 
 **Design parameters and mesh morphing (`hpfem.opt`, M16).** `import hpfem.opt` (not imported
 by `import hpfem`). A `MaterialParameter(name, tag, part="re" | "im", lower, upper)` is a part

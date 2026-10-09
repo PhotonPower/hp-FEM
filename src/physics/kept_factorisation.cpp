@@ -46,7 +46,8 @@ KeptFactorisation::KeptFactorisation(Parts parts)
   }
 }
 
-Matrix KeptFactorisation::to_system(const Matrix& full, bool transposed) const {
+Matrix KeptFactorisation::to_system(const Matrix& full, bool transposed,
+                                    const Matrix* system_loads) const {
   if (full.rows() != num_dofs_) {
     throw InvalidArgument(
         fmt::format("KeptFactorisation: {} rows for {} DoFs", full.rows(), num_dofs_));
@@ -76,6 +77,7 @@ Matrix KeptFactorisation::to_system(const Matrix& full, bool transposed) const {
   } else {
     reduced = std::move(selected);
   }
+  if (system_loads != nullptr) reduced += *system_loads;
   for (const Index dof : dirichlet_) reduced.row(dof).setZero();
   return reduced;
 }
@@ -117,6 +119,16 @@ Vector KeptFactorisation::solve(const Vector& load) const {
 Matrix KeptFactorisation::solve_many(const Matrix& loads) const {
   if (loads.cols() == 0) return Matrix(num_dofs_, 0);
   return from_system(solver_->solve_many(to_system(loads, false)), loads, false);
+}
+
+Matrix KeptFactorisation::solve_many(const Matrix& loads, const Matrix& system_loads) const {
+  if (system_loads.rows() != solver_->size() || system_loads.cols() != loads.cols()) {
+    throw InvalidArgument(
+        fmt::format("KeptFactorisation: system loads {} x {} for {} unknowns and {} loads",
+                    system_loads.rows(), system_loads.cols(), solver_->size(), loads.cols()));
+  }
+  if (loads.cols() == 0) return Matrix(num_dofs_, 0);
+  return from_system(solver_->solve_many(to_system(loads, false, &system_loads)), loads, false);
 }
 
 Vector KeptFactorisation::solve_adjoint(const Vector& functional) const {

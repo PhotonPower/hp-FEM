@@ -242,6 +242,66 @@ def test_jacobian_in_both_modes_matches_the_single_sensitivities():
         grating.jacobian(result, parameters, mode="forward")
 
 
+def _efficiency_table(result, rows):
+    out = []
+    for side, order in rows:
+        orders = result.R_orders if side == "R" else result.T_orders
+        out.append(next(o.efficiency for o in orders if o.m == order))
+    return np.array(out)
+
+
+@pytest.mark.parametrize("pol, phi_deg", [("p", 20.0), ("s", 0.0)])
+def test_jacobian_by_angles_and_wavelength_matches_finite_differences(pol, phi_deg):
+    # the conical p case moves the Bloch phase, beta, the incident wave, k0 and the dispersive
+    # ridge at once; the s case at phi = 0 runs on the scalar E_z path
+    mesh, pml = unit_cell()
+    glass = hpfem.Material.dielectric(1.5)
+    stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)
+    ridge = hpfem.materials.DrudeLorentz(2.0, 0.5 * OMEGA, 0.0, [(1.0, 2.0 * OMEGA, 0.1 * OMEGA)])
+    materials = {SUB: glass, RIDGE_TAG: ridge}
+    theta, phi = 40 * units.deg, phi_deg * units.deg
+    common = dict(order=3, orders_max=2, check=False)
+    result = grating.solve(mesh, materials, stack, pol, theta, phi, OMEGA,
+                           pml={"top": pml, "bottom": pml}, keep_factorisation=True,
+                           **common)  # fmt: skip
+    assert result.scalar == (pol == "s")
+    names = ["theta", "wavelength"] + (["phi"] if pol == "p" else [])
+    jac, rows, columns = grating.jacobian(result, names)
+    assert columns == names and jac.shape == (len(rows), len(names))
+
+    def solve(theta=theta, phi=phi, omega=OMEGA):
+        res = grating.solve(mesh, materials, stack, pol, theta, phi, omega, pml=result.pml,
+                            **common)  # fmt: skip
+        return _efficiency_table(res, rows)
+
+    wavelength = 2 * np.pi * hpfem.constants.c0 / OMEGA
+    d_angle, d_lambda = 1e-3, 1e-4 * wavelength
+    reference = {
+        "theta": (solve(theta=theta + d_angle) - solve(theta=theta - d_angle)) / (2 * d_angle),
+        "wavelength": (
+            solve(omega=2 * np.pi * hpfem.constants.c0 / (wavelength + d_lambda))
+            - solve(omega=2 * np.pi * hpfem.constants.c0 / (wavelength - d_lambda))
+        )
+        / (2 * d_lambda),
+    }
+    if pol == "p":
+        reference["phi"] = (solve(phi=phi + d_angle) - solve(phi=phi - d_angle)) / (2 * d_angle)
+    for j, name in enumerate(names):
+        scale = np.abs(reference[name]).max()
+        assert scale > 0
+        assert np.abs(jac[:, j] - reference[name]).max() < 1e-3 * scale, name
+    # mixed with the material columns: the same numbers, up to the round-off of the parallel
+    # assembly (summation order) amplified by the difference quotient 1/(2h) (about 3e-8)
+    mixed, _, mixed_columns = grating.jacobian(result, [("eps", RIDGE_TAG), "theta"], rows)
+    assert mixed_columns == [f"eps[{RIDGE_TAG}].re", f"eps[{RIDGE_TAG}].im", "theta"]
+    assert np.abs(mixed[:, 2] - jac[:, 0]).max() < 1e-6 * np.abs(jac[:, 0]).max()
+    if pol == "s":
+        with pytest.raises(grating.GratingError, match="scalar"):
+            grating.jacobian(result, ["phi"])
+    with pytest.raises(grating.GratingError, match="positive"):
+        grating.jacobian(result, [("theta", 0.0)])
+
+
 def test_silver_grating_with_pec_bottom_absorbs_the_rest():
     mesh, pml = unit_cell()
     silver = hpfem.Material()
