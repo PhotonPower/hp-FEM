@@ -389,12 +389,15 @@ effort in focused sessions.
   **morphing-versus-remeshing strategy**: a reference mesh is morphed with `move_nodes`
   within a parameter range, remeshing only when the quality guard trips, so that the
   objective stays consistent with the adjoint gradient
-- [ ] S1 (P1, ≈ 4) gradient infrastructure: geometry parameters (radius, width, height,
+- [x] S1 (P1, ≈ 4) gradient infrastructure: geometry parameters (radius, width, height,
   position) mapped to mesh velocity fields; Jacobian of several observables in the **direct
   (tangent) mode** (one solve per parameter) and the **adjoint mode** (one solve per
   observable) on the same factorisation, the cheaper one chosen from the counts; derivatives
   with respect to frequency and angle; mesh-quality guard; finite-difference checks on the
-  morphed mesh
+  morphed mesh (`LinearSolver::solve_transposed`, `KeptFactorisation`, residual derivatives
+  and `grating.jacobian`, `hpfem.opt` parameters / `shape_velocity` / `Morph`,
+  `conical_parameter_tangent` with the derivative of the Bloch constraints for `"theta"`,
+  `"phi"`, `"omega"`, `"wavelength"`)
 - [ ] S2 (P1, ≈ 3) study framework: design space (continuous, integer, categorical,
   constraints), evaluation cache, resume, JSON-lines result store, job-runner integration with
   events and cancellation; batch proposals are evaluated sequentially, several processes only

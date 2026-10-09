@@ -13,6 +13,7 @@
 #include "hpfem/adaptivity/smoothness.hpp"
 #include "hpfem/physics/conical_goal.hpp"
 #include "hpfem/physics/goal_oriented.hpp"
+#include "hpfem/physics/parameter_sensitivity.hpp"
 #include "hpfem/physics/sensitivity.hpp"
 #include "hpfem/physics/shape_sensitivity.hpp"
 
@@ -392,6 +393,29 @@ void bind_adaptivity(py::module_& m) {
       },
       py::arg("problem"), py::arg("solution"), py::arg("tag"), Release(),
       "d(b - A e)/d(eps_r of the tag) of the conical solver, stacked (in-plane | v)");
+  m.def(
+      "conical_residual",
+      [](const physics::ConicalScattering& problem, const Vector& transverse,
+         const Vector& longitudinal) {
+        return physics::conical_residual(problem, transverse, longitudinal);
+      },
+      py::arg("problem"), py::arg("transverse"), py::arg("longitudinal"), Release(),
+      "full residual b - A e of the conical problem, stacked (in-plane | v), all DoFs");
+  m.def("conical_transported_solution", &physics::conical_transported_solution, py::arg("problem"),
+        py::arg("solution"), Release(),
+        "the solution with its constraint masters kept and the slaves (Bloch phases) of problem");
+  m.def(
+      "conical_parameter_tangent",
+      [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,
+         const physics::ConicalScattering& minus, const physics::ConicalScattering& plus,
+         Real step) {
+        auto t = physics::conical_parameter_tangent(problem, solution, minus, plus, step);
+        return std::make_pair(t.transverse, t.longitudinal);
+      },
+      py::arg("problem"), py::arg("solution"), py::arg("minus"), py::arg("plus"), py::arg("step"),
+      Release(),
+      "(de/dt, dv/dt) for a parameter t of the whole setup (frequency, angles) from the problems "
+      "at t - step and t + step on the same maps; one solve on the kept factorisation");
   m.def(
       "conical_shape_residual_derivative",
       [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,

@@ -53,6 +53,14 @@ class KeptFactorisation {
   [[nodiscard]] Vector solve(const Vector& load) const;
   /// Several loads at once (one per column, one multi-rhs solve).
   [[nodiscard]] Matrix solve_many(const Matrix& loads) const;
+  /// Tangent solves with an additional load on the factorised unknowns, added after the
+  /// constraints: @f$ P^H A P x = P^H r + g @f$, @f$ s = P x @f$. The extra term carries the
+  /// derivative of the constraints, @f$ g = (\partial_\theta P)^H \rho_0 @f$, when a parameter
+  /// changes them (the Bloch phases under a change of frequency or angle,
+  /// `conical_parameter_tangent`). Entries of eliminated Dirichlet unknowns are ignored.
+  /// @throws InvalidArgument if the sizes do not match (`system_loads`: `size()` rows, the
+  /// columns of `loads`).
+  [[nodiscard]] Matrix solve_many(const Matrix& loads, const Matrix& system_loads) const;
   /// @f$ z = A^{-\top} q @f$ for a full-size functional vector: the adjoint of
   /// @f$ Q = q^\top e @f$, zero on the Dirichlet DoFs, in the test space of the constraints.
   /// @throws InvalidArgument if the size does not match.
@@ -67,7 +75,8 @@ class KeptFactorisation {
   [[nodiscard]] const solvers::LinearSolver& solver() const noexcept { return *solver_; }
 
  private:
-  [[nodiscard]] Matrix to_system(const Matrix& full, bool transposed) const;
+  [[nodiscard]] Matrix to_system(const Matrix& full, bool transposed,
+                                 const Matrix* system_loads = nullptr) const;
   [[nodiscard]] Matrix from_system(const Matrix& reduced, const Matrix& full,
                                    bool transposed) const;
 

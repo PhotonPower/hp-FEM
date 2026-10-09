@@ -76,6 +76,11 @@ class GratingResult:
     """flux-based balance (``conical_power_balance``) through the PML boundaries: incident,
     reflected, transmitted, absorbed [W/m] and ``relative_residual``; ``None`` when the PML
     boundaries are no mesh lines (unstructured meshes)"""
+    inputs: dict | None = None
+    """the arguments of :func:`solve` that define the problem besides the mesh (``materials``,
+    ``stack``, ``polarisation``, ``theta``, ``phi``, ``omega``, ``orders_max``,
+    ``extra_quadrature_order``, ``solver``): :func:`jacobian` rebuilds the problem at
+    neighbouring frequencies and angles from them"""
     _locator: object = None
 
     def field(self, points, quantity: str = "E", scattered: bool = False) -> np.ndarray:
@@ -194,6 +199,61 @@ def _orders(coefficients, k0, n, period, kx, beta, ky_incident, orders_max) -> l
         )
     out.sort(key=lambda o: o.m)
     return out
+
+
+def _conical_setup(omega, wave, material_map, stack, box, period, extra_quadrature_order, scalar):
+    """The ``ConicalScatteringSetup`` of the unit cell (without solver choice and callbacks)."""
+    setup = hpfem.ConicalScatteringSetup()
+    setup.omega = float(omega)
+    setup.beta = wave.beta
+    setup.materials = material_map
+    setup.background = stack
+    setup.incident = wave.field
+    setup.pml = box
+    setup.pec_tags = [hpfem.box_tag.Y_MIN, hpfem.box_tag.Y_MAX]
+    setup.periodic = [
+        hpfem.PeriodicPair2D(
+            hpfem.box_tag.X_MIN,
+            hpfem.box_tag.X_MAX,
+            [period, 0.0],
+            hpfem.bloch_phase([wave.kx, 0.0], [period, 0.0]),
+        )
+    ]
+    setup.extra_quadrature_order = int(extra_quadrature_order)
+    setup.scalar_ez = bool(scalar)
+    return setup
+
+
+def _measure_orders(problem, solution, locator, wave, k0, n_cover, n_sub, lines, orders_max,
+                    fourier_points):  # fmt: skip
+    """Reflected and transmitted orders of ``solution`` on the measurement lines
+    ``lines = (x_min, period, cover_line, substrate_line or None)``."""
+    x_min, period, cover_line, substrate_line = lines
+
+    def incident_physical(x):
+        i = wave.incident(x)  # the scaled (E_x, E_y, -i E_z) of the downward wave
+        return np.array([i[0], i[1], 1j * i[2]])
+
+    def reflected_field(x):
+        return np.asarray(problem.total_field(solution, locator, x)) - incident_physical(x)
+
+    coefficients = hpfem.conical_fourier_coefficients(
+        reflected_field, [x_min, cover_line], [1.0, 0.0], period, wave.kx, orders_max,
+        fourier_points,
+    )  # fmt: skip
+    r_orders = _orders(
+        coefficients, k0, n_cover.real, period, wave.kx, wave.beta, wave.ky, orders_max
+    )
+    t_orders: list[Order] = []
+    if substrate_line is not None:
+        coefficients = hpfem.conical_fourier_coefficients(
+            lambda x: np.asarray(problem.total_field(solution, locator, x)),
+            [x_min, substrate_line], [1.0, 0.0], period, wave.kx, orders_max, fourier_points,
+        )  # fmt: skip
+        t_orders = _orders(
+            coefficients, k0, n_sub.real, period, wave.kx, wave.beta, wave.ky, orders_max
+        )
+    return r_orders, t_orders, incident_physical
 
 
 @dataclass
@@ -624,23 +684,120 @@ def shape_sensitivity(result: GratingResult, velocity, order: int = 0, side: str
     return scale * float(np.real(dq))
 
 
+_SETUP_PARAMETERS = {"theta": 1e-6, "phi": 1e-6, "omega": 1e-7, "wavelength": 1e-7}
+"""parameters of the whole setup and their default difference steps (rad for the angles,
+relative to omega for the frequency)"""
+
+
+def _neighbour(result: GratingResult, theta: float, phi: float, omega: float):
+    """The problem of ``result`` at other angles and frequency: the same DoF maps, PML box,
+    measurement lines and path (scalar or vector); dispersive materials evaluated at
+    ``omega``. Returns ``(problem, wave, k0)``."""
+    inputs = result.inputs
+    stack = inputs["stack"]
+    k0 = float(units.vacuum_wavenumber(omega))
+    pol = _polarisation(inputs["polarisation"])
+    wave = hpfem.layered_conical_wave(stack, k0, float(theta), float(phi), pol)
+    material_map = _material_map(inputs["materials"], stack, float(omega))
+    setup = _conical_setup(
+        omega, wave, material_map, stack, result.pml, result.period,
+        inputs["extra_quadrature_order"], result.scalar,
+    )  # fmt: skip
+    if inputs["solver"] is not None:
+        setup.solver = inputs["solver"]
+    problem = hpfem.ConicalScattering(
+        result.problem.transverse_dofs, result.problem.longitudinal_dofs, setup
+    )
+    return problem, wave, k0
+
+
+def _efficiencies_at(result: GratingResult, problem, wave, k0, rows) -> np.ndarray:
+    """Efficiencies of the ``(side, order)`` rows of the fixed coefficients of ``result``
+    post-processed with another problem (the explicit dependence on the parameters)."""
+    stack = result.inputs["stack"]
+    n_cover = complex(stack.incidence_medium.refractive_index)
+    n_sub = complex(stack.substrate.refractive_index)
+    lines = (result.x_min, result.period, result.cover_line, result.substrate_line)
+    if result._locator is None:
+        result._locator = hpfem.PointLocator2D(result.mesh)
+    r_orders, t_orders, _ = _measure_orders(
+        problem, result.solution, result._locator, wave, k0, n_cover, n_sub, lines,
+        result.inputs["orders_max"], result.fourier_points,
+    )  # fmt: skip
+    out = np.zeros(len(rows))
+    for i, (side, order) in enumerate(rows):
+        match = [o for o in (r_orders if side == "R" else t_orders) if o.m == order]
+        out[i] = match[0].efficiency if match else 0.0
+    return out
+
+
+def _setup_column(result: GratingResult, name: str, step, rows, q, scales) -> np.ndarray:
+    """dR_i/d(name) for a parameter of the whole setup: the tangent with the derivative of
+    the Bloch constraints (``conical_parameter_tangent``) plus the explicit dependence of the
+    post-processing, both by central differences of step ``step``."""
+    if result.inputs is None:
+        raise GratingError("the result has no solve inputs: use hpfem.grating.solve")
+    if name == "phi" and result.scalar:
+        raise GratingError(
+            "the phi derivative leaves the scalar E_z path: solve(..., scalar=False)"
+        )
+    theta, phi, omega = (result.inputs[k] for k in ("theta", "phi", "omega"))
+    step = _SETUP_PARAMETERS[name] if step is None else float(step)
+    if not step > 0:
+        raise GratingError(f"the step of {name} must be positive")
+    base = np.array([theta, phi, omega])
+    if name in ("omega", "wavelength"):
+        h = step * omega
+        shift = np.array([0.0, 0.0, h])
+    else:
+        h = step
+        shift = np.array([h, 0.0, 0.0]) if name == "theta" else np.array([0.0, h, 0.0])
+    minus, plus = _neighbour(result, *(base - shift)), _neighbour(result, *(base + shift))
+    de_e, de_v = hpfem.conical_parameter_tangent(
+        result.problem, result.solution, minus[0], plus[0], h
+    )
+    implicit = np.real(q.T @ np.concatenate([de_e, de_v])) * np.asarray(scales)
+    explicit = (_efficiencies_at(result, *plus, rows) - _efficiencies_at(result, *minus, rows)) / (
+        2.0 * h
+    )
+    column = implicit + explicit
+    if name == "wavelength":  # d/d lambda = -(omega / lambda) d/d omega
+        column *= -(omega**2) / (2.0 * np.pi * hpfem.constants.c0)
+    return column
+
+
 def jacobian(result: GratingResult, parameters, observables=None, mode: str = "auto"):
     """Jacobian of diffraction efficiencies with respect to several parameters on the
     factorisation kept by :func:`solve` (``keep_factorisation=True``, ADR-0012).
 
-    ``parameters`` is a sequence of ``("eps", tag)`` (the relative permittivity of the cells
-    with ``tag``: two columns, d/dRe eps and d/dIm eps) and ``("shape", velocity)`` (a
-    geometry parameter by its mesh velocity, as :func:`shape_sensitivity`: one column).
+    ``parameters`` is a sequence of
+
+    - ``("eps", tag)``: the relative permittivity of the cells with ``tag`` (two columns,
+      d/dRe eps and d/dIm eps);
+    - ``("shape", velocity)``: a geometry parameter by its mesh velocity, as
+      :func:`shape_sensitivity` (one column);
+    - ``"theta"``, ``"phi"`` [1/rad], ``"omega"`` [1/(rad/s)] or ``"wavelength"`` (vacuum,
+      [1/m]), also as ``(name, step)``: a parameter of the whole setup (one column). It moves
+      the incident wave, the Bloch phases, beta, k0 and the dispersive materials (the
+      ``materials`` given to :func:`solve` as models are evaluated at the new frequency; a
+      ``MaterialMap`` and the stack's indices stay fixed), at a fixed PML box and fixed
+      measurement lines. The derivative is the tangent on the kept factorisation with the
+      derivative of the Bloch constraints (``conical_parameter_tangent``) plus the explicit
+      dependence of the order post-processing, both by central differences of the step
+      (default 1e-6 rad for the angles, 1e-7 relative for the frequency; no solve is
+      repeated: two assemblies and two post-processings per column). Always the direct mode.
+      ``"phi"`` needs the vector path (``solve(..., scalar=False)``).
+
     ``observables`` is a sequence of ``(side, order)`` with ``side`` ``"R"`` or ``"T"``
     (default: every propagating order of the result). ``mode`` ``"direct"`` solves once per
     parameter (:math:`de/dp = A^{-1} r_p`), ``"adjoint"`` once per observable
-    (:math:`z = A^{-T} q`), ``"auto"`` (default) takes the one with fewer solves; both are
-    one multi-right-hand-side solve on the kept factors and give the same matrix up to
-    round-off. Returns ``(J, rows, columns)``: ``J[i, j] = dR_i/dp_j`` (real, shape
-    (observables, columns)), ``rows`` the ``(side, order)`` pairs, ``columns`` labels such as
-    ``"eps[3].re"``, ``"eps[3].im"``, ``"shape[0]"``. Raises ``GratingError`` without a kept
-    factorisation, for an unknown parameter kind or mode, or an order that is not
-    propagating."""
+    (:math:`z = A^{-T} q`), ``"auto"`` (default) takes the one with fewer solves for the
+    material and shape columns; both are one multi-right-hand-side solve on the kept factors
+    and give the same matrix up to round-off. Returns ``(J, rows, columns)``:
+    ``J[i, j] = dR_i/dp_j`` (real, shape (observables, columns)), ``rows`` the
+    ``(side, order)`` pairs, ``columns`` labels such as ``"eps[3].re"``, ``"eps[3].im"``,
+    ``"shape[0]"``, ``"theta"``. Raises ``GratingError`` without a kept factorisation, for an
+    unknown parameter kind or mode, or an order that is not propagating."""
     kept = result.solution.factorisation
     if kept is None:
         raise GratingError(
@@ -662,44 +819,56 @@ def jacobian(result: GratingResult, parameters, observables=None, mode: str = "a
         if functional is not None:
             q_e, q_v = functional(nd, h1)
             q[:, i] = np.concatenate([q_e, q_v])
+    # columns: ("eps" | "shape", index of the residual, velocity) or ("setup", name, step)
     residuals, columns, kinds = [], [], []
     for j, parameter in enumerate(parameters):
-        kind, value = parameter
+        kind, value = (parameter, None) if isinstance(parameter, str) else parameter
         if kind == "eps":
+            kinds.append(("eps", len(residuals), None))
             residuals.append(
                 hpfem.conical_material_residual_derivative(problem, solution, int(value))
             )
             columns += [f"eps[{int(value)}].re", f"eps[{int(value)}].im"]
-            kinds.append(("eps", None))
         elif kind == "shape":
             velocity = np.asarray(value, dtype=float)
+            kinds.append(("shape", len(residuals), velocity))
             residuals.append(hpfem.conical_shape_residual_derivative(problem, solution, velocity))
             columns.append(f"shape[{j}]")
-            kinds.append(("shape", velocity))
+        elif kind in _SETUP_PARAMETERS:
+            kinds.append(("setup", kind, value))
+            columns.append(kind)
         else:
-            raise GratingError(f"parameter kind {kind!r}: use 'eps' or 'shape'")
+            raise GratingError(
+                f"parameter kind {kind!r}: use 'eps', 'shape', 'theta', 'phi', 'omega' or "
+                "'wavelength'"
+            )
     r = np.column_stack(residuals) if residuals else np.zeros((kept.num_dofs, 0), dtype=complex)
     if mode == "auto":
         mode = "direct" if r.shape[1] <= len(rows) else "adjoint"
-    if mode == "direct":
+    if r.shape[1] == 0:
+        dq = np.zeros((len(rows), 0), dtype=complex)
+    elif mode == "direct":
         dq = q.T @ kept.solve_many(r)  # (observables, parameters), complex
     else:
         dq = kept.solve_adjoint_many(q).T @ r
     e = np.concatenate([solution.transverse, solution.longitudinal])
     jac = np.zeros((len(rows), len(columns)))
-    for i in range(len(rows)):
-        if functionals[i] is None:
+    col = 0
+    for kind, index, data in kinds:
+        if kind == "setup":
+            jac[:, col] = _setup_column(result, index, data, rows, q, scales)
+            col += 1
             continue
-        col = 0
-        for j, (kind, velocity) in enumerate(kinds):
+        for i in range(len(rows)):
+            if functionals[i] is None:
+                continue
             if kind == "eps":
-                jac[i, col] = scales[i] * np.real(dq[i, j])
-                jac[i, col + 1] = scales[i] * np.real(1j * dq[i, j])
-                col += 2
+                jac[i, col] = scales[i] * np.real(dq[i, index])
+                jac[i, col + 1] = scales[i] * np.real(1j * dq[i, index])
             else:
-                term = hpfem.conical_functional_shape_derivative(nd, h1, functionals[i], velocity)
-                jac[i, col] = scales[i] * np.real(dq[i, j] + term @ e)
-                col += 1
+                term = hpfem.conical_functional_shape_derivative(nd, h1, functionals[i], data)
+                jac[i, col] = scales[i] * np.real(dq[i, index] + term @ e)
+        col += 2 if kind == "eps" else 1
     return jac, rows, columns
 
 
@@ -873,28 +1042,13 @@ def solve(
     orders = [int(order)] * mesh.num_cells if np.isscalar(order) else [int(p) for p in order]
     nd = hpfem.NedelecDofMap2D(mesh, orders)
     h1 = hpfem.DofMap2D(mesh, orders)
-    setup = hpfem.ConicalScatteringSetup()
-    setup.omega = float(omega)
-    setup.beta = wave.beta
-    setup.materials = material_map
-    setup.background = stack
-    setup.incident = wave.field
-    setup.pml = box
-    setup.pec_tags = [hpfem.box_tag.Y_MIN, hpfem.box_tag.Y_MAX]
-    setup.periodic = [
-        hpfem.PeriodicPair2D(
-            hpfem.box_tag.X_MIN,
-            hpfem.box_tag.X_MAX,
-            [period, 0.0],
-            hpfem.bloch_phase([wave.kx, 0.0], [period, 0.0]),
-        )
-    ]
-    setup.extra_quadrature_order = int(extra_quadrature_order)
     if scalar == "auto":
         scalar = _polarisation(polarisation) == hpfem.Polarisation.S and float(phi) == 0.0
     elif scalar not in (True, False):
         raise GratingError(f"scalar={scalar!r}: use 'auto', True or False")
-    setup.scalar_ez = bool(scalar)
+    setup = _conical_setup(
+        omega, wave, material_map, stack, box, period, extra_quadrature_order, scalar
+    )
     setup.keep_factorisation = bool(keep_factorisation)
     if solver is not None:
         setup.solver = solver
@@ -919,35 +1073,10 @@ def solve(
     # --- orders, absorption, balance ------------------------------------------------------------
     t2 = time.perf_counter()
     locator = hpfem.PointLocator2D(mesh)
-    origin_r = [x_min, cover_line]
-
-    def incident_physical(x):
-        i = wave.incident(x)  # the scaled (E_x, E_y, -i E_z) of the downward wave
-        return np.array([i[0], i[1], 1j * i[2]])
-
-    def reflected_field(x):
-        return np.asarray(problem.total_field(solution, locator, x)) - incident_physical(x)
-
-    coefficients = hpfem.conical_fourier_coefficients(
-        reflected_field, origin_r, [1.0, 0.0], period, wave.kx, orders_max, fourier_points
+    lines = (x_min, period, cover_line, substrate_line if transmitted else None)
+    r_orders, t_orders, incident_physical = _measure_orders(
+        problem, solution, locator, wave, k0, n_cover, n_sub, lines, orders_max, fourier_points
     )
-    r_orders = _orders(
-        coefficients, k0, n_cover.real, period, wave.kx, wave.beta, wave.ky, orders_max
-    )
-    t_orders: list[Order] = []
-    if transmitted:
-        coefficients = hpfem.conical_fourier_coefficients(
-            lambda x: np.asarray(problem.total_field(solution, locator, x)),
-            [x_min, substrate_line],
-            [1.0, 0.0],
-            period,
-            wave.kx,
-            orders_max,
-            fourier_points,
-        )
-        t_orders = _orders(
-            coefficients, k0, n_sub.real, period, wave.kx, wave.beta, wave.ky, orders_max
-        )
     absorbed = hpfem.absorbed_power_by_tag(problem, solution)
     # incident power per period and unit length: |E0| = 1 V/m, S.n = n cos(theta) / (2 Z0)
     incident_power = 0.5 * period * wave.ky / (k0 * hpfem.constants.Z0)
@@ -1000,6 +1129,17 @@ def solve(
         period=period,
         x_min=x_min,
         fourier_points=int(fourier_points),
+        inputs={
+            "materials": materials,
+            "stack": stack,
+            "polarisation": polarisation,
+            "theta": float(theta),
+            "phi": float(phi),
+            "omega": float(omega),
+            "orders_max": int(orders_max),
+            "extra_quadrature_order": int(extra_quadrature_order),
+            "solver": solver,
+        },
         _locator=locator,
     )
 

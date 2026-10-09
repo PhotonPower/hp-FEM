@@ -24,6 +24,7 @@ add_library(hpfem
   physics/conical_postprocess.cpp
   physics/conical_resonance.cpp
   physics/kept_factorisation.cpp
+  physics/parameter_sensitivity.cpp
   physics/sensitivity.cpp
   physics/shape_sensitivity.cpp
   physics/field_sampling.cpp
