@@ -43,23 +43,7 @@ BandStructure<Dim>::BandStructure(const fespace::NedelecDofMap<Dim>& dofs,
   }
   // relative tensors, lossless: real S and M
   const auto system = assembly::assemble_maxwell<Dim>(
-      dofs,
-      [&](Index cell) {
-        const auto& m = setup_.materials.of_cell(mesh, cell);
-        assembly::MaxwellForm<Dim> form;
-        const Complex inv_mu = 1.0 / m.mu_r;
-        const Complex eps = m.eps_r;
-        form.inverse_permeability = [inv_mu](const Point<Dim>&) {
-          return assembly::InversePermeabilityTensor<Dim>(
-              inv_mu * assembly::InversePermeabilityTensor<Dim>::Identity());
-        };
-        form.permittivity = [eps](const Point<Dim>&) {
-          return assembly::PermittivityTensor<Dim>(eps *
-                                                   assembly::PermittivityTensor<Dim>::Identity());
-        };
-        return form;
-      },
-      setup_.extra_quadrature_order);
+      dofs, [&](Index cell) { return form_of_cell(cell); }, setup_.extra_quadrature_order);
   stiffness_ = system.stiffness;
   mass_ = system.mass;
   gradient_ = assembly::discrete_gradient<Dim>(h1, dofs);
@@ -86,7 +70,7 @@ Bands<Dim> BandStructure<Dim>::bands(const Point<Dim>& wave_vector) const {
   // Bloch constraints with the phases of this k, on both spaces
   std::vector<assembly::PeriodicPair<Dim>> pairs = setup_.lattice;
   for (auto& pair : pairs) pair.phase = assembly::bloch_phase<Dim>(wave_vector, pair.shift);
-  const fespace::Constraints nd = assembly::bloch_constraints<Dim>(*dofs_, pairs);
+  const fespace::Constraints nd = constraints(wave_vector);
   const fespace::Constraints h1 = assembly::bloch_constraints<Dim>(*h1_, pairs);
   const SparseMatrix p_nd = nd.prolongation();
   const SparseMatrix p_h1 = h1.prolongation();
@@ -128,17 +112,56 @@ Bands<Dim> BandStructure<Dim>::bands(const Point<Dim>& wave_vector) const {
       solvers::complex_eigenpairs_near_gauged(s, m, g, sigma, options, setup_.solver);
   Bands<Dim> out;
   out.wave_vector = wave_vector;
-  std::vector<std::pair<Real, Real>> values;
+  std::vector<Real> k0(as_size(result.num_converged));
+  std::vector<Index> order(as_size(result.num_converged));
   for (Index i = 0; i < result.num_converged; ++i) {
-    const Complex lambda = result.eigenvalues(i);
-    values.emplace_back(std::sqrt(std::max(lambda.real(), Real{0.0})), result.residuals(i));
+    k0[as_size(i)] = std::sqrt(std::max(result.eigenvalues(i).real(), Real{0.0}));
+    order[as_size(i)] = i;
   }
-  std::sort(values.begin(), values.end());
-  for (const auto& [k0, residual] : values) {
-    out.wavenumber.push_back(k0);
-    out.residual.push_back(residual);
+  std::stable_sort(order.begin(), order.end(),
+                   [&](Index a, Index b) { return k0[as_size(a)] < k0[as_size(b)]; });
+  for (const Index i : order) {
+    out.wavenumber.push_back(k0[as_size(i)]);
+    out.residual.push_back(result.residuals(i));
+  }
+  if (setup_.keep_modes) {
+    // full-size modes: the restricted eigenvector on the free reduced DoFs, expanded by P
+    out.modes.resize(dofs_->num_dofs(), static_cast<Index>(order.size()));
+    for (std::size_t j = 0; j < order.size(); ++j) {
+      Vector reduced = Vector::Zero(nd.num_free());
+      for (std::size_t r = 0; r < free_reduced_nd.size(); ++r) {
+        reduced(free_reduced_nd[r]) = result.eigenvectors(static_cast<Index>(r), order[j]);
+      }
+      Vector w = p_nd * reduced;
+      const Real norm = std::sqrt(std::abs(w.dot(mass_ * w)));
+      if (norm > 0) w /= norm;
+      out.modes.col(static_cast<Index>(j)) = w;
+    }
   }
   return out;
+}
+
+template <int Dim>
+assembly::MaxwellForm<Dim> BandStructure<Dim>::form_of_cell(Index cell) const {
+  const auto& m = setup_.materials.of_cell(dofs_->mesh(), cell);
+  assembly::MaxwellForm<Dim> form;
+  const Complex inv_mu = 1.0 / m.mu_r;
+  const Complex eps = m.eps_r;
+  form.inverse_permeability = [inv_mu](const Point<Dim>&) {
+    return assembly::InversePermeabilityTensor<Dim>(
+        inv_mu * assembly::InversePermeabilityTensor<Dim>::Identity());
+  };
+  form.permittivity = [eps](const Point<Dim>&) {
+    return assembly::PermittivityTensor<Dim>(eps * assembly::PermittivityTensor<Dim>::Identity());
+  };
+  return form;
+}
+
+template <int Dim>
+fespace::Constraints BandStructure<Dim>::constraints(const Point<Dim>& wave_vector) const {
+  std::vector<assembly::PeriodicPair<Dim>> pairs = setup_.lattice;
+  for (auto& pair : pairs) pair.phase = assembly::bloch_phase<Dim>(wave_vector, pair.shift);
+  return assembly::bloch_constraints<Dim>(*dofs_, pairs);
 }
 
 template <int Dim>

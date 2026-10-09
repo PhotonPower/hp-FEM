@@ -8,6 +8,7 @@
 #include "common.hpp"
 #include "hpfem/adaptivity/residual_estimator.hpp"
 #include "hpfem/physics/axisymmetric.hpp"
+#include "hpfem/physics/band_sensitivity.hpp"
 #include "hpfem/physics/band_structure.hpp"
 #include "hpfem/physics/conical_resonance.hpp"
 #include "hpfem/physics/conical_scattering.hpp"
@@ -511,12 +512,17 @@ void bind_physics_dim(py::module_& m) {
       .def_readwrite("tolerance", &BandStructureSetup<Dim>::tolerance)
       .def_readwrite("max_iterations", &BandStructureSetup<Dim>::max_iterations)
       .def_readwrite("solver", &BandStructureSetup<Dim>::solver)
-      .def_readwrite("extra_quadrature_order", &BandStructureSetup<Dim>::extra_quadrature_order);
+      .def_readwrite("extra_quadrature_order", &BandStructureSetup<Dim>::extra_quadrature_order)
+      .def_readwrite("keep_modes", &BandStructureSetup<Dim>::keep_modes,
+                     "keep the eigenvectors in Bands.modes (needed by the band derivatives)");
   py::class_<Bands<Dim>>(m, named("Bands", Dim).c_str(),
                          "The bands at one Bloch wave vector: wavenumbers k0 ascending [1/m]")
       .def_readonly("wave_vector", &Bands<Dim>::wave_vector)
       .def_readonly("wavenumber", &Bands<Dim>::wavenumber)
       .def_readonly("residual", &Bands<Dim>::residual)
+      .def_readonly("modes", &Bands<Dim>::modes,
+                    "full-size eigenvectors (num_dofs, num_bands), w^H M w = 1; empty unless "
+                    "setup.keep_modes")
       .def("normalised", &Bands<Dim>::normalised, py::arg("lattice_constant"),
            "omega a / (2 pi c0) = k0 a / (2 pi)");
   py::class_<BandStructure<Dim>>(
@@ -532,6 +538,42 @@ void bind_physics_dim(py::module_& m) {
            "bands at the Bloch wave vector k [1/m]")
       .def("path", &BandStructure<Dim>::path, py::arg("corners"), py::arg("segments"), Release(),
            "bands along the polyline of wave vectors, corners included");
+  m.def("band_permittivity_derivative", &physics::band_permittivity_derivative<Dim>,
+        py::arg("problem"), py::arg("bands"), py::arg("tag"),
+        py::arg("degeneracy_tolerance") = 1e-6, Release(),
+        "BandDerivative of the bands (kept modes) with respect to eps_r of the cells with the tag "
+        "(Hellmann-Feynman; degenerate clusters resolved)");
+  m.def("band_permeability_derivative", &physics::band_permeability_derivative<Dim>,
+        py::arg("problem"), py::arg("bands"), py::arg("tag"),
+        py::arg("degeneracy_tolerance") = 1e-6, Release(),
+        "BandDerivative with respect to mu_r of the cells with the tag");
+  m.def("band_shape_derivative", &physics::band_shape_derivative<Dim>, py::arg("problem"),
+        py::arg("bands"), py::arg("velocity"), py::arg("relative_step") = 1e-6,
+        py::arg("degeneracy_tolerance") = 1e-6, Release(),
+        "BandDerivative for the mesh velocity V (num_nodes, Dim) of a geometry parameter; V must "
+        "vanish on the periodic faces");
+  m.def("band_wave_vector_derivative", &physics::band_wave_vector_derivative<Dim>,
+        py::arg("problem"), py::arg("bands"), py::arg("direction"),
+        py::arg("degeneracy_tolerance") = 1e-6, Release(),
+        "BandDerivative along the wave vector, d/dt k0(k + t d); angular_frequency is the group "
+        "velocity along d [m/s] for d in 1/m");
+  m.def(
+      "group_velocity",
+      [](const BandStructure<Dim>& problem, const Bands<Dim>& bands, Real degeneracy_tolerance) {
+        std::vector<Point<Dim>> v;
+        {
+          py::gil_scoped_release release;
+          v = physics::group_velocity<Dim>(problem, bands, degeneracy_tolerance);
+        }
+        py::array_t<Real> out({static_cast<py::ssize_t>(v.size()), static_cast<py::ssize_t>(Dim)});
+        auto r = out.mutable_unchecked<2>();
+        for (std::size_t i = 0; i < v.size(); ++i) {
+          for (int j = 0; j < Dim; ++j) r(static_cast<py::ssize_t>(i), j) = v[i](j);
+        }
+        return out;
+      },
+      py::arg("problem"), py::arg("bands"), py::arg("degeneracy_tolerance") = 1e-6,
+      "group velocity d omega / dk [m/s] of every band, array (num_bands, Dim); NaN at k0 = 0");
   using physics::TimeDomain;
   using physics::TimeDomainSetup;
   using physics::TimeState;
@@ -1178,6 +1220,15 @@ void bind_physics(py::module_& m) {
       .def_readonly("quality", &physics::ResonantMode::quality)
       .def_readonly("residual", &physics::ResonantMode::residual)
       .def_readonly("field", &physics::ResonantMode::field);
+  py::class_<physics::BandDerivative>(
+      m, "BandDerivative",
+      "Derivatives of the bands with respect to one parameter p, in band order: eigenvalue "
+      "d(k0^2)/dp, wavenumber dk0/dp (NaN at k0 = 0), angular_frequency c0 dk0/dp and the size "
+      "of each band's degenerate cluster")
+      .def_readonly("eigenvalue", &physics::BandDerivative::eigenvalue)
+      .def_readonly("wavenumber", &physics::BandDerivative::wavenumber)
+      .def_readonly("angular_frequency", &physics::BandDerivative::angular_frequency)
+      .def_readonly("multiplicity", &physics::BandDerivative::multiplicity);
   bind_riesz_common(m);
   bind_triangulated_field<2>(m);
   bind_triangulated_field<3>(m);

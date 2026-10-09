@@ -69,6 +69,7 @@ add_library(hpfem
   physics/thermal.cpp
   physics/thermo_optical.cpp
   physics/band_structure.cpp
+  physics/band_sensitivity.cpp
   physics/time_domain.cpp
   physics/axisymmetric.cpp
   $<$<BOOL:${HPFEM_ENABLE_MUMPS}>:solvers/mumps_solver.cpp>

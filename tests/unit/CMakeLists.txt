@@ -95,6 +95,10 @@ hpfem_add_test(test_physics unit
   physics/test_sensitivity.cpp
   physics/test_shape_sensitivity.cpp)
 
+# band derivatives (M16 S4) in their own binary, for the same link-size reason as below
+hpfem_add_test(test_band_sensitivity unit
+  physics/test_band_sensitivity.cpp)
+
 # the M15 post-processing tests in their own binary: test_physics with them inside exceeds
 # what MinGW ld links (a 460 MB executable with debug info fails without a message)
 hpfem_add_test(test_physics_postprocessing unit
