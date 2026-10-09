@@ -146,3 +146,48 @@ def test_emit_argument_checks():
         run((0.0, height + 60 * nm), sigma=0.0)
     with pytest.raises(grating.GratingError):
         run((0.0, height + 60 * nm), moment=(1.0, 0.0))
+
+
+def flat_glass_cell(pml_rows):
+    """Air over glass, period 400 nm at 405 nm: the orders m = +-1 are barely evanescent in
+    air (decay length ~ 280 nm at beta = 0.2 k0), the situation of a Rayleigh anomaly."""
+    nm = units.nm
+    row = 148 * nm / 6
+    y0, y1 = -(16 + pml_rows) * row, (6 + 15 + pml_rows) * row
+    mesh = hpfem.rectangle(16, 16 + pml_rows + 6 + 15 + pml_rows, [-200 * nm, y0], [200 * nm, y1])
+    for c in range(mesh.num_cells):
+        x = np.mean([mesh.vertex(int(v)) for v in mesh.cell_vertices(c)], axis=0)
+        if x[1] < 0:
+            mesh.set_cell_tag(c, 2)
+    glass = hpfem.Material.dielectric(1.5)
+    stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)
+    return mesh, {2: glass}, stack, pml_rows * row
+
+
+def test_measurement_lines_clear_the_dipole_and_the_pml_leak_is_reported():
+    nm = units.nm
+    omega = units.angular_frequency(wavelength=405 * nm)
+    k0 = omega / hpfem.constants.c0
+    common = dict(order=3, orders_max=2)
+    # the default cover line (midway to the top PML, 259 nm) would cut a dipole at 250 nm
+    mesh, materials, stack, pml = flat_glass_cell(17)
+    dipole = {"position": (0.0, 250 * nm), "moment": (1.0, 0.0, 0.0), "sigma": 8 * nm}
+    res = grating.emit(mesh, materials, stack, dipole, omega, 0.0, 0.2 * k0,
+                       pml={"top": pml, "bottom": pml}, **common)  # fmt: skip
+    assert res.cover_line >= 250 * nm + 6 * 8 * nm
+    with pytest.raises(grating.GratingError, match="cover_line"):
+        grating.emit(mesh, materials, stack, dipole, omega, 0.0, 0.2 * k0, cover_line=280 * nm,
+                     pml={"top": pml, "bottom": pml}, **common)  # fmt: skip
+    # evanescent orders reaching a thin PML exchange power with it: flux != order power (here
+    # the flux is 0.9 % low; it converges to the order power as the PML moves away)
+    dipole = {"position": (0.0, 160 * nm), "moment": (1.0, 0.3, 0.2j), "sigma": 8 * nm}
+    leaks = {}
+    for rows in (12, 30):
+        mesh, materials, stack, pml = flat_glass_cell(rows)
+        r = grating.emit(mesh, materials, stack, dipole, omega, 0.0, 0.2 * k0,
+                         pml={"top": pml, "bottom": pml}, **common)  # fmt: skip
+        assert abs(r.pml_leak - (r.flux_up - r.up + r.flux_down - r.down)) < 1e-12 * r.P_cell
+        assert r.guided == pytest.approx(r.P_cell - r.up - r.down - r.absorbed, rel=1e-12)
+        leaks[rows] = (r.pml_leak / r.P_cell, r.warnings)
+    assert abs(leaks[12][0]) > 3e-3 and leaks[12][1]  # 296 nm of PML: about 0.9 %
+    assert abs(leaks[30][0]) < 1e-3 and not leaks[30][1]  # 740 nm: below 1e-3
