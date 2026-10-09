@@ -22,6 +22,7 @@ from hpfem.opt.evaluator import (
     complex_names,
     split_complex,
 )
+from hpfem.opt.gp import GaussianProcess, MultiOutputGP
 from hpfem.opt.lsq import FitResult, IdentifiabilityWarning, Laplace, fit, laplace
 from hpfem.opt.optimize import OptimizeResult, minimize
 from hpfem.opt.parameters import (
@@ -57,6 +58,7 @@ __all__ = [
     "Evaluator",
     "FitResult",
     "FunctionEvaluator",
+    "GaussianProcess",
     "GeometryParameter",
     "GratingEvaluator",
     "History",
@@ -67,6 +69,7 @@ __all__ = [
     "MaterialParameter",
     "MeshQualityError",
     "Morph",
+    "MultiOutputGP",
     "NonlinearConstraint",
     "OptimizeResult",
     "Study",
