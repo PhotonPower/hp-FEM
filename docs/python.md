@@ -626,6 +626,21 @@ radiated `power` per order), `up`, `down`, the PML-boundary fluxes `flux_up` / `
 `hpfem.conical_gaussian_dipole` and `hpfem.conical_source_power` (docs/theory/maxwell.md "Dipole
 emitters").
 
+**Emission pattern by reciprocity (M17 S2).** `grating.emission_pattern(mesh, materials, stack,
+dipole, omega, directions=[(theta, phi, side), ...], pol=("s", "p"), normalized=False,
+quadrature_points=6, order=4, pml=..., **solve_kwargs)` gives the far-field power per unit
+solid angle of a single Gaussian dipole (the `dipole` dict of `emit`) in each direction and
+polarisation: `side="up"` is the direction (sinθ cosφ, cosθ, sinθ sinφ) into the cover,
+`"down"` (sinθ cosφ, −cosθ, sinθ sinφ) into a lossless substrate. Each value is one
+`grating.solve` with the plane wave incident from that direction, `dP/dΩ = n k0² Z0 |p·⟨E⟩|² /
+(32π²)` with the total field averaged over the dipole's Gaussian (docs/theory/maxwell.md "Stage
+C"); directions into the substrate are solved on the problem mirrored at y = 0 (straight meshes,
+`pml` as `None` or a `{"top", "bottom"}` dict). The `EmissionPattern` holds `dP_dOmega`
+(directions × polarisations, [W/sr], divided by `P_bulk` with `normalized=True`), `total` (summed
+over the polarisations), `P_bulk` (the dipole in its homogeneous host medium), the reciprocity
+`amplitude` and the index `n` of each direction's medium. It is the radiated part only; the
+guided and absorbed power and the Purcell factor need Stage B.
+
 **Scalar E_z path.** For the s polarisation at `phi = 0` (`scalar="auto"`, the default)
 `grating.solve` lets `ConicalScattering` factorise only the H1 block (`setup.scalar_ez`), about
 a third of the unknowns with identical results; `result.scalar` says whether it was used,
