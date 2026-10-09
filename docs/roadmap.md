@@ -416,11 +416,12 @@ effort in focused sessions.
   verified against finite differences (`physics/eigen_sensitivity.hpp`,
   `grating.resonance_sensitivity` / `refine_resonance`, `physics/band_sensitivity.hpp`,
   `group_velocity`)
-- [ ] S5 (P2, ≈ 3) Bayesian optimisation: own light Gaussian process (Matérn ARD, noise),
+- [x] S5 (P2, ≈ 3) Bayesian optimisation: own light Gaussian process (Matérn ARD, noise),
   expected improvement and LCB, constraints, gradient-enhanced GP with the adjoint
   derivatives; multi-fidelity and multi-objective via the optional BoTorch extra. The DWR
   estimate is used as a fidelity indicator or for adaptive refinement until the error is small
-  against the noise, **not** as independent GP noise (hypothesis, tested in S8)
+  against the noise, **not** as independent GP noise (hypothesis, tested in S8) (`hpfem.opt.gp`,
+  `hpfem.opt.bo`; the BoTorch drivers are experimental, not run yet)
 - [ ] S6 (P2, ≈ 2) parameter retrieval beyond Laplace: Bayesian least squares on the surrogate,
   MCMC through the optional emcee extra (posterior against the Laplace result)
 - [ ] S7 (P2, ≈ 2) uncertainty propagation and sensitivity analysis: linearised propagation

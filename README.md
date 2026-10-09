@@ -53,6 +53,7 @@ mkdocs serve                                 # documentation
 | OpenMP | parallel assembly and estimation (`HPFEM_ENABLE_OPENMP`, on by default) | compiler |
 | MUMPS 5 (sequential, complex) | optional direct solver backend (`HPFEM_ENABLE_MUMPS`, preset `mumps`) | `cmake/FindMUMPS.cmake`: apt `libmumps-seq-dev libmumps-headers-dev`, MSYS2 `mingw-w64-ucrt-x86_64-mumps` |
 | cuDSS 0.8 + CUDA 12/13 | optional GPU direct solver backend (`HPFEM_ENABLE_CUDA`); separate DLL `hpfem_gpu` built with nvcc, loaded at run time | `gpu/README.md` (not needed to build the library) |
+| BoTorch | optional: multi-objective and multi-fidelity Bayesian optimisation (`hpfem.opt.pareto_optimize`, `multi_fidelity_optimize`; experimental) | pip extra `opt-bo` |
 | PETSc/SLEPc, MPI | optional (later milestones) | `find_package`, CMake options |
 
 ## License

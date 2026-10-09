@@ -89,6 +89,19 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `hpfem.band_*_derivative`, `hpfem.group_velocity`, `BandDerivative`. Verified against
   re-solved bands to 1e-8 and against c0(k+G)/(n|k+G|) in a uniform medium.
 
+- Bayesian optimisation in `hpfem.opt` (M16 S5, written by the helper agent `bo`): own light
+  Gaussian process `GaussianProcess` / `MultiOutputGP` (Matérn 5/2, 3/2 and squared-exponential
+  ARD kernels, GLS constant mean, learned or fixed noise, hyperparameters by the log marginal
+  likelihood with analytic gradients, derivative observations for a gradient-enhanced
+  surrogate) and `bayesian_optimize` driving a `Study` (log expected improvement or lower
+  confidence bound, known design-space constraints and `OutcomeConstraint`s by the probability
+  of feasibility, `use_gradients=True` from the evaluator's Jacobian, failure policy, remesh
+  counting, checkpoints with an exact resume after a cancellation; the DWR estimate is not used
+  as noise, ADR-0012 §6); `pareto_front` / `non_dominated`; experimental BoTorch drivers
+  (optional extra `opt-bo`, not run yet) `pareto_optimize` (qLogNEHVI) and
+  `multi_fidelity_optimize`. Branin to 1e-3 within 40 evaluations; gradient-enhanced BO reaches
+  Hartmann-3 to 1e-3 in 8–13 evaluations where plain BO needs 20 or more.
+
 ### Fixed
 - Shape derivatives of grating efficiencies along a mesh velocity that deforms the cells at a
   measurement line lying on mesh facets (the default midway line of structured cells): the
