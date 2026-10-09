@@ -194,3 +194,20 @@ def test_micropillar_qd_purcell_peaks_at_the_resonance(tmp_path, monkeypatch):
     assert mode.max() > 0.3 * modal_purcell.max()
     assert mode.max() > 3.0 * mode.min()
     assert np.all(background > 0.5) and background.max() < 2.0 * background.min()
+
+
+def test_grating_reconstruction_recovers_the_geometry_within_its_uncertainty(tmp_path):
+    example = load_example("grating_reconstruction")
+    result = example.run(quick=True, out=tmp_path)
+    for name in ("cd", "height", "angle"):
+        # the start is 6 to 12 standard deviations away; the estimate lands within 4 of them
+        assert abs(result.deviation_in_std[name]) < 4.0, (name, result.deviation_in_std)
+        assert 0 < result.std[name] < 0.05 * abs(result.true[name])
+    assert 0.05 < result.chi2_red < 4.0
+    corr = np.array(result.correlation)
+    assert corr.shape == (3, 3) and np.allclose(np.diag(corr), 1.0)
+    assert result.evaluations <= 20
+    saved = json.loads((tmp_path / "grating_reconstruction.json").read_text(encoding="utf-8"))
+    assert saved["estimate"] == pytest.approx(result.estimate)
+    lines = (tmp_path / "grating_reconstruction.study.jsonl").read_text(encoding="utf-8")
+    assert lines.count('"type": "evaluation"') >= result.evaluations

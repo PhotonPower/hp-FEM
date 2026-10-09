@@ -357,16 +357,31 @@ nodes on the shape's boundary (and on its copies shifted by a period) move exact
 the cell boundary and every other material interface stay fixed, the rest follows by the
 harmonic extension of the mesh graph; it raises if the shape touches the cell boundary.
 `Morph(cell, mesh, parameters, quality_threshold=0.3)` keeps the reference mesh:
-`mesh_at({name: value})` moves it, `x = x_ref + Σ (p - p_ref) V_p` (same topology, tags and
-DoF numbering, so the objective is smooth and consistent with the shape derivatives),
-`cell_at(values)` is the exact geometry for a remesh, `velocity(name)` goes into
-`grating.jacobian(result, [("shape", morph.velocity(name)), ...])`. `check(mesh)` compares
+`mesh_at({name: value})` moves it: the nodes on the shapes' boundaries go to the same place on
+the changed shape (edge and fraction, ellipse angle: the exact geometry of `cell_at(values)`
+for any combination of values), the others by the same harmonic extension (same topology,
+tags and DoF numbering, so the objective is smooth and consistent with the shape
+derivatives). `velocity_at(values, name)` is the mesh velocity at that point (central
+differences of the node map) and goes into
+`grating.jacobian(result, [("shape", morph.velocity_at(values, name)), ...])`;
+`velocity(name)` is the one at the reference. (A linear morph `x_ref + Σ (p - p_ref) V_p`
+misses the cross terms — the wall moves with `h cot α` — and biased a reconstruction by 2.5
+standard errors; ADR-0012 §3 amendment.) `check(mesh)` compares
 the signed cell quality (`cell_quality`: inscribed over circumscribed radius, 1 for the
 equilateral triangle) with the reference and raises `MeshQualityError` (`ratio`,
 `inverted`) for inverted cells or a ratio below the threshold — the signal to remesh
 (ADR-0012 §3). `python/tests/test_opt_parameters.py` checks that the morphed boundary lies on
-the new trapezoid (exact for CD and height, second order for the angle) and the derivatives
-along the velocities against finite differences of solves on morphed meshes.
+the new trapezoid exactly for every parameter and for all of them together, `velocity_at`
+away from the reference against differences of the node map, and the derivatives along the
+velocities against finite differences of solves on morphed meshes (to 1e-6).
+`Morph(..., band=(y_low, y_high))` (and `shape_velocity(..., band=...)`) keeps every vertex on
+and beyond the band's edges fixed. Use it to keep the measurement lines and the PML out of
+the deformation: a measurement line that lies on mesh facets (the default line midway to the
+PML often does on structured cells) must not touch deforming cells, because the order
+amplitude sampled on facets is not differentiable along such a velocity (the normal Nédélec
+component jumps across facets, the located cell changes; the Jacobian was off by a factor of
+ten for the height of a p-polarised line). `grating.jacobian` and `grating.shape_sensitivity`
+refuse such velocities (`GratingError`); put the band at least one cell row inside the lines.
 
 **Studies (`hpfem.opt`, M16 S2).** A `DesignSpace([...], constraints)` holds `Continuous(name,
 lower, upper, log=False, unit="", scale=None)`, `Integer(name, lower, upper)` and
@@ -468,6 +483,27 @@ singular values below `rcond = 1e-8`) or a condition number above `1e8` raise an
 cancellation and resume, failures, constraints, remesh) and `python/tests/test_opt_lsq.py`
 (an exact linear model, NIST StRD MGH17 from both starts — parameters and standard deviations
 to `1e-6` of the certified values —, weights, bounds, non-identifiability, study integration).
+
+**Scatterometry evaluator (`hpfem.opt`, M16 S3).** `GratingEvaluator(morph, materials, stack,
+configurations, material_parameters=(), order=3, pml=None, mesher=None, solve_options=None)`
+is the evaluator of a grating measurement: the parameters are the geometry parameters of the
+`Morph` followed by `MaterialParameter`s, the observables the efficiencies of every
+`Configuration(wavelength, theta, phi=0, polarisation="s", orders=(("R", 0),))` (labels such
+as `"s 405nm 65deg: R0"`). Each evaluation morphs the reference mesh and runs one
+`grating.solve` per configuration with the kept factorisation and one `grating.jacobian`
+along the morph velocities and the permittivity columns. The PML boxes and the measurement
+lines are designed once on the reference mesh and kept, so nothing in the discretisation
+jumps with the parameters. `stack` may be a function of ω (dispersive substrates); a fidelity
+`{"order": p}` overrides the order. When the morph's quality guard trips, `mesher(cell) ->
+mesh` builds a new reference mesh at the current geometry (the study records a `remesh`);
+without one the evaluation fails. The settings hash covers the order, the configurations,
+the materials, the stack, the mesh size and the frames. The constructor refuses a morph that
+deforms the cells at a measurement line on mesh facets (see the band above).
+`python/tests/test_opt_scatterometry.py` checks the values against a plain solve, the Jacobian
+(CD, height, side-wall angle, permittivity) against finite differences of the evaluator to
+`1e-5`, the store reuse and the remesh. `examples/grating_reconstruction` reconstructs CD,
+height and side-wall angle of a silicon line grating from synthetic spectroscopic data with
+`fit` and reports the Laplace uncertainties.
 
 **Scalar E_z path.** For the s polarisation at `phi = 0` (`scalar="auto"`, the default)
 `grating.solve` lets `ConicalScattering` factorise only the H1 block (`setup.scalar_ez`), about

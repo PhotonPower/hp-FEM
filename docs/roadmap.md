@@ -404,11 +404,12 @@ effort in focused sessions.
   with an explicit thread budget (OpenMP, one cuDSS GPU, per-process factorisations on Windows) (`hpfem.opt.study`: `DesignSpace`, `Study`, `*.study.jsonl`;
   `hpfem.opt.evaluator`: `Evaluation`, `FunctionEvaluator`; events and cancellation as
   callbacks, the `hpfem.run` tasks follow in S9; `workers > 1` not yet)
-- [ ] S3 (P1, ≈ 4) classical optimisers and the Laplace approximation: L-BFGS-B with
+- [x] S3 (P1, ≈ 4) classical optimisers and the Laplace approximation: L-BFGS-B with
   gradients, Nelder–Mead, differential evolution (SciPy wrappers), Gauss–Newton /
   Levenberg–Marquardt with the Jacobian of S1, parameter covariance from the Fisher
   information; end-to-end showcase: Si-grating reconstruction (CD, height, side-wall angle)
-  with uncertainties from synthetic data
+  with uncertainties from synthetic data (`hpfem.opt.minimize` / `fit` / `laplace`, MGH17 to
+  1e-6; `GratingEvaluator`; `examples/grating_reconstruction`)
 - [ ] S4 (P2, ≈ 3–4) eigenvalue derivatives of resonances and bands (C++): non-Hermitian
   problem with PML and losses (left eigenvector; with Bloch / conical incidence the solution
   at −k), nonlinear eigenproblem for dispersive ε(ω) (extra dε/dω term), complex Q;
