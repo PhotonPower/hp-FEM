@@ -373,6 +373,43 @@ faces" of M14-B.
 - [x] F14 (P3) high-level eigenproblems on the periodic-cell front end (resonances, bands)
 - [x] F15 (P3) distribution: Windows/Linux wheels, `pip install hpfem[gui]`, `hpfem-gui` entry point
 
+## M16 — Optimisation, calibration and uncertainty quantification
+Proposal of 9 October 2026; scope, rationale, API sketches and validation plan in
+[`optimisation-uq-features.md`](optimisation-uq-features.md) (IDs S0–S8 as there). The adjoint
+sensitivities of M12 (material and shape) are the foundation: everything is Python
+(`hpfem.opt`) on the existing C++ core, except the eigenvalue derivatives of S1. Priorities
+P1 > P2 > P3; effort in focused sessions.
+- [ ] S0 (P1, ≈ 1) ADR-0012: scope of `hpfem.opt`, dependencies (NumPy/SciPy required, own
+  light Gaussian-process code, BoTorch only optional), study file format
+- [ ] S1 (P1, ≈ 4) gradient infrastructure: geometry parameters (radius, width, height,
+  position) mapped to mesh velocity fields automatically; Jacobian of several observables with
+  one factorisation; derivatives with respect to frequency and angle; eigenvalue derivatives
+  (dω/dε, dω/d shape of resonances and bands); mesh-quality guard for large shape changes;
+  everything verified against finite differences
+- [ ] S2 (P1, ≈ 3) study framework: design space (continuous, integer, categorical,
+  constraints), evaluation cache, parallel evaluation, resume, JSON-lines result store,
+  job-runner integration with events and cancellation
+- [ ] S3 (P1, ≈ 3) classical optimisers: L-BFGS-B with adjoint gradients, Nelder–Mead,
+  differential evolution, particle swarm (SciPy / own wrappers); Gauss–Newton and
+  Levenberg–Marquardt with the adjoint Jacobian for least-squares
+- [ ] S4 (P2, ≈ 6) Bayesian optimisation: Gaussian process (Matérn ARD, noise), expected
+  improvement and LCB, batch proposals, constraints, gradient-enhanced GP with the adjoint
+  derivatives, heteroscedastic noise from the DWR error estimate, multi-fidelity over p / mesh
+  level, multi-objective (Pareto front)
+- [ ] S5 (P2, ≈ 5) parameter retrieval: Laplace approximation (Fisher information from the
+  Jacobian), Bayesian least squares on the surrogate, MCMC (ensemble sampler, NUTS with
+  gradients); scatterometry example (CD, height, side-wall angle of a Si grating from
+  synthetic data)
+- [ ] S6 (P2, ≈ 5) uncertainty propagation and sensitivity analysis: linearised propagation
+  from the adjoint gradients, (quasi-)Monte Carlo on the surrogate, polynomial chaos /
+  stochastic collocation, first-order and total Sobol' indices, active learning of a global
+  surrogate; fabrication-tolerance example
+- [ ] S7 (P2, ongoing) validation: Branin / Rosenbrock for BO, Ishigami for Sobol', NIST
+  MGH17 for the reconstruction uncertainties, linear-Gaussian problems (MCMC = Laplace),
+  gradient-based against gradient-free BO on a grating or metasurface problem
+- [ ] S8 (P3, ≈ 3) GUI and job schema: tasks `optimize`, `reconstruct`, `uq`; study view in
+  `hpfem-gui` (history, Pareto front, Sobol' bars)
+
 ## Backlog / ideas
 - [ ] the full ring resonator with ports in 3D (M12 stage B): needs an hp-mesh that is fine
   only across the cores and in the coupling region, p = 3 there for the resonance widths
