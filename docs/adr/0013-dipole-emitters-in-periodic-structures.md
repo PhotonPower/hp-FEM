@@ -1,6 +1,6 @@
 # 0013 — Dipole emitters in periodic structures by array scanning of the conical cell problem
 
-**Status:** proposed
+**Status:** accepted
 **Date:** 2026-10-09
 
 ## Context
