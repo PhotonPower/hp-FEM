@@ -3,6 +3,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- ADR-0014 (M18 S0): layered background for the axisymmetric solver — the stack as background of
+  `AxisymmetricScatteringSetup`, the analytic order-m expansion of the stack field, substrate-side
+  incidence by the reversed stack, the axisymmetric absorbed power and the cross-section channels.
 - Emission pattern by reciprocity (M17 S2, Stage C, ADR-0013 §6, written by the helper agent
   `opt-jobs`): `hpfem.grating.emission_pattern` gives the far-field power per unit solid angle of
   a single Gaussian dipole in given directions and polarisations, into the cover and (on the
