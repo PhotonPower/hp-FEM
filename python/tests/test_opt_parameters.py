@@ -173,7 +173,9 @@ def test_morph_puts_the_boundary_on_the_new_trapezoid_and_guards_quality():
 def test_derivatives_along_the_velocities_match_finite_differences():
     cell = trapezoid_cell()
     mesh = trapezoid_mesh(cell)
-    morph = Morph(cell, mesh, trapezoid_parameters(0))
+    # the default substrate line (y = -8 rows) lies on a mesh row: the morph keeps the cells at
+    # both measurement lines fixed (band one row inside; the cover line is at 13.5 rows)
+    morph = Morph(cell, mesh, trapezoid_parameters(0), band=(-7 * ROW, 13 * ROW))
     glass = hpfem.Material.dielectric(1.5)
     stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)
     materials = {SUB: glass, LINE: hpfem.Material.dielectric(1.8)}
@@ -198,4 +200,4 @@ def test_derivatives_along_the_velocities_match_finite_differences():
         plus = r0(solve(morph.mesh_at({name: ref + steps[name]})))
         minus = r0(solve(morph.mesh_at({name: ref - steps[name]})))
         fd = (plus - minus) / (2 * steps[name])
-        assert abs(jac[0, j] - fd) < 1e-3 * abs(fd), (name, jac[0, j], fd)
+        assert abs(jac[0, j] - fd) < 1e-6 * abs(fd), (name, jac[0, j], fd)

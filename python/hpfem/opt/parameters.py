@@ -223,15 +223,22 @@ def _boundary_motion(shape: Shape, plus: Shape, minus: Shape, step: float, x: np
     return v, on
 
 
-def shape_velocity(cell: UnitCell, mesh, parameter: GeometryParameter, step: float = 1e-6):
+def shape_velocity(cell: UnitCell, mesh, parameter: GeometryParameter, step: float = 1e-6,
+                   band: tuple[float, float] | None = None):  # fmt: skip
     """Mesh velocity ``V = dx/dp`` (array ``(hpfem.num_geometry_nodes(mesh), 2)``) of a
     geometry parameter on a mesh of ``cell``: the nodes on the boundary of the shape (and of
     its copies shifted by ± period) move with the boundary (central differences with
     ``step`` times the parameter's typical magnitude), the cell boundary and the other
     material interfaces stay fixed, the remaining vertices follow by the harmonic extension
     (graph Laplacian of the mesh edges), edge nodes off the shape by the mean of their
-    vertices. Raises ``ValueError`` if a node on the cell boundary would move (the shape
-    touches the Bloch faces or the top / bottom)."""
+    vertices. ``band = (y_low, y_high)`` also fixes every vertex outside that open height range
+    (the edges included),
+    so that the measurement lines and the PML layers of a grating are not deformed (needed on
+    the vector path: the normal component of the Nédélec field jumps across facets, a facet
+    moving across a measurement line makes the order functional non-differentiable; see
+    :func:`hpfem.grating.shape_sensitivity`). Raises ``ValueError`` if a node on the cell
+    boundary would move (the shape touches the Bloch faces or the top / bottom) or if the
+    shape's moving boundary leaves the band."""
     shape = parameter._shape(cell)
     value = parameter.get(cell)
     h = step * parameter.typical(cell)
@@ -256,9 +263,19 @@ def shape_velocity(cell: UnitCell, mesh, parameter: GeometryParameter, step: flo
             )
         v[onk] = vk[onk]
         on |= onk
-    # fixed vertices: the cell boundary and every material interface
+    # fixed vertices: the cell boundary, every material interface and everything off the band
     tags = np.asarray(mesh.cell_tags)
     fixed = on[:n_v] | boundary
+    if band is not None:
+        y_low, y_high = (float(b) for b in band)
+        if not y_low < y_high:
+            raise ValueError(f"shape_velocity: empty band {band}")
+        outside = (x[:n_v, 1] <= y_low + tol) | (x[:n_v, 1] >= y_high - tol)
+        if np.any(np.linalg.norm(v[:n_v][on[:n_v] & outside], axis=1) > 0):
+            raise ValueError(
+                f"shape_velocity: parameter {parameter.name} moves nodes outside the band {band}"
+            )
+        fixed |= outside
     for f in range(mesh.num_facets):
         cells = list(mesh.facet_cells(f))
         if len(cells) == 2 and min(cells) >= 0 and tags[cells[0]] != tags[cells[1]]:
@@ -313,10 +330,13 @@ class Morph:
     velocities of :func:`shape_velocity`, after checking it (:meth:`check`); parameters
     missing from ``values`` keep their reference values. ``cell_at(values)`` is the exact
     geometry (for a remesh). The velocities are those the derivatives need
-    (``grating.jacobian(result, [("shape", morph.velocity(name)), ...])``)."""
+    (``grating.jacobian(result, [("shape", morph.velocity(name)), ...])``). ``band =
+    (y_low, y_high)`` keeps every node outside that height range fixed (see
+    :func:`shape_velocity`; put the measurement lines and the PML outside it)."""
 
     def __init__(self, cell: UnitCell, mesh, parameters: Sequence[GeometryParameter],
-                 quality_threshold: float = 0.3, step: float = 1e-6):  # fmt: skip
+                 quality_threshold: float = 0.3, step: float = 1e-6,
+                 band: tuple[float, float] | None = None):  # fmt: skip
         if mesh.dim != 2:
             raise ValueError("Morph: unit cells are two-dimensional")
         names = [p.name for p in parameters]
@@ -326,8 +346,12 @@ class Morph:
         self.mesh = mesh
         self.parameters = list(parameters)
         self.quality_threshold = float(quality_threshold)
+        self.step = float(step)
+        self.band = None if band is None else (float(band[0]), float(band[1]))
         self.reference = {p.name: p.get(cell) for p in self.parameters}
-        self._velocity = {p.name: shape_velocity(cell, mesh, p, step) for p in self.parameters}
+        self._velocity = {
+            p.name: shape_velocity(cell, mesh, p, step, self.band) for p in self.parameters
+        }
         self._quality = cell_quality(mesh)
         if np.any(self._quality == 0):
             raise ValueError("Morph: the reference mesh has degenerate cells")

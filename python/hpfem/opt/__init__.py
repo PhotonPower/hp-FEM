@@ -6,7 +6,9 @@ Imported explicitly (``import hpfem.opt``), not by ``import hpfem``. So far:
 mesh velocities of the geometry parameters and the morphing of a reference mesh with its
 quality guard; :mod:`hpfem.opt.evaluator` — the evaluator contract (:class:`Evaluation`,
 :class:`Evaluator`, :class:`FunctionEvaluator`); :mod:`hpfem.opt.study` — design spaces with
-constraints and studies with an evaluation cache and a resumable JSON-lines store.
+constraints and studies with an evaluation cache and a resumable JSON-lines store;
+:mod:`hpfem.opt.scatterometry` — the efficiencies of a grating under several measurement
+configurations as an evaluator of its geometry and material parameters.
 """
 
 from hpfem.opt.evaluator import (
@@ -26,6 +28,7 @@ from hpfem.opt.parameters import (
     shape_velocity,
     trapezoid_parameters,
 )
+from hpfem.opt.scatterometry import Configuration, GratingEvaluator
 from hpfem.opt.study import (
     Categorical,
     Continuous,
@@ -41,6 +44,7 @@ from hpfem.opt.study import (
 
 __all__ = [
     "Categorical",
+    "Configuration",
     "Continuous",
     "DesignSpace",
     "Evaluation",
@@ -48,6 +52,7 @@ __all__ = [
     "Evaluator",
     "FunctionEvaluator",
     "GeometryParameter",
+    "GratingEvaluator",
     "History",
     "Integer",
     "LinearConstraint",
