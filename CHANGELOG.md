@@ -39,6 +39,16 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `ConicalScattering::system_dofs` / `system_constraints`; `hpfem.grating.jacobian` columns
   `"theta"`, `"phi"`, `"omega"`, `"wavelength"` (with the explicit dependence of the order
   post-processing and dispersive materials), `GratingResult.inputs`.
+- Study framework in `hpfem.opt` (M16 S2, ADR-0012 §2, §5, §7): `DesignSpace` with
+  `Continuous` (optionally logarithmic), `Integer` and `Categorical` parameters (the S1
+  parameters count as continuous), `LinearConstraint` / `NonlinearConstraint`, unit-cube
+  encoding and Latin-hypercube / Sobol' sampling; the evaluator contract (`Evaluation`,
+  `Evaluator`, `FunctionEvaluator`, complex observables split into Re / Im); `Study` with
+  sequential evaluation, a cache keyed by the scaled parameters, the fidelity and the hash of
+  the evaluator settings, the append-only JSON-lines store (`*.study.jsonl`: header,
+  evaluation, proposal, state, remesh and note lines), resume without re-evaluation,
+  recorded failures, progress events and cancellation (`hpfem.Cancelled`), history and best
+  point.
 
 ## [0.4.0] — 2026-10-08
 Fourth release: the GUI support milestone M15 complete, the sensitivities of M12, and the

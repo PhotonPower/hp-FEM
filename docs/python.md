@@ -368,6 +368,57 @@ equilateral triangle) with the reference and raises `MeshQualityError` (`ratio`,
 the new trapezoid (exact for CD and height, second order for the angle) and the derivatives
 along the velocities against finite differences of solves on morphed meshes.
 
+**Studies (`hpfem.opt`, M16 S2).** A `DesignSpace([...], constraints)` holds `Continuous(name,
+lower, upper, log=False, unit="", scale=None)`, `Integer(name, lower, upper)` and
+`Categorical(name, choices)` parameters (the S1 `MaterialParameter` / `GeometryParameter` count
+as continuous with their bounds and scale), `LinearConstraint({name: a}, lower, upper)` and
+`NonlinearConstraint(function, lower, upper)` on the SI values. It validates points
+(`validate`, `check` with the constraints, `feasible`), maps them to the unit cube and back
+(`encode` / `decode`, logarithmic for `log=True`) and to SI vectors (`to_vector` /
+`from_vector`, `bounds()`, `linear_constraints()` as `(A, lower, upper)`), and draws initial
+designs (`sample(n, "lhs" | "sobol" | "random", seed)`, infeasible points rejected). An
+evaluator follows ADR-0012 §2: it returns an `Evaluation` (`params`, real `values` (m,),
+`jacobian` (m, n) in parameter order, `error`, `cost` in seconds, `fidelity`, `mesh_id`,
+`status` `"ok"` / `"failed"` / `"cancelled"`, `meta`); `FunctionEvaluator(f, space,
+observables, settings=...)` wraps a function returning a number, an array, `(values,
+jacobian[, error])` or a dict, splits complex values into real and imaginary part
+(`split_complex`) and turns an exception into a failed evaluation with NaN values and the
+message in `meta["error"]`.
+
+```python
+import hpfem.opt as opt
+
+space = opt.DesignSpace([opt.Continuous("x", -2, 2), opt.Continuous("y", -1, 3)],
+                        [opt.LinearConstraint({"x": 1, "y": 1}, upper=3)])
+def rosenbrock(p, jacobian=False):
+    x, y = p["x"], p["y"]
+    return (1 - x)**2 + 100*(y - x*x)**2, [-2*(1 - x) - 400*x*(y - x*x), 200*(y - x*x)]
+study = opt.Study(rosenbrock, "rosenbrock.study.jsonl", space, emit=print, cancel=None)
+study.run(space.sample(8, seed=1))                    # propose and evaluate, sequentially
+e = study.evaluate({"x": 1.0, "y": 1.0}, jacobian=True)
+study.best(), study.history().values, study.failed
+```
+
+`Study(evaluator, path, space)` evaluates sequentially (ADR-0012 §7), caches by a canonical key
+(values divided by their scale and rounded to 12 significant digits, plus the requested
+`fidelity` and the SHA-256 of the evaluator `settings`, so a changed setting never reuses old
+values) and appends every evaluation to the JSON-lines store of ADR-0012 §5: a header line
+(`schema` 1, version, design space, evaluator name / settings / hash / observables), then
+`evaluation`, `proposal`, `state` (`checkpoint(method, iteration, state)` for optimisers),
+`remesh` (from `meta["remesh"]` of an evaluation) and `note` lines; NaN as `null`, ±∞ as
+`"inf"`, complex values as `{"__complex__": [re, im]}`. Opening an existing store resumes it:
+the cache, the last `state` and the open proposals (`open_proposals()`, `evaluate_open()`)
+are rebuilt, nothing is evaluated again, a truncated last line is dropped; `Study.load(path)`
+opens it read-only. `emit(event)` receives JSON-ready events (`study`, `proposal`,
+`evaluation` with `i`, `n`, `cached`, `remesh`, `state`, `note`, `cancelled`); `cancel()` is
+polled before every evaluation and passed to the evaluator, a true value raises
+`hpfem.Cancelled` with the store consistent. Failed evaluations are recorded and cached and do
+not stop the study (`raise_errors=True` raises `EvaluationFailed` after recording,
+`retry_failed=True` evaluates them again). `python/tests/test_opt_study.py` covers the
+encodings, constraints, the cache key, the store round trip, resume after a cancellation,
+failures, events, an L-BFGS-B run on Rosenbrock replayed from the store and a grating
+evaluator with its Jacobian.
+
 **Scalar E_z path.** For the s polarisation at `phi = 0` (`scalar="auto"`, the default)
 `grating.solve` lets `ConicalScattering` factorise only the H1 block (`setup.scalar_ez`), about
 a third of the unknowns with identical results; `result.scalar` says whether it was used,

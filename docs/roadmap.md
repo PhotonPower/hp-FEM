@@ -398,10 +398,12 @@ effort in focused sessions.
   and `grating.jacobian`, `hpfem.opt` parameters / `shape_velocity` / `Morph`,
   `conical_parameter_tangent` with the derivative of the Bloch constraints for `"theta"`,
   `"phi"`, `"omega"`, `"wavelength"`)
-- [ ] S2 (P1, ≈ 3) study framework: design space (continuous, integer, categorical,
+- [x] S2 (P1, ≈ 3) study framework: design space (continuous, integer, categorical,
   constraints), evaluation cache, resume, JSON-lines result store, job-runner integration with
   events and cancellation; batch proposals are evaluated sequentially, several processes only
-  with an explicit thread budget (OpenMP, one cuDSS GPU, per-process factorisations on Windows)
+  with an explicit thread budget (OpenMP, one cuDSS GPU, per-process factorisations on Windows) (`hpfem.opt.study`: `DesignSpace`, `Study`, `*.study.jsonl`;
+  `hpfem.opt.evaluator`: `Evaluation`, `FunctionEvaluator`; events and cancellation as
+  callbacks, the `hpfem.run` tasks follow in S9; `workers > 1` not yet)
 - [ ] S3 (P1, ≈ 4) classical optimisers and the Laplace approximation: L-BFGS-B with
   gradients, Nelder–Mead, differential evolution (SciPy wrappers), Gauss–Newton /
   Levenberg–Marquardt with the Jacobian of S1, parameter covariance from the Fisher

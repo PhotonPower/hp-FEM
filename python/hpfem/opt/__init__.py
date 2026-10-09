@@ -4,9 +4,19 @@
 Imported explicitly (``import hpfem.opt``), not by ``import hpfem``. So far:
 :mod:`hpfem.opt.parameters` — material and geometry parameters of a grating unit cell, the
 mesh velocities of the geometry parameters and the morphing of a reference mesh with its
-quality guard.
+quality guard; :mod:`hpfem.opt.evaluator` — the evaluator contract (:class:`Evaluation`,
+:class:`Evaluator`, :class:`FunctionEvaluator`); :mod:`hpfem.opt.study` — design spaces with
+constraints and studies with an evaluation cache and a resumable JSON-lines store.
 """
 
+from hpfem.opt.evaluator import (
+    Evaluation,
+    Evaluator,
+    FunctionEvaluator,
+    as_evaluation,
+    complex_names,
+    split_complex,
+)
 from hpfem.opt.parameters import (
     GeometryParameter,
     MaterialParameter,
@@ -16,13 +26,41 @@ from hpfem.opt.parameters import (
     shape_velocity,
     trapezoid_parameters,
 )
+from hpfem.opt.study import (
+    Categorical,
+    Continuous,
+    DesignSpace,
+    EvaluationFailed,
+    History,
+    Integer,
+    LinearConstraint,
+    NonlinearConstraint,
+    Study,
+    StudyError,
+)
 
 __all__ = [
+    "Categorical",
+    "Continuous",
+    "DesignSpace",
+    "Evaluation",
+    "EvaluationFailed",
+    "Evaluator",
+    "FunctionEvaluator",
     "GeometryParameter",
+    "History",
+    "Integer",
+    "LinearConstraint",
     "MaterialParameter",
     "MeshQualityError",
     "Morph",
+    "NonlinearConstraint",
+    "Study",
+    "StudyError",
+    "as_evaluation",
     "cell_quality",
+    "complex_names",
     "shape_velocity",
+    "split_complex",
     "trapezoid_parameters",
 ]
