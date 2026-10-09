@@ -101,6 +101,14 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   (optional extra `opt-bo`, not run yet) `pareto_optimize` (qLogNEHVI) and
   `multi_fidelity_optimize`. Branin to 1e-3 within 40 evaluations; gradient-enhanced BO reaches
   Hartmann-3 to 1e-3 in 8–13 evaluations where plain BO needs 20 or more.
+- Posterior beyond the Laplace approximation in `hpfem.opt` (M16 S6): `sample` (MCMC with emcee,
+  optional extra `opt-mcmc`, also in `dev`) on the posterior of a `fit` with the χ²_red noise
+  scaling of `laplace`, uniform prior on the bounds and optional Gaussian priors;
+  `build_surrogate` (gradient-enhanced `MultiOutputGP` per observable from Latin-hypercube
+  evaluations with the Jacobian around the optimum, its variance in the likelihood, a
+  validation error in noise standard deviations); `PosteriorResult` with `compare()` against
+  Laplace. Linear-Gaussian, skewed (against a grid posterior) and surrogate-vs-direct tests;
+  `examples/grating_reconstruction/run.py --posterior`.
 
 ### Fixed
 - Shape derivatives of grating efficiencies along a mesh velocity that deforms the cells at a

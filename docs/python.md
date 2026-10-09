@@ -559,6 +559,33 @@ deforms the cells at a measurement line on mesh facets (see the band above).
 height and side-wall angle of a silicon line grating from synthetic spectroscopic data with
 `fit` and reports the Laplace uncertainties.
 
+**Posterior beyond Laplace (`hpfem.opt`, M16 S6).** `sample(fit_result, surrogate=True,
+prior=None, walkers=None, steps=3000, burn=None, thin=1, seed=0)` samples the posterior of the
+free parameters of a `fit` — likelihood `exp(-½ Σ (y_i(p) - y_meas,i)² / (s σ_i)²)` with the
+noise scale `s² = χ²_red` when σ was unknown (the scaling of `laplace`), a uniform prior on
+the bounds times optional Gaussians `prior={name: (mean, std)}` — with the affine-invariant
+ensemble sampler of emcee (optional extra `opt-mcmc`, imported lazily; an `ImportError` names
+the extra). The walkers start from the Laplace Gaussian. With `surrogate=True` the model is
+replaced by `build_surrogate(fit_result, width=4, points=2n+2, validation=n+2)`: a
+Latin-hypercube design in `x̂ ± 4 std` (clipped to the bounds, the optimum included)
+evaluated **with the Jacobian** through the study, a gradient-enhanced `MultiOutputGP` per
+observable without noise, its variance added to the noise in the likelihood (the posterior
+widens where the surrogate is unsure), and `validation` extra evaluations measuring its error
+in noise standard deviations (`Surrogate.validation`, a `PosteriorWarning` above 0.3).
+`surrogate=False` calls the evaluator at every step without the study's cache and store
+(cheap models only). `PosteriorResult` holds the samples, mean, std, covariance, correlation,
+the 2.5/16/50/84/97.5 % quantiles, the acceptance fraction and the autocorrelation time
+(a `PosteriorWarning` when the chain is shorter than 50 of them or the acceptance below
+0.15); `compare()` lists per parameter the Laplace mode and error against the posterior mean
+and std (`shift` in Laplace errors, `ratio` of the stds), `summary()` prints it.
+`python/tests/test_opt_posterior.py`: on a linear Gaussian model the posterior (direct and on
+the surrogate) reproduces the Laplace mean, errors and correlations to 0.1 standard errors /
+10 %, with a Gaussian prior it matches the exact `(C⁻¹ + D)⁻¹`; on a skewed one-parameter
+model the 16/50/84 % quantiles match a brute-force grid posterior where the Laplace Gaussian
+does not (mean shifted by more than 0.15 errors); on a two-parameter exponential model the
+surrogate posterior equals the direct one. `examples/grating_reconstruction/run.py
+--posterior` samples the posterior of the silicon-grating reconstruction.
+
 **Scalar E_z path.** For the s polarisation at `phi = 0` (`scalar="auto"`, the default)
 `grating.solve` lets `ConicalScattering` factorise only the H1 block (`setup.scalar_ez`), about
 a third of the unknowns with identical results; `result.scalar` says whether it was used,

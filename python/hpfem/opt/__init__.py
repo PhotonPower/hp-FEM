@@ -16,7 +16,11 @@ a light Gaussian process (Matérn / squared-exponential ARD kernels, noise, deri
 observations); :mod:`hpfem.opt.bo` — Bayesian optimisation driving a study
 (:func:`bayesian_optimize`: expected improvement or lower confidence bound, known and outcome
 constraints, gradient-enhanced surrogate), the Pareto front of a study and, with the optional
-extra ``opt-bo`` (BoTorch), multi-objective and multi-fidelity Bayesian optimisation.
+extra ``opt-bo`` (BoTorch), multi-objective and multi-fidelity Bayesian optimisation;
+:mod:`hpfem.opt.posterior` — the parameter posterior of a fit beyond the Laplace
+approximation: a gradient-enhanced surrogate of the observables around the optimum
+(:func:`build_surrogate`) and MCMC sampling with the optional extra ``opt-mcmc`` (emcee,
+:func:`sample`).
 """
 
 from hpfem.opt.bo import (
@@ -54,6 +58,13 @@ from hpfem.opt.parameters import (
     shape_velocity,
     trapezoid_parameters,
 )
+from hpfem.opt.posterior import (
+    PosteriorResult,
+    PosteriorWarning,
+    Surrogate,
+    build_surrogate,
+    sample,
+)
 from hpfem.opt.scatterometry import Configuration, GratingEvaluator
 from hpfem.opt.study import (
     Categorical,
@@ -69,6 +80,11 @@ from hpfem.opt.study import (
 )
 
 __all__ = [
+    "sample",
+    "build_surrogate",
+    "Surrogate",
+    "PosteriorWarning",
+    "PosteriorResult",
     "BOResult",
     "Categorical",
     "Configuration",

@@ -422,7 +422,7 @@ effort in focused sessions.
   estimate is used as a fidelity indicator or for adaptive refinement until the error is small
   against the noise, **not** as independent GP noise (hypothesis, tested in S8) (`hpfem.opt.gp`,
   `hpfem.opt.bo`; the BoTorch drivers are experimental, not run yet)
-- [ ] S6 (P2, ≈ 2) parameter retrieval beyond Laplace: Bayesian least squares on the surrogate,
+- [x] S6 (P2, ≈ 2) parameter retrieval beyond Laplace: Bayesian least squares on the surrogate,
   MCMC through the optional emcee extra (posterior against the Laplace result)
 - [ ] S7 (P2, ≈ 2) uncertainty propagation and sensitivity analysis: linearised propagation
   from the Jacobian (own), Monte Carlo on the surrogate, Sobol' indices by one route (GP
