@@ -586,6 +586,31 @@ does not (mean shifted by more than 0.15 errors); on a two-parameter exponential
 surrogate posterior equals the direct one. `examples/grating_reconstruction/run.py
 --posterior` samples the posterior of the silicon-grating reconstruction.
 
+**Uncertainty propagation and sensitivity (`hpfem.opt`, M16 S7).** Uncertain inputs are
+independent `Normal(mean, std)` or `Uniform(lower, upper)` per parameter name (SI); the other
+parameters keep `fixed` (default: the centre of their bounds). `linear_propagation(study,
+inputs)` evaluates once with the Jacobian at the input means and returns the delta-method
+output covariance `J Σ Jᵀ`, the standard deviations and the share of every input in every
+output variance (`contributions`, rows sum to 1). `build_global_surrogate(study, inputs,
+points=4n+4, active=0, width=4, gradients=True)` evaluates a Latin hypercube in the input box
+(`mean ± 4 std`, the bounds of a uniform input; clipped to the design space) through the
+study, with the Jacobian, fits a gradient-enhanced `MultiOutputGP` without noise and adds
+`active` points one at a time where the predicted standard deviation relative to the spread
+of the training values is largest (`max_relative_std` reports it for the final model; it is
+set by the corners of the box and conservative). `monte_carlo(surrogate_or_function, inputs,
+samples=10000)` gives the output mean, std, quantiles and samples (normal samples outside the
+surrogate box are clipped and counted); `sobol_indices(surrogate_or_function, inputs,
+samples=4096, bootstrap=200)` the first-order (Saltelli 2010) and total (Jansen) Sobol'
+indices with bootstrap 95 % half-widths from scrambled Sobol' points, `N (n + 2)` model calls
+(free on the surrogate). SALib is not used: it does not install on the MSYS2 Python, and the
+own estimators are checked against the analytic indices instead.
+`python/tests/test_opt_uq.py`: the Ishigami indices directly (2¹⁴ points, 0.02) and through a
+surrogate of 40 + 30 actively learned points (0.02); on a linear model linearised propagation,
+Monte Carlo and Sobol' indices against the closed form; on a nonlinear model Monte Carlo on
+the surrogate against Monte Carlo on the function (1–2 %) and the linearised std as the
+small-tolerance limit. `examples/fabrication_tolerance` propagates CD, height and side-wall
+angle tolerances of the silicon grating to its reflectance spectrum.
+
 **Scalar E_z path.** For the s polarisation at `phi = 0` (`scalar="auto"`, the default)
 `grating.solve` lets `ConicalScattering` factorise only the H1 block (`setup.scalar_ez`), about
 a third of the unknowns with identical results; `result.scalar` says whether it was used,

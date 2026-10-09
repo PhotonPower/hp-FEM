@@ -424,9 +424,10 @@ effort in focused sessions.
   `hpfem.opt.bo`; the BoTorch drivers are experimental, not run yet)
 - [x] S6 (P2, ≈ 2) parameter retrieval beyond Laplace: Bayesian least squares on the surrogate,
   MCMC through the optional emcee extra (posterior against the Laplace result)
-- [ ] S7 (P2, ≈ 2) uncertainty propagation and sensitivity analysis: linearised propagation
+- [x] S7 (P2, ≈ 2) uncertainty propagation and sensitivity analysis: linearised propagation
   from the Jacobian (own), Monte Carlo on the surrogate, Sobol' indices by one route (GP
-  surrogate, SALib optional), fabrication-tolerance example
+  surrogate, SALib optional), fabrication-tolerance example (`hpfem.opt.uq`; SALib not
+  needed: the own estimators are verified against the analytic Ishigami indices)
 - [ ] S8 (P2, ongoing) validation: Branin / Rosenbrock for BO, Ishigami for Sobol', NIST MGH17
   for the reconstruction uncertainties, linear-Gaussian problems (MCMC = Laplace), gradient-based
   against gradient-free BO on the 2D grating and the metasurface unit cell, test of the DWR

@@ -20,7 +20,9 @@ extra ``opt-bo`` (BoTorch), multi-objective and multi-fidelity Bayesian optimisa
 :mod:`hpfem.opt.posterior` — the parameter posterior of a fit beyond the Laplace
 approximation: a gradient-enhanced surrogate of the observables around the optimum
 (:func:`build_surrogate`) and MCMC sampling with the optional extra ``opt-mcmc`` (emcee,
-:func:`sample`).
+:func:`sample`); :mod:`hpfem.opt.uq` — uncertainty propagation (linearised with the
+Jacobian, Monte Carlo on a global gradient-enhanced surrogate with active learning) and
+Sobol' indices.
 """
 
 from hpfem.opt.bo import (
@@ -78,8 +80,30 @@ from hpfem.opt.study import (
     Study,
     StudyError,
 )
+from hpfem.opt.uq import (
+    GlobalSurrogate,
+    LinearPropagation,
+    MonteCarloResult,
+    Normal,
+    SobolResult,
+    Uniform,
+    build_global_surrogate,
+    linear_propagation,
+    monte_carlo,
+    sobol_indices,
+)
 
 __all__ = [
+    "sobol_indices",
+    "monte_carlo",
+    "linear_propagation",
+    "build_global_surrogate",
+    "Uniform",
+    "SobolResult",
+    "Normal",
+    "MonteCarloResult",
+    "LinearPropagation",
+    "GlobalSurrogate",
     "sample",
     "build_surrogate",
     "Surrogate",
