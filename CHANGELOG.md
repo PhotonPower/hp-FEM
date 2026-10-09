@@ -68,6 +68,27 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   400–700 nm, noise 0.002; data one order higher on a mesh at the true geometry) by
   Levenberg–Marquardt with Laplace uncertainties; README and regression test.
 
+- Resonance derivatives (M16 S4, `physics/eigen_sensitivity.hpp`): dω/dp, dQ/dp and
+  dλ/dp of quasi-normal modes from the left eigenvector — the mode itself for `Resonance`
+  (complex symmetric pencil, also with hanging nodes), transposed inverse iteration on the
+  Bloch-reduced pencil of `ConicalResonance` — for the permittivity of a tag, a mesh velocity,
+  β and the Bloch wavenumber (the complex dispersion of leaky modes); the dispersive
+  denominator `2ω/c0² − ∂λ̂/∂ω` (`resonance_derivative_from`). `ConicalResonance::constraints`
+  / `reduced_pencil`. Python: the bindings, `hpfem.grating.resonance_sensitivity` and
+  `hpfem.grating.refine_resonance` (Newton to the self-consistent resonance of dispersive
+  models at the complex ω); `DrudeLorentz` and `Constant` accept a complex ω (analytic
+  continuation). Verified against re-solved modes to six digits and against the exact
+  Fabry–Pérot resonance of a (dispersive) slab.
+- Band derivatives (M16 S4, written by the helper agent `bands`): `physics::band_permittivity_derivative`,
+  `band_permeability_derivative`, `band_shape_derivative` (mesh velocity, V = 0 on the
+  periodic faces) and `band_wave_vector_derivative` / `group_velocity` give dk0/dp and dω/dp
+  of every band of a `BandStructure` without another eigensolve (Hellmann–Feynman on the
+  Hermitian Bloch pencil; the wave-vector derivative differentiates the Bloch prolongation).
+  Degenerate bands are resolved as clusters (one-sided branch slopes, `multiplicity`).
+  `BandStructureSetup::keep_modes` keeps the M-normalised modes in `Bands::modes`. Python:
+  `hpfem.band_*_derivative`, `hpfem.group_velocity`, `BandDerivative`. Verified against
+  re-solved bands to 1e-8 and against c0(k+G)/(n|k+G|) in a uniform medium.
+
 ### Fixed
 - Shape derivatives of grating efficiencies along a mesh velocity that deforms the cells at a
   measurement line lying on mesh facets (the default midway line of structured cells): the
