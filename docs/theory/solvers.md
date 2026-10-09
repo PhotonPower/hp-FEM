@@ -152,6 +152,24 @@ problems as above): the LDLᵀ factorisation takes 0.85 s instead of 1.16 s on M
 and 1.24 s instead of 1.84 s (cuDSS) at 70 k unknowns in 3D; below about 20 k unknowns the
 gain vanishes on the GPU, solves and residuals are unchanged.
 
+### Solves with the transposed matrix (`solve_transposed`)
+
+The adjoint systems of the sensitivities (`physics/sensitivity.hpp`, ADR-0011, ADR-0012) need
+$A^\top z = q$ (transposed, not conjugated) on the factorisation of the forward problem:
+`solve_transposed` / `solve_transposed_many`. A complex-symmetric factorisation (the LDLᵀ
+paths of MUMPS and cuDSS, see the previous section) solves with $A$ itself, since
+$A^\top = A$. For a general matrix — Bloch phases, non-symmetric material tensors — SparseLU
+uses its factors transposed (Eigen's `SparseLU::transpose()` view: with $P_r A P_c = LU$ it
+solves $U^\top$ and $L^\top$ in reverse order and swaps the permutations), and MUMPS solves
+with `ICNTL(9) = 2` on the same factors. cuDSS has no transposed solve: the backend keeps the
+general matrix and factorises $A^\top$ on the first transposed solve after each
+(re)factorisation, reusing the analysis of the previous $A^\top$ through `refactorize`; this
+doubles the device memory for general systems only. For a reciprocal medium with Bloch phases
+$A(k)^\top = A(-k)$, so the adjoint of a Bloch problem is the primal problem at $-k$.
+Verified for every backend on a random non-symmetric system (residual $10^{-10}$, the
+transposed solve after a `refactorize` sees the new values) and on a complex-symmetric one
+(`test_linear_solver.cpp`, `python/tests/test_linear_solver.py`).
+
 ### Factors larger than the device memory (hybrid memory mode)
 
 cuDSS can keep the factors (partly) in host memory. The GPU library decides this per

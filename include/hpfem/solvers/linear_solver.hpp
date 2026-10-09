@@ -38,6 +38,19 @@ class LinearSolver {
   /// solve override this, the default solves column by column.
   /// @throws Error if `factorize` has not succeeded or the row count does not match.
   [[nodiscard]] virtual Matrix solve_many(const Matrix& rhs) const;
+  /// Solves with the transposed matrix, @f$ A^\top x = b @f$ (transposed, not conjugated), on
+  /// the current factorisation: the adjoint systems of the sensitivities (ADR-0012). A
+  /// complex-symmetric factorisation (the LDLᵀ paths) solves with A itself; SparseLU and MUMPS
+  /// use their factors transposed; cuDSS factorises Aᵀ on the first call after a
+  /// (re)factorisation of a general matrix and keeps it (twice the device memory).
+  /// @throws Error if `factorize` has not succeeded or the backend has no transposed solve,
+  ///         InvalidArgument if the size does not match.
+  [[nodiscard]] virtual Vector solve_transposed(const Vector& rhs) const;
+  /// Several right-hand sides of the transposed system at once (one per column); the default
+  /// solves column by column.
+  /// @throws Error if `factorize` has not succeeded, InvalidArgument if the row count does not
+  ///         match.
+  [[nodiscard]] virtual Matrix solve_transposed_many(const Matrix& rhs) const;
   [[nodiscard]] virtual Index size() const noexcept = 0;
   [[nodiscard]] virtual std::string name() const = 0;
   /// Backend-specific facts about the current factorisation for logs and benchmarks

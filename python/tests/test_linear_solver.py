@@ -1,6 +1,7 @@
 """Direct solver backends from Python: every available backend solves a random sparse
 complex system, several right-hand sides at once agree with the column-wise solves, and the
-cuDSS backend reports its status cleanly whether or not a GPU is present."""
+cuDSS backend reports its status cleanly whether or not a GPU is present; the transposed
+solves of the adjoint sensitivities run on the same factorisation."""
 
 import numpy as np
 import pytest
@@ -66,3 +67,19 @@ def test_complex_symmetric_systems_use_the_ldlt_paths(backend):
     assert np.linalg.norm(x - x_exact) < 1e-10 * np.linalg.norm(x_exact)
     general = hpfem.solve_direct(a, rhs, backend, hpfem.Symmetry.GENERAL)
     assert np.linalg.norm(general - x) < 1e-9 * np.linalg.norm(x)
+
+
+@pytest.mark.parametrize("backend", hpfem.available_backends())
+def test_transposed_solves_on_the_same_factorisation(backend):
+    n = 300
+    a = random_system(n, 7)
+    rng = np.random.default_rng(8)
+    x_exact = rng.uniform(-1, 1, (n, 2)) + 1j * rng.uniform(-1, 1, (n, 2))
+    b = a.T @ x_exact  # transposed, not conjugated
+    solver = hpfem.make_direct_solver(backend)
+    solver.factorize(a)
+    x0 = solver.solve_transposed(np.ascontiguousarray(b[:, 0]))
+    assert np.linalg.norm(x0 - x_exact[:, 0]) < 1e-10 * n
+    assert np.linalg.norm(solver.solve_transposed_many(b) - x_exact) < 1e-10 * n
+    forward = solver.solve(np.ascontiguousarray(a @ x_exact[:, 0]))
+    assert np.linalg.norm(forward - x_exact[:, 0]) < 1e-10 * n

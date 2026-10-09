@@ -133,6 +133,24 @@ class MumpsSolver final : public LinearSolver {
 
   /// Native multi-rhs solve (`nrhs` columns in one call, column-major in place).
   [[nodiscard]] Matrix solve_many(const Matrix& rhs) const override {
+    return solve_columns(rhs, false);
+  }
+
+  [[nodiscard]] Vector solve_transposed(const Vector& rhs) const override {
+    if (rhs.size() != size_) {
+      throw InvalidArgument(
+          fmt::format("MUMPS: right-hand side has {} entries, system has {}", rhs.size(), size_));
+    }
+    return solve_columns(Matrix(rhs), true).col(0);
+  }
+
+  /// Aᵀx = b on the same factors (ICNTL(9) ≠ 1; the LDLᵀ path ignores it, there Aᵀ = A).
+  [[nodiscard]] Matrix solve_transposed_many(const Matrix& rhs) const override {
+    return solve_columns(rhs, true);
+  }
+
+  /// All columns of `rhs` in one call (job 3), with A or with Aᵀ.
+  [[nodiscard]] Matrix solve_columns(const Matrix& rhs, bool transposed) const {
     if (!ready_) throw Error("MUMPS: solve() called before a successful factorize()");
     if (rhs.rows() != size_) {
       throw InvalidArgument(
@@ -151,10 +169,12 @@ class MumpsSolver final : public LinearSolver {
     id.rhs = x.data();
     id.nrhs = static_cast<MUMPS_INT>(rhs.cols());
     id.lrhs = static_cast<MUMPS_INT>(size_);
+    id.icntl[8] = transposed ? 2 : 1;  // ICNTL(9): 1 solves A x = b, anything else A^T x = b
     id.job = 3;
     zmumps_c(&id);
     id.rhs = nullptr;
-    check("solve");
+    id.icntl[8] = 1;
+    check(transposed ? "transposed solve" : "solve");
     Matrix out(size_, rhs.cols());
     for (Index j = 0; j < rhs.cols(); ++j) {
       for (Index i = 0; i < size_; ++i) {

@@ -10,6 +10,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   quality guard, adjoint and direct sensitivities on a kept factorisation with
   `LinearSolver::solve_transposed` (amends ADR-0007), the JSON-lines study store and job
   schema version 2.
+- `LinearSolver::solve_transposed` / `solve_transposed_many` (M16 S1, ADR-0012): Aᵀx = b on
+  the factorisation of A for the adjoint sensitivities; LDLᵀ paths solve with A, SparseLU and
+  MUMPS transpose their factors, cuDSS factorises Aᵀ on demand; Python bindings.
 
 ## [0.4.0] — 2026-10-08
 Fourth release: the GUI support milestone M15 complete, the sensitivities of M12, and the

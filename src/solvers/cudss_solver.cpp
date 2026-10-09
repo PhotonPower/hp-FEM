@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -331,6 +332,7 @@ class CudssSolver final : public LinearSolver {
                               api_.last_error(solver_)));
     }
     ready_ = true;
+    keep_for_transposed(matrix);
     outer_.assign(csr->outerIndexPtr(), csr->outerIndexPtr() + csr->outerSize() + 1);
     inner_.assign(csr->innerIndexPtr(), csr->innerIndexPtr() + csr->nonZeros());
     read_factor_info();
@@ -404,6 +406,7 @@ class CudssSolver final : public LinearSolver {
                               size_, api_.last_error(solver_)));
     }
     ready_ = true;
+    keep_for_transposed(matrix);
     read_factor_info();
     log().debug("cuDSS: refactorised {} unknowns on the analysed pattern", size_);
   }
@@ -443,6 +446,36 @@ class CudssSolver final : public LinearSolver {
     return x;
   }
 
+  [[nodiscard]] Vector solve_transposed(const Vector& rhs) const override {
+    if (rhs.size() != size_) {
+      throw InvalidArgument(
+          fmt::format("cuDSS: right-hand side has {} entries, system has {}", rhs.size(), size_));
+    }
+    return solve_transposed_many(Matrix(rhs)).col(0);
+  }
+
+  /// The LDLᵀ path solves with A (Aᵀ = A). cuDSS has no transposed solve, so a general matrix
+  /// gets a second factorisation of Aᵀ on the first call after each (re)factorisation (on the
+  /// analysed pattern of the previous one where possible); it lives until this object does.
+  [[nodiscard]] Matrix solve_transposed_many(const Matrix& rhs) const override {
+    if (!ready_) throw Error("cuDSS: solve() called before a successful factorize()");
+    if (symmetric_) return solve_many(rhs);
+    if (rhs.rows() != size_) {
+      throw InvalidArgument(
+          fmt::format("cuDSS: right-hand sides have {} rows, system has {}", rhs.rows(), size_));
+    }
+    if (transposed_stale_) {
+      if (!transposed_) transposed_ = std::make_unique<CudssSolver>(Symmetry::kGeneral);
+      SparseMatrix transposed(general_.transpose());
+      transposed.makeCompressed();
+      transposed_->refactorize(transposed);
+      transposed_stale_ = false;
+      log().debug("cuDSS: factorised the transposed {} x {} system for solve_transposed", size_,
+                  size_);
+    }
+    return transposed_->solve_many(rhs);
+  }
+
   [[nodiscard]] hpfem_gpu_solver* handle() const noexcept { return ready_ ? solver_ : nullptr; }
   [[nodiscard]] Index size() const noexcept override { return size_; }
   [[nodiscard]] std::string name() const override {
@@ -465,6 +498,19 @@ class CudssSolver final : public LinearSolver {
   }
   std::vector<Index> outer_;  ///< the factorised pattern, for refactorize
   std::vector<Index> inner_;
+  /// Keeps a general matrix for the factorisation of Aᵀ that `solve_transposed` makes on
+  /// demand (the LDLᵀ path needs none); the previous one is outdated.
+  void keep_for_transposed(const SparseMatrix& matrix) {
+    transposed_stale_ = true;
+    if (symmetric_) {
+      general_ = SparseMatrix();
+    } else {
+      general_ = matrix;
+    }
+  }
+  SparseMatrix general_;  ///< A of the current general factorisation, for Aᵀ
+  mutable std::unique_ptr<CudssSolver> transposed_;  ///< factorisation of Aᵀ, made on demand
+  mutable bool transposed_stale_ = true;
   hpfem_gpu_factor_info_t info_{};
   hpfem_gpu_solver* solver_ = nullptr;
   bool ready_ = false;
