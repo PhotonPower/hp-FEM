@@ -148,19 +148,20 @@ def test_morph_puts_the_boundary_on_the_new_trapezoid_and_guards_quality():
     morph = Morph(cell, mesh, parameters)
     x = np.asarray(mesh.vertices)
     on_line = distance_to_polygon(x, cell.shapes[0].polygon()) < 1e-9 * PERIOD
-    values = {"cd": 205 * NM, "height": 150 * NM}  # linear in the corners: exact morph
-    moved = morph.mesh_at(values)
-    assert np.array_equal(np.asarray(moved.cell_tags), np.asarray(mesh.cell_tags))
-    target = morph.cell_at(values).shapes[0].polygon()
-    xm = np.asarray(moved.vertices)
-    assert distance_to_polygon(xm[on_line], target).max() < 1e-12 * PERIOD
-    assert morph.check(moved) > 0.3
-    # the side-wall angle is nonlinear in the corners: second-order deviation
-    step = 1e-3
-    tilted = morph.mesh_at({"angle": morph.reference["angle"] + step})
-    target = morph.cell_at({"angle": morph.reference["angle"] + step}).shapes[0].polygon()
-    deviation = distance_to_polygon(np.asarray(tilted.vertices)[on_line], target).max()
-    assert deviation < 10 * step**2 * HEIGHT
+    # every parameter alone and all of them together (the wall moves with h cot(angle), so a
+    # linear superposition of the velocities would miss the cross terms): exact geometry
+    ref = morph.reference
+    for values in (
+        {"cd": 205 * NM, "height": 150 * NM},
+        {"angle": ref["angle"] + 0.05},
+        {"cd": 190 * NM, "height": 160 * NM, "angle": ref["angle"] - 0.08},
+    ):
+        moved = morph.mesh_at(values)
+        assert np.array_equal(np.asarray(moved.cell_tags), np.asarray(mesh.cell_tags))
+        target = morph.cell_at(values).shapes[0].polygon()
+        xm = np.asarray(moved.vertices)
+        assert distance_to_polygon(xm[on_line], target).max() < 1e-12 * PERIOD, values
+        assert morph.check(moved) > 0.3
     # a collapsing line inverts cells: the guard refuses and reports
     with pytest.raises(MeshQualityError) as error:
         morph.mesh_at({"height": 2 * NM})
@@ -170,10 +171,33 @@ def test_morph_puts_the_boundary_on_the_new_trapezoid_and_guards_quality():
     assert np.all(cell_quality(mesh) > 0)
 
 
-def test_derivatives_along_the_velocities_match_finite_differences():
+def test_velocity_at_is_the_derivative_of_the_node_map_away_from_the_reference():
     cell = trapezoid_cell()
     mesh = trapezoid_mesh(cell)
     morph = Morph(cell, mesh, trapezoid_parameters(0))
+    ref = morph.reference
+    at = {"cd": 190 * NM, "height": 160 * NM, "angle": ref["angle"] - 0.08}
+    steps = {"cd": 1e-10, "height": 1e-10, "angle": 1e-4}
+    for name, h in steps.items():
+        plus = np.asarray(morph.mesh_at({**at, name: at[name] + h}).vertices)
+        minus = np.asarray(morph.mesh_at({**at, name: at[name] - h}).vertices)
+        fd = (plus - minus) / (2 * h)
+        v = morph.velocity_at(at, name)[: len(fd)]
+        assert np.abs(v - fd).max() < 1e-6 * np.abs(fd).max(), name
+    # at the reference the velocity of the morph is the one of shape_velocity
+    for p in morph.parameters:
+        assert np.allclose(morph.velocity(p.name), shape_velocity(cell, mesh, p), rtol=0,
+                           atol=1e-6 * np.abs(morph.velocity(p.name)).max())  # fmt: skip
+    # the height's velocity depends on the angle away from vertical walls: the cross term
+    assert np.abs(morph.velocity_at(at, "height") - morph.velocity("height")).max() > 0
+
+
+def test_derivatives_along_the_velocities_match_finite_differences():
+    cell = trapezoid_cell()
+    mesh = trapezoid_mesh(cell)
+    # the default substrate line (y = -8 rows) lies on a mesh row: the morph keeps the cells at
+    # both measurement lines fixed (band one row inside; the cover line is at 13.5 rows)
+    morph = Morph(cell, mesh, trapezoid_parameters(0), band=(-7 * ROW, 13 * ROW))
     glass = hpfem.Material.dielectric(1.5)
     stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)
     materials = {SUB: glass, LINE: hpfem.Material.dielectric(1.8)}
@@ -198,4 +222,4 @@ def test_derivatives_along_the_velocities_match_finite_differences():
         plus = r0(solve(morph.mesh_at({name: ref + steps[name]})))
         minus = r0(solve(morph.mesh_at({name: ref - steps[name]})))
         fd = (plus - minus) / (2 * steps[name])
-        assert abs(jac[0, j] - fd) < 1e-3 * abs(fd), (name, jac[0, j], fd)
+        assert abs(jac[0, j] - fd) < 1e-6 * abs(fd), (name, jac[0, j], fd)

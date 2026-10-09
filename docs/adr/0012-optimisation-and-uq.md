@@ -106,6 +106,26 @@ class Evaluator(Protocol):
   event. Local optimisers treat a remesh as a restart (L-BFGS memory, trust region); surrogates
   keep the points, and the jump is part of the discretisation error.
 - Finite-difference checks of derivatives run on the morphed mesh, never across a remesh.
+- **Amendment (2026-10-09, M16 S3): the morph is nonlinear in the parameters.** The linear
+  superposition `x(p) = x_ref + Σ_i (p_i − p_ref,i) V_i` is exact for each parameter alone
+  but not jointly: the wall of a trapezoid moves with `h·cot(α)`, and the missing cross term of
+  height and side-wall angle shifted the corners of a reconstructed line by 0.25 nm at
+  Δh = 12 nm, Δα = 2.5° — a bias of 2.5 standard errors in the side-wall angle of the
+  `examples/grating_reconstruction` fit, reproduced for every noise realisation. `Morph` now
+  puts the nodes on the shapes' boundaries at the same place of the changed shape (edge and
+  fraction for a polygon, angle for an ellipse: the exact geometry of `cell_at(p)` for any
+  combination of values) and moves the other nodes by the same harmonic extension (a linear
+  operator, factorised once), so `x(p) = x_ref + H (b(p) − b_ref)`. The derivative at `p` is
+  `V(p) = H db/dp(p)`, taken by central differences of this node map (`velocity_at(p, name)`;
+  source (b) above applied to our own fixed-topology map); at the reference it equals the
+  velocity of `shape_velocity`. Topology, tags, DoF numbering, the quality guard, the band of
+  fixed nodes and the remesh semantics are unchanged.
+- **Amendment (2026-10-09, M16 S3): measurement lines on mesh facets.** A velocity must not
+  deform the cells at a measurement line that lies on mesh facets: the order amplitude sampled
+  on facets is not differentiable along it (the normal Nédélec component jumps across facets,
+  the located cell changes; the Jacobian of a p-polarised line was off by a factor of ten).
+  `Morph(..., band=(y_low, y_high))` keeps every node on and beyond the band edges fixed;
+  `grating.jacobian` / `shape_sensitivity` refuse such velocities.
 
 ### 4. Derivatives: one mechanism, two modes, kept factorisation
 
