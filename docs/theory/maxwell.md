@@ -777,6 +777,74 @@ $Q = 10.7$) in $p$ to the floor of about $1.5\cdot10^{-4}$ set by the PML's refl
 outward-growing quasi-normal mode. The periodic-cell front end is
 `hpfem.grating.resonances` / `bands` (docs/python.md).
 
+### Resonance derivatives (`physics/eigen_sensitivity.hpp`)
+
+A simple eigenvalue $\lambda = k_0^2$ of the reduced pencil $A x = \lambda B x$ moves with a
+parameter $p$ by
+
+$$
+\frac{d\lambda}{dp} = \frac{y^\top(\partial_p A - \lambda\,\partial_p B)\,x}{y^\top B\,x},
+\qquad A^\top y = \lambda B^\top y ,
+$$
+
+with the *left* eigenvector $y$, unconjugated: with PML and losses the pencil is
+non-Hermitian. The element matrices are complex symmetric (diagonal PML stretches, scalar or
+symmetric material tensors), so without Bloch phases $y = x$ — also with hanging nodes, whose
+constraint coefficients are real (`resonance_adjoint`). The Bloch-reduced pencil
+$P^H A P$ of `ConicalResonance` has the transpose $P^\top A \bar P$, the pencil at $-k_x$; its
+left vector comes from two steps of transposed inverse iteration at $\lambda(1 + 10^{-10})$
+(one factorisation, `conical_resonance_adjoint`, residual about $10^{-16}$), and in full
+coefficients $\tilde y = \bar P y$, $x = P x_r$:
+$d\lambda/dp = \tilde y^\top(\partial_p S - \lambda\,\partial_p M)\,x / (\tilde y^\top M x)$.
+The parameters:
+
+- permittivity of a tag: $\partial_\varepsilon M = M_{\text{tag}}$ (the stretched tensor at
+  $\varepsilon = 1$ in the PML), holomorphic, so $d/d\,\mathrm{Im}\,\varepsilon = i\,d/d\varepsilon$;
+- a mesh velocity (ADR-0011): one central directional difference of the element matrices
+  $S_K - \lambda M_K$ per moving cell (helpers shared with the shape derivatives);
+- β: central difference of the assembled pencil (absolute step, about $10^{-6}\max(|\beta|,
+  k_0)$);
+- the Bloch wavenumber $k_x$ (`conical_resonance_bloch_derivative`): the derivative of $P$
+  from the problems at $k_x \mp h$, $d\lambda = [\tilde y^\top(S - \lambda M)\,\partial P x_r +
+  (\overline{\partial P}\,y)^\top(S - \lambda M)\,x]/(\tilde y^\top M x)$ — the complex
+  dispersion $d\omega/dk_x$ of a leaky mode.
+
+Then $d\omega/dp = c_0\,(d\lambda/dp)/(2k_0)$, complex (the real part moves the resonance, the
+imaginary part its width), $Q = \mathrm{Re}\,\omega/(-2\,\mathrm{Im}\,\omega)$ with
+$dQ = (\mathrm{Re}\,\omega\,d\,\mathrm{Im}\,\omega - \mathrm{Im}\,\omega\,d\,\mathrm{Re}\,\omega)/
+(2\,\mathrm{Im}^2\omega)$.
+
+**Dispersive materials.** The resonance solvers evaluate $\varepsilon(\omega)$ once, at the
+target. The resonance proper solves $\hat\lambda(\omega) = (\omega/c_0)^2$, where
+$\hat\lambda(\omega)$ is the eigenvalue of the pencil with $\varepsilon$ at the mode's own
+complex ω (the analytic continuation of Drude–Lorentz and constant models; the real part of ω
+for tabulated data). `hpfem.grating.refine_resonance` finds it by Newton on
+$f(\omega) = \hat\lambda(\omega) - (\omega/c_0)^2$ with
+$f' = \sum_t (\partial\hat\lambda/\partial\varepsilon_t)\,\varepsilon_t'(\omega) - 2\omega/c_0^2$
+(the material derivatives of the dispersive tags), one eigensolve and one adjoint per step.
+At the self-consistent mode the dispersion enters the denominator,
+
+$$
+\frac{d\omega}{dp} = \frac{\partial_p\hat\lambda}{2\omega/c_0^2 - \partial_\omega\hat\lambda},
+\qquad \partial_\omega\hat\lambda = \sum_t \frac{\partial\hat\lambda}{\partial\varepsilon_t}
+\,\varepsilon_t'(\omega)
+$$
+
+(`resonance_derivative_from(omega, dlambda, dlambda_domega)`).
+
+**Checks.** `test_eigen_sensitivity.cpp`: a lossy block in a PML box (`Resonance<2>`) — ε,
+Im ε, Q and the growth of the block against re-solved modes to all six printed digits, also on
+a hanging-node mesh; a Bloch strip with PML at $\beta \ne 0$ (`ConicalResonance`) — ε, β, $k_x$
+and the shape against re-solved modes, the left vector's residual $8\cdot10^{-17}$ and not the
+mode itself. `test_resonance_sensitivity.py`: the Fabry–Pérot slab with the exact
+$k = (m\pi - i\ln\frac{n+1}{n-1})/(nd)$ — $d\omega/d\varepsilon$ and $d\omega/dd$ against the
+exact derivatives (to the discretisation, $5\cdot10^{-3}$) and against re-solved resonances
+($10^{-6}$, $10^{-5}$), β and $k_x$ against re-solved resonances (the reference's $O(h^2)$
+falls to the eigensolver's noise of $10^{-5}$); a Drude–Lorentz slab: `refine_resonance` hits
+the exact self-consistent resonance within the discretisation in a few Newton steps, and the
+thickness derivative with the dispersion term matches refined resonances on moved meshes while
+the frozen-pencil derivative does not.
+
 ## Sensitivities by the adjoint solve (`physics/sensitivity.hpp`)
 
 For the discrete problem $A(\theta)\,e = b(\theta)$ and a linear goal $Q(e) = q^\top e$ (the
@@ -1037,6 +1105,88 @@ check the zero of the lowest band at Γ (twofold: both polarisations, nothing el
 the symmetry $\omega(-k) = \omega(k)$, that dielectric rods ($\varepsilon_r = 8.9$) lower the
 bands, the H1 Bloch constraints on the interpolant of a Bloch function, and the gauged solver
 against a dense reference (kernel skipped, eigenvectors $B$-orthogonal to the kernel).
+
+### Band derivatives and group velocity
+
+`physics/band_sensitivity.hpp` differentiates the bands with respect to material and shape
+parameters and the Bloch wave vector without another eigensolve (M16 S4). At the wave vector
+$k$ the reduced pencil $A(p)\,u = \lambda B(p)\,u$, $A = P^H S P$, $B = P^H M P$,
+$\lambda = k_0^2$, is Hermitian for lossless media, so the left eigenvector of a simple
+eigenvalue is the right one and the derivative is the Hellmann–Feynman quotient
+
+$$
+\frac{d\lambda}{dp} = \frac{u^H(\partial_p A - \lambda\,\partial_p B)\,u}{u^H B u},
+\qquad
+\frac{dk_0}{dp} = \frac{1}{2k_0}\frac{d\lambda}{dp},
+\qquad
+\frac{d\omega}{dp} = c_0\,\frac{dk_0}{dp} .
+$$
+
+The eigenvectors are needed: with `BandStructureSetup::keep_modes` the bands carry the
+full-size modes $w = P u$ (Bloch slaves filled in, zero on PEC DoFs, $w^H M w = 1$); they are
+off by default, since a long path would hold a dense block per wave vector. The parameters:
+
+- **Permittivity / permeability of a tag** (`band_permittivity_derivative`,
+  `band_permeability_derivative`): $\partial B = P^H M_{\text{tag}} P$ with the mass matrix of
+  the tagged cells at $\varepsilon_r = 1$, i.e. $d\lambda/d\varepsilon_r = -\lambda\,
+  w^H M_{\text{tag}} w$; for $\mu_r$, $\partial A = -\mu_r^{-2} P^H S_{\text{tag}} P$.
+- **Shape** (`band_shape_derivative`, a mesh velocity $V$ as in ADR-0011): $\partial S$ and
+  $\partial M$ by one central directional difference of the element matrices of every cell with
+  a moving node (largest node displacement `relative_step` $= 10^{-6}$ times the cell
+  diameter), projected on the modes cell by cell. The Bloch constraints do not depend on the
+  geometry only if $V$ vanishes on the periodic faces; this is checked (vertices and edge
+  nodes of the master and slave facets) and violated velocities are rejected.
+- **Wave vector** (`band_wave_vector_derivative` along a direction $d$, `group_velocity` for
+  the Cartesian directions): $S$ and $M$ do not depend on $k$, only $P$ does, so
+
+  $$
+  \partial_d A - \lambda\,\partial_d B
+  = \partial_d P^H (S - \lambda M)\,P + P^H (S - \lambda M)\,\partial_d P ,
+  $$
+
+  projected as $Z^H(S - \lambda M)W + W^H(S - \lambda M)Z$ with $Z = \partial_d P\,U$ and the
+  reduced coefficients $U$ (the values of $W$ on the unconstrained DoFs, where $P$ has identity
+  rows). $\partial_d P$ is a central difference of the Bloch prolongation at
+  $k \pm h\,d$, $h = 10^{-5}\cdot 2\pi/(a|d|)$: the entries are geometric coefficients times
+  $e^{ik\cdot s}$ (s the lattice shift of the slave), so the relative truncation is
+  $(h\,d\cdot s)^2/6 \approx 10^{-10}$; no solve, $2\,\mathrm{Dim}$ constraint builds for the
+  group velocity $v_g = \nabla_k\omega = c_0\nabla_k k_0$.
+
+**Degenerate bands.** Hellmann–Feynman does not apply to a multiple eigenvalue (folded bands,
+high-symmetry points), and for a nearly degenerate pair it is ill-conditioned in the
+eigenvectors. Consecutive bands whose eigenvalues differ relatively by at most
+`degeneracy_tolerance` ($10^{-6}$ by default; bands at $k_0 = 0$ always) form a cluster $I$
+with modes $W_I$, and its derivatives are the eigenvalues of the small Hermitian pencil
+
+$$
+W_I^H\big(\partial A - \tfrac12(\Lambda\,\partial B + \partial B\,\Lambda)\big)W_I\,y
+= \mu\,W_I^H B W_I\,y ,
+$$
+
+assigned in ascending order to the bands of the cluster (`BandDerivative::multiplicity` gives
+the cluster size). These are the one-sided derivatives of the branches leaving the degenerate
+point as $p$ increases — the sorted eigenvalues of $\lambda(p + h)$ for $h \to 0^+$. For a
+simple band the pencil is $1\times1$ and reduces to Hellmann–Feynman. For the group velocity
+at a degenerate point every Cartesian component is the sorted cluster spectrum of its own
+direction (the branches differ per direction), so branch velocities along a path need
+`band_wave_vector_derivative` along that path. At $k_0 = 0$ (the light cone at Γ)
+$k_0 = \sqrt\lambda$ is not differentiable: $d\lambda/dp$ is returned, $dk_0/dp$ is NaN.
+
+**Verification** (`tests/unit/physics/test_band_sensitivity.cpp`, square lattice of rods of
+radius $0.2a$, $\varepsilon_r = 8.9$, $8\times8$ squares, $p = 2$, four bands at
+$k = (1.3, 0.6)/a$): against central differences of re-solved bands the derivatives agree to
+$1.0\cdot10^{-8}$ ($\varepsilon_r$), $1.3\cdot10^{-8}$ ($\mu_r$), $7\cdot10^{-8}$ (rod radius by
+`region_normal_velocity` against moved meshes; the deviation is the $O(h^2)$ of the reference:
+$1.2\cdot10^{-6}$, $2.9\cdot10^{-7}$, $7.3\cdot10^{-8}$ for $h = 10^{-4}$, $5\cdot10^{-5}$,
+$2.5\cdot10^{-5}$) and $5\cdot10^{-9}$ (wave vector along $(0.6, -0.8)$), relative to the
+largest derivative. In a uniform medium $n = 1.5$ ($4\times4$ cells, $p = 4$) the group
+velocities of the four lowest folded bands match $c_0 (k + G)/(n|k + G|)$ to
+$3.9\cdot10^{-5}$ (the discretisation error of the bands). On the empty lattice at Γ the
+fourfold band $k_0 = 2\pi/a$ forms one cluster whose $x$-derivatives are $-1, 0, 0, 1$ (the
+branches $G = (-1,0)$, $(0,\pm1)$, $(1,0)$) to $10^{-5}$ and agree with one-sided differences
+of the sorted bands; the twofold zero band gives NaN. A 3D smoke test (an inclusion of
+$\varepsilon_r = 4$, the cells within $0.3a$ of the centre of a cubic cell, $p = 2$) checks $\varepsilon_r$ and $k_z$ derivatives to
+$2\cdot10^{-8}$ and $5\cdot10^{-9}$.
 
 ## Time domain (`physics/time_domain.hpp`)
 

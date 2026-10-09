@@ -23,6 +23,7 @@ add_library(hpfem
   physics/conical_goal.cpp
   physics/conical_postprocess.cpp
   physics/conical_resonance.cpp
+  physics/eigen_sensitivity.cpp
   physics/kept_factorisation.cpp
   physics/parameter_sensitivity.cpp
   physics/sensitivity.cpp
@@ -68,6 +69,7 @@ add_library(hpfem
   physics/thermal.cpp
   physics/thermo_optical.cpp
   physics/band_structure.cpp
+  physics/band_sensitivity.cpp
   physics/time_domain.cpp
   physics/axisymmetric.cpp
   $<$<BOOL:${HPFEM_ENABLE_MUMPS}>:solvers/mumps_solver.cpp>

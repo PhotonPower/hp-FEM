@@ -12,8 +12,10 @@
 /// docs/theory/maxwell.md#band-structures.
 #include <vector>
 
+#include "hpfem/assembly/maxwell_forms.hpp"
 #include "hpfem/assembly/periodic.hpp"
 #include "hpfem/core/types.hpp"
+#include "hpfem/fespace/constraints.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/mesh.hpp"
@@ -35,6 +37,10 @@ struct BandStructureSetup {
   int max_iterations = 200;
   solvers::DirectSolverBackend solver = solvers::DirectSolverBackend::kAuto;
   int extra_quadrature_order = 2;
+  /// Keep the eigenvectors in `Bands::modes` (needed by the band derivatives of
+  /// `band_sensitivity.hpp`); off by default, since a long path would hold one dense
+  /// num_dofs × num_bands block per wave vector.
+  bool keep_modes = false;
 };
 
 /// The bands at one Bloch wave vector.
@@ -43,6 +49,11 @@ struct Bands {
   Point<Dim> wave_vector;        ///< k [1/m]
   std::vector<Real> wavenumber;  ///< k0 of the bands, ascending [1/m]
   std::vector<Real> residual;    ///< Arnoldi residual per band
+  /// Eigenvectors on the full Nédélec space (Bloch slaves filled in by the prolongation, zero
+  /// on PEC DoFs), one column per band in the order of `wavenumber`, normalised to
+  /// @f$ w^H M w = 1 @f$ with the relative mass matrix M. Empty unless
+  /// `BandStructureSetup::keep_modes`.
+  Matrix modes;
   /// Normalised frequencies ω a / (2π c0) for the lattice constant a.
   [[nodiscard]] std::vector<Real> normalised(Real lattice_constant) const;
 };
@@ -55,6 +66,18 @@ class BandStructure {
   BandStructure(const fespace::NedelecDofMap<Dim>& dofs, const fespace::DofMap<Dim>& h1,
                 BandStructureSetup<Dim> setup);
   [[nodiscard]] const BandStructureSetup<Dim>& setup() const noexcept { return setup_; }
+  [[nodiscard]] const fespace::NedelecDofMap<Dim>& dofs() const noexcept { return *dofs_; }
+  [[nodiscard]] const fespace::DofMap<Dim>& h1() const noexcept { return *h1_; }
+  /// Relative stiffness matrix S, @f$ (\mu_r^{-1}\nabla\times u, \nabla\times v) @f$, full size.
+  [[nodiscard]] const SparseMatrix& stiffness() const noexcept { return stiffness_; }
+  /// Relative mass matrix M, @f$ (\varepsilon_r u, v) @f$, full size.
+  [[nodiscard]] const SparseMatrix& mass() const noexcept { return mass_; }
+  /// The forms of cell c (the relative @f$ \mu_r^{-1} @f$ and @f$ \varepsilon_r @f$ of its
+  /// material) as assembled into S and M.
+  [[nodiscard]] assembly::MaxwellForm<Dim> form_of_cell(Index cell) const;
+  /// Bloch constraints of the Nédélec space at the wave vector k (phases
+  /// @f$ e^{ik\cdot a_j} @f$ per lattice vector); their prolongation P reduces the pencil.
+  [[nodiscard]] fespace::Constraints constraints(const Point<Dim>& wave_vector) const;
   /// Lattice constant: the length of the first lattice vector.
   [[nodiscard]] Real lattice_constant() const;
   /// Bands at the wave vector k (phases @f$ e^{ik\cdot a} @f$ per lattice vector).

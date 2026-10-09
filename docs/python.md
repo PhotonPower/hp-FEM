@@ -592,6 +592,22 @@ complex band structure of the open cell; closed photonic crystals stay with
 `python/tests/test_grating_resonances.py` checks the Fabry–Pérot slab against the exact complex
 wavenumber through the front end and the runner.
 
+**Resonance derivatives and dispersive resonances (M16 S4).**
+`grating.resonance_sensitivity(result, mode, [("eps", tag), ("shape", velocity), "beta",
+"kx"])` returns `{label: hpfem.ResonanceDerivative}` with `domega` (complex: the real part
+moves the resonance, the imaginary part its width), `dquality`, `dwavelength` and `dlambda`,
+from the left eigenvector of the Bloch-reduced pencil (`hpfem.conical_resonance_adjoint`) —
+no further eigensolve; `"eps"` gives the entries `eps[tag].re` and `eps[tag].im`. Dispersive
+models in `materials` are evaluated at the target by `resonances`;
+`grating.refine_resonance(result, mode)` solves for the self-consistent resonance (Newton on
+`λ̂(ω) = (ω/c0)²` with ε at the mode's own complex ω — the analytic continuation of
+`DrudeLorentz` and `Constant`, the real part of ω for tabulated data) and marks the result
+`self_consistent`; its derivatives then carry the `dε/dω` term. The building blocks
+(`resonance_adjoint`, `resonance_material_derivative`, `resonance_shape_derivative` for
+`Resonance2D` / `3D`; `conical_resonance_*_derivative`; `resonance_derivative_from`) are bound
+as well (docs/theory/maxwell.md, "Resonance derivatives"). `python/tests/test_resonance_sensitivity.py`
+checks them on the Fabry–Pérot slab against the exact derivatives and re-solved resonances.
+
 `python/tests/test_grating_solve.py` checks the glass grating of the conical validation
 against the conical RCWA (s 40°/30°, p 50°/30°, reflected and transmitted orders to 2e-3 at
 p = 3), the silver grating with the PEC bottom and the absorbed power, and the snapping.
@@ -653,6 +669,28 @@ Floquet–Bloch bands of a unit cell, `ScatteringOperator2D` /
 incidence (project files: `pml.profile.theta_max` and `target`), `dwr_estimate` with
 `point_value_functional` or a Python functional for goal-oriented estimation, `VtkWriter2D`
 for meshes with data arrays. `help(hpfem.<name>)` shows the bound signature and docstring.
+
+**Band derivatives and group velocity.** With `setup.keep_modes = True` a
+`BandStructure2D/3D` keeps the eigenvectors in `Bands.modes`, and the bands can be
+differentiated without another eigensolve: `band_permittivity_derivative(problem, bands, tag)`
+and `band_permeability_derivative` for the material of a tag, `band_shape_derivative(problem,
+bands, velocity)` for a mesh velocity (e.g. `region_normal_velocity(mesh, tag)` for a rod
+radius; it must vanish on the periodic faces) and `band_wave_vector_derivative(problem, bands,
+direction)` along k. Each returns a `BandDerivative` with `eigenvalue` (d k0²/dp), `wavenumber`
+(d k0/dp, NaN at k0 = 0), `angular_frequency` (c0 d k0/dp) and `multiplicity`; degenerate bands
+(relative gap below `degeneracy_tolerance`, 1e-6) are resolved as a cluster.
+`group_velocity(problem, bands)` returns dω/dk in m/s as an array (num_bands, Dim):
+
+```python
+setup.keep_modes = True
+crystal = hpfem.BandStructure2D(nd, h1, setup)
+bands = crystal.bands([1.3, 0.6])
+v_g = hpfem.group_velocity(crystal, bands)                         # (num_bands, 2) [m/s]
+d_eps = hpfem.band_permittivity_derivative(crystal, bands, 2).wavenumber
+d_r = hpfem.band_shape_derivative(crystal, bands, hpfem.region_normal_velocity(mesh, 2))
+```
+
+See docs/theory/maxwell.md, "Band derivatives and group velocity".
 
 ## GPU backend
 
