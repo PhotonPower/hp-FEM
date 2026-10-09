@@ -1395,6 +1395,45 @@ volume integral of the total field (energy balance).
   normal energy flow of the exact stack wave, $-(1 - R)\,I\cos\theta$ above and
   $-T\,I\cos\theta$ below, to $10^{-9}$ in s and p.
 
-Planned: Purcell factor $F_P = P_{\mathrm{emitted}}/P_{\mathrm{bulk}}$ for a point dipole in a periodic
-structure: milestone M17 (ADR-0013, `docs/dipole-emitters-features.md`), by array scanning of
-the cell problem over the Bloch wavenumber $k_x$ and the out-of-plane wavenumber $\beta$.
+### Dipole emitters
+
+A point dipole in a structure periodic in $x$ and invariant in $z$ (milestone M17, ADR-0013,
+`docs/dipole-emitters-features.md`) is the M11 emitter: current moment $p$ [A m] smeared over
+the normalised 3D Gaussian $g$ of width $\sigma$. Array scanning splits it into cell problems
+of the conical solver with the source
+
+$$
+J_{k_x,\beta}(x, y) = p\,\frac{e^{-\rho^2/2\sigma^2}}{2\pi\sigma^2}\,e^{-\sigma^2\beta^2/2}
+$$
+
+(one per period with the Bloch phase $e^{ik_xP}$; the $z$-smearing is the Fourier factor of the
+$\beta$ sample), `conical_gaussian_dipole`, and the single dipole's power is
+$P_{em} = \frac{P}{2\pi}\int_{BZ}dk_x\,\frac1{2\pi}\int d\beta\,P_{cell}(k_x,\beta)$ with the
+power delivered in one cell problem,
+$P_{cell} = -\tfrac12\,\mathrm{Re}\int_{cell}\bar J_{k_x,\beta}\cdot E_{k_x,\beta}\,dA$
+(`conical_source_power`, [W/m per unit $\beta$]).
+
+**Stage A, the phased emitter array** (`hpfem.grating.emit`, M17 S1): one cell problem with the
+geometry, materials, stack, PML and measurement lines of `grating.solve` (cells whose tag is not
+in the material map take the stack material at their centroid), the PML designed for the
+direction of $(k_x, \beta)$ in the cover. It reports $P_{cell}$, the power of every Floquet
+order up and down, $P_m = P\,\mathrm{Re}(k_{n,m})\,|A_m|^2/(2k_0Z_0)$ from the order amplitudes
+on the measurement lines, the Poynting fluxes through the PML boundaries, the absorbed power by
+tag and the guided remainder $P_{cell} - $ fluxes $-$ absorbed. In a homogeneous medium of index
+$n$ ($k = nk_0$) the array is a sum of current sheets, one per order $k_m = k_x + 2\pi m/P$, and
+
+$$
+P_{cell} = \sum_{m,\pm} \frac{\omega\mu_0\,|p_{\perp,m,\pm}|^2}{8P\,k_{y,m}}\,e^{-\sigma^2k^2},
+\qquad k_{y,m} = \sqrt{k^2 - k_m^2 - \beta^2},
+$$
+
+summed over the propagating orders and both sides, with $p_\perp$ the part of $p$ normal to
+$\hat k = (k_m, \pm k_{y,m}, \beta)/k$ (the Gaussian factor is the same for every order because
+$k_m^2 + k_{y,m}^2 + \beta^2 = k^2$). `python/tests/test_grating_emit.py` checks $P_{cell}$, every
+order and the fluxes against it for four dipole moments and five $(k_x, \beta)$ — at normal
+incidence to $10^{-9}$, at 45° to $5\cdot10^{-3}$; beyond the light cone nothing is delivered —
+and the energy balance (delivered = fluxes + absorbed to 1 %) on a lossy ridge. Near grazing
+directions the PML limits the accuracy: at 67° a PML of 1 µm (in a medium of index 1.5 at
+1 µm) still reflects 0.8 % back onto the source, 0.5 µm 1.7 %; the PML thickness, not the mesh,
+has to grow there. Stages C (reciprocity) and B (array scanning with the guided-mode poles) are
+the next steps of M17.

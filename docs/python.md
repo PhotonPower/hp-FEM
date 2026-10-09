@@ -611,6 +611,21 @@ the surrogate against Monte Carlo on the function (1–2 %) and the linearised s
 small-tolerance limit. `examples/fabrication_tolerance` propagates CD, height and side-wall
 angle tolerances of the silicon grating to its reflectance spectrum.
 
+**Dipole emitters in the cell (M17 S1).** `grating.emit(mesh, materials, stack, dipole,
+omega, kx=0, beta=0, order=4, pml=..., bottom="pml", orders_max=3, ...)` solves one cell problem
+of a dipole array — one Gaussian dipole per period with the phase `exp(i kx P)` from cell to cell
+and `exp(i beta z)` along the lines, the cell problem of the array scanning of a single dipole
+(ADR-0013). `dipole = {"position": (x0, y0), "moment": (px, py, pz), "sigma": s}` (SI, current
+moment [A m], solver frame: x along the period, y the stack normal, z along the lines); the
+Gaussian must lie 6σ inside the cell and outside the PML, in a lossless medium. Geometry, PML and
+measurement lines are those of `grating.solve`; cells whose tag is not in `materials` take the
+stack material at their centroid. The `EmissionResult` holds `P_cell` (the delivered power,
+`-½ Re ∫ conj(J)·E`, [W/m per unit β]), `orders_up` / `orders_down` (`EmissionOrder` with the
+radiated `power` per order), `up`, `down`, the PML-boundary fluxes `flux_up` / `flux_down`,
+`absorbed` and `A_by_tag`, the `guided` remainder and `field(points)`. The building blocks are
+`hpfem.conical_gaussian_dipole` and `hpfem.conical_source_power` (docs/theory/maxwell.md "Dipole
+emitters").
+
 **Scalar E_z path.** For the s polarisation at `phi = 0` (`scalar="auto"`, the default)
 `grating.solve` lets `ConicalScattering` factorise only the H1 block (`setup.scalar_ez`), about
 a third of the unknowns with identical results; `result.scalar` says whether it was used,

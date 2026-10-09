@@ -13,6 +13,7 @@ it (``phi = 0``: the plane of incidence is the x–y plane, ``s`` is the ``E_z``
 
 from __future__ import annotations
 
+import math
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -1402,4 +1403,248 @@ def solve(
     )
 
 
-__all__ = ["GratingError", "GratingResult", "Order", "solve", "validate"]
+# --- M17: dipole emitters (Stage A, ADR-0013) ----------------------------------------------------
+
+
+@dataclass
+class EmissionOrder:
+    """One Floquet order of the field radiated by a phased emitter array: ``m``, ``side``
+    (``"up"`` into the cover, ``"down"`` into the substrate), the radiated ``power`` per period
+    [W/m, per unit β], the vector ``amplitude`` (E_x, E_y, E_z) on the measurement line, the
+    tangential wavenumber ``kt`` = kx + 2πm/P and the normal wavenumber ``kn``."""
+
+    m: int
+    side: str
+    power: float
+    amplitude: np.ndarray
+    kt: float
+    kn: complex
+    propagating: bool
+
+
+@dataclass
+class EmissionResult:
+    """Result of :func:`emit` (one cell problem of the array scanning, ADR-0013): the power
+    ``P_cell`` delivered by the source per period [W/m per unit β], the radiated orders
+    ``orders_up`` / ``orders_down`` with their powers and sums ``up`` / ``down``, the Poynting
+    fluxes ``flux_up`` / ``flux_down`` through the PML boundaries (``None`` when they are not
+    on mesh lines), the ``absorbed`` power and ``A_by_tag``, the ``guided`` remainder
+    ``P_cell - flux_up - flux_down - absorbed`` (the order sums where no flux is available),
+    ``kx``, ``beta``, ``omega`` and the problem, solution, mesh and measurement lines."""
+
+    P_cell: float
+    orders_up: list[EmissionOrder]
+    orders_down: list[EmissionOrder]
+    up: float
+    down: float
+    flux_up: float | None
+    flux_down: float | None
+    absorbed: float
+    A_by_tag: dict[int, float]
+    guided: float
+    kx: float
+    beta: float
+    omega: float
+    problem: object
+    solution: object
+    mesh: object
+    pml: object
+    cover_line: float
+    substrate_line: float | None
+    dofs: int
+    timing: dict[str, float] = field(default_factory=dict)
+    _locator: object = None
+
+    def field(self, points, quantity: str = "E"):
+        """The field of the cell problem at ``points`` (k, 2) (``ConicalScattering.sample``)."""
+        if self._locator is None:
+            self._locator = hpfem.PointLocator2D(self.mesh)
+        points = np.asarray(points, dtype=float)
+        values, _ = self.problem.sample(self.solution, self._locator, points, quantity=quantity)
+        return values
+
+
+def _emission_orders(problem, solution, locator, k0, n_line, period, x_min, line, kx, beta,
+                     orders_max, fourier_points, side):  # fmt: skip
+    coefficients = hpfem.conical_fourier_coefficients(
+        lambda x: np.asarray(problem.total_field(solution, locator, x)),
+        [x_min, line], [1.0, 0.0], period, kx, orders_max, fourier_points,
+    )  # fmt: skip
+    z0 = hpfem.constants.Z0
+    out = []
+    for i, amplitude in enumerate(coefficients):
+        m = i - orders_max
+        kt = kx + 2 * np.pi * m / period
+        kn = np.sqrt(complex((k0 * n_line) ** 2 - kt**2 - beta**2))
+        amplitude = np.asarray(amplitude, dtype=complex)
+        propagating = abs(kn.imag) < 1e-12 * k0 and kn.real > 0
+        power = period * kn.real * float(np.vdot(amplitude, amplitude).real) / (2 * k0 * z0)
+        out.append(EmissionOrder(m, side, power if propagating else 0.0, amplitude, float(kt),
+                                 complex(kn), bool(propagating)))  # fmt: skip
+    return out
+
+
+def emit(
+    mesh,
+    materials,
+    stack,
+    dipole,
+    omega: float,
+    kx: float = 0.0,
+    beta: float = 0.0,
+    order=4,
+    *,
+    pml=None,
+    bottom: str = "pml",
+    orders_max: int = 3,
+    snap_tolerance: float = 1e-9,
+    pml_target: float = 1e-6,
+    pml_wavelengths: float = 0.5,
+    cover_line: float | None = None,
+    substrate_line: float | None = None,
+    fourier_points: int = 256,
+    extra_quadrature_order: int = 4,
+    solver=None,
+    progress=None,
+    cancel=None,
+    keep_factorisation: bool = False,
+) -> EmissionResult:
+    """Emission of a Bloch-periodic array of Gaussian dipoles (M17 Stage A, ADR-0013): one
+    dipole per period with the phase e^{i kx P} from cell to cell and the dependence e^{iβz}
+    along the lines — the cell problem of the array scanning of a single dipole.
+
+    ``dipole`` is a mapping with ``position`` (x0, y0) [m], ``moment`` (p_x, p_y, p_z) [A m],
+    the physical current moment in the solver frame (x along the period, y the stack normal, z
+    along the lines), and ``sigma`` [m], the Gaussian smearing (the source of
+    ``hpfem.conical_gaussian_dipole``, its z-smearing as the factor exp(-σ²β²/2)). The
+    Gaussian must lie 6σ inside the cell, above the bottom and below the top PML, in a lossless
+    medium. The cell, the materials, the stack, the PML and the measurement lines are those of
+    :func:`solve` (same arguments); cells whose tag is not in ``materials`` take the stack
+    material at their centroid (a given ``hpfem.MaterialMap`` is used as it is). The PML is
+    designed for the direction of (kx, β) in the cover, up to 80 degrees. Returns an
+    :class:`EmissionResult`; powers in W/m per unit β (the integrand of the array scanning).
+    Raises ``GratingError`` for an invalid dipole or geometry."""
+    t0 = time.perf_counter()
+    timing: dict[str, float] = {}
+    k0 = float(units.vacuum_wavenumber(omega))
+    n_cover = complex(stack.incidence_medium.refractive_index)
+    position = np.asarray(dipole["position"], dtype=float)
+    moment = np.asarray(dipole["moment"], dtype=complex)
+    sigma = float(dipole["sigma"])
+    if position.shape != (2,) or moment.shape != (3,) or not sigma > 0:
+        raise GratingError("dipole: position (x0, y0), moment (px, py, pz) and sigma > 0 needed")
+    # PML and measurement geometry of solve() for the equivalent direction of (kx, beta)
+    s = min(math.hypot(kx, beta) / (k0 * n_cover.real), math.sin(80 * units.deg))
+    pr = _prepare(
+        mesh, materials, stack, "s", math.asin(s), math.atan2(beta, kx), omega, pml=pml,
+        bottom=bottom, orders_max=orders_max, snap_tolerance=snap_tolerance,
+        pml_target=pml_target, pml_wavelengths=pml_wavelengths, cover_line=cover_line,
+        substrate_line=substrate_line,
+    )  # fmt: skip
+    material_map = pr.material_map
+    if not isinstance(materials, hpfem.MaterialMap):
+        for c in range(mesh.num_cells):
+            if not material_map.has(int(mesh.cell_tag(c))):
+                centroid = np.mean([mesh.vertex(int(v)) for v in mesh.cell_vertices(c)], axis=0)
+                material_map.set_cell(
+                    c, stack.material_at([float(centroid[0]), float(centroid[1])])
+                )
+    x0, y0 = float(position[0]), float(position[1])
+    if not (pr.x_min + 6 * sigma <= x0 <= pr.x_min + pr.period - 6 * sigma):
+        raise GratingError("dipole: the Gaussian must lie 6 sigma inside the cell along x")
+    if not (pr.y_min + pr.t_bottom + 6 * sigma <= y0 <= pr.y_max - pr.t_top - 6 * sigma):
+        raise GratingError("dipole: the Gaussian must lie 6 sigma outside the PML layers")
+    locator = hpfem.PointLocator2D(mesh)
+    located = locator.locate([x0, y0])
+    if located is None:
+        raise GratingError("dipole: the position lies outside the mesh")
+    tag = int(mesh.cell_tag(int(located.cell)))
+    host = material_map.at(tag) if material_map.has(tag) else stack.material_at([x0, y0])
+    if abs(complex(host.eps_r).imag) > 1e-12:
+        raise GratingError("dipole: the emitter must lie in a lossless medium (ADR-0013)")
+    orders = [int(order)] * mesh.num_cells if np.isscalar(order) else [int(p) for p in order]
+    nd = hpfem.NedelecDofMap2D(mesh, orders)
+    h1 = hpfem.DofMap2D(mesh, orders)
+    setup = hpfem.ConicalScatteringSetup()
+    setup.omega = float(omega)
+    setup.beta = float(beta)
+    setup.materials = material_map
+    setup.current = hpfem.conical_gaussian_dipole(
+        [x0, y0], moment, sigma, float(omega), float(beta)
+    )
+    setup.pml = pr.box
+    setup.pec_tags = [hpfem.box_tag.Y_MIN, hpfem.box_tag.Y_MAX]
+    setup.periodic = [
+        hpfem.PeriodicPair2D(hpfem.box_tag.X_MIN, hpfem.box_tag.X_MAX, [pr.period, 0.0],
+                             hpfem.bloch_phase([float(kx), 0.0], [pr.period, 0.0]))
+    ]  # fmt: skip
+    setup.extra_quadrature_order = int(extra_quadrature_order)
+    setup.keep_factorisation = bool(keep_factorisation)
+    if solver is not None:
+        setup.solver = solver
+    if progress is not None or cancel is not None:
+
+        def report(event):
+            if progress is not None:
+                progress(event)
+            return not (cancel is not None and cancel())
+
+        setup.progress = report
+    t1 = time.perf_counter()
+    problem = hpfem.ConicalScattering(nd, h1, setup)
+    solution = problem.solve()
+    timing["solve"] = time.perf_counter() - t1
+    t2 = time.perf_counter()
+    p_cell = float(hpfem.conical_source_power(problem, solution))
+    n_sub = pr.n_sub
+    orders_up = _emission_orders(problem, solution, locator, k0, n_cover.real, pr.period,
+                                 pr.x_min, pr.cover_line, kx, beta, orders_max, fourier_points,
+                                 "up")  # fmt: skip
+    orders_down = []
+    if pr.transmitted:
+        orders_down = _emission_orders(problem, solution, locator, k0, n_sub.real, pr.period,
+                                       pr.x_min, pr.substrate_line, kx, beta, orders_max,
+                                       fourier_points, "down")  # fmt: skip
+    up = sum(o.power for o in orders_up)
+    down = sum(o.power for o in orders_down)
+
+    def flux(surface) -> float:
+        return float(hpfem.conical_poynting_flux(
+            nd, h1, solution.transverse, solution.longitudinal, float(beta), float(omega),
+            material_map, surface,
+        ))  # fmt: skip
+
+    flux_up = flux_down = None
+    try:
+        flux_up = flux(hpfem.Surface2D.plane(mesh, 1, pr.y_max - pr.t_top, 1))
+        flux_down = 0.0
+        if bottom == "pml":
+            flux_down = flux(hpfem.Surface2D.plane(mesh, 1, pr.y_min + pr.t_bottom, -1))
+    except (hpfem.InvalidArgument, ValueError, RuntimeError):
+        flux_up = flux_down = None
+    absorbed = hpfem.absorbed_power_by_tag(problem, solution)
+    leaving = (flux_up + flux_down) if flux_up is not None else (up + down)
+    guided = p_cell - leaving - float(absorbed.total)
+    timing["postprocess"] = time.perf_counter() - t2
+    timing["total"] = time.perf_counter() - t0
+    return EmissionResult(
+        P_cell=p_cell, orders_up=orders_up, orders_down=orders_down, up=up, down=down,
+        flux_up=flux_up, flux_down=flux_down, absorbed=float(absorbed.total),
+        A_by_tag={int(t): float(p) for t, p in absorbed.by_tag.items()}, guided=guided,
+        kx=float(kx), beta=float(beta), omega=float(omega), problem=problem, solution=solution,
+        mesh=mesh, pml=pr.box, cover_line=pr.cover_line,
+        substrate_line=pr.substrate_line if pr.transmitted else None,
+        dofs=int(nd.num_dofs + h1.num_dofs), timing=timing, _locator=locator,
+    )  # fmt: skip
+
+
+__all__ = [
+    "EmissionOrder",
+    "EmissionResult",
+    "GratingError",
+    "GratingResult",
+    "Order",
+    "emit",
+    "solve",
+    "validate",
+]

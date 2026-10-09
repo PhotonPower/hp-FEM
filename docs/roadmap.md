@@ -447,9 +447,12 @@ radiated power into cover and substrate per direction, guided and absorbed power
   β and kx symmetries), the delivered power as the volume integral of J*·E, guided-mode poles
   subtracted with β_g(kx) by Newton on the bands and the group velocity of M16 S4 (complex β
   deferred), cost model with the three orientations as right-hand sides of one factorisation
-- [ ] S1: `conical_gaussian_dipole`, `grating.emit` (Bloch-periodic emitter array: power per cell
-  through a closed surface around a tagged source box, orders up / down with power, absorbed,
-  guided remainder); tests: homogeneous cell, 2D line-source limit
+- [x] S1: `conical_gaussian_dipole`, `conical_source_power`, `grating.emit` (Bloch-periodic
+  emitter array: delivered power as the volume integral of J*·E (ADR-0013), orders up / down
+  with power, PML-boundary fluxes, absorbed, guided remainder); tests: homogeneous cell
+  against the closed form of a phased dipole array (including β = 0, the line-source case),
+  energy balance on a lossy ridge; the cross-check with `Scattering<2>` line sources moves
+  to S3
 - [ ] S2: `grating.emission_pattern` by reciprocity; test against a planar-stack reference (and
   later the far field of S3)
 - [ ] S3: `grating.dipole_emission` (array scanning, guided-mode poles, parallel samples on
