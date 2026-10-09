@@ -1032,6 +1032,10 @@ void bind_physics(py::module_& m) {
         .def_property_readonly("wavenumber", &ConicalResonance::wavenumber, "target k0")
         .def_property_readonly("free_dofs",
                                [](const ConicalResonance& p) { return to_array(p.free_dofs()); })
+        .def_property_readonly("transverse_dofs", &ConicalResonance::transverse_dofs,
+                               py::return_value_policy::reference_internal)
+        .def_property_readonly("longitudinal_dofs", &ConicalResonance::longitudinal_dofs,
+                               py::return_value_policy::reference_internal)
         .def("form_of_cell", &ConicalResonance::form_of_cell, py::arg("cell"))
         .def("solve", &ConicalResonance::solve, Release(),
              "ConicalResonanceResult: modes ordered by the distance of omega to the target")

@@ -4,6 +4,8 @@
 #include <functional>
 #include <vector>
 
+#include <fmt/format.h>
+
 #include "common.hpp"
 #include "hpfem/adaptivity/hypercircle.hpp"
 #include "hpfem/adaptivity/marking.hpp"
@@ -12,6 +14,7 @@
 #include "hpfem/adaptivity/residual_estimator.hpp"
 #include "hpfem/adaptivity/smoothness.hpp"
 #include "hpfem/physics/conical_goal.hpp"
+#include "hpfem/physics/eigen_sensitivity.hpp"
 #include "hpfem/physics/goal_oriented.hpp"
 #include "hpfem/physics/parameter_sensitivity.hpp"
 #include "hpfem/physics/sensitivity.hpp"
@@ -234,6 +237,78 @@ void bind_adaptivity_options(py::module_& m) {
       .def_readwrite("length_scale", &EstimatorOptions::length_scale,
                      "length scale of the Gauss-law terms, 0 = 1/k");
 }
+
+namespace {
+
+template <int Dim>
+void bind_resonance_sensitivity_dim(py::module_& m) {
+  using physics::ModeAdjoint;
+  using physics::NodeField;
+  using physics::Resonance;
+  using physics::ResonantMode;
+  m.def("resonance_adjoint", &physics::resonance_adjoint<Dim>, py::arg("problem"), py::arg("mode"),
+        Release(),
+        "left eigenvector of a quasi-normal mode (the mode itself: the pencil is complex "
+        "symmetric) and the normalisation y^T M x");
+  m.def("resonance_material_derivative", &physics::resonance_material_derivative<Dim>,
+        py::arg("problem"), py::arg("mode"), py::arg("adjoint"), py::arg("tag"), Release(),
+        "d(lambda, omega, Q, wavelength)/d eps_r of the tag (holomorphic: d/d Im eps is i times "
+        "d/d eps)");
+  m.def("resonance_shape_derivative", &physics::resonance_shape_derivative<Dim>, py::arg("problem"),
+        py::arg("mode"), py::arg("adjoint"), py::arg("velocity"), py::arg("relative_step") = 1e-6,
+        Release(), "derivative of the resonance along a mesh velocity (num_geometry_nodes, dim)");
+}
+
+void bind_eigen_sensitivity(py::module_& m) {
+  using physics::ModeAdjoint;
+  using physics::ResonanceDerivative;
+  py::class_<ResonanceDerivative>(
+      m, "ResonanceDerivative",
+      "Derivative of a resonance with respect to one parameter: dlambda = d(k0^2)/dp, domega "
+      "[rad/s], dquality, dwavelength [m] (per unit of p)")
+      .def_readonly("dlambda", &ResonanceDerivative::dlambda)
+      .def_readonly("domega", &ResonanceDerivative::domega)
+      .def_readonly("dquality", &ResonanceDerivative::dquality)
+      .def_readonly("dwavelength", &ResonanceDerivative::dwavelength)
+      .def("__repr__", [](const ResonanceDerivative& d) {
+        return fmt::format("ResonanceDerivative(domega={}{:+}j, dquality={:.6g})", d.domega.real(),
+                           d.domega.imag(), d.dquality);
+      });
+  py::class_<ModeAdjoint>(m, "ModeAdjoint",
+                          "Left eigenvector of a mode in full coefficients (y~ = conj(P) y), "
+                          "the normalisation y~^T M x and the residual of the left vector")
+      .def_readonly("field", &ModeAdjoint::field)
+      .def_readonly("normalisation", &ModeAdjoint::normalisation)
+      .def_readonly("residual", &ModeAdjoint::residual);
+  m.def("resonance_derivative_from", &physics::resonance_derivative_from, py::arg("omega"),
+        py::arg("dlambda"), py::arg("dlambda_domega") = Complex{0.0, 0.0},
+        "derivative of omega, Q and the wavelength from the pencil's d lambda / dp; "
+        "dlambda_domega = sum_t (d lambda / d eps_t) eps_t'(omega) for dispersive materials "
+        "(the self-consistent resonance lambda(omega) = (omega / c0)^2)");
+  bind_resonance_sensitivity_dim<2>(m);
+  bind_resonance_sensitivity_dim<3>(m);
+  m.def("conical_resonance_adjoint", &physics::conical_resonance_adjoint, py::arg("problem"),
+        py::arg("mode"), Release(),
+        "left eigenvector of a conical resonance (transposed inverse iteration with Bloch "
+        "phases, the mode itself without)");
+  m.def("conical_resonance_material_derivative", &physics::conical_resonance_material_derivative,
+        py::arg("problem"), py::arg("mode"), py::arg("adjoint"), py::arg("tag"), Release(),
+        "d/d eps_r of the tag for a conical resonance (holomorphic)");
+  m.def("conical_resonance_shape_derivative", &physics::conical_resonance_shape_derivative,
+        py::arg("problem"), py::arg("mode"), py::arg("adjoint"), py::arg("velocity"),
+        py::arg("relative_step") = 1e-6, Release(),
+        "derivative of a conical resonance along a mesh velocity (num_geometry_nodes, 2)");
+  m.def("conical_resonance_beta_derivative", &physics::conical_resonance_beta_derivative,
+        py::arg("problem"), py::arg("mode"), py::arg("adjoint"), py::arg("step") = 1e-6, Release(),
+        "d/d beta [per 1/m] of a conical resonance");
+  m.def("conical_resonance_bloch_derivative", &physics::conical_resonance_bloch_derivative,
+        py::arg("problem"), py::arg("mode"), py::arg("adjoint"), py::arg("minus"), py::arg("plus"),
+        py::arg("step"), Release(),
+        "derivative with respect to the Bloch wavenumber from the problems at kx -+ step on "
+        "the same maps (complex dispersion d omega / d kx of a leaky mode)");
+}
+
+}  // namespace
 
 void bind_adaptivity(py::module_& m) {
   using adaptivity::Estimate;
@@ -486,6 +561,7 @@ void bind_adaptivity(py::module_& m) {
 
   bind_adaptivity_dim<2>(m);
   bind_adaptivity_dim<3>(m);
+  bind_eigen_sensitivity(m);
 }
 
 }  // namespace hpfem::python

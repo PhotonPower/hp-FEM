@@ -473,6 +473,14 @@ class ResonanceResult:
     period: float
     dofs: int
     timing: dict[str, float] = field(default_factory=dict)
+    inputs: dict | None = None
+    """``materials`` and ``stack`` as given to :func:`resonances` (for
+    :func:`refine_resonance`)"""
+    self_consistent: bool = False
+    """the dispersive materials are evaluated at the mode's own frequency
+    (:func:`refine_resonance`), not at the target"""
+    iterations: int = 0
+    """Newton steps of :func:`refine_resonance`"""
     _locator: object = None
 
     @property
@@ -592,6 +600,7 @@ def resonances(
         period=period,
         dofs=int(len(problem.free_dofs)),
         timing=timing,
+        inputs={"materials": materials, "stack": stack},
     )
     result.modes = [
         ResonantMode(
@@ -606,6 +615,211 @@ def resonances(
         for i, m in enumerate(raw.modes)
     ]
     return result
+
+
+def _is_model(material) -> bool:
+    """A dispersive model (``eps_r(omega)`` callable) rather than a fixed ``Material``."""
+    return callable(getattr(material, "eps_r", None))
+
+
+def _eps_at(model, omega: complex) -> complex:
+    """eps_r of a dispersive model at the complex frequency of a quasi-normal mode: the
+    analytic continuation for ``analytic`` models (Drude–Lorentz, constant), the real axis
+    (``Re omega``) for tabulated and Sellmeier data."""
+    if getattr(model, "analytic", False):
+        return complex(np.asarray(model.eps_r(complex(omega))))
+    return complex(np.asarray(model.eps_r(float(np.real(omega)))))
+
+
+def _deps_domega(model, omega: complex, relative_step: float = 1e-6) -> complex:
+    """d eps_r / d omega of a dispersive model at ``omega`` (central differences along the real
+    axis: the complex derivative for analytic models, the real-axis slope otherwise)."""
+    h = relative_step * abs(omega)
+    return (_eps_at(model, omega + h) - _eps_at(model, omega - h)) / (2 * h)
+
+
+def _material_map_at(materials, stack, omega: complex):
+    """The ``MaterialMap`` with the dispersive models of ``materials`` at ``omega``."""
+    if isinstance(materials, hpfem.MaterialMap):
+        return materials
+    out = hpfem.MaterialMap(stack.incidence_medium)
+    for tag, material in dict(materials).items():
+        if _is_model(material) and not isinstance(material, hpfem.Material):
+            material = hpfem.Material(_eps_at(material, omega), complex(material.mu_r))
+        out.set(int(tag), material)
+    return out
+
+
+_SETUP_FIELDS = (
+    "target_omega", "beta", "materials", "pml", "pec_tags", "periodic", "num_modes",
+    "krylov_dimension", "tolerance", "max_iterations", "remove_gradients", "solver",
+    "extra_quadrature_order", "pml_extra_quadrature_order",
+)  # fmt: skip
+
+
+def _resonance_problem_like(result: ResonanceResult, **changes):
+    """The conical resonance problem of ``result`` on the same maps with some setup fields
+    changed (``materials``, ``target_omega``, ``periodic``, ``beta``)."""
+    old = result.problem.setup
+    setup = hpfem.ConicalResonanceSetup()
+    for name in _SETUP_FIELDS:
+        setattr(setup, name, changes.get(name, getattr(old, name)))
+    problem = result.problem
+    return hpfem.ConicalResonance(problem.transverse_dofs, problem.longitudinal_dofs, setup)
+
+
+def _bloch_pair(result: ResonanceResult, kx: float):
+    return hpfem.PeriodicPair2D(
+        hpfem.box_tag.X_MIN, hpfem.box_tag.X_MAX, [result.period, 0.0],
+        hpfem.bloch_phase([float(kx), 0.0], [result.period, 0.0]),
+    )  # fmt: skip
+
+
+def _closest_mode(raw_modes, omega: complex) -> int:
+    lam = (omega / hpfem.constants.c0) ** 2
+    distances = [abs((m.omega / hpfem.constants.c0) ** 2 - lam) for m in raw_modes]
+    return int(np.argmin(distances))
+
+
+def _dispersive_tags(result: ResonanceResult) -> dict:
+    materials = (result.inputs or {}).get("materials", {})
+    if isinstance(materials, hpfem.MaterialMap):
+        return {}
+    return {int(t): m for t, m in dict(materials).items() if _is_model(m)}
+
+
+def refine_resonance(
+    result: ResonanceResult,
+    mode: ResonantMode | int = 0,
+    *,
+    tolerance: float = 1e-12,
+    max_iterations: int = 20,
+) -> ResonanceResult:
+    """The self-consistent resonance of dispersive materials: :func:`resonances` evaluates the
+    dispersive models of ``materials`` at the target frequency, so its modes solve the pencil
+    frozen there. The resonance proper solves :math:`\\hat\\lambda(\\omega) = (\\omega/c_0)^2`,
+    where :math:`\\hat\\lambda(\\omega)` is the eigenvalue of the pencil with
+    :math:`\\varepsilon(\\omega)` at the mode's own complex ω (analytic continuation for
+    Drude–Lorentz and constant models, the real part of ω for tabulated data). Newton on
+    :math:`f(\\omega) = \\hat\\lambda(\\omega) - (\\omega/c_0)^2` with
+    :math:`f' = \\sum_t (\\partial\\hat\\lambda/\\partial\\varepsilon_t)\\,\\varepsilon_t'(\\omega)
+    - 2\\omega/c_0^2` (the material derivatives of the dispersive tags on the left eigenvector,
+    ``conical_resonance_material_derivative``): one eigensolve and one adjoint per step,
+    quadratic convergence; the PML stays the one of ``result``. Returns a new
+    :class:`ResonanceResult` (``self_consistent=True``, ``iterations``) whose modes are those of
+    the last pencil, the refined one first. Raises ``GratingError`` without dispersive
+    materials or if Newton does not converge."""
+    index = mode.index if isinstance(mode, ResonantMode) else int(mode)
+    models = _dispersive_tags(result)
+    if not models:
+        raise GratingError("refine_resonance: no dispersive materials in the result")
+    c0 = hpfem.constants.c0
+    omega = complex(result.raw.modes[index].omega)
+    stack = result.inputs["stack"]
+    materials = result.inputs["materials"]
+    steps = 0
+    for steps in range(1, int(max_iterations) + 1):  # noqa: B007 (the count is reported)
+        problem = _resonance_problem_like(
+            result, materials=_material_map_at(materials, stack, omega),
+            target_omega=float(abs(omega)),
+        )  # fmt: skip
+        raw = problem.solve()
+        i = _closest_mode(raw.modes, omega)
+        frozen = raw.modes[i]
+        lam_hat = (complex(frozen.omega) / c0) ** 2
+        f = lam_hat - (omega / c0) ** 2
+        if abs(f) <= tolerance * abs(lam_hat):
+            break
+        adjoint = hpfem.conical_resonance_adjoint(problem, frozen)
+        dlam_domega = sum(
+            hpfem.conical_resonance_material_derivative(problem, frozen, adjoint, t).dlambda
+            * _deps_domega(model, omega)
+            for t, model in models.items()
+        )
+        omega = omega - f / (dlam_domega - 2.0 * omega / c0**2)
+    else:
+        raise GratingError(
+            f"refine_resonance: no self-consistent resonance after {max_iterations} Newton steps "
+            f"(|f| / |lambda| = {abs(f) / abs(lam_hat):.2e})"
+        )
+    out = ResonanceResult(
+        mesh=result.mesh, problem=problem, raw=raw, modes=[], kx=result.kx, beta=result.beta,
+        target_omega=float(abs(omega)), period=result.period, dofs=result.dofs,
+        timing=dict(raw.timing), inputs=result.inputs, self_consistent=True,
+        iterations=steps, _locator=result._locator,
+    )  # fmt: skip
+    order = [i] + [j for j in range(len(raw.modes)) if j != i]
+    out.modes = [
+        ResonantMode(index=j, omega=complex(raw.modes[j].omega),
+                     wavelength=float(raw.modes[j].wavelength), Q=float(raw.modes[j].quality),
+                     residual=float(raw.modes[j].residual), beta=float(raw.modes[j].beta),
+                     _result=out)
+        for j in order
+    ]  # fmt: skip
+    return out
+
+
+def resonance_sensitivity(result: ResonanceResult, mode: ResonantMode | int = 0,
+                          parameters=("beta",), *, step: float = 1e-6) -> dict:  # fmt: skip
+    """Derivatives of a resonance of :func:`resonances` (or :func:`refine_resonance`) with
+    respect to ``parameters`` (M16 S4): a sequence of ``("eps", tag)`` (the relative
+    permittivity of the cells with ``tag``: entries ``"eps[tag].re"`` and ``"eps[tag].im"``),
+    ``("shape", velocity)`` (a mesh velocity, entry ``"shape[j]"``), ``"beta"`` [per 1/m] and
+    ``"kx"`` (the Bloch wavenumber [per 1/m]: the complex dispersion of a leaky mode, from the
+    problems at ``kx ∓ h``); the difference steps of beta and kx are ``step`` relative to
+    ``max(|beta|, k0)`` and ``max(|kx|, 2 pi / period)``. Returns
+    ``{label: hpfem.ResonanceDerivative}`` with ``domega`` (complex [rad/s per unit]: the real
+    part moves the resonance, the imaginary part its width), ``dquality``, ``dwavelength``
+    [m per unit] and ``dlambda``.
+
+    The derivatives use the left eigenvector of the Bloch-reduced pencil
+    (``conical_resonance_adjoint``) and hold for a simple eigenvalue. For a self-consistent
+    resonance of dispersive materials (``result.self_consistent``) the term
+    :math:`\\partial_\\omega\\hat\\lambda = \\sum_t (\\partial\\hat\\lambda/\\partial
+    \\varepsilon_t)\\,\\varepsilon_t'(\\omega)` enters the denominator,
+    :math:`d\\omega/dp = \\partial_p\\hat\\lambda / (2\\omega/c_0^2 - \\partial_\\omega
+    \\hat\\lambda)`; for a result of :func:`resonances` with dispersive models it is the
+    derivative of the pencil frozen at the target (refine first for the resonance proper)."""
+    index = mode.index if isinstance(mode, ResonantMode) else int(mode)
+    problem = result.problem
+    raw = result.raw.modes[index]
+    omega = complex(raw.omega)
+    adjoint = hpfem.conical_resonance_adjoint(problem, raw)
+    dlam_domega = 0j
+    if result.self_consistent:
+        dlam_domega = sum(
+            hpfem.conical_resonance_material_derivative(problem, raw, adjoint, t).dlambda
+            * _deps_domega(model, omega)
+            for t, model in _dispersive_tags(result).items()
+        )
+    out = {}
+
+    def add(label, dlambda):
+        out[label] = hpfem.resonance_derivative_from(omega, complex(dlambda), complex(dlam_domega))
+
+    for j, parameter in enumerate(parameters):
+        kind, value = (parameter, None) if isinstance(parameter, str) else parameter
+        if kind == "eps":
+            d = hpfem.conical_resonance_material_derivative(problem, raw, adjoint, int(value))
+            add(f"eps[{int(value)}].re", d.dlambda)
+            add(f"eps[{int(value)}].im", 1j * d.dlambda)
+        elif kind == "shape":
+            velocity = np.asarray(value, dtype=float)
+            d = hpfem.conical_resonance_shape_derivative(problem, raw, adjoint, velocity)
+            add(f"shape[{j}]", d.dlambda)
+        elif kind == "beta":
+            h = step * max(abs(result.beta), abs(omega) / hpfem.constants.c0)  # relative step
+            d = hpfem.conical_resonance_beta_derivative(problem, raw, adjoint, h)
+            add("beta", d.dlambda)
+        elif kind == "kx":
+            h = step * max(abs(result.kx), 2 * np.pi / result.period)
+            minus = _resonance_problem_like(result, periodic=[_bloch_pair(result, result.kx - h)])
+            plus = _resonance_problem_like(result, periodic=[_bloch_pair(result, result.kx + h)])
+            d = hpfem.conical_resonance_bloch_derivative(problem, raw, adjoint, minus, plus, h)
+            add("kx", d.dlambda)
+        else:
+            raise GratingError(f"parameter kind {kind!r}: use 'eps', 'shape', 'beta' or 'kx'")
+    return out
 
 
 def bands(

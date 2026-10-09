@@ -101,7 +101,8 @@ hpfem_add_test(test_physics_postprocessing unit
   physics/test_field_sampling.cpp
   physics/test_absorption.cpp
   physics/test_conical_h_field.cpp
-  physics/test_conical_sweep.cpp)
+  physics/test_conical_sweep.cpp
+  physics/test_eigen_sensitivity.cpp)
 
 hpfem_add_test(test_hanging unit
   assembly/test_interpolation.cpp

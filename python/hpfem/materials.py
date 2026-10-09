@@ -42,8 +42,11 @@ from hpfem._hpfem import Material, MaterialMap, constants
 
 
 class Dispersive:
-    """Base class: ``eps_r(omega)`` is complex, ``mu_r`` is a constant (1 unless given)."""
+    """Base class: ``eps_r(omega)`` is complex, ``mu_r`` is a constant (1 unless given).
+    Models with ``analytic = True`` also take a complex ``omega`` (the analytic continuation,
+    for the quasi-normal modes of :func:`hpfem.grating.refine_resonance`)."""
 
+    analytic = False
     name: str = "material"
     source: str = ""
     mu_r: complex = 1.0
@@ -76,8 +79,10 @@ class Constant(Dispersive):
     name: str = "constant"
     source: str = "user"
 
+    analytic = True
+
     def eps_r(self, omega):
-        return np.full_like(np.asarray(omega, dtype=float), self.value, dtype=complex)
+        return np.full_like(np.asarray(omega), self.value, dtype=complex)
 
 
 @dataclass(repr=False)
@@ -198,8 +203,11 @@ class DrudeLorentz(Dispersive):
     source: str = "user"
     mu_r: complex = 1.0
 
+    analytic = True
+
     def eps_r(self, omega):
-        w = np.asarray(omega, dtype=float)
+        w = np.asarray(omega)
+        w = w.astype(complex) if np.iscomplexobj(w) else w.astype(float)  # complex: continuation
         eps = self.eps_inf - self.omega_p**2 / (w**2 + 1j * self.gamma * w)
         for f, w_j, g_j in self.oscillators:
             eps = eps + f * self.omega_p**2 / (w_j**2 - w**2 - 1j * g_j * w)

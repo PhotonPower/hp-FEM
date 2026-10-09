@@ -91,15 +91,27 @@ assembly::ConicalForm ConicalResonance::form_of_cell(Index cell) const {
   return conical_material_form(material);
 }
 
-ConicalResonanceResult ConicalResonance::solve() const {
-  ProgressReporter progress(setup_.progress, {"assembly", "constraints", "eigensolve", "post"});
-  progress.begin(0);
+std::pair<SparseMatrix, SparseMatrix> ConicalResonance::reduced_pencil() const {
   const auto system = assembly::assemble_conical(
       *transverse_, *longitudinal_, setup_.beta, [this](Index c) { return form_of_cell(c); },
       setup_.extra_quadrature_order);
-  progress.begin(1);
   SparseMatrix s = assembly::extract(system.stiffness, free_, free_);
   SparseMatrix m = assembly::extract(system.mass, free_, free_);
+  if (constraints_) {
+    const Vector zero = Vector::Zero(s.rows());
+    s = constraints_->reduce(s, zero).first;
+    m = constraints_->reduce(m, zero).first;
+  }
+  s.makeCompressed();
+  m.makeCompressed();
+  return {std::move(s), std::move(m)};
+}
+
+ConicalResonanceResult ConicalResonance::solve() const {
+  ProgressReporter progress(setup_.progress, {"assembly", "constraints", "eigensolve", "post"});
+  progress.begin(0);
+  auto [s, m] = reduced_pencil();
+  progress.begin(1);
   SparseMatrix g;
   if (setup_.remove_gradients) {
     // the kernel K_beta = [G; beta I] of the block stiffness, on the free DoFs, with the
@@ -108,9 +120,6 @@ ConicalResonanceResult ConicalResonance::solve() const {
                           free_, free_h1_);
   }
   if (constraints_) {
-    const Vector zero = Vector::Zero(s.rows());
-    s = constraints_->reduce(s, zero).first;
-    m = constraints_->reduce(m, zero).first;
     if (setup_.remove_gradients) {
       // reduced kernel: P G~ = K P_psi  ->  G~ = (P^H P)^{-1} P^H K P_psi
       const SparseMatrix p = constraints_->prolongation();

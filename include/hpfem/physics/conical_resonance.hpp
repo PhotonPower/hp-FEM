@@ -12,6 +12,7 @@
 /// exp(−iωt): a decaying mode has Im ω < 0, @f$ Q = \mathrm{Re}\,\omega / (-2\,\mathrm{Im}\,\omega)
 /// @f$. See docs/theory/maxwell.md#conical-resonances.
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "hpfem/assembly/conical_forms.hpp"
@@ -91,6 +92,13 @@ class ConicalResonance {
   [[nodiscard]] Real wavenumber() const noexcept { return k0_; }
   /// Free block DoFs (not on PEC facets), in-plane first.
   [[nodiscard]] const std::vector<Index>& free_dofs() const noexcept { return free_; }
+  /// Hanging-node and Bloch constraints on `free_dofs()` (none without them).
+  [[nodiscard]] const std::optional<fespace::Constraints>& constraints() const noexcept {
+    return constraints_;
+  }
+  /// The pencil `solve` factorises: stiffness and mass on `free_dofs()`, reduced by the
+  /// constraints (@f$ P^H S P @f$, @f$ P^H M P @f$), compressed.
+  [[nodiscard]] std::pair<SparseMatrix, SparseMatrix> reduced_pencil() const;
   /// Relative tensors of cell c (PML-stretched in the layers), no sources.
   [[nodiscard]] assembly::ConicalForm form_of_cell(Index cell) const;
   /// Modes closest to the target; fewer than `num_modes` if fewer converged.

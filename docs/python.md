@@ -452,6 +452,22 @@ complex band structure of the open cell; closed photonic crystals stay with
 `python/tests/test_grating_resonances.py` checks the Fabry–Pérot slab against the exact complex
 wavenumber through the front end and the runner.
 
+**Resonance derivatives and dispersive resonances (M16 S4).**
+`grating.resonance_sensitivity(result, mode, [("eps", tag), ("shape", velocity), "beta",
+"kx"])` returns `{label: hpfem.ResonanceDerivative}` with `domega` (complex: the real part
+moves the resonance, the imaginary part its width), `dquality`, `dwavelength` and `dlambda`,
+from the left eigenvector of the Bloch-reduced pencil (`hpfem.conical_resonance_adjoint`) —
+no further eigensolve; `"eps"` gives the entries `eps[tag].re` and `eps[tag].im`. Dispersive
+models in `materials` are evaluated at the target by `resonances`;
+`grating.refine_resonance(result, mode)` solves for the self-consistent resonance (Newton on
+`λ̂(ω) = (ω/c0)²` with ε at the mode's own complex ω — the analytic continuation of
+`DrudeLorentz` and `Constant`, the real part of ω for tabulated data) and marks the result
+`self_consistent`; its derivatives then carry the `dε/dω` term. The building blocks
+(`resonance_adjoint`, `resonance_material_derivative`, `resonance_shape_derivative` for
+`Resonance2D` / `3D`; `conical_resonance_*_derivative`; `resonance_derivative_from`) are bound
+as well (docs/theory/maxwell.md, "Resonance derivatives"). `python/tests/test_resonance_sensitivity.py`
+checks them on the Fabry–Pérot slab against the exact derivatives and re-solved resonances.
+
 `python/tests/test_grating_solve.py` checks the glass grating of the conical validation
 against the conical RCWA (s 40°/30°, p 50°/30°, reflected and transmitted orders to 2e-3 at
 p = 3), the silver grating with the PEC bottom and the absorbed power, and the snapping.

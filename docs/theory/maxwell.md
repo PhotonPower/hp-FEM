@@ -777,6 +777,74 @@ $Q = 10.7$) in $p$ to the floor of about $1.5\cdot10^{-4}$ set by the PML's refl
 outward-growing quasi-normal mode. The periodic-cell front end is
 `hpfem.grating.resonances` / `bands` (docs/python.md).
 
+### Resonance derivatives (`physics/eigen_sensitivity.hpp`)
+
+A simple eigenvalue $\lambda = k_0^2$ of the reduced pencil $A x = \lambda B x$ moves with a
+parameter $p$ by
+
+$$
+\frac{d\lambda}{dp} = \frac{y^\top(\partial_p A - \lambda\,\partial_p B)\,x}{y^\top B\,x},
+\qquad A^\top y = \lambda B^\top y ,
+$$
+
+with the *left* eigenvector $y$, unconjugated: with PML and losses the pencil is
+non-Hermitian. The element matrices are complex symmetric (diagonal PML stretches, scalar or
+symmetric material tensors), so without Bloch phases $y = x$ — also with hanging nodes, whose
+constraint coefficients are real (`resonance_adjoint`). The Bloch-reduced pencil
+$P^H A P$ of `ConicalResonance` has the transpose $P^\top A \bar P$, the pencil at $-k_x$; its
+left vector comes from two steps of transposed inverse iteration at $\lambda(1 + 10^{-10})$
+(one factorisation, `conical_resonance_adjoint`, residual about $10^{-16}$), and in full
+coefficients $\tilde y = \bar P y$, $x = P x_r$:
+$d\lambda/dp = \tilde y^\top(\partial_p S - \lambda\,\partial_p M)\,x / (\tilde y^\top M x)$.
+The parameters:
+
+- permittivity of a tag: $\partial_\varepsilon M = M_{\text{tag}}$ (the stretched tensor at
+  $\varepsilon = 1$ in the PML), holomorphic, so $d/d\,\mathrm{Im}\,\varepsilon = i\,d/d\varepsilon$;
+- a mesh velocity (ADR-0011): one central directional difference of the element matrices
+  $S_K - \lambda M_K$ per moving cell (helpers shared with the shape derivatives);
+- β: central difference of the assembled pencil (absolute step, about $10^{-6}\max(|\beta|,
+  k_0)$);
+- the Bloch wavenumber $k_x$ (`conical_resonance_bloch_derivative`): the derivative of $P$
+  from the problems at $k_x \mp h$, $d\lambda = [\tilde y^\top(S - \lambda M)\,\partial P x_r +
+  (\overline{\partial P}\,y)^\top(S - \lambda M)\,x]/(\tilde y^\top M x)$ — the complex
+  dispersion $d\omega/dk_x$ of a leaky mode.
+
+Then $d\omega/dp = c_0\,(d\lambda/dp)/(2k_0)$, complex (the real part moves the resonance, the
+imaginary part its width), $Q = \mathrm{Re}\,\omega/(-2\,\mathrm{Im}\,\omega)$ with
+$dQ = (\mathrm{Re}\,\omega\,d\,\mathrm{Im}\,\omega - \mathrm{Im}\,\omega\,d\,\mathrm{Re}\,\omega)/
+(2\,\mathrm{Im}^2\omega)$.
+
+**Dispersive materials.** The resonance solvers evaluate $\varepsilon(\omega)$ once, at the
+target. The resonance proper solves $\hat\lambda(\omega) = (\omega/c_0)^2$, where
+$\hat\lambda(\omega)$ is the eigenvalue of the pencil with $\varepsilon$ at the mode's own
+complex ω (the analytic continuation of Drude–Lorentz and constant models; the real part of ω
+for tabulated data). `hpfem.grating.refine_resonance` finds it by Newton on
+$f(\omega) = \hat\lambda(\omega) - (\omega/c_0)^2$ with
+$f' = \sum_t (\partial\hat\lambda/\partial\varepsilon_t)\,\varepsilon_t'(\omega) - 2\omega/c_0^2$
+(the material derivatives of the dispersive tags), one eigensolve and one adjoint per step.
+At the self-consistent mode the dispersion enters the denominator,
+
+$$
+\frac{d\omega}{dp} = \frac{\partial_p\hat\lambda}{2\omega/c_0^2 - \partial_\omega\hat\lambda},
+\qquad \partial_\omega\hat\lambda = \sum_t \frac{\partial\hat\lambda}{\partial\varepsilon_t}
+\,\varepsilon_t'(\omega)
+$$
+
+(`resonance_derivative_from(omega, dlambda, dlambda_domega)`).
+
+**Checks.** `test_eigen_sensitivity.cpp`: a lossy block in a PML box (`Resonance<2>`) — ε,
+Im ε, Q and the growth of the block against re-solved modes to all six printed digits, also on
+a hanging-node mesh; a Bloch strip with PML at $\beta \ne 0$ (`ConicalResonance`) — ε, β, $k_x$
+and the shape against re-solved modes, the left vector's residual $8\cdot10^{-17}$ and not the
+mode itself. `test_resonance_sensitivity.py`: the Fabry–Pérot slab with the exact
+$k = (m\pi - i\ln\frac{n+1}{n-1})/(nd)$ — $d\omega/d\varepsilon$ and $d\omega/dd$ against the
+exact derivatives (to the discretisation, $5\cdot10^{-3}$) and against re-solved resonances
+($10^{-6}$, $10^{-5}$), β and $k_x$ against re-solved resonances (the reference's $O(h^2)$
+falls to the eigensolver's noise of $10^{-5}$); a Drude–Lorentz slab: `refine_resonance` hits
+the exact self-consistent resonance within the discretisation in a few Newton steps, and the
+thickness derivative with the dispersion term matches refined resonances on moved meshes while
+the frozen-pencil derivative does not.
+
 ## Sensitivities by the adjoint solve (`physics/sensitivity.hpp`)
 
 For the discrete problem $A(\theta)\,e = b(\theta)$ and a linear goal $Q(e) = q^\top e$ (the
