@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
+#include <utility>
 #include <vector>
 
 #include <Eigen/Dense>
@@ -266,7 +268,7 @@ ConicalSolution ConicalScattering::solve() const {
     rhs = std::move(reduced_system.second);
   }
   progress.begin(2);
-  const auto solver = solvers::make_direct_solver(setup_.solver, solvers::Symmetry::kDetect);
+  auto solver = solvers::make_direct_solver(setup_.solver, solvers::Symmetry::kDetect);
   solver->factorize(a);
   progress.begin(3);
   const Vector reduced = solver->solve(rhs);
@@ -280,6 +282,14 @@ ConicalSolution ConicalScattering::solve() const {
   out.scattered = static_cast<bool>(setup_.incident);
   out.transverse = full.head(n_e);
   out.longitudinal = full.tail(longitudinal_->num_dofs());
+  if (setup_.keep_factorisation) {
+    KeptFactorisation::Parts parts;
+    parts.solver = std::move(solver);
+    parts.num_dofs = full.size();
+    parts.selection = dofs;
+    parts.constraints = constraints;
+    out.factorisation = std::make_shared<const KeptFactorisation>(std::move(parts));
+  }
   out.timing = progress.finish();
   log().info("ConicalScattering: solved beta = {:.6g} ({} unknowns{}, {:.3f} s)", setup_.beta,
              reduced.size(), setup_.scalar_ez ? ", scalar E_z" : "", out.timing.at("total"));

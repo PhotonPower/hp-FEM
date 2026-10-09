@@ -33,6 +33,7 @@
 #include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/mesh.hpp"
 #include "hpfem/mesh/point_location.hpp"
+#include "hpfem/physics/kept_factorisation.hpp"
 #include "hpfem/physics/layer_stack.hpp"
 #include "hpfem/physics/postprocess.hpp"
 #include "hpfem/pml/pml.hpp"
@@ -114,6 +115,10 @@ struct ConicalScatteringSetup {
   /// The constructor checks β = 0 and that the incident field / current has no in-plane
   /// components. Opt-in; `hpfem.grating.solve` sets it automatically for s at φ = 0.
   bool scalar_ez = false;
+  /// Keep the factorised system in the solution (`ConicalSolution::factorisation`) for
+  /// adjoint and tangent solves of the sensitivities (ADR-0012): no second assembly and
+  /// factorisation, at the price of holding the factors as long as the solution lives.
+  bool keep_factorisation = false;
 };
 
 /// Error of a conical field against an exact one: @f$ \|e\|^2 = \int |e_x|^2 + |e_y|^2 + |e_z|^2
@@ -131,6 +136,9 @@ struct ConicalSolution {
   Vector transverse;       ///< (E_x, E_y) coefficients (full size)
   Vector longitudinal;     ///< v = −i E_z coefficients (full size)
   Timing timing;           ///< seconds per phase of `solve` and "total"
+  /// The factorised system on (E_x, E_y | v) if `ConicalScatteringSetup::keep_factorisation` was
+  /// set, otherwise null.
+  std::shared_ptr<const KeptFactorisation> factorisation;
 };
 
 /// Assembles @f$ S(\beta) - k_0^2M @f$ with PML, PEC, Bloch and hanging-node constraints and

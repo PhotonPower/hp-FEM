@@ -90,6 +90,45 @@ template <int Dim>
                                                const NodeField& velocity, Real relative_step = 1e-6,
                                                Real functional_step = 1e-6);
 
+/// Directional derivative of the full residual @f$ R = b - A e @f$ along the mesh velocity V
+/// at fixed coefficients e: @f$ r_V = \sum_K \frac{d}{dt}\big[b_K(x + tV) - A_K(x + tV)\,e_K
+/// \big]_{t=0} @f$ (full size), by one central difference of the element residuals per cell
+/// whose nodes move (the largest node displacement `relative_step` times the cell diameter;
+/// the other cells are skipped). The direct mode of the shape derivatives (ADR-0012):
+/// @f$ de/dp = A^{-1} r_V @f$ on the kept factorisation (`KeptFactorisation::solve`) and
+/// @f$ dQ/dp = q^\top de + (\partial q/\partial x\cdot V)^\top e @f$
+/// (`functional_shape_derivative`) for every observable at once; the adjoint mode pairs it with
+/// the adjoint, @f$ z^\top r_V @f$ = `shape_sensitivity(shape_gradient(...), V)` up to the
+/// truncation of the differences. The caveats of ADR-0011 apply (V vanishes on Bloch faces and
+/// on facets with non-zero Dirichlet data).
+/// @throws InvalidArgument if the vectors do not match the map, the velocity does not match
+///         the geometry nodes, the step is not positive or a perturbed cell degenerates.
+template <int Dim>
+[[nodiscard]] Vector shape_residual_derivative(const Scattering<Dim>& problem,
+                                               const ScatteringSolution<Dim>& solution,
+                                               const NodeField& velocity,
+                                               Real relative_step = 1e-6);
+/// The same for the conical solver, stacked as (in-plane | scaled longitudinal).
+[[nodiscard]] Vector conical_shape_residual_derivative(const ConicalScattering& problem,
+                                                       const ConicalSolution& solution,
+                                                       const NodeField& velocity,
+                                                       Real relative_step = 1e-6);
+
+/// Derivative of the functional vector along the mesh velocity, @f$ \partial q/\partial x
+/// \cdot V @f$, by central differences of the functional on copies of the mesh moved by
+/// @f$ \pm @f$ `functional_step` times the largest cell diameter (a point value or a line
+/// integral changes with the cells it lives in): the term @f$ (\partial q/\partial x\cdot
+/// V)^\top e @f$ of `shape_derivative`. @throws InvalidArgument on a mismatched velocity.
+template <int Dim>
+[[nodiscard]] Vector functional_shape_derivative(const fespace::NedelecDofMap<Dim>& dofs,
+                                                 const Functional<Dim>& functional,
+                                                 const NodeField& velocity,
+                                                 Real functional_step = 1e-6);
+/// The same for a conical functional, stacked as (in-plane | scaled longitudinal).
+[[nodiscard]] Vector conical_functional_shape_derivative(
+    const fespace::NedelecDofMap<2>& transverse, const fespace::DofMap<2>& longitudinal,
+    const ConicalFunctional& functional, const NodeField& velocity, Real functional_step = 1e-6);
+
 /// Velocity of the uniform normal growth of the cells with `tag`: on every node of the
 /// region's boundary (the facets against other tags or the domain boundary) the unit
 /// outward normal averaged over the adjacent boundary facets (measure weighted); edge nodes

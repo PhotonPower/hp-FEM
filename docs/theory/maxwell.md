@@ -848,6 +848,81 @@ Hadamard formula, whose interface integrals of the coefficient jumps are the con
 for any node velocity (checked for the ridge height of the glass grating against finite
 differences to $10^{-3}$).
 
+### Kept factorisation
+
+`adjoint_solution(problem, q)` assembles and factorises the adjoint system anew. With
+`setup.keep_factorisation = true` (`ScatteringSetup`, `ConicalScatteringSetup`,
+`hpfem.grating.solve(..., keep_factorisation=True)`) the solve hands its factorised system to
+the solution (`solution.factorisation`, a `physics::KeptFactorisation`, ADR-0012 §4), and
+every further solve with the same operator is a pair of triangular solves:
+
+- the **tangent** (direct) solve $s = A^{-1} r$ of a full-size residual $r$ — the solution
+  change $de/d\theta = A^{-1}(\partial_\theta b - \partial_\theta A\,e)$ of one parameter;
+- the **adjoint** solve $z = A^{-\top} q$ of a full-size functional vector — one goal.
+
+The forward solve reaches the factorised matrix in fixed steps: static condensation of the
+interior DoFs ($\tilde f_E = f_E - K_{EB}K_{BB}^{-1}f_B$), selection of the unknowns (the
+conical solver drops its Dirichlet DoFs, the scalar $E_z$ path keeps the H1 block),
+constraints ($P^H$), zero data on the eliminated Dirichlet unknowns; back through $P$ and the
+interior recovery $u_B = K_{BB}^{-1}(f_B - K_{BE}u_E)$. The adjoint applies the transposes:
+
+$$
+\tilde q_E = q_E - (K_{BB}^{-1}K_{BE})^\top q_B,\quad
+y_r = (P^H \tilde A P)^{-\top} P^\top \tilde q,\quad
+z_E = \bar P y_r,\quad
+z_B = K_{BB}^{-\top}(q_B - K_{EB}^\top z_E),
+$$
+
+the middle one a transposed solve on the forward factors (`LinearSolver::solve_transposed`;
+the LDLᵀ paths solve with $A$ itself, see [solvers](solvers.md)). The result is the exact
+transpose of the discrete solution operator, $q^\top s = z^\top r$ to round-off for every
+pair, so the adjoint includes everything the solve included — ports, condensation, Bloch and
+hanging-node constraints. Verified in `test_kept_factorisation.cpp` (disc with PML, PEC and
+condensation at order 3; the Bloch strip of the conical solver; the scalar $E_z$ path against
+the full block system): the identity to $10^{-10}$, the tangent solve against the assembled
+equations, and adjoints and material sensitivities equal to the assembling path to
+$10^{-9}$; `test_grating_solve.py` checks that `grating.sensitivity` and
+`grating.shape_sensitivity` are unchanged. The factors stay in memory as long as the solution
+lives (`estimate_memory` predicts their size); `keep_factorisation` is therefore opt-in.
+
+### Direct mode
+
+With a kept factorisation the derivative of the solution with respect to one parameter is a
+single tangent solve, $de/d\theta = A^{-1} r_\theta$, with the residual derivative at fixed
+coefficients
+
+$$
+r_\theta = \frac{\partial}{\partial\theta}\big(b - A e\big)\Big|_{e\ \text{fixed}},
+\qquad \frac{dQ_k}{d\theta} = q_k^\top\frac{de}{d\theta}
++ \Big(\frac{\partial q_k}{\partial\theta}\Big)^{\!\top} e ,
+$$
+
+for every observable $k$ at once — the adjoint mode $z_k^\top r_\theta$ with one solve per
+observable gives the same numbers. The residual derivatives (full size, on the DoF map; the
+conical ones stacked as in-plane | scaled longitudinal):
+
+- material: $r_\varepsilon = k_0^2\big(M_{\text{tag}}\,e + \ell_{\text{tag}}(E^{inc})\big)$
+  (`material_residual_derivative`, `conical_material_residual_derivative`);
+- shape: one central difference of the element residuals $b_K - A_K e_K$ per cell whose nodes
+  move, along the mesh velocity $V$ with the largest node displacement $10^{-6}$ cell
+  diameters (`shape_residual_derivative`, `conical_shape_residual_derivative`), and the
+  functional term $\partial q/\partial x\cdot V$ from `functional_shape_derivative` /
+  `conical_functional_shape_derivative` (as in `shape_derivative`). A directional difference
+  per cell is $2\,\dim$ (nodes per cell) times cheaper than the node gradient of the adjoint
+  mode.
+
+The cheaper mode follows from the counts per factorisation: $n$ parameters cost $n$ tangent
+solves, $m$ observables $m$ adjoint solves (`hpfem.grating.jacobian` picks
+$\min(n, m)$; scatterometry with many orders and few parameters is the direct case).
+Parameters that change the constraints or the Dirichlet data — the frequency and the angles
+of a Bloch-periodic problem, whose phases depend on $k_x$ — need the derivative of $P$ as
+well and are not covered by these residuals. `test_residual_derivative.cpp` checks the
+direct against the adjoint mode for the disc permittivity (to $10^{-9}$) and the disc radius
+(to $10^{-6}$, two different central differences) in the in-plane and the conical solver,
+$z^\top r_V$ against the node-gradient pairing of ADR-0011, and a $2\times 2$ Jacobian in both
+modes; `test_grating_solve.py` checks `grating.jacobian` in both modes against
+`grating.sensitivity` and `grating.shape_sensitivity` entry by entry.
+
 ## Band structures (`physics/band_structure.hpp`)
 
 A photonic crystal is a lossless periodic structure with lattice vectors $a_j$. By Bloch's

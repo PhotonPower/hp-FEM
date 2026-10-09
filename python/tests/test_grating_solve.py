@@ -170,6 +170,78 @@ def test_shape_sensitivity_of_the_ridge_height_matches_finite_differences():
     assert abs(derivative - fd) < 1e-3 * abs(fd)
 
 
+def test_kept_factorisation_gives_the_same_sensitivities():
+    mesh, pml = unit_cell()
+    glass = hpfem.Material.dielectric(1.5)
+    stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)
+    ridge = hpfem.Material()
+    ridge.eps_r = 2.25 + 0.05j
+    args = (mesh, {SUB: glass, RIDGE_TAG: ridge}, stack, "p", 40 * units.deg, 20 * units.deg, OMEGA)
+    common = dict(order=3, pml={"top": pml, "bottom": pml}, orders_max=2, check=False)
+    plain = grating.solve(*args, **common)
+    kept = grating.solve(*args, keep_factorisation=True, **common)
+    assert plain.solution.factorisation is None
+    factorisation = kept.solution.factorisation
+    assert factorisation is not None and factorisation.size > 0 and factorisation.solver_name
+    # two separate solves: the parallel assembly sums duplicate entries in the order of the
+    # dynamic thread schedule (docs/theory/solvers.md, parallel assembly), so the two systems
+    # differ at round-off, amplified by the conditioning of the PML cell (5e-8 relative in R
+    # on the 4-thread CI runner, 2e-13 locally); 1e-6 still separates a wrong adjoint
+    assert abs(kept.R - plain.R) < 1e-6 * plain.R
+    for side in ("R", "T"):
+        a = grating.sensitivity(plain, RIDGE_TAG, order=0, side=side)
+        b = grating.sensitivity(kept, RIDGE_TAG, order=0, side=side)
+        assert np.allclose(a, b, rtol=1e-6, atol=1e-6 * np.abs(a).max())
+    velocity = hpfem.region_normal_velocity(mesh, RIDGE_TAG)
+    a = grating.shape_sensitivity(plain, velocity, order=0)
+    b = grating.shape_sensitivity(kept, velocity, order=0)
+    assert abs(a - b) < 1e-6 * abs(a)
+    # the adjoint on the kept factorisation is the transpose of its tangent solve
+    rng = np.random.default_rng(5)
+    n = factorisation.num_dofs
+    r = rng.normal(size=n) + 1j * rng.normal(size=n)
+    q = rng.normal(size=n) + 1j * rng.normal(size=n)
+    forward = q @ factorisation.solve(r)
+    backward = factorisation.solve_adjoint(q) @ r
+    # random r, q on the PML cell: the identity holds to round-off times the conditioning
+    # (9e-9 relative on the CI runner); a wrong transpose (P^H for P^T) is off by O(1)
+    assert abs(forward - backward) < 1e-6 * abs(forward)
+
+
+def test_jacobian_in_both_modes_matches_the_single_sensitivities():
+    mesh, pml = unit_cell()
+    glass = hpfem.Material.dielectric(1.5)
+    stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)
+    ridge = hpfem.Material()
+    ridge.eps_r = 2.25 + 0.05j
+    args = (mesh, {SUB: glass, RIDGE_TAG: ridge}, stack, "p", 40 * units.deg, 20 * units.deg, OMEGA)
+    common = dict(order=3, pml={"top": pml, "bottom": pml}, orders_max=2, check=False)
+    result = grating.solve(*args, keep_factorisation=True, **common)
+    velocity = hpfem.region_normal_velocity(mesh, RIDGE_TAG)
+    parameters = [("eps", RIDGE_TAG), ("shape", velocity)]
+    jac, rows, columns = grating.jacobian(result, parameters)
+    assert columns == [f"eps[{RIDGE_TAG}].re", f"eps[{RIDGE_TAG}].im", "shape[1]"]
+    assert len(rows) >= 2 and jac.shape == (len(rows), 3)
+    direct, _, _ = grating.jacobian(result, parameters, mode="direct")
+    adjoint, _, _ = grating.jacobian(result, parameters, mode="adjoint")
+    scale = np.abs(jac).max()
+    # direct and adjoint mode are different solves on the PML cell: they agree to round-off
+    # times the conditioning (about 1e-8 on the CI runner, see the transpose identity above)
+    assert np.abs(direct - adjoint).max() < 1e-6 * scale
+    for i, (side, order) in enumerate(rows):
+        d_re, d_im = grating.sensitivity(result, RIDGE_TAG, order=order, side=side)
+        assert abs(jac[i, 0] - d_re) < 1e-6 * scale
+        assert abs(jac[i, 1] - d_im) < 1e-6 * scale
+        d_v = grating.shape_sensitivity(result, velocity, order=order, side=side)
+        assert abs(jac[i, 2] - d_v) < 1e-6 * np.abs(jac[:, 2]).max()
+    with pytest.raises(grating.GratingError):
+        grating.jacobian(grating.solve(*args, **common), parameters)
+    with pytest.raises(grating.GratingError):
+        grating.jacobian(result, [("height", velocity)])
+    with pytest.raises(grating.GratingError):
+        grating.jacobian(result, parameters, mode="forward")
+
+
 def test_silver_grating_with_pec_bottom_absorbs_the_rest():
     mesh, pml = unit_cell()
     silver = hpfem.Material()

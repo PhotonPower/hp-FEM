@@ -13,6 +13,20 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - `LinearSolver::solve_transposed` / `solve_transposed_many` (M16 S1, ADR-0012): Aᵀx = b on
   the factorisation of A for the adjoint sensitivities; LDLᵀ paths solve with A, SparseLU and
   MUMPS transpose their factors, cuDSS factorises Aᵀ on demand; Python bindings.
+- Kept factorisation (M16 S1, ADR-0012): `keep_factorisation` in `ScatteringSetup` /
+  `ConicalScatteringSetup` and `hpfem.grating.solve` keeps the factorised system in the
+  solution (`physics::KeptFactorisation`): tangent solves A s = r and adjoint solves Aᵀz = q
+  on full-size vectors, the adjoint the exact transpose of the solve (condensation, ports,
+  Bloch / hanging-node constraints, scalar E_z path); `adjoint_solution` /
+  `conical_adjoint_solution` overloads with the solution, used by the shape derivatives and
+  `grating.sensitivity`; `StaticCondensation::condense_load_transposed` /
+  `recover_transposed`.
+- Direct mode of the sensitivities (M16 S1, ADR-0012): residual derivatives at fixed
+  coefficients for materials (`material_residual_derivative`, conical) and shapes
+  (`shape_residual_derivative`, conical: one directional difference per moving cell) and the
+  functional term (`functional_shape_derivative`, conical), so that de/dp = A⁻¹r on the kept
+  factorisation; `hpfem.grating.jacobian(result, parameters, observables, mode)` with the
+  automatic choice between direct and adjoint mode.
 
 ## [0.4.0] — 2026-10-08
 Fourth release: the GUI support milestone M15 complete, the sensitivities of M12, and the

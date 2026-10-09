@@ -93,6 +93,35 @@ void accumulate_cell(const CellNodes<Dim>& nodes, Real relative_step, const Elem
   }
 }
 
+/// Central difference of the element residual b_K - A_K e_K along the node velocities `v` of
+/// the cell (empty vector if no node moves); the largest node displacement of the step is
+/// `relative_step` times the cell diameter.
+template <int Dim, class Element>
+Vector directional_cell_residual(const CellNodes<Dim>& nodes, const std::vector<Point<Dim>>& v,
+                                 Real relative_step, const Element& element,
+                                 const Vector& e_local) {
+  Real largest = 0;
+  for (const auto& vi : v) largest = std::max(largest, vi.norm());
+  if (!(largest > 0)) return {};
+  const Real t = relative_step * nodes.h / largest;
+  std::vector<Point<Dim>> x = nodes.x;
+  for (std::size_t i = 0; i < x.size(); ++i) x[i] = nodes.x[i] + t * v[i];
+  const auto [a_plus, b_plus] = element(*geometry_of<Dim>(x));
+  for (std::size_t i = 0; i < x.size(); ++i) x[i] = nodes.x[i] - t * v[i];
+  const auto [a_minus, b_minus] = element(*geometry_of<Dim>(x));
+  return ((b_plus - b_minus) - (a_plus - a_minus) * e_local) / (2 * t);
+}
+
+/// Node velocities of a cell from the node field (rows = geometry nodes).
+template <int Dim>
+std::vector<Point<Dim>> cell_velocity(const CellNodes<Dim>& nodes, const NodeField& velocity) {
+  std::vector<Point<Dim>> v(nodes.ids.size());
+  for (std::size_t i = 0; i < nodes.ids.size(); ++i) {
+    v[i] = velocity.row(nodes.ids[i]).transpose();
+  }
+  return v;
+}
+
 template <int Dim>
 int rule_order(const mesh::Mesh<Dim>& mesh, int p, std::optional<int> override, int extra_order) {
   if (override) return *override;
@@ -228,10 +257,20 @@ Complex shape_derivative(const Scattering<Dim>& problem, const ScatteringSolutio
                          Real relative_step, Real functional_step) {
   const auto& dofs = problem.dofs();
   const Vector q = functional(dofs);
-  const Vector z = adjoint_solution<Dim>(problem, q);
+  const Vector z = adjoint_solution<Dim>(problem, solution, q);
   const ComplexNodeField gradient = shape_gradient<Dim>(problem, solution, z, relative_step);
-  Complex total = shape_sensitivity(gradient, velocity);
-  // the functional on the moved meshes: (dq/dx . V)^T e
+  const Vector dq = functional_shape_derivative<Dim>(dofs, functional, velocity, functional_step);
+  return shape_sensitivity(gradient, velocity) + (dq.transpose() * solution.unknown).value();
+}
+
+template <int Dim>
+Vector functional_shape_derivative(const fespace::NedelecDofMap<Dim>& dofs,
+                                   const Functional<Dim>& functional, const NodeField& velocity,
+                                   Real functional_step) {
+  if (!(functional_step > 0)) {
+    throw InvalidArgument("functional_shape_derivative: the step must be positive");
+  }
+  // the functional on the moved meshes: dq/dx . V
   const Real step = functional_step * largest_diameter(dofs.mesh());
   const std::vector<int> orders = orders_of(dofs);
   Vector q_plus;
@@ -242,9 +281,156 @@ Complex shape_derivative(const Scattering<Dim>& problem, const ScatteringSolutio
     const fespace::NedelecDofMap<Dim> moved_dofs(moved, orders);
     (sign > 0 ? q_plus : q_minus) = functional(moved_dofs);
   }
-  const Vector dq = (q_plus - q_minus) / (2 * step);
-  total += (dq.transpose() * solution.unknown).value();
-  return total;
+  return (q_plus - q_minus) / (2 * step);
+}
+
+Vector conical_functional_shape_derivative(const fespace::NedelecDofMap<2>& transverse,
+                                           const fespace::DofMap<2>& longitudinal,
+                                           const ConicalFunctional& functional,
+                                           const NodeField& velocity, Real functional_step) {
+  if (!(functional_step > 0)) {
+    throw InvalidArgument("conical_functional_shape_derivative: the step must be positive");
+  }
+  const Real step = functional_step * largest_diameter(transverse.mesh());
+  const std::vector<int> orders = orders_of(transverse);
+  std::pair<Vector, Vector> plus;
+  std::pair<Vector, Vector> minus;
+  for (const Real sign : {1.0, -1.0}) {
+    mesh::Mesh<2> moved = transverse.mesh();
+    move_nodes<2>(moved, velocity, sign * step);
+    const fespace::NedelecDofMap<2> nd_moved(moved, orders);
+    const fespace::DofMap<2> h1_moved(moved, orders_of(longitudinal));
+    (sign > 0 ? plus : minus) = functional(nd_moved, h1_moved);
+  }
+  Vector dq(plus.first.size() + plus.second.size());
+  dq << (plus.first - minus.first) / (2 * step), (plus.second - minus.second) / (2 * step);
+  return dq;
+}
+
+template <int Dim>
+Vector shape_residual_derivative(const Scattering<Dim>& problem,
+                                 const ScatteringSolution<Dim>& solution, const NodeField& velocity,
+                                 Real relative_step) {
+  const auto& dofs = problem.dofs();
+  const auto& mesh = dofs.mesh();
+  if (solution.unknown.size() != dofs.num_dofs()) {
+    throw InvalidArgument("shape_residual_derivative: the solution does not match the DoF map");
+  }
+  if (velocity.rows() != num_geometry_nodes(mesh) || velocity.cols() != Dim) {
+    throw InvalidArgument(
+        "shape_residual_derivative: the velocity does not match the mesh's geometry nodes");
+  }
+  if (!(relative_step > 0)) {
+    throw InvalidArgument("shape_residual_derivative: the step must be positive");
+  }
+  const Real k2 = problem.wavenumber() * problem.wavenumber();
+  const auto threads = as_size(num_threads());
+  std::vector<Vector> local(as_size(mesh.num_cells()));  // only moving cells get entries
+  std::vector<std::map<int, assembly::QuadratureRule<Dim>>> rules(threads);
+  parallel_for(mesh.num_cells(), [&](Index c, int thread) {
+    const CellNodes<Dim> nodes = cell_nodes(mesh, c);
+    const std::vector<Point<Dim>> v = cell_velocity(nodes, velocity);
+    if (std::all_of(v.begin(), v.end(), [](const Point<Dim>& vi) { return vi.norm() == 0; })) {
+      return;
+    }
+    const fespace::NedelecBasis<Dim> basis(dofs.cell_layout(c));
+    const assembly::MaxwellForm<Dim> form = problem.form_of_cell(c);
+    const int order = rule_order(mesh, dofs.cell_order(c), form.quadrature_order,
+                                 problem.setup().extra_quadrature_order);
+    auto& rule = rules[as_size(thread)][order];
+    if (rule.size() == 0) rule = assembly::simplex_quadrature<Dim>(order);
+    const auto ids = dofs.cell_dofs(c);
+    Vector e_local(static_cast<Index>(ids.size()));
+    for (std::size_t i = 0; i < ids.size(); ++i) {
+      e_local(static_cast<Index>(i)) = solution.unknown(ids[i]);
+    }
+    const auto element = [&](const mesh::CellGeometry<Dim>& geometry) {
+      const auto element_matrices = assembly::element_maxwell(basis, geometry, rule, form);
+      return std::pair<Matrix, Vector>(element_matrices.stiffness - k2 * element_matrices.mass,
+                                       element_matrices.load);
+    };
+    local[as_size(c)] = directional_cell_residual<Dim>(nodes, v, relative_step, element, e_local);
+  });
+  Vector r = Vector::Zero(dofs.num_dofs());
+  Index moving = 0;
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    const Vector& rc = local[as_size(c)];
+    if (rc.size() == 0) continue;
+    ++moving;
+    const auto ids = dofs.cell_dofs(c);
+    for (std::size_t i = 0; i < ids.size(); ++i) r(ids[i]) += rc(static_cast<Index>(i));
+  }
+  log().info("shape_residual_derivative<{}>: {} of {} cells move", Dim, moving, mesh.num_cells());
+  return r;
+}
+
+Vector conical_shape_residual_derivative(const ConicalScattering& problem,
+                                         const ConicalSolution& solution, const NodeField& velocity,
+                                         Real relative_step) {
+  const auto& nd = problem.transverse_dofs();
+  const auto& h1 = problem.longitudinal_dofs();
+  const auto& mesh = nd.mesh();
+  const Index n_e = nd.num_dofs();
+  if (solution.transverse.size() != n_e || solution.longitudinal.size() != h1.num_dofs()) {
+    throw InvalidArgument(
+        "conical_shape_residual_derivative: the solution does not match the maps");
+  }
+  if (velocity.rows() != num_geometry_nodes(mesh) || velocity.cols() != 2) {
+    throw InvalidArgument(
+        "conical_shape_residual_derivative: the velocity does not match the mesh's geometry nodes");
+  }
+  if (!(relative_step > 0)) {
+    throw InvalidArgument("conical_shape_residual_derivative: the step must be positive");
+  }
+  const auto& setup = problem.setup();
+  const Real k2 = problem.wavenumber() * problem.wavenumber();
+  const auto threads = as_size(num_threads());
+  std::vector<Vector> local(as_size(mesh.num_cells()));
+  std::vector<std::map<int, assembly::QuadratureRule<2>>> rules(threads);
+  parallel_for(mesh.num_cells(), [&](Index c, int thread) {
+    const CellNodes<2> nodes = cell_nodes(mesh, c);
+    const std::vector<Point<2>> v = cell_velocity(nodes, velocity);
+    if (std::all_of(v.begin(), v.end(), [](const Point<2>& vi) { return vi.norm() == 0; })) {
+      return;
+    }
+    const fespace::NedelecBasis<2> nd_basis(nd.cell_layout(c));
+    const fespace::H1Basis<2> h1_basis(h1.cell_layout(c));
+    const assembly::ConicalForm form = problem.form_of_cell(c);
+    const int p = std::max(nd.cell_order(c), h1.cell_order(c));
+    const int order = rule_order(mesh, p, form.quadrature_order, setup.extra_quadrature_order);
+    auto& rule = rules[as_size(thread)][order];
+    if (rule.size() == 0) rule = assembly::simplex_quadrature<2>(order);
+    const auto e_dofs = nd.cell_dofs(c);
+    const auto h_dofs = h1.cell_dofs(c);
+    const Index ne = static_cast<Index>(e_dofs.size());
+    const Index nh = static_cast<Index>(h_dofs.size());
+    Vector e_local(ne + nh);
+    for (Index i = 0; i < ne; ++i) e_local(i) = solution.transverse(e_dofs[as_size(i)]);
+    for (Index j = 0; j < nh; ++j) e_local(ne + j) = solution.longitudinal(h_dofs[as_size(j)]);
+    const auto element = [&](const mesh::CellGeometry<2>& geometry) {
+      const auto element_matrices =
+          assembly::element_conical(nd_basis, h1_basis, geometry, rule, setup.beta, form);
+      return std::pair<Matrix, Vector>(element_matrices.stiffness - k2 * element_matrices.mass,
+                                       element_matrices.load);
+    };
+    local[as_size(c)] = directional_cell_residual<2>(nodes, v, relative_step, element, e_local);
+  });
+  Vector r = Vector::Zero(n_e + h1.num_dofs());
+  Index moving = 0;
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    const Vector& rc = local[as_size(c)];
+    if (rc.size() == 0) continue;
+    ++moving;
+    const auto e_dofs = nd.cell_dofs(c);
+    const auto h_dofs = h1.cell_dofs(c);
+    const Index ne = static_cast<Index>(e_dofs.size());
+    for (Index i = 0; i < ne; ++i) r(e_dofs[as_size(i)]) += rc(i);
+    for (std::size_t j = 0; j < h_dofs.size(); ++j) {
+      r(n_e + h_dofs[j]) += rc(ne + static_cast<Index>(j));
+    }
+  }
+  log().info("conical_shape_residual_derivative: {} of {} cells move", moving, mesh.num_cells());
+  return r;
 }
 
 Complex conical_shape_derivative(const ConicalScattering& problem, const ConicalSolution& solution,
@@ -253,25 +439,13 @@ Complex conical_shape_derivative(const ConicalScattering& problem, const Conical
   const auto& nd = problem.transverse_dofs();
   const auto& h1 = problem.longitudinal_dofs();
   const auto [q_e, q_v] = functional(nd, h1);
-  const ConicalAdjoint z = conical_adjoint_solution(problem, q_e, q_v);
+  const ConicalAdjoint z = conical_adjoint_solution(problem, solution, q_e, q_v);
   const ComplexNodeField gradient = conical_shape_gradient(problem, solution, z, relative_step);
-  Complex total = shape_sensitivity(gradient, velocity);
-  const Real step = functional_step * largest_diameter(nd.mesh());
-  const std::vector<int> orders = orders_of(nd);
-  std::pair<Vector, Vector> plus;
-  std::pair<Vector, Vector> minus;
-  for (const Real sign : {1.0, -1.0}) {
-    mesh::Mesh<2> moved = nd.mesh();
-    move_nodes<2>(moved, velocity, sign * step);
-    const fespace::NedelecDofMap<2> nd_moved(moved, orders);
-    const fespace::DofMap<2> h1_moved(moved, orders);
-    (sign > 0 ? plus : minus) = functional(nd_moved, h1_moved);
-  }
-  const Vector dq_e = (plus.first - minus.first) / (2 * step);
-  const Vector dq_v = (plus.second - minus.second) / (2 * step);
-  total += (dq_e.transpose() * solution.transverse).value() +
-           (dq_v.transpose() * solution.longitudinal).value();
-  return total;
+  const Vector dq =
+      conical_functional_shape_derivative(nd, h1, functional, velocity, functional_step);
+  Vector e(solution.transverse.size() + solution.longitudinal.size());
+  e << solution.transverse, solution.longitudinal;
+  return shape_sensitivity(gradient, velocity) + (dq.transpose() * e).value();
 }
 
 Complex shape_sensitivity(const ComplexNodeField& gradient, const NodeField& velocity) {
@@ -350,6 +524,14 @@ template Complex shape_derivative<2>(const Scattering<2>&, const ScatteringSolut
                                      const Functional<2>&, const NodeField&, Real, Real);
 template Complex shape_derivative<3>(const Scattering<3>&, const ScatteringSolution<3>&,
                                      const Functional<3>&, const NodeField&, Real, Real);
+template Vector functional_shape_derivative<2>(const fespace::NedelecDofMap<2>&,
+                                               const Functional<2>&, const NodeField&, Real);
+template Vector functional_shape_derivative<3>(const fespace::NedelecDofMap<3>&,
+                                               const Functional<3>&, const NodeField&, Real);
+template Vector shape_residual_derivative<2>(const Scattering<2>&, const ScatteringSolution<2>&,
+                                             const NodeField&, Real);
+template Vector shape_residual_derivative<3>(const Scattering<3>&, const ScatteringSolution<3>&,
+                                             const NodeField&, Real);
 template NodeField region_normal_velocity<2>(const mesh::Mesh<2>&, mesh::Tag);
 template NodeField region_normal_velocity<3>(const mesh::Mesh<3>&, mesh::Tag);
 template void move_nodes<2>(mesh::Mesh<2>&, const NodeField&, Real);

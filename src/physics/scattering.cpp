@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -292,11 +293,12 @@ ScatteringSolution<Dim> Scattering<Dim>::solve() const {
                             {"assembly", "constraints", "factorisation", "solve", "post"});
   progress.begin(0);
   const bool constrained = !setup_.periodic.empty() || !dofs_->mesh().is_conforming();
-  std::optional<assembly::StaticCondensation> condensation;
-  if (setup_.condense) condensation.emplace(dofs_->num_dofs());
+  std::shared_ptr<assembly::StaticCondensation> condensation;
+  if (setup_.condense)
+    condensation = std::make_shared<assembly::StaticCondensation>(dofs_->num_dofs());
   auto system = assembly::assemble_maxwell_operator<Dim>(
       *dofs_, [this](Index cell) { return form_of_cell(cell); }, k0_ * k0_,
-      setup_.extra_quadrature_order, condensation ? &*condensation : nullptr);
+      setup_.extra_quadrature_order, condensation.get());
   const auto recover = [&condensation](Vector x) {
     return condensation ? condensation->recover(x) : x;
   };
@@ -308,8 +310,11 @@ ScatteringSolution<Dim> Scattering<Dim>::solve() const {
   SparseMatrix matrix;
   Vector load;
   std::optional<fespace::Constraints> c;
+  std::vector<Index> eliminated;  // Dirichlet unknowns of the factorised system
   if (!constrained) {
-    assembly::apply_dirichlet(system.matrix, system.rhs, dirichlet());
+    const assembly::DirichletData data = dirichlet();
+    assembly::apply_dirichlet(system.matrix, system.rhs, data);
+    eliminated = data.dofs;
     matrix = std::move(system.matrix);
     load = std::move(system.rhs);
   } else {
@@ -333,16 +338,26 @@ ScatteringSolution<Dim> Scattering<Dim>::solve() const {
       if (!c->is_constrained(full.dofs[as_size(i)])) data.values(j++) = full.values(i);
     }
     assembly::apply_dirichlet(matrix, load, data);
+    eliminated = data.dofs;
     log().info("Scattering<{}>: {} constrained DoFs, {} free, {} Dirichlet", Dim,
                c->num_constrained(), c->num_free(), data.size());
   }
   progress.begin(2);
-  const auto solver = solvers::make_direct_solver(setup_.solver, solvers::Symmetry::kDetect);
+  auto solver = solvers::make_direct_solver(setup_.solver, solvers::Symmetry::kDetect);
   solver->factorize(matrix);
   progress.begin(3);
   const Vector x = solver->solve(load);
   progress.begin(4);
-  ScatteringSolution<Dim> out{setup_.formulation, recover(c ? c->expand(x) : x), {}};
+  ScatteringSolution<Dim> out{setup_.formulation, recover(c ? c->expand(x) : x), {}, nullptr};
+  if (setup_.keep_factorisation) {
+    KeptFactorisation::Parts parts;
+    parts.solver = std::move(solver);
+    parts.num_dofs = dofs_->num_dofs();
+    parts.constraints = std::move(c);
+    parts.dirichlet = std::move(eliminated);
+    parts.condensation = std::move(condensation);
+    out.factorisation = std::make_shared<const KeptFactorisation>(std::move(parts));
+  }
   out.timing = progress.finish();
   return out;
 }

@@ -30,6 +30,7 @@
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/point_location.hpp"
+#include "hpfem/physics/kept_factorisation.hpp"
 #include "hpfem/physics/layer_stack.hpp"
 #include "hpfem/physics/sources.hpp"
 #include "hpfem/physics/waveguide_port.hpp"
@@ -69,6 +70,10 @@ struct ScatteringSetup {
   std::vector<WaveguidePort> ports;
   solvers::DirectSolverBackend solver = solvers::DirectSolverBackend::kAuto;  ///< direct solver
   bool condense = true;  ///< static condensation of the interior DoFs in `solve`
+  /// Keep the factorised system in the solution (`ScatteringSolution::factorisation`) for
+  /// adjoint and tangent solves of the sensitivities (ADR-0012): no second assembly and
+  /// factorisation, at the price of holding the factors as long as the solution lives.
+  bool keep_factorisation = false;
   /// Called when a phase of `solve` starts (assembly, constraints, factorisation, solve,
   /// post) and when it is done; returning false cancels the solve (`Cancelled`). Optional.
   ProgressCallback progress;
@@ -82,6 +87,8 @@ struct ScatteringSolution {
   Formulation formulation = Formulation::kTotalField;
   Vector unknown;  ///< E (total) or E_sc (scattered)
   Timing timing;   ///< seconds per phase of `solve` and "total"
+  /// The factorised system if `ScatteringSetup::keep_factorisation` was set, otherwise null.
+  std::shared_ptr<const KeptFactorisation> factorisation;
 };
 
 /// Assembles, constrains and solves a scattering problem and evaluates its fields.
