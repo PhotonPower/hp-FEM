@@ -419,6 +419,56 @@ encodings, constraints, the cache key, the store round trip, resume after a canc
 failures, events, an L-BFGS-B run on Rosenbrock replayed from the store and a grating
 evaluator with its Jacobian.
 
+**Optimisers and least squares (`hpfem.opt`, M16 S3).** `minimize(study, objective, method=...)`
+runs SciPy's `"L-BFGS-B"` (gradient from the evaluator's Jacobian), `"Nelder-Mead"` or
+`"differential-evolution"` (seeded, `seed=`) on a `Study` — or on an evaluator / function with
+`space=` and `path=` — so every point is cached, stored and replayed. The objective is an
+observable (index or name) or a function of the value vector returning `F` or `(F, dF/dy)`
+(chain rule `dF/dp = (dF/dy)ᵀ J`); `maximize=True`, `fixed={name: value}` (integer and
+categorical parameters must be fixed), `fidelity`, `max_evaluations`, `options` for SciPy,
+`callback(info)`. The optimisers work on the unit-cube coordinates of the design space
+(logarithmic for `log=True`) with bounds `[0, 1]`; linear and nonlinear constraints go to
+differential evolution as constraints and act as an extreme barrier for the other two. A
+failed evaluation (ADR-0012 §2) gets a failure value above every value seen, so the step is
+rejected (line-search backtracking, simplex contraction); `max_failures` stops the run. A
+remesh (ADR-0012 §3) restarts L-BFGS-B with an empty memory from the remesh point. After every
+iteration a `state` checkpoint (current and best point, counts, the population of differential
+evolution) is stored; a cancelled run (`hpfem.Cancelled`) resumes by calling `minimize` again —
+with the same `x0` and `seed` it replays the stored points from the cache, with `x0=None` it
+restarts from the best stored point (differential evolution: from the stored population). The
+`OptimizeResult` has `params` (SI), `value`, `evaluation`, `success`, `message`, `iterations`,
+`evaluations` / `new_evaluations` / `cache_hits`, `failures`, `infeasible`, `restarts` and
+`history()`.
+
+```python
+result = opt.minimize(study, "R0", maximize=True, x0={"cd": 60e-9, "height": 80e-9})
+rec = opt.fit(evaluator, y_meas, sigma, x0=..., fixed={"swa": 88 * units.deg})
+rec.params, rec.std, rec.correlation, rec.chi2_red, print(rec.summary())
+```
+
+`fit(study_or_evaluator, y_meas, sigma=None, x0=..., observables=..., method="lm" | "gn")`
+reconstructs parameters by minimising `½‖W^{1/2}(y(p) − y_meas)‖²` with `W = diag(1/σ²)`
+(ADR-0012 §6; `sigma` a number, an array — observables of very different magnitudes — `None`
+for unweighted or `"relative"` for `σ = |y_meas|`): Levenberg–Marquardt with Moré scaling and
+Nielsen's damping update, or Gauss–Newton with step halving, on the unit-cube coordinates,
+each step a least-squares solve of the stacked system (no normal equations). Bounds by an active
+set and projection (a parameter at a bound with an outward gradient is held, the trial point is
+projected, the predicted decrease uses the projected step); constraint violations and failed
+evaluations are rejected steps; a remesh restarts the damping. It stops on the scaled gradient
+(`gtol`), the step (`xtol`) or the relative decrease (`ftol`) and checkpoints after every
+accepted step. The `FitResult` carries `params`, `x`, `std`, `covariance`, `correlation` (SI),
+`cost`, `chi2`, `chi2_red`, `dof`, `values`, `residual`, `jacobian`, `at_bounds`, the counts, the
+`study` and the `laplace` object. `laplace(jacobian, residual, sigma=None, names=...)` is the
+Laplace approximation on its own: `C = s² (JᵀWJ)⁻¹` from the SVD of the column-equilibrated
+weighted Jacobian, with `s² = χ²_red` when σ is unknown (`sigma=None` or `"relative"`, as the
+NIST certified standard deviations) and `s² = 1` when it is given; rank deficiency (relative
+singular values below `rcond = 1e-8`) or a condition number above `1e8` raise an
+`IdentifiabilityWarning`, non-identifiable parameters get an infinite standard error. Tests:
+`python/tests/test_opt_optimize.py` (Rosenbrock 2D/4D, Nelder–Mead, Branin, replay,
+cancellation and resume, failures, constraints, remesh) and `python/tests/test_opt_lsq.py`
+(an exact linear model, NIST StRD MGH17 from both starts — parameters and standard deviations
+to `1e-6` of the certified values —, weights, bounds, non-identifiability, study integration).
+
 **Scalar E_z path.** For the s polarisation at `phi = 0` (`scalar="auto"`, the default)
 `grating.solve` lets `ConicalScattering` factorise only the H1 block (`setup.scalar_ez`), about
 a third of the unknowns with identical results; `result.scalar` says whether it was used,
