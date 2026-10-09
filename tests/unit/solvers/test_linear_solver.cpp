@@ -351,8 +351,7 @@ TEST_CASE("direct solver backends: solves with the transposed matrix", "[solvers
     CHECK((at * xs - rhs).norm() < 1e-10 * rhs.norm());
     CHECK(solver->solve_transposed_many(Matrix(n, 0)).cols() == 0);
     CHECK_THROWS_AS(solver->solve_transposed(Vector::Ones(n + 1)), hpfem::InvalidArgument);
-    CHECK_THROWS_AS(solver->solve_transposed_many(Matrix::Ones(n + 1, 2)),
-                    hpfem::InvalidArgument);
+    CHECK_THROWS_AS(solver->solve_transposed_many(Matrix::Ones(n + 1, 2)), hpfem::InvalidArgument);
     // a refactorisation with new values on the same pattern is seen by the transposed solve
     SparseMatrix shifted = a;
     for (Index i = 0; i < n; ++i) shifted.coeffRef(i, i) += Complex{0.0, 3.0};
