@@ -30,6 +30,16 @@ Matrix LinearSolver::solve_many(const Matrix& rhs) const {
   return x;
 }
 
+Vector LinearSolver::solve_transposed(const Vector& /*rhs*/) const {
+  throw Error(fmt::format("{}: no solve with the transposed matrix", name()));
+}
+
+Matrix LinearSolver::solve_transposed_many(const Matrix& rhs) const {
+  Matrix x(rhs.rows(), rhs.cols());
+  for (Index j = 0; j < rhs.cols(); ++j) x.col(j) = solve_transposed(Vector(rhs.col(j)));
+  return x;
+}
+
 namespace {
 
 class SparseLuSolver final : public LinearSolver {
@@ -101,6 +111,30 @@ class SparseLuSolver final : public LinearSolver {
     }
     Matrix x = lu_.solve(rhs);
     if (lu_.info() != Eigen::Success) throw Error("SparseLU: triangular solve failed");
+    return x;
+  }
+
+  [[nodiscard]] Vector solve_transposed(const Vector& rhs) const override {
+    if (rhs.size() != size_) {
+      throw InvalidArgument(fmt::format("SparseLU: right-hand side has {} entries, system has {}",
+                                        rhs.size(), size_));
+    }
+    return solve_transposed_many(Matrix(rhs)).col(0);
+  }
+
+  /// Aᵀx = b with the factors of A: Uᵀ and Lᵀ solves in reverse order, the permutations
+  /// swapped (Eigen's `SparseLU::transpose()` view).
+  [[nodiscard]] Matrix solve_transposed_many(const Matrix& rhs) const override {
+    if (!ready_) throw Error("SparseLU: solve() called before a successful factorize()");
+    if (rhs.rows() != size_) {
+      throw InvalidArgument(
+          fmt::format("SparseLU: right-hand sides have {} rows, system has {}", rhs.rows(), size_));
+    }
+    if (rhs.cols() == 0) return Matrix(size_, 0);
+    // the view is non-const in Eigen but only reads the factors
+    auto& lu = const_cast<Eigen::SparseLU<ColMajor, Eigen::COLAMDOrdering<Index>>&>(lu_);
+    Matrix x = lu.transpose().solve(rhs);
+    if (lu_.info() != Eigen::Success) throw Error("SparseLU: transposed triangular solve failed");
     return x;
   }
 
@@ -385,6 +419,16 @@ class AutoSolver final : public LinearSolver {
   [[nodiscard]] Matrix solve_many(const Matrix& rhs) const override {
     if (!solver_) throw Error("auto: solve_many() called before a successful factorize()");
     return solver_->solve_many(rhs);
+  }
+  [[nodiscard]] Vector solve_transposed(const Vector& rhs) const override {
+    if (!solver_) throw Error("auto: solve_transposed() called before a successful factorize()");
+    return solver_->solve_transposed(rhs);
+  }
+  [[nodiscard]] Matrix solve_transposed_many(const Matrix& rhs) const override {
+    if (!solver_) {
+      throw Error("auto: solve_transposed_many() called before a successful factorize()");
+    }
+    return solver_->solve_transposed_many(rhs);
   }
   [[nodiscard]] Index size() const noexcept override { return solver_ ? solver_->size() : 0; }
   [[nodiscard]] std::string name() const override {

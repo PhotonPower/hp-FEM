@@ -60,6 +60,10 @@ void bind_solvers(py::module_& m) {
       .def("solve", &solvers::LinearSolver::solve, py::arg("rhs"), Release())
       .def("solve_many", &solvers::LinearSolver::solve_many, py::arg("rhs"), Release(),
            "Several right-hand sides at once, one per column (n x nrhs)")
+      .def("solve_transposed", &solvers::LinearSolver::solve_transposed, py::arg("rhs"),
+           Release(), "solve A^T x = b (transposed, not conjugated) on the same factorisation")
+      .def("solve_transposed_many", &solvers::LinearSolver::solve_transposed_many,
+           py::arg("rhs"), Release(), "A^T X = B for several right-hand sides (n x nrhs)")
       .def_property_readonly("size", &solvers::LinearSolver::size)
       .def_property_readonly("name", &solvers::LinearSolver::name)
       .def_property_readonly("details", &solvers::LinearSolver::details,

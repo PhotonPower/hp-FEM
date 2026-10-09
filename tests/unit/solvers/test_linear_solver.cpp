@@ -323,3 +323,51 @@ TEST_CASE("direct solver backends: availability and automatic choice", "[solvers
   SparseMatrix rectangular(2, 3);
   CHECK_THROWS_AS(make_direct_solver()->factorize(rectangular), hpfem::InvalidArgument);
 }
+
+TEST_CASE("direct solver backends: solves with the transposed matrix", "[solvers]") {
+  const Index n = 500;
+  const SparseMatrix a = random_system(n, 21);
+  const SparseMatrix at(a.transpose());
+  REQUIRE(hpfem::solvers::asymmetry(a) > 0.1);
+  const Vector x_exact = random_vector(n, 22);
+  const Vector b = at * x_exact;
+  std::vector<DirectSolverBackend> backends = available_backends();
+  backends.push_back(DirectSolverBackend::kAuto);
+  for (const DirectSolverBackend backend : backends) {
+    INFO(backend_name(backend));
+    auto solver = make_direct_solver(backend, Symmetry::kDetect);
+    CHECK_THROWS_AS(solver->solve_transposed(b), hpfem::Error);
+    solver->factorize(a);
+    // A^T x = b on the factors of A; the forward solve is unaffected afterwards
+    const Vector x = solver->solve_transposed(b);
+    CHECK((x - x_exact).norm() < 1e-10 * x_exact.norm());
+    CHECK((solver->solve(a * x_exact) - x_exact).norm() < 1e-10 * x_exact.norm());
+    Matrix rhs(n, 3);
+    rhs.col(0) = b;
+    rhs.col(1) = at * random_vector(n, 23);
+    rhs.col(2) = random_vector(n, 24);
+    const Matrix xs = solver->solve_transposed_many(rhs);
+    REQUIRE(xs.cols() == 3);
+    CHECK((at * xs - rhs).norm() < 1e-10 * rhs.norm());
+    CHECK(solver->solve_transposed_many(Matrix(n, 0)).cols() == 0);
+    CHECK_THROWS_AS(solver->solve_transposed(Vector::Ones(n + 1)), hpfem::InvalidArgument);
+    CHECK_THROWS_AS(solver->solve_transposed_many(Matrix::Ones(n + 1, 2)),
+                    hpfem::InvalidArgument);
+    // a refactorisation with new values on the same pattern is seen by the transposed solve
+    SparseMatrix shifted = a;
+    for (Index i = 0; i < n; ++i) shifted.coeffRef(i, i) += Complex{0.0, 3.0};
+    solver->refactorize(shifted);
+    const Vector y = solver->solve_transposed(b);
+    CHECK((SparseMatrix(shifted.transpose()) * y - b).norm() < 1e-10 * b.norm());
+  }
+  // complex-symmetric matrices: the LDL^T paths solve with A itself
+  SparseMatrix s = a + at;
+  s.makeCompressed();
+  for (const DirectSolverBackend backend : backends) {
+    INFO(backend_name(backend));
+    auto solver = make_direct_solver(backend, Symmetry::kComplexSymmetric);
+    solver->factorize(s);
+    const Vector rhs = s * x_exact;
+    CHECK((solver->solve_transposed(rhs) - x_exact).norm() < 1e-10 * x_exact.norm());
+  }
+}
