@@ -60,7 +60,7 @@ std::unique_ptr<mesh::CellGeometry<Dim>> geometry_of(const std::vector<Point<Dim
       map.h = std::max(map.h, (x[as_size(e[0])] - x[as_size(e[1])]).norm());
     }
     if (!(std::abs(map.det) > 1e-12 * std::pow(map.h, Dim))) {
-      throw InvalidArgument("shape_gradient: a perturbed cell is degenerate");
+      throw InvalidArgument("shape derivative: a perturbed cell is degenerate");
     }
     map.inverse_transpose = map.jacobian.inverse().transpose();
     return std::make_unique<mesh::AffineGeometry<Dim>>(map);
