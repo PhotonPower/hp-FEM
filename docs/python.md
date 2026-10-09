@@ -484,6 +484,58 @@ cancellation and resume, failures, constraints, remesh) and `python/tests/test_o
 (an exact linear model, NIST StRD MGH17 from both starts — parameters and standard deviations
 to `1e-6` of the certified values —, weights, bounds, non-identifiability, study integration).
 
+**Bayesian optimisation (`hpfem.opt`, M16 S5).** `bayesian_optimize(study, objective,
+acquisition="ei" | "lcb", use_gradients=False, constraints=(), max_evaluations=50, seed=0)`
+drives a `Study` like `minimize` (same objective forms, `fixed`, `maximize`, `fidelity`, unit-cube
+coordinates of the free parameters): an initial design of `n_initial = 2(d + 1)` points
+(`initial="lhs"` or `"sobol"` from `DesignSpace.sample`, seeded, plus `initial_points`), then one
+point per iteration, proposed by maximising the acquisition on a Gaussian-process surrogate of
+the objective fitted to every successful evaluation of the study with the same fixed values and
+fidelity. Acquisitions: expected improvement in a numerically stable log form (LogEI; `xi`) and
+the lower confidence bound `μ − κσ` (`kappa=2`), maximised from Sobol' and local candidates by
+multi-start L-BFGS-B with the analytic gradients of the GP prediction. Known constraints of the
+design space restrict the candidates and the local search (SLSQP); unknown, expensive ones are
+`OutcomeConstraint(observable_or_function, lower, upper)` on the observables, each with its own
+GP, entering as `log EI + Σ log P(feasible)`. `use_gradients=True` evaluates with the Jacobian
+and fits the gradient-enhanced GP (values and partial derivatives chain-ruled to the unit cube).
+Stopping: `max_evaluations` (initial design and cache hits included), `patience`, `tol` on the
+predicted gain, `max_failures`, `callback(info)`. Failed evaluations stay in the surrogate with
+the worst successful value and are never proposed again; remeshes are counted, the surrogate
+keeps every point (its learned noise absorbs the jump). `Evaluation.error` (the DWR estimate) is
+not used: it is not observation noise (ADR-0012 §6). A `state` checkpoint after every iteration
+(seed, counts, hyperparameters of the surrogates, incumbent) lets a cancelled run resume on the
+stored study exactly where it stopped: the open proposal is evaluated first and every random
+choice is seeded by `(seed, iteration)`, so the resumed run proposes the same points as an
+uninterrupted one. The `BOResult` extends `OptimizeResult` by `gp`, `constraint_gps`,
+`acquisition` (predicted gain per iteration), `remeshes` and `feasible`.
+
+```python
+res = opt.bayesian_optimize(study, "R0", maximize=True, use_gradients=True,
+                            constraints=[opt.OutcomeConstraint("T0", upper=0.05)],
+                            max_evaluations=30, seed=1)
+mean, var, dmean, dvar = res.gp.predict(u, grad=True)  # u: (q, d) unit-cube points
+front = opt.pareto_front(study, ["R0", "A"], maximize=[True, False])
+```
+
+The surrogate is `GaussianProcess(kernel="matern52" | "matern32" | "se", mean="constant",
+noise="learn" | variance)` (NumPy/SciPy only, dense, up to a few hundred points; with
+derivatives `n(d + 1)` observations): ARD length scales, signal variance and noise from the log
+marginal likelihood with analytic gradients (multi-start L-BFGS-B in log space, weak log-normal
+priors, bounds for unit-cube inputs and standardised outputs), Cholesky with jitter escalation,
+`fit(x, y, dy=None)` with optional partial derivatives (NaN entries left out),
+`predict(x, grad=..., full_cov=...)`, `sample`, `log_marginal_likelihood(theta, gradient=True)`;
+`MultiOutputGP` fits one process per output. `pareto_front(study, objectives, maximize=...)` and
+`non_dominated(values)` give the non-dominated evaluations of any study. With the optional extra
+`opt-bo` (BoTorch, imported lazily, an `ImportError` names the extra), `pareto_optimize` runs
+multi-objective BO (qLogNEHVI) and `multi_fidelity_optimize(study, objective, fidelities=[...],
+costs=...)` cost-aware multi-fidelity BO (multi-fidelity knowledge gradient over discrete
+fidelity levels) on the same study. Tests: `python/tests/test_opt_gp.py` (interpolation, the
+likelihood and prediction gradients against finite differences, hyperparameter recovery, the
+gradient-enhanced process) and `python/tests/test_opt_bo.py` (EI/LCB/feasibility formulas,
+Branin to `1e-3` within 40 evaluations with EI and LCB, gradient-enhanced against plain BO on
+Hartmann-3, known and outcome constraints, cancellation and exact resume, failures, remeshes,
+the DWR estimate ignored, Pareto front; the BoTorch tests skip without BoTorch).
+
 **Scatterometry evaluator (`hpfem.opt`, M16 S3).** `GratingEvaluator(morph, materials, stack,
 configurations, material_parameters=(), order=3, pml=None, mesher=None, solve_options=None)`
 is the evaluator of a grating measurement: the parameters are the geometry parameters of the
