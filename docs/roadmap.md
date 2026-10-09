@@ -455,8 +455,9 @@ radiated power into cover and substrate per direction, guided and absorbed power
   against the closed form of a phased dipole array (including β = 0, the line-source case),
   energy balance on a lossy ridge; the cross-check with `Scattering<2>` line sources moves
   to S3
-- [ ] S2: `grating.emission_pattern` by reciprocity; test against a planar-stack reference (and
-  later the far field of S3)
+- [x] S2: `grating.emission_pattern` by reciprocity (angle-resolved emission: one solve per
+  direction and polarisation, cover and substrate, normalised to P_bulk; checked against the
+  homogeneous and the Fresnel closed forms and against Stage A; written by `opt-jobs`)
 - [ ] S3: `grating.dipole_emission` (array scanning, guided-mode poles, parallel samples on
   ConicalSweep, cost estimate before the run); tests: mirror, planar multilayer (Sommerfeld),
   period independence, plasmonic film, reciprocity against S2
