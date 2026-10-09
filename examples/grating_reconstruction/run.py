@@ -12,10 +12,12 @@ evaluates the efficiencies with their Jacobian along the morph velocities
 (hpfem.opt.GratingEvaluator: one factorisation per wavelength and polarisation, the Jacobian
 from the kept factors). Levenberg-Marquardt (hpfem.opt.fit) recovers CD, height and
 side-wall angle; the Laplace approximation (J^T W J)^-1 at the optimum gives their standard
-errors and correlations.
+errors and correlations. With ``--posterior`` the posterior is sampled as well (M16 S6,
+hpfem.opt.sample with the optional extra opt-mcmc): a gradient-enhanced surrogate of the 14
+reflectances around the optimum, MCMC on it, and the comparison with the Laplace Gaussian.
 
 Silicon from M. A. Green, Sol. Energy Mater. Sol. Cells 92, 1305 (2008) (hpfem.materials).
-Run ``python examples/grating_reconstruction/run.py [--quick]``; results go to
+Run ``python examples/grating_reconstruction/run.py [--quick] [--posterior]``; results go to
 ``grating_reconstruction.json``, the study to ``grating_reconstruction.study.jsonl``.
 """
 
@@ -33,7 +35,7 @@ import numpy as np
 import hpfem
 from hpfem import materials, units
 from hpfem.meshing import Shape, Slab, UnitCell
-from hpfem.opt import Configuration, GratingEvaluator, Morph, fit, trapezoid_parameters
+from hpfem.opt import Configuration, GratingEvaluator, Morph, fit, sample, trapezoid_parameters
 
 NM = units.nm
 PERIOD = 300 * NM
@@ -66,6 +68,10 @@ class Result:
     wavelengths_nm: list
     seconds: float
     observables: list = field(default_factory=list)
+    posterior: dict | None = None
+    """with ``--posterior``: per parameter the posterior mean and std, the shift of the mean
+    in Laplace standard errors and the std ratio; the surrogate error in noise standard
+    deviations, the acceptance, the autocorrelation time and the number of surrogate points"""
 
 
 def unit_cell(geometry: dict, height_reference: float) -> UnitCell:
@@ -155,7 +161,9 @@ def evaluator(geometry: dict, configurations, order: int):
                             solve_options={"orders_max": 1})  # fmt: skip
 
 
-def run(quick: bool = False, seed: int = 7, out: str | Path = ".") -> Result:
+def run(
+    quick: bool = False, seed: int = 7, out: str | Path = ".", posterior: bool = False
+) -> Result:
     t0 = time.perf_counter()
     out = Path(out)
     wavelengths = [400, 550, 700] if quick else [400, 450, 500, 550, 600, 650, 700]
@@ -195,6 +203,17 @@ def run(quick: bool = False, seed: int = 7, out: str | Path = ".") -> Result:
         seconds=time.perf_counter() - t0,
         observables=list(ev.observables),
     )
+    if posterior:
+        post = sample(result, walkers=24, steps=3000, seed=seed)
+        out_result.posterior = {
+            "parameters": {r["name"]: {k: r[k] for k in ("mean", "std", "shift", "ratio")}
+                           for r in post.compare()},
+            "surrogate_error": float(post.surrogate.validation),
+            "surrogate_points": int(post.surrogate.points),
+            "acceptance": float(post.acceptance),
+            "autocorr": float(np.nanmax(post.autocorr)),
+        }  # fmt: skip
+        out_result.seconds = time.perf_counter() - t0
     with open(out / "grating_reconstruction.json", "w", encoding="utf-8") as handle:
         json.dump(asdict(out_result), handle, indent=2)
     return out_result
@@ -212,8 +231,18 @@ def _report(r: Result) -> None:
     print("correlation (cd, height, angle):")
     for row in r.correlation:
         print("  " + " ".join(f"{c:7.3f}" for c in row))
+    if r.posterior:
+        print(f"{'':8} {'mean':>10} {'std':>8} {'shift':>7} {'ratio':>6}   (posterior, MCMC)")
+        for n, (s, unit) in scale.items():
+            p = r.posterior["parameters"][n]
+            print(f"{n:8} {p['mean'] / s:10.3f} {p['std'] / s:8.3f} {p['shift']:7.2f} "
+                  f"{p['ratio']:6.2f}  {unit}")  # fmt: skip
+        post = r.posterior
+        print(f"surrogate: {post['surrogate_points']} points, error "
+              f"{post['surrogate_error']:.2g} noise std; acceptance {post['acceptance']:.2f}, "
+              f"autocorrelation {post['autocorr']:.3g} steps")  # fmt: skip
 
 
 if __name__ == "__main__":
     hpfem.set_log_level("warn")
-    _report(run(quick="--quick" in sys.argv))
+    _report(run(quick="--quick" in sys.argv, posterior="--posterior" in sys.argv))

@@ -22,3 +22,4 @@ runtime) and a driver. The M3–M5 examples are C++ programs (`main.cpp`, built 
 | `directional_coupler_3d/` | SOI directional coupler with 3D modal ports vs coupled-mode theory | M12 |
 | `gold_dimer/`          | Plasmonic gap field of a gold sphere dimer (M10 benchmark, axisymmetric solver) | M10 |
 | `grating_reconstruction/` | Scatterometry: CD / height / side-wall angle of a Si grating with uncertainties | M16 |
+| `fabrication_tolerance/` | Fabrication tolerances of a Si grating propagated to its reflectance (linearised, Monte Carlo, Sobol') | M16 |

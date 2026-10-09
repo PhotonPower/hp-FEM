@@ -16,13 +16,15 @@ hpfem = "hpfem.cli:main"
 hpfem-gui = "hpfem.gui:main"
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff", "pre-commit", "meshio", "matplotlib", "pyyaml", "gmsh"]
+dev = ["pytest", "ruff", "pre-commit", "meshio", "matplotlib", "pyyaml", "gmsh", "emcee"]
 meshing = ["gmsh"]
 yaml = ["pyyaml"]
 gui = ["streamlit>=1.30", "gmsh", "matplotlib", "meshio", "pyyaml"]
 docs = ["mkdocs-material", "pymdown-extensions"]
 # hpfem.opt: multi-objective and multi-fidelity Bayesian optimisation (experimental)
 opt-bo = ["botorch>=0.10"]
+# hpfem.opt: MCMC sampling of the parameter posterior (hpfem.opt.sample)
+opt-mcmc = ["emcee>=3.1"]
 
 [tool.scikit-build]
 # distribution builds: warnings of other compiler versions must not stop an installation
