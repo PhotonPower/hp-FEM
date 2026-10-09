@@ -432,8 +432,10 @@ effort in focused sessions.
   for the reconstruction uncertainties, linear-Gaussian problems (MCMC = Laplace), gradient-based
   against gradient-free BO on the 2D grating and the metasurface unit cell, test of the DWR
   hypothesis (fidelity indicator against independent noise)
-- [ ] S9 (P3, ≈ 3) GUI and job schema: tasks `optimize`, `reconstruct`, `uq`; study view in
-  `hpfem-gui` (history, Pareto front, Sobol' bars)
+- [x] S9a (P3) job schema version 2 with the tasks `optimize`, `reconstruct` and `uq`
+  (`hpfem.run`, study store next to the results, version-1 documents unchanged; written by the
+  helper agent `opt-jobs`)
+- [ ] S9b (P3) study view in `hpfem-gui` (history, Pareto front, Sobol' bars, posteriors)
 
 ## M17 — Dipole emitters in periodic structures (ADR-0013)
 Proposal of 9 October 2026 from the GUI work, reviewed the same day; physics, conventions, stages,

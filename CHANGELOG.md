@@ -3,6 +3,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Job schema version 2 (M16 S9, ADR-0012 §7, written by the helper agent `opt-jobs`): `hpfem.run`
+  reads versions 1 and 2; version-1 documents run unchanged. The study tasks `"optimize"`
+  (`minimize` / `bayesian_optimize`), `"reconstruct"` (`fit` with the Laplace uncertainties,
+  measured or synthetic data, optional emcee posterior) and `"uq"` (linear propagation or global
+  surrogate with Monte Carlo and Sobol' indices) evaluate the efficiencies of the cell under
+  `"configurations"` as functions of `"parameters"` (trapezoid CD / height / side-wall angle,
+  shape fields, permittivities; job units) through a `GratingEvaluator` on the morphed reference
+  mesh, with the study store `<name>.study.jsonl` next to `results.json` (a rerun replays it),
+  `evaluation` / `remesh` / `cancelled` events and cancellation.
 - Milestone M17 (dipole emitters in periodic structures: Purcell factor, emission into orders
   and guided modes by array scanning over kx and β) in the roadmap, with the reviewed
   specification `docs/dipole-emitters-features.md` (S0–S4).
