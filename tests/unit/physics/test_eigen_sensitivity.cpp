@@ -74,7 +74,7 @@ ResonanceSetup<2> cavity_setup(Complex eps) {
   setup.pml = hpfem::pml::PmlBox<2>::uniform(Point<2>(-0.6, -0.6), Point<2>(0.6, 0.6), 0.4, 2.4,
                                              1.0, hpfem::pml::PmlProfile{2, 1e-8});
   setup.pec_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin, box_tag::kYMax};
-  setup.num_modes = 4;
+  setup.num_modes = 2;
   setup.krylov_dimension = 40;
   return setup;
 }
