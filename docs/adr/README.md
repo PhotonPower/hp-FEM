@@ -29,3 +29,4 @@ Template:
 | 0009 | Layered background for the scattered-field formulation | accepted |
 | 0010 | Axisymmetric (body-of-revolution, 2.5D) Maxwell solver | accepted |
 | 0011 | Shape derivatives by the discrete adjoint on the mesh | accepted |
+| 0012 | Optimisation, calibration and UQ in `hpfem.opt` on the discrete sensitivities | proposed |
