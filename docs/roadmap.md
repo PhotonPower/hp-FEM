@@ -464,6 +464,30 @@ radiated power into cover and substrate per direction, guided and absorbed power
   emitters in periodic structures", python.md), example `examples/grating_emitter` (quantum dot
   on a dielectric grating, LED extraction)
 
+## M18 — Layered background for the axisymmetric solver (ADR-0014)
+Proposal of 10 October 2026 from the GUI work, reviewed the same day; channels, tests and the GUI
+interface in [`axisymmetric-layered-features.md`](axisymmetric-layered-features.md) (IDs S0–S4 as
+there). ADR-0009 (layered background) carried over to the body-of-revolution solver of ADR-0010:
+particles on substrates, nanoparticle-on-mirror, holes and grooves in films (negative deviations).
+- [ ] S0: ADR-0014 (background stack in `AxisymmetricScatteringSetup`, order-m expansion of the
+  stack field with real k_ρ and complex k_z, substrate-side incidence by the reversed stack,
+  cross-section channels in layered media)
+- [ ] S1: `AxisymmetricScatteringSetup::background`, contrast against the stack,
+  `layered_axisymmetric_wave` (field and curl, all layers, evanescent / lossy k_z; generalised
+  Jacobi–Anger expansion of the partial waves), substrate-side incidence; tests: bare stack
+  (E_sca = 0, R / T by flux), homogeneous-stack limit, reversed stack and total internal reflection
+- [ ] S2: axisymmetric absorbed power (new; orders orthogonal in φ) and its variant with the
+  stack field (absorption of the body, absorption change around holes), scattered power split into
+  up / down / lateral, `axisymmetric_disc_flux` (aperture transmission); tests: quasi-static sphere
+  on a substrate, power balance of a hole in an Au film; 3D cross-checks with `Scattering<3>` +
+  `LayerStack<3>` (sphere on a stack, the hole) as long local runs (`validation-long`) with stored
+  regression records
+- [ ] S3: reciprocity-based far field in both half-spaces, collection over a numerical aperture;
+  tests: homogeneous limit against the near-to-far transform, reciprocity with a dipole source
+- [ ] S4: docs (theory/axisymmetric.md "Layered background"), python.md, example
+  `examples/particle_on_substrate` (Au sphere on glass, dark field; NPoM gap mode; single nanohole
+  in a gold film, transmission spectrum)
+
 ## Backlog / ideas
 - [ ] the full ring resonator with ports in 3D (M12 stage B): needs an hp-mesh that is fine
   only across the cores and in the coupling region, p = 3 there for the resonance widths
