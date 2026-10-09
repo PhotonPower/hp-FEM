@@ -77,7 +77,9 @@ hundred with gradients). One point per iteration (no batch acquisition).
 
 **Optional BoTorch path** (extra ``opt-bo``, imported lazily): :func:`pareto_optimize`
 (multi-objective, qLogNEHVI) and :func:`multi_fidelity_optimize` (discrete fidelities,
-cost-aware multi-fidelity knowledge gradient) drive the same study. :func:`pareto_front` /
+cost-aware multi-fidelity knowledge gradient) drive the same study. Experimental: written
+against BoTorch's documented API but not yet run (BoTorch is installed neither on the
+development machine nor in CI; the tests skip). :func:`pareto_front` /
 :func:`non_dominated` (no BoTorch) give the Pareto front of any study.
 """
 

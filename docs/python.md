@@ -529,7 +529,9 @@ priors, bounds for unit-cube inputs and standardised outputs), Cholesky with jit
 `opt-bo` (BoTorch, imported lazily, an `ImportError` names the extra), `pareto_optimize` runs
 multi-objective BO (qLogNEHVI) and `multi_fidelity_optimize(study, objective, fidelities=[...],
 costs=...)` cost-aware multi-fidelity BO (multi-fidelity knowledge gradient over discrete
-fidelity levels) on the same study. Tests: `python/tests/test_opt_gp.py` (interpolation, the
+fidelity levels) on the same study. These two BoTorch drivers are **experimental**: BoTorch is
+not installed on the development machine nor in CI, so they have not been run yet (their
+tests skip without it). Tests: `python/tests/test_opt_gp.py` (interpolation, the
 likelihood and prediction gradients against finite differences, hyperparameter recovery, the
 gradient-enhanced process) and `python/tests/test_opt_bo.py` (EI/LCB/feasibility formulas,
 Branin to `1e-3` within 40 evaluations with EI and LCB, gradient-enhanced against plain BO on
