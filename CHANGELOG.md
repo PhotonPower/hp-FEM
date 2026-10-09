@@ -3,6 +3,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Milestone M17 (dipole emitters in periodic structures: Purcell factor, emission into orders
+  and guided modes by array scanning over kx and β) in the roadmap, with the reviewed
+  specification `docs/dipole-emitters-features.md` (S0–S4).
 - Milestone M16 (optimisation, calibration and uncertainty quantification) in the roadmap,
   with the specification `docs/optimisation-uq-features.md` (S0–S9).
 - ADR-0012 (M16 S0): scope of `hpfem.opt` (NumPy/SciPy required; BoTorch, emcee, SALib as
