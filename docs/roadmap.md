@@ -383,11 +383,12 @@ gradient-enhanced / multi-fidelity / multi-objective BO, NUTS and further UQ met
 mature libraries as optional extras (BoTorch, emcee, SALib) with an ADR note. Flagship
 problems: a 2D grating and a metasurface unit cell (the 3D ring later). Priorities P1 > P2 > P3;
 effort in focused sessions.
-- [ ] S0 (P1, ≈ 1) ADR-0012: scope of `hpfem.opt`, dependencies (NumPy/SciPy required, own
-  light Gaussian-process code, BoTorch / emcee / SALib only optional), study file format,
-  the evaluator contract and the **morphing-versus-remeshing strategy**: a reference mesh is
-  morphed with `move_nodes` within a parameter range, remeshing only when the quality guard
-  trips, so that the objective stays consistent with the adjoint gradient
+- [x] S0 (P1, ≈ 1) ADR-0012 (accepted, `docs/adr/0012-optimisation-and-uq.md`): scope of
+  `hpfem.opt`, dependencies (NumPy/SciPy required, own light Gaussian-process code,
+  BoTorch / emcee / SALib only optional), study file format, the evaluator contract and the
+  **morphing-versus-remeshing strategy**: a reference mesh is morphed with `move_nodes`
+  within a parameter range, remeshing only when the quality guard trips, so that the
+  objective stays consistent with the adjoint gradient
 - [ ] S1 (P1, ≈ 4) gradient infrastructure: geometry parameters (radius, width, height,
   position) mapped to mesh velocity fields; Jacobian of several observables in the **direct
   (tangent) mode** (one solve per parameter) and the **adjoint mode** (one solve per

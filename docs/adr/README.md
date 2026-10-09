@@ -24,9 +24,9 @@ Template:
 | 0004 | Hierarchical Schöberl–Zaglmayr Nédélec basis | accepted |
 | 0005 | PML as complex material tensor inside the FEM | accepted |
 | 0006 | Local h-refinement: red refinement, hanging nodes, constraints by interpolation | accepted |
-| 0007 | Direct solver backends behind one interface (SparseLU, MUMPS) | accepted, amended by 0008 |
+| 0007 | Direct solver backends behind one interface (SparseLU, MUMPS) | accepted, amended by 0008, 0012 |
 | 0008 | GPU backend: cuDSS direct solver behind `LinearSolver`, no GPU assembly | accepted |
 | 0009 | Layered background for the scattered-field formulation | accepted |
 | 0010 | Axisymmetric (body-of-revolution, 2.5D) Maxwell solver | accepted |
 | 0011 | Shape derivatives by the discrete adjoint on the mesh | accepted |
-| 0012 | Optimisation, calibration and UQ in `hpfem.opt` on the discrete sensitivities | proposed |
+| 0012 | Optimisation, calibration and UQ in `hpfem.opt` on the discrete sensitivities | accepted |

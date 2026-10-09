@@ -2,6 +2,14 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+### Added
+- Milestone M16 (optimisation, calibration and uncertainty quantification) in the roadmap,
+  with the specification `docs/optimisation-uq-features.md` (S0–S9).
+- ADR-0012 (M16 S0): scope of `hpfem.opt` (NumPy/SciPy required; BoTorch, emcee, SALib as
+  optional extras), the real-valued evaluator contract, morphing of a reference mesh with a
+  quality guard, adjoint and direct sensitivities on a kept factorisation with
+  `LinearSolver::solve_transposed` (amends ADR-0007), the JSON-lines study store and job
+  schema version 2.
 
 ## [0.4.0] — 2026-10-08
 Fourth release: the GUI support milestone M15 complete, the sensitivities of M12, and the

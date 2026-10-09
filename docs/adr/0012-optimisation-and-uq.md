@@ -1,6 +1,6 @@
 # 0012 — Optimisation, calibration and UQ in `hpfem.opt` on the discrete sensitivities
 
-**Status:** proposed
+**Status:** accepted (amends [0007](0007-direct-solver-backends.md))
 **Date:** 2026-10-09
 
 ## Context
@@ -185,7 +185,7 @@ class Evaluator(Protocol):
 
 - New C++ in P1: the kept factorisation, `solve_transposed` in all three backends (with the
   on-demand Aᵀ fallback), and the residual-difference routine for arbitrary parameters. ADR-0007
-  is amended by section 4; its table entry says so once this ADR is accepted.
+  is amended by section 4; its status line and table entry say so.
 - Keeping the factorisation holds the factors in memory as long as a result object lives; the
   Python API releases them with the result, and `estimate_memory` already predicts their size.
 - Morphing limits a study to shape changes the reference mesh can follow; large moves go through
