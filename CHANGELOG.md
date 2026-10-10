@@ -3,6 +3,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Validation of the optimisation stack (M16 S8, `benchmarks/opt_validation.py`,
+  `docs/validation.md` H and I): gradient-enhanced Bayesian optimisation reaches the noise
+  level of a three-parameter grating reconstruction in 16–31 evaluations and ends 2–4× lower
+  than without gradients, while Nelder–Mead, differential evolution and random-start L-BFGS-B
+  miss it within 40; the conical DWR estimate predicts the order error with the right sign
+  (effectivity 0.7–1.0), and choosing p by |η| ≤ 0.1 σ keeps the reconstruction bias at 0.1
+  standard deviations, while adding η² to the noise leaves the p = 2 bias (0.6 std) in place.
 - Milestone M16 (optimisation, calibration and uncertainty quantification) in the roadmap,
   with the specification `docs/optimisation-uq-features.md` (S0–S9).
 - ADR-0012 (M16 S0): scope of `hpfem.opt` (NumPy/SciPy required; BoTorch, emcee, SALib as

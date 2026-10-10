@@ -431,7 +431,13 @@ effort in focused sessions.
 - [ ] S8 (P2, ongoing) validation: Branin / Rosenbrock for BO, Ishigami for Sobol', NIST MGH17
   for the reconstruction uncertainties, linear-Gaussian problems (MCMC = Laplace), gradient-based
   against gradient-free BO on the 2D grating and the metasurface unit cell, test of the DWR
-  hypothesis (fidelity indicator against independent noise)
+  hypothesis (fidelity indicator against independent noise). Done (`docs/validation.md` H, I,
+  `benchmarks/opt_validation.py`): BO with/without gradients against Nelder–Mead, differential
+  evolution and L-BFGS-B on the Si grating, and the DWR estimate as fidelity indicator
+  (effectivity, the κσ rule holds, DWR as noise rejected). Open: the metasurface unit cell,
+  multi-fidelity BO with the DWR indicator against single-fidelity BO (needs BoTorch), and a
+  rerun of H and I after the PML fix #156 (the studies are self-consistent: data and model
+  share the PML)
 - [ ] S9 (P3, ≈ 3) GUI and job schema: tasks `optimize`, `reconstruct`, `uq`; study view in
   `hpfem-gui` (history, Pareto front, Sobol' bars)
 
