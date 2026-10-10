@@ -797,6 +797,14 @@ void bind_physics(py::module_& m) {
           "moment (p_x, p_y, p_z) [A m] at (x0, y0), smearing sigma, the z-smearing as "
           "exp(-sigma^2 beta^2 / 2); scaled components (f_x, f_y, -i f_z) for "
           "ConicalScatteringSetup.current");
+    m.def("conical_dipole_responses", &physics::conical_dipole_responses, py::arg("problem"),
+          py::arg("solution"), py::arg("position"), py::arg("sigma"), py::arg("moments"), Release(),
+          "solutions of the cell problem for the Gaussian dipoles with the moments (k x 3) on the "
+          "factorisation the solve kept: one load assembly near the dipole and one solve each");
+    m.def("conical_dipole_power_matrix", &physics::conical_dipole_power_matrix, py::arg("problem"),
+          py::arg("unit_responses"), py::arg("position"), py::arg("sigma"),
+          py::arg("extra_order") = 4, Release(),
+          "3 x 3 complex A with P_cell(p) = Re(p^H A p) from the responses to the unit moments");
     m.def("conical_source_power", &physics::conical_source_power, py::arg("problem"),
           py::arg("solution"), py::arg("extra_order") = 4, Release(),
           "-1/2 Re integral conj(J).E dA of the current of a total-field conical problem [W/m]");
