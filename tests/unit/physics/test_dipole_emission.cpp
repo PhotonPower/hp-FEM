@@ -7,8 +7,10 @@
 #include <complex>
 #include <vector>
 
+#include <Eigen/Dense>
 #include <catch2/catch_test_macros.hpp>
 
+#include "hpfem/assembly/periodic.hpp"
 #include "hpfem/assembly/quadrature.hpp"
 #include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
@@ -132,4 +134,49 @@ TEST_CASE("dipole responses on the kept factorisation and the power matrix", "[p
   const std::vector<hpfem::physics::ConicalSolution> two(responses.begin(), responses.begin() + 2);
   REQUIRE_THROWS_AS(hpfem::physics::conical_dipole_power_matrix(kept, two, x0, sigma),
                     hpfem::InvalidArgument);
+}
+
+TEST_CASE("power matrix of a complex Bloch phase is analytic in kx", "[physics][dipole]") {
+  // ADR-0013 §3a: with the test space of phases 1/conj(lambda) the cell problem, and with it the
+  // power matrix, is analytic in a complex kx: the derivatives along Re kx and along Im kx agree
+  // (Cauchy-Riemann), to O(h^2) of the central differences
+  const hpfem::mesh::Mesh<2> mesh = hpfem::mesh::rectangle(8, 8);
+  const hpfem::fespace::NedelecDofMap<2> nd(mesh, 3);
+  const hpfem::fespace::DofMap<2> h1(mesh, 3);
+  const Real omega = 4.0 * hpfem::constants::c0;
+  const Real beta = 0.7;
+  const Real sigma = 0.08;
+  const Point<2> x0(0.47, 0.52);
+  hpfem::materials::Material lossy;
+  lossy.eps_r = Complex{2.0, 0.4};
+  const auto power_matrix = [&](Complex kx) {
+    hpfem::physics::ConicalScatteringSetup setup;
+    setup.omega = omega;
+    setup.beta = beta;
+    setup.materials = hpfem::materials::MaterialMap(lossy);
+    setup.current = hpfem::physics::conical_gaussian_dipole(x0, ConicalVector(1.0, 0.0, 0.0), sigma,
+                                                            omega, beta);
+    setup.periodic = {
+        hpfem::assembly::PeriodicPair<2>{hpfem::mesh::box_tag::kXMin, hpfem::mesh::box_tag::kXMax,
+                                         Point<2>(1.0, 0.0), std::exp(Complex{0.0, 1.0} * kx)}};
+    setup.keep_factorisation = true;
+    const hpfem::physics::ConicalScattering problem(nd, h1, setup);
+    const auto solution = problem.solve();
+    const auto responses = hpfem::physics::conical_dipole_responses(problem, solution, x0, sigma,
+                                                                    hpfem::Matrix::Identity(3, 3));
+    return Eigen::Matrix3cd(
+        hpfem::physics::conical_dipole_power_matrix(problem, responses, x0, sigma));
+  };
+  const Complex kx0{0.9, -0.4};  // |phase| = e^{0.4}
+  std::vector<Real> defects;
+  for (const Real h : {4e-3, 2e-3}) {
+    const Eigen::Matrix3cd along_re = (power_matrix(kx0 + h) - power_matrix(kx0 - h)) / (2 * h);
+    const Eigen::Matrix3cd along_im =
+        (power_matrix(kx0 + Complex{0.0, h}) - power_matrix(kx0 - Complex{0.0, h})) /
+        Complex{0.0, 2 * h};
+    defects.push_back((along_re - along_im).norm() / along_re.norm());
+  }
+  INFO("Cauchy-Riemann defects " << defects[0] << ", " << defects[1]);
+  REQUIRE(defects[1] < 1e-3);
+  REQUIRE(defects[1] < 0.35 * defects[0]);  // O(h^2): a factor 4 per halving
 }
