@@ -773,6 +773,23 @@ incidence (project files: `pml.profile.theta_max` and `target`), `dwr_estimate` 
 `point_value_functional` or a Python functional for goal-oriented estimation, `VtkWriter2D`
 for meshes with data arrays. `help(hpfem.<name>)` shows the bound signature and docstring.
 
+Bodies of revolution on substrates and in layer stacks (ADR-0014): set
+`AxisymmetricScatteringSetup.background` to a `LayerStack3D` normal to the axis (its z is the y of
+the meridian mesh, interfaces on mesh lines, the layer cells tagged with the stack's materials)
+and take the incident order from `layered_axisymmetric_wave(stack, k0, theta, pol, m,
+side="top")` (`pol` `"s"` / `"p"`, `side` `"top"` or `"bottom"` for a lossless substrate; the
+result has `value` and `curl` callables and R, T, A of the bare stack). The source then lives
+only where a cell deviates from the stack, particles and holes alike:
+
+```python
+stack = hpfem.LayerStack3D(hpfem.Material.vacuum(), [hpfem.Layer(gold, 50e-9)], glass, 0.0)
+setup.background = stack
+for m in range(-m_max, m_max + 1):
+    setup.azimuthal_order = m
+    setup.incident = hpfem.layered_axisymmetric_wave(stack, k0, theta, "p", m).value
+    fields.append(hpfem.AxisymmetricScattering(nd, h1, setup).solve())
+```
+
 **Band derivatives and group velocity.** With `setup.keep_modes = True` a
 `BandStructure2D/3D` keeps the eigenvectors in `Bands.modes`, and the bands can be
 differentiated without another eigensolve: `band_permittivity_derivative(problem, bands, tag)`

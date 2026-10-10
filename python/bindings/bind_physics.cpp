@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "common.hpp"
@@ -1350,6 +1351,10 @@ void bind_physics(py::module_& m) {
         .def_readwrite("axis_tag", &AxisymmetricScatteringSetup::axis_tag)
         .def_readwrite("azimuthal_order", &AxisymmetricScatteringSetup::azimuthal_order)
         .def_readwrite("pml", &AxisymmetricScatteringSetup::pml)
+        .def_readwrite("background", &AxisymmetricScatteringSetup::background,
+                       "optional LayerStack3D normal to the axis (z of the stack = y of the "
+                       "meridian mesh): layered background (ADR-0014); set incident to "
+                       "layered_axisymmetric_wave(...).value")
         .def_readwrite("incident", &AxisymmetricScatteringSetup::incident)
         .def_readwrite("current", &AxisymmetricScatteringSetup::current,
                        "volume source f = i omega mu0 J of order m (total-field formulation)")
@@ -1371,6 +1376,10 @@ void bind_physics(py::module_& m) {
         .def_property_readonly("setup", &AxisymmetricScattering::setup,
                                py::return_value_policy::reference_internal)
         .def_property_readonly("wavenumber", &AxisymmetricScattering::wavenumber)
+        .def("background_material", &AxisymmetricScattering::background_material, py::arg("cell"),
+             py::return_value_policy::copy,
+             "the stack layer at the cell centroid (layered background), otherwise "
+             "materials.background")
         .def("solve", &AxisymmetricScattering::solve, Release(), "scattered field of order m")
         .def("estimate", &AxisymmetricScattering::estimate, py::arg("field"),
              py::arg("options") = adaptivity::EstimatorOptions{}, Release(),
@@ -1415,6 +1424,48 @@ void bind_physics(py::module_& m) {
           py::arg("theta_i"), py::arg("polarisation"), py::arg("m"),
           "Order m of the plane wave at the angle theta_i to the axis (Jacobi-Anger expansion) "
           "in the scaled components (E_r, v = -i r E_phi, E_z)");
+    py::class_<physics::AxisymmetricLayeredWave>(
+        m, "AxisymmetricLayeredWave",
+        "Order m of a plane wave on a layer stack: value(x) -> (E_r, v, E_z), curl(x) -> "
+        "cylindrical curl, and R, T, A of the bare stack for the side of incidence")
+        .def_readonly("value", &physics::AxisymmetricLayeredWave::value)
+        .def_readonly("curl", &physics::AxisymmetricLayeredWave::curl)
+        .def_readonly("reflectance", &physics::AxisymmetricLayeredWave::reflectance)
+        .def_readonly("transmittance", &physics::AxisymmetricLayeredWave::transmittance)
+        .def_readonly("absorptance", &physics::AxisymmetricLayeredWave::absorptance);
+    m.def(
+        "layered_axisymmetric_wave",
+        [](const physics::LayerStack<3>& stack, Real k0, Real theta, const py::object& pol,
+           int order, const std::string& side, Complex amplitude) {
+          physics::Polarisation polarisation = physics::Polarisation::kP;
+          if (py::isinstance<py::str>(pol)) {
+            const auto name = pol.cast<std::string>();
+            if (name == "s" || name == "S") {
+              polarisation = physics::Polarisation::kS;
+            } else if (name != "p" && name != "P") {
+              throw InvalidArgument("layered_axisymmetric_wave: pol must be 's' or 'p', not '" +
+                                    name + "'");
+            }
+          } else {
+            polarisation = pol.cast<physics::Polarisation>();
+          }
+          if (side != "top" && side != "bottom") {
+            throw InvalidArgument(
+                "layered_axisymmetric_wave: side must be 'top' or 'bottom', "
+                "not '" +
+                side + "'");
+          }
+          return physics::layered_axisymmetric_wave(
+              stack, k0, theta, polarisation, order,
+              side == "top" ? physics::StackSide::kTop : physics::StackSide::kBottom, amplitude);
+        },
+        py::arg("stack"), py::arg("k0"), py::arg("theta"), py::arg("pol"), py::arg("m"),
+        py::arg("side") = "top", py::arg("amplitude") = Complex{1.0, 0.0},
+        "Order m of the plane wave of LayerStack3D.plane_wave (ADR-0014): angle theta in [0, "
+        "pi/2) from the normal, in-plane wave vector along +x, pol 's' / 'p' (or Polarisation), "
+        "from side 'top' (incidence medium, towards -z) or 'bottom' (lossless substrate, towards "
+        "+z); returns AxisymmetricLayeredWave with value(x) = (E_r, v = -i r E_phi, E_z) and "
+        "curl(x) on the meridian point x = (r, z)");
     py::class_<physics::AxisymmetricOrders>(m, "AxisymmetricOrders",
                                             "Fields of several orders and their powers")
         .def_readonly("orders", &physics::AxisymmetricOrders::orders)

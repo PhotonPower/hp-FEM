@@ -84,6 +84,7 @@ hpfem_add_test(test_physics unit
   physics/test_axisymmetric_farfield.cpp
   physics/test_axisymmetric_orders.cpp
   physics/test_axisymmetric_adaptive.cpp
+  physics/test_axisymmetric_layered.cpp
   physics/test_waveguide_port.cpp
   physics/test_conical_scattering.cpp
   physics/test_conical_layered.cpp
