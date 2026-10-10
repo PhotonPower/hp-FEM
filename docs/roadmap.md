@@ -487,8 +487,10 @@ particles on substrates, nanoparticle-on-mirror, holes and grooves in films (neg
   change), channels up / down / lateral, `axisymmetric_disc_flux`, the quasi-static sphere above
   a substrate against the image dipole and the power balance of a hole in an absorbing film
   (written by the helper agent `opt-jobs`). Open: the 3D cross-checks, run together with S4
-- [ ] S3: reciprocity-based far field in both half-spaces, collection over a numerical aperture;
-  tests: homogeneous limit against the near-to-far transform, reciprocity with a dipole source
+- [x] S3: reciprocity-based far field in both half-spaces (`axisymmetric_layered_far_field`),
+  collection over a numerical aperture (`power_between`); tests: homogeneous limit against the
+  near-to-far transform, reciprocity with a dipole source above glass (amplitudes in both
+  half-spaces, power balance) (written by the helper agent `opt-jobs`)
 - [ ] S4: docs (theory/axisymmetric.md "Layered background"), python.md, example
   `examples/particle_on_substrate` (Au sphere on glass, dark field; NPoM gap mode; single nanohole
   in a gold film, transmission spectrum)

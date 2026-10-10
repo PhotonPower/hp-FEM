@@ -3,6 +3,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Far field of bodies of revolution on layer stacks (M18 S3, ADR-0014 §4, written by the helper
+  agent `opt-jobs`): `axisymmetric_layered_far_field` gives the pattern of every order in the cover
+  and in a lossless substrate by reciprocity with the stack's plane waves (no layered Green's
+  function), `AxisymmetricFarField.power_between` the power collected by an objective of numerical
+  aperture NA; checked against the near-to-far transform in the homogeneous limit (3e-12) and
+  against a dipole above glass, also beyond the critical angle, in amplitude (8e-4) and power
+  (2e-3).
 - Cross-section channels for bodies of revolution on layer stacks (M18 S2, ADR-0014 §4, written by
   the helper agent `opt-jobs`): `axisymmetric_absorbed_power` and
   `AxisymmetricScattering.absorbed_power` / `incident_absorbed_power` / `scatterer_cells`
