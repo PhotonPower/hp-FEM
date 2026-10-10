@@ -1,6 +1,6 @@
 # 0013 — Dipole emitters in periodic structures by array scanning of the conical cell problem
 
-**Status:** accepted
+**Status:** accepted; §3a amendment proposed (2026-10-10)
 **Date:** 2026-10-09
 
 ## Context
@@ -72,6 +72,67 @@ mirror-symmetric about x0 the kx integral runs over half the zone. Quadrature:
   Gaussian factor e^{−σ²β²} and the evanescent decay `exp(−2 d (β² − k²n²)^{1/2})` (d the distance
   of x0 to the nearest interface with a higher index) fall below the tolerance. The cut-off grows
   like 1/d and is reported in the cost estimate (§5).
+
+#### 3a. Amendment (2026-10-10, proposed): the kx integral on a complex contour
+
+On the real kx axis the integrand has integrable 1/k_y singularities at the light-line crossings.
+There the field consists of grazing orders, which a PML of finite thickness does not absorb, so
+the FEM integrand near every crossing is wrong by far more than the discretisation error.
+Measured, homogeneous cell, y dipole:
+
+- the β slice at 0.245 k: −0.64 % with the 80° PML of #156, −7 … −11 % before #156;
+- the full scan: F_P (y) = 0.979, and more nodes do not make it converge.
+
+**Decision.** The kx integral of the delivered power runs on a contour in the complex plane:
+
+- It leaves the real axis around every light-line crossing. Each crossing gets a bump
+  `kx = t − i δ w cos²(πu/2)`, with u = (t − c)/w, w half the distance to the neighbouring
+  crossings, and δ ≈ 0.5.
+- The bump passes below the crossings `c = −2πm/P + q` and above `c = −2πm/P − q`, where
+  q = (k²n² − β²)^{1/2} for the cover and for a lossless substrate. This is the side to which a
+  small loss moves the branch points for exp(−iωt).
+- Between the crossings the contour is the real axis, and the panels and the β quadrature of §3
+  stay as they are.
+- The integrand is pᴴ A(kx, β) p, with the power matrix
+  A_ij = −½ ∫ g₂ e^{−σ²β²/2} (E_j)_i dA. Neither the load nor A contains a conjugate, so A is
+  analytic in kx, and P_em is the real part of the contour integral.
+
+**This needs three things:**
+
+1. *An analytic Bloch elimination.* With the reduction Pᴴ A P, the test functions carry the phase
+   conj(λ), λ = e^{i kx P}, and conj(λ) is not analytic once |λ| ≠ 1.
+   - The fix: a separate test space Q with the phases 1/conj(λ) (`fespace::Constraints::set_test`).
+     The reduction becomes Qᴴ A P, and Qᴴ then holds 1/λ.
+   - On the unit circle Q = P, so real kx is unchanged.
+   - `ConicalScattering` builds Q when a phase lies off the unit circle. The kept factorisation
+     reduces with Qᴴ, and its adjoint expands with conj(Q).
+2. *One PML profile per β for all kx samples.* `grating.emit` designs the profile from the
+   direction of (Re kx, β), which makes the integrand depend on Re kx alone, so it is not
+   analytic. The scan uses one profile, designed for the 80° cap.
+3. *A complex Bloch phase in the cell problem.* `emit` takes complex kx. Its order
+   post-processing is for real kx only.
+
+**Scope.**
+
+- The contour gives the total delivered power and the Purcell factor.
+- The channel powers (flux per order, absorption) are quadratic in the field and not analytic.
+  They are not integrated on the contour. Instead:
+  - up and down come from the reciprocity pattern (§6), integrated over each half-space, where
+    the weight cos θ suppresses the grazing directions;
+  - the non-radiated part P_em − up − down is the absorbed power in a lossy structure and the
+    guided power in a lossless one (§4).
+- Real-axis order sums remain as a diagnostic.
+- Guided-mode poles on the real axis (§4) are unaffected: the contour returns to the real axis
+  between the crossings.
+
+**Verification** (homogeneous cell, y dipole, β = 0.245 k, p = 4, 6 nodes per panel):
+
+- Cauchy–Riemann at a real and at a complex kx: the defect falls like h² (3.5e-3, 3.9e-4, 3.5e-5
+  for h = 3e-2, 1e-2, 3e-3 π/P).
+- The slice integral against the closed form: −0.0750 % at δ = 0.5 and −0.0751 % at δ = 1.0.
+  The result does not depend on the path to 5e-7. The −0.075 % is the discretisation error.
+- With the Pᴴ elimination the same detour gave +9.9 % and +19.4 %, which was the failure that
+  led to this amendment.
 
 ### 4. Guided-mode poles: subtraction with the modes from the bands
 
