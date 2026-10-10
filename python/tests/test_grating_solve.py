@@ -111,7 +111,21 @@ def test_scalar_ez_path_matches_the_block_solve():
     assert abs(scalar.R - full.R) < 1e-9 and abs(scalar.T - full.T) < 1e-9
     for a, b in zip(scalar.R_orders, full.R_orders, strict=True):
         assert np.allclose(a.amplitude, b.amplitude, atol=1e-9)
-    assert scalar.timing["solver.factorisation"] <= full.timing["solver.factorisation"]
+    # the scalar path factorises the H1 block alone (5-10 times faster here); on a shared machine a
+    # single timing can still flip, so compare the best of up to three solves of each path (#149)
+    key = "solver.factorisation"
+
+    def factorisation(path):
+        return grating.solve(mesh, {SUB: glass, RIDGE_TAG: glass}, stack, "s", 40 * units.deg, 0.0,
+                             OMEGA, scalar=path, **common).timing[key]  # fmt: skip
+
+    t_scalar, t_full = scalar.timing[key], full.timing[key]
+    for _ in range(2):
+        if t_scalar <= t_full:
+            break
+        t_scalar = min(t_scalar, factorisation(True))
+        t_full = min(t_full, factorisation(False))
+    assert t_scalar <= t_full
     # p polarisation and conical incidence stay on the block path; forcing raises
     p = grating.solve(mesh, {SUB: glass, RIDGE_TAG: glass}, stack, "p", 40 * units.deg, 0.0,
                       OMEGA, **common)  # fmt: skip
