@@ -438,8 +438,63 @@ effort in focused sessions.
   multi-fidelity BO with the DWR indicator against single-fidelity BO (needs BoTorch), and a
   rerun of H and I after the PML fix #156 (the studies are self-consistent: data and model
   share the PML)
-- [ ] S9 (P3, ≈ 3) GUI and job schema: tasks `optimize`, `reconstruct`, `uq`; study view in
-  `hpfem-gui` (history, Pareto front, Sobol' bars)
+- [x] S9a (P3) job schema version 2 with the tasks `optimize`, `reconstruct` and `uq`
+  (`hpfem.run`, study store next to the results, version-1 documents unchanged; written by the
+  helper agent `opt-jobs`)
+- [ ] S9b (P3) study view in `hpfem-gui` (history, Pareto front, Sobol' bars, posteriors)
+
+## M17 — Dipole emitters in periodic structures (ADR-0013)
+Proposal of 9 October 2026 from the GUI work, reviewed the same day; physics, conventions, stages,
+tests and the GUI interface in [`dipole-emitters-features.md`](dipole-emitters-features.md) (IDs
+S0–S4 as there). A single point dipole in a 1D-periodic structure by array scanning over the
+Bloch wavenumber kx and the out-of-plane wavenumber β of the conical solver: Purcell factor,
+radiated power into cover and substrate per direction, guided and absorbed power. Order A
+(phased array) → C (reciprocity) → B (array scanning, the hard part).
+- [x] S0: ADR-0013 (accepted, `docs/adr/0013-dipole-emitters-in-periodic-structures.md`): the
+  M11 Gaussian dipole by array scanning over kx and β (z-smearing as a factor per β sample,
+  β and kx symmetries), the delivered power as the volume integral of J*·E, guided-mode poles
+  subtracted with β_g(kx) by Newton on the bands and the group velocity of M16 S4 (complex β
+  deferred), cost model with the three orientations as right-hand sides of one factorisation
+- [x] S1: `conical_gaussian_dipole`, `conical_source_power`, `grating.emit` (Bloch-periodic
+  emitter array: delivered power as the volume integral of J*·E (ADR-0013), orders up / down
+  with power, PML-boundary fluxes, absorbed, guided remainder); tests: homogeneous cell
+  against the closed form of a phased dipole array (including β = 0, the line-source case),
+  energy balance on a lossy ridge; the cross-check with `Scattering<2>` line sources moves
+  to S3
+- [x] S2: `grating.emission_pattern` by reciprocity (angle-resolved emission: one solve per
+  direction and polarisation, cover and substrate, normalised to P_bulk; checked against the
+  homogeneous and the Fresnel closed forms and against Stage A; written by `opt-jobs`)
+- [ ] S3: `grating.dipole_emission` (array scanning, guided-mode poles, parallel samples on
+  ConicalSweep, cost estimate before the run); tests: mirror, planar multilayer (Sommerfeld),
+  period independence, plasmonic film, reciprocity against S2
+- [ ] S4: job-runner task `emitter` (schema 2), events, cost estimate; docs (maxwell.md "Dipole
+  emitters in periodic structures", python.md), example `examples/grating_emitter` (quantum dot
+  on a dielectric grating, LED extraction)
+
+## M18 — Layered background for the axisymmetric solver (ADR-0014)
+Proposal of 10 October 2026 from the GUI work, reviewed the same day; channels, tests and the GUI
+interface in [`axisymmetric-layered-features.md`](axisymmetric-layered-features.md) (IDs S0–S4 as
+there). ADR-0009 (layered background) carried over to the body-of-revolution solver of ADR-0010:
+particles on substrates, nanoparticle-on-mirror, holes and grooves in films (negative deviations).
+- [x] S0: ADR-0014 (accepted, `docs/adr/0014-axisymmetric-layered-background.md`): background
+  stack in `AxisymmetricScatteringSetup`, analytic order-m expansion of the stack field with real
+  k_ρ and complex k_z (numerical φ-transform as the test reference), substrate-side incidence by
+  the reversed stack, new axisymmetric absorbed power, cross-section channels in layered media
+- [ ] S1: `AxisymmetricScatteringSetup::background`, contrast against the stack,
+  `layered_axisymmetric_wave` (field and curl, all layers, evanescent / lossy k_z; generalised
+  Jacobi–Anger expansion of the partial waves), substrate-side incidence; tests: bare stack
+  (E_sca = 0, R / T by flux), homogeneous-stack limit, reversed stack and total internal reflection
+- [ ] S2: axisymmetric absorbed power (new; orders orthogonal in φ) and its variant with the
+  stack field (absorption of the body, absorption change around holes), scattered power split into
+  up / down / lateral, `axisymmetric_disc_flux` (aperture transmission); tests: quasi-static sphere
+  on a substrate, power balance of a hole in an Au film; 3D cross-checks with `Scattering<3>` +
+  `LayerStack<3>` (sphere on a stack, the hole) as long local runs (`validation-long`) with stored
+  regression records
+- [ ] S3: reciprocity-based far field in both half-spaces, collection over a numerical aperture;
+  tests: homogeneous limit against the near-to-far transform, reciprocity with a dipole source
+- [ ] S4: docs (theory/axisymmetric.md "Layered background"), python.md, example
+  `examples/particle_on_substrate` (Au sphere on glass, dark field; NPoM gap mode; single nanohole
+  in a gold film, transmission spectrum)
 
 ## Backlog / ideas
 - [ ] the full ring resonator with ports in 3D (M12 stage B): needs an hp-mesh that is fine
