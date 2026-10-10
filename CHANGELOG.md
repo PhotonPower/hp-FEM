@@ -3,6 +3,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Example `examples/particle_on_substrate` (M18 S4, written by the helper agent `opt-jobs`): bodies
+  of revolution on layer stacks — a gold sphere on glass in dark field (absorption, scattering up /
+  down / along the interface, collection by an NA 0.5 objective), a nanoparticle on a gold mirror
+  (gap mode far to the red of the free sphere) and a nanohole in a gold film (T / T_geom,
+  absorption change), each with the power balance of the total field; quick configuration as
+  regression test.
 - Far field of bodies of revolution on layer stacks (M18 S3, ADR-0014 §4, written by the helper
   agent `opt-jobs`): `axisymmetric_layered_far_field` gives the pattern of every order in the cover
   and in a lossless substrate by reciprocity with the stack's plane waves (no layered Green's
