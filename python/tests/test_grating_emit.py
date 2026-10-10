@@ -178,8 +178,9 @@ def test_measurement_lines_clear_the_dipole_and_the_pml_leak_is_reported():
     with pytest.raises(grating.GratingError, match="cover_line"):
         grating.emit(mesh, materials, stack, dipole, omega, 0.0, 0.2 * k0, cover_line=280 * nm,
                      pml={"top": pml, "bottom": pml}, **common)  # fmt: skip
-    # evanescent orders reaching a thin PML exchange power with it: flux != order power (here
-    # the flux is 0.9 % low; it converges to the order power as the PML moves away)
+    # evanescent orders reaching a thin PML exchange power with it: flux != order power (with the
+    # PML designed for the largest order angle, #156, 0.24 % at 296 nm of PML; it converges to the
+    # order power as the PML moves away)
     dipole = {"position": (0.0, 160 * nm), "moment": (1.0, 0.3, 0.2j), "sigma": 8 * nm}
     leaks = {}
     for rows in (12, 30):
@@ -189,5 +190,5 @@ def test_measurement_lines_clear_the_dipole_and_the_pml_leak_is_reported():
         assert abs(r.pml_leak - (r.flux_up - r.up + r.flux_down - r.down)) < 1e-12 * r.P_cell
         assert r.guided == pytest.approx(r.P_cell - r.up - r.down - r.absorbed, rel=1e-12)
         leaks[rows] = (r.pml_leak / r.P_cell, r.warnings)
-    assert abs(leaks[12][0]) > 3e-3 and leaks[12][1]  # 296 nm of PML: about 0.9 %
+    assert abs(leaks[12][0]) > 1.5e-3 and leaks[12][1]  # 296 nm of PML: 0.24 %, warned
     assert abs(leaks[30][0]) < 1e-3 and not leaks[30][1]  # 740 nm: below 1e-3
