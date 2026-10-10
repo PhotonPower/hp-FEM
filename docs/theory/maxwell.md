@@ -1437,6 +1437,21 @@ directions the PML limits the accuracy: at 67° a PML of 1 µm (in a medium of i
 1 µm) still reflects 0.8 % back onto the source, 0.5 µm 1.7 %; the PML thickness, not the mesh,
 has to grow there.
 
+**Measurement lines and the PML near an anomaly.** The order powers measure the radiated far
+field only if the lines see outgoing waves alone: `emit` places the default lines at least
+$6\sigma$ beyond the dipole's Gaussian and refuses a given line that cuts it (a cover line through
+the Gaussian had made the $m = 0$ power 8 % wrong and mesh-dependent). Near a Rayleigh anomaly an
+order is barely evanescent ($\kappa = (k_m^2 + \beta^2 - k^2)^{1/2}$ small, e.g. 1/280 nm for a
+400 nm period at 405 nm and $\beta = 0.2k_0$) and its near field reaches the PML; the PML then
+exchanges power with the source through that order (an evanescent pair carries power), which
+shifts the Poynting flux through the PML boundary and $P_{cell}$ by up to about 1 % for a PML
+300 nm away, while the order powers do not change and are the converged radiation. `emit` takes
+the guided remainder from the order powers ($P_{cell}$ − up − down − absorbed, ADR-0013 §2) and
+reports the difference of fluxes and order powers as `pml_leak`, with a warning above
+$10^{-3}P_{cell}$ (move the PML away from the source); in the flat glass case of the test it is
+0.9 % with 296 nm of PML and below $10^{-3}$ with 740 nm. Both findings came from the helper
+agent that wrote Stage C.
+
 **Stage C, angle-resolved emission by reciprocity** (`hpfem.grating.emission_pattern`, M17
 S2, ADR-0013 §6). Lorentz reciprocity between the emitter and a distant dipole $p_2 \parallel
 \hat e$ in the direction $\hat r$ (medium of index $n$) gives the far-field amplitude of the

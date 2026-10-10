@@ -1427,11 +1427,16 @@ class EmissionOrder:
 class EmissionResult:
     """Result of :func:`emit` (one cell problem of the array scanning, ADR-0013): the power
     ``P_cell`` delivered by the source per period [W/m per unit β], the radiated orders
-    ``orders_up`` / ``orders_down`` with their powers and sums ``up`` / ``down``, the Poynting
-    fluxes ``flux_up`` / ``flux_down`` through the PML boundaries (``None`` when they are not
-    on mesh lines), the ``absorbed`` power and ``A_by_tag``, the ``guided`` remainder
-    ``P_cell - flux_up - flux_down - absorbed`` (the order sums where no flux is available),
-    ``kx``, ``beta``, ``omega`` and the problem, solution, mesh and measurement lines."""
+    ``orders_up`` / ``orders_down`` with their powers and sums ``up`` / ``down`` (the radiated
+    far-field power; without a transmitted side ``down`` is the flux into the substrate PML),
+    the Poynting fluxes ``flux_up`` / ``flux_down`` through the PML boundaries (``None`` when
+    they are not on mesh lines), the ``absorbed`` power and ``A_by_tag``, the ``guided``
+    remainder ``P_cell - up - down - absorbed`` (ADR-0013 §2), ``pml_leak`` = fluxes − order
+    powers: power exchanged with the PML through evanescent orders whose near field reaches it
+    (either sign; an artefact of a PML too close to the source, largest near a Rayleigh anomaly,
+    which perturbs ``P_cell`` as well — the order powers are the converged radiation),
+    ``warnings``, ``kx``, ``beta``, ``omega`` and the problem, solution,
+    mesh and measurement lines."""
 
     P_cell: float
     orders_up: list[EmissionOrder]
@@ -1453,6 +1458,8 @@ class EmissionResult:
     cover_line: float
     substrate_line: float | None
     dofs: int
+    pml_leak: float | None = None
+    warnings: list[str] = field(default_factory=list)
     timing: dict[str, float] = field(default_factory=dict)
     _locator: object = None
 
@@ -1536,12 +1543,29 @@ def emit(
         raise GratingError("dipole: position (x0, y0), moment (px, py, pz) and sigma > 0 needed")
     # PML and measurement geometry of solve() for the equivalent direction of (kx, beta)
     s = min(math.hypot(kx, beta) / (k0 * n_cover.real), math.sin(80 * units.deg))
-    pr = _prepare(
-        mesh, materials, stack, "s", math.asin(s), math.atan2(beta, kx), omega, pml=pml,
-        bottom=bottom, orders_max=orders_max, snap_tolerance=snap_tolerance,
-        pml_target=pml_target, pml_wavelengths=pml_wavelengths, cover_line=cover_line,
-        substrate_line=substrate_line,
-    )  # fmt: skip
+
+    def prepare(cover, substrate):
+        return _prepare(
+            mesh, materials, stack, "s", math.asin(s), math.atan2(beta, kx), omega, pml=pml,
+            bottom=bottom, orders_max=orders_max, snap_tolerance=snap_tolerance,
+            pml_target=pml_target, pml_wavelengths=pml_wavelengths, cover_line=cover,
+            substrate_line=substrate,
+        )  # fmt: skip
+
+    pr = prepare(cover_line, substrate_line)
+    # the measurement lines must see only outgoing waves: 6 sigma beyond the Gaussian
+    reach_top, reach_bottom = float(position[1]) + 6 * sigma, float(position[1]) - 6 * sigma
+    new_cover, new_substrate = cover_line, substrate_line
+    if pr.cover_line <= reach_top:
+        if cover_line is not None:
+            raise GratingError("cover_line cuts the dipole's Gaussian: put it 6 sigma above y0")
+        new_cover = 0.5 * (reach_top + pr.y_max - pr.t_top)
+    if pr.transmitted and pr.substrate_line >= reach_bottom:
+        if substrate_line is not None:
+            raise GratingError("substrate_line cuts the dipole's Gaussian: put it 6 sigma below y0")
+        new_substrate = 0.5 * (reach_bottom + pr.y_min + pr.t_bottom)
+    if (new_cover, new_substrate) != (cover_line, substrate_line):
+        pr = prepare(new_cover, new_substrate)
     material_map = pr.material_map
     if not isinstance(materials, hpfem.MaterialMap):
         for c in range(mesh.num_cells):
@@ -1624,8 +1648,18 @@ def emit(
     except (hpfem.InvalidArgument, ValueError, RuntimeError):
         flux_up = flux_down = None
     absorbed = hpfem.absorbed_power_by_tag(problem, solution)
-    leaving = (flux_up + flux_down) if flux_up is not None else (up + down)
-    guided = p_cell - leaving - float(absorbed.total)
+    if not pr.transmitted and flux_down is not None:
+        down = flux_down  # no orders below (lossy substrate or PEC): the flux into the bottom
+    guided = p_cell - up - down - float(absorbed.total)
+    pml_leak = None
+    warnings_out: list[str] = []
+    if flux_up is not None:
+        pml_leak = (flux_up - up) + ((flux_down - down) if pr.transmitted else 0.0)
+        if abs(pml_leak) > 1e-3 * abs(p_cell):
+            warnings_out.append(
+                f"{pml_leak / p_cell:+.2%} of the delivered power is exchanged with the PML "
+                "through evanescent orders: move the PML further from the source (or thicken it)"
+            )
     timing["postprocess"] = time.perf_counter() - t2
     timing["total"] = time.perf_counter() - t0
     return EmissionResult(
@@ -1635,7 +1669,8 @@ def emit(
         kx=float(kx), beta=float(beta), omega=float(omega), problem=problem, solution=solution,
         mesh=mesh, pml=pr.box, cover_line=pr.cover_line,
         substrate_line=pr.substrate_line if pr.transmitted else None,
-        dofs=int(nd.num_dofs + h1.num_dofs), timing=timing, _locator=locator,
+        dofs=int(nd.num_dofs + h1.num_dofs), pml_leak=pml_leak, warnings=warnings_out,
+        timing=timing, _locator=locator,
     )  # fmt: skip
 
 

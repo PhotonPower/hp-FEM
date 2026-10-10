@@ -53,7 +53,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `physics::conical_source_power` (-½ Re ∫ conj(J)·E) and `hpfem.grating.emit` (one cell
   problem: delivered power, radiated power per Floquet order up and down, PML-boundary fluxes,
   absorption by tag, guided remainder); checked against the closed form of a phased dipole
-  array in a homogeneous cell and by the energy balance on a lossy ridge.
+  array in a homogeneous cell and by the energy balance on a lossy ridge. The measurement lines
+  keep 6σ from the dipole; the guided remainder uses the order powers, and `pml_leak` reports
+  the power a too-near PML exchanges through barely evanescent orders (with a warning).
 - Milestone M16 (optimisation, calibration and uncertainty quantification) in the roadmap,
   with the specification `docs/optimisation-uq-features.md` (S0–S9).
 - ADR-0012 (M16 S0): scope of `hpfem.opt` (NumPy/SciPy required; BoTorch, emcee, SALib as
