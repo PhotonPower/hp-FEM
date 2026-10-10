@@ -10,6 +10,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   miss it within 40; the conical DWR estimate predicts the order error with the right sign
   (effectivity 0.7–1.0), and choosing p by |η| ≤ 0.1 σ keeps the reconstruction bias at 0.1
   standard deviations, while adding η² to the noise leaves the p = 2 bias (0.6 std) in place.
+- Layered background for the axisymmetric solver (M18 S1, ADR-0014, written by the helper agent
+  `opt-jobs`): `AxisymmetricScatteringSetup.background` takes a `LayerStack3D` normal to the axis
+  and forms the scattered-field source against the stack at each cell, so particles, holes and
+  grooves in substrates and films are bounded scatterers; `layered_axisymmetric_wave` gives the
+  order-m component of the stack's plane wave (value and curl, analytic per layer, from the top or
+  from a lossless substrate including total internal reflection), verified against the azimuthal
+  Fourier transform of the 3D stack field to 1e-12.
 - ADR-0014 (M18 S0): layered background for the axisymmetric solver — the stack as background of
   `AxisymmetricScatteringSetup`, the analytic order-m expansion of the stack field, substrate-side
   incidence by the reversed stack, the axisymmetric absorbed power and the cross-section channels.
