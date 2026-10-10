@@ -1,6 +1,7 @@
 """hpfem.grating.solve (M15 F2): the glass lamellar grating of the conical validation test
 against the conical RCWA references of docs/gui-support-features.md, the lossy silver case
-with the PEC bottom, snapping of interfaces, and the error messages."""
+with the PEC bottom, snapping of interfaces, the PML designed for the largest angle, and
+the error messages."""
 
 import numpy as np
 import pytest
@@ -80,6 +81,20 @@ def test_glass_grating_matches_the_conical_rcwa(pol, theta_deg, phi_deg, r_ref, 
     assert values.shape == (2, 3)
     assert all(o.amplitude.shape == (3,) for o in result.R_orders)
     assert result.substrate_line is not None and result.substrate_line < 0 < result.cover_line
+
+
+def test_pml_profile_is_designed_for_the_largest_angle():
+    """The PML profile covers the incidence angle (the binding takes degrees; until 2026-10-10
+    the angle went in as radians, a normal-incidence profile for every angle)."""
+    mesh, pml = unit_cell()
+    glass = hpfem.Material.dielectric(1.5)
+    stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)
+    materials = {SUB: glass, RIDGE_TAG: glass}
+    result = grating.solve(mesh, materials, stack, "s", 40 * units.deg, 0.0, OMEGA, order=2,
+                           pml={"top": pml, "bottom": pml}, orders_max=2)  # fmt: skip
+    normal = hpfem.PmlProfile.for_angle(0.0, 1e-6).reflection
+    at_incidence = hpfem.PmlProfile.for_angle(40.0, 1e-6).reflection
+    assert result.pml.profile.reflection <= at_incidence * (1 + 1e-12) < normal
 
 
 def test_scalar_ez_path_matches_the_block_solve():

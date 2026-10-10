@@ -3,6 +3,30 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- ADR-0014 (M18 S0): layered background for the axisymmetric solver — the stack as background of
+  `AxisymmetricScatteringSetup`, the analytic order-m expansion of the stack field, substrate-side
+  incidence by the reversed stack, the axisymmetric absorbed power and the cross-section channels.
+- Emission pattern by reciprocity (M17 S2, Stage C, ADR-0013 §6, written by the helper agent
+  `opt-jobs`): `hpfem.grating.emission_pattern` gives the far-field power per unit solid angle of
+  a single Gaussian dipole in given directions and polarisations, into the cover and (on the
+  problem mirrored at y = 0) into a lossless substrate, from one `grating.solve` per direction
+  with the plane wave incident from it: dP/dΩ = n k0² Z0 |p·⟨E⟩|²/(32π²), the field averaged
+  over the dipole's Gaussian; `EmissionPattern` with `dP_dOmega` (optionally / `P_bulk`),
+  `total`, `P_bulk`. Verified against the closed-form dipole pattern and P_bulk in a homogeneous
+  cell (1e-6), the plane-wave Fresnel far field of a dipole above glass (1e-6) and the m = 0
+  order of `grating.emit` on a glass ridge (2e-5).
+- Milestone M18 (layered background for the axisymmetric solver: particles on substrates,
+  nanoparticle-on-mirror, holes and grooves in films) in the roadmap, with the reviewed
+  specification `docs/axisymmetric-layered-features.md` (S0–S4).
+- Job schema version 2 (M16 S9, ADR-0012 §7, written by the helper agent `opt-jobs`): `hpfem.run`
+  reads versions 1 and 2; version-1 documents run unchanged. The study tasks `"optimize"`
+  (`minimize` / `bayesian_optimize`), `"reconstruct"` (`fit` with the Laplace uncertainties,
+  measured or synthetic data, optional emcee posterior) and `"uq"` (linear propagation or global
+  surrogate with Monte Carlo and Sobol' indices) evaluate the efficiencies of the cell under
+  `"configurations"` as functions of `"parameters"` (trapezoid CD / height / side-wall angle,
+  shape fields, permittivities; job units) through a `GratingEvaluator` on the morphed reference
+  mesh, with the study store `<name>.study.jsonl` next to `results.json` (a rerun replays it),
+  `evaluation` / `remesh` / `cancelled` events and cancellation.
 - Milestone M17 (dipole emitters in periodic structures: Purcell factor, emission into orders
   and guided modes by array scanning over kx and β) in the roadmap, with the reviewed
   specification `docs/dipole-emitters-features.md` (S0–S4).
@@ -131,6 +155,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   side-wall angle tolerances of a silicon grating propagated to its reflectance spectrum.
 
 ### Fixed
+- The PML of `hpfem.grating` (`solve`, `validate`, `resonances`, and on the M17 branches `emit`
+  and `emission_pattern`) was designed for a normal-incidence profile at every angle: the largest
+  propagating-order angle went into `PmlProfile.for_angle` in radians, but the binding takes
+  degrees (since M15 F2). The profile now covers that angle (capped at 80°). Grazing orders
+  close to a Rayleigh anomaly had leaked back from the PML. For the dipole array scanning of
+  M17 this meant 11 % error on one β slice; with the fix it is 0.6 %. The test
+  `test_pml_profile_is_designed_for_the_largest_angle` guards it.
 - Shape derivatives of grating efficiencies along a mesh velocity that deforms the cells at a
   measurement line lying on mesh facets (the default midway line of structured cells): the
   order amplitude sampled on facets is not differentiable there (the normal Nédélec

@@ -327,7 +327,8 @@ def _prepare(
         float(theta),
     )
     theta_max = min(theta_max, 80 * units.deg)
-    profile = hpfem.PmlProfile.for_angle(theta_max, pml_target, 1.0, 2)
+    # the binding takes degrees
+    profile = hpfem.PmlProfile.for_angle(theta_max / units.deg, pml_target, 1.0, 2)
     if isinstance(pml, hpfem.PmlBox2D):
         box = pml
         t_top = y_max - box.upper[1]
@@ -1638,12 +1639,203 @@ def emit(
     )  # fmt: skip
 
 
+# --- M17 Stage C: emission pattern by reciprocity (ADR-0013 §6) ----------------------------------
+
+
+@dataclass
+class EmissionPattern:
+    """Result of :func:`emission_pattern`: the emitted power per unit solid angle
+    ``dP_dOmega`` (num_directions, num_pol) [W/sr], divided by ``P_bulk`` when ``normalized``,
+    for the ``directions`` ``(theta, phi, side)`` and polarisations ``pol``; ``P_bulk`` the
+    power of the same Gaussian dipole in the homogeneous host medium [W]; ``amplitude``
+    (num_directions, num_pol) the reciprocity amplitude p · ⟨E_pw⟩ (complex) and ``n`` the index
+    of the medium of every direction."""
+
+    directions: list[tuple[float, float, str]]
+    pol: tuple[str, ...]
+    dP_dOmega: np.ndarray
+    P_bulk: float
+    normalized: bool
+    amplitude: np.ndarray
+    n: np.ndarray
+    timing: dict[str, float] = field(default_factory=dict)
+
+    @property
+    def total(self) -> np.ndarray:
+        """dP/dΩ summed over the polarisations, per direction."""
+        return self.dP_dOmega.sum(axis=1)
+
+
+def _mirrored_cell(mesh):
+    """The mesh mirrored at y = 0 (y → −y), cells reoriented, sides tagged by position."""
+    if mesh.geometry_order != 1:
+        raise GratingError("emission_pattern: directions into the substrate need a straight mesh")
+    vertices = np.asarray(mesh.vertices, dtype=float) * np.array([1.0, -1.0])
+    cells = np.asarray(mesh.cells, dtype=int)[:, [0, 2, 1]]  # the reflection flips the order
+    out = hpfem.Mesh2D([tuple(v) for v in vertices], [tuple(c) for c in cells],
+                       [int(t) for t in mesh.cell_tags])  # fmt: skip
+    x_min, x_max = vertices[:, 0].min(), vertices[:, 0].max()
+    y_min, y_max = vertices[:, 1].min(), vertices[:, 1].max()
+    tol = 1e-9 * (x_max - x_min)
+    for f in out.boundary_facets:
+        a, b = (out.vertex(int(v)) for v in out.facet_vertices(f))
+        mx, my = 0.5 * (a[0] + b[0]), 0.5 * (a[1] + b[1])
+        if abs(mx - x_min) < tol:
+            out.set_facet_tag(f, hpfem.box_tag.X_MIN)
+        elif abs(mx - x_max) < tol:
+            out.set_facet_tag(f, hpfem.box_tag.X_MAX)
+        elif abs(my - y_min) < tol:
+            out.set_facet_tag(f, hpfem.box_tag.Y_MIN)
+        elif abs(my - y_max) < tol:
+            out.set_facet_tag(f, hpfem.box_tag.Y_MAX)
+    return out
+
+
+def _mirrored_stack(stack):
+    """The layer stack mirrored at y = 0: the substrate becomes the incidence medium."""
+    n_layers = int(stack.num_layers)
+    layers = [
+        hpfem.Layer(stack.material(n_layers - i),
+                    float(stack.interface(n_layers - i - 1) - stack.interface(n_layers - i)))
+        for i in range(n_layers)
+    ]  # fmt: skip
+    return hpfem.LayerStack2D(stack.substrate, layers, stack.incidence_medium, -float(stack.bottom))
+
+
+def _gauss_hermite_points(position, sigma: float, points: int):
+    """Tensor Gauss–Hermite nodes and weights of the in-plane Gaussian g2 around ``position``."""
+    xi, w = np.polynomial.hermite.hermgauss(int(points))
+    gx, gy = np.meshgrid(xi, xi, indexing="ij")
+    wx, wy = np.meshgrid(w, w, indexing="ij")
+    nodes = np.column_stack([gx.ravel(), gy.ravel()]) * (np.sqrt(2.0) * sigma) + position
+    return nodes, (wx * wy).ravel() / np.pi
+
+
+def emission_pattern(
+    mesh,
+    materials,
+    stack,
+    dipole,
+    omega: float,
+    directions,
+    pol=("s", "p"),
+    *,
+    normalized: bool = False,
+    quadrature_points: int = 6,
+    order=4,
+    pml=None,
+    **solve_kwargs,
+) -> EmissionPattern:
+    """Angle-resolved far-field emission of a single Gaussian dipole by reciprocity (M17
+    Stage C, ADR-0013 §6): the power per unit solid angle radiated into the direction
+    ``(theta, phi, side)`` with polarisation ``pol``.
+
+    ``side`` ``"up"``: the direction r̂ = (sinθ cosφ, cosθ, sinθ sinφ) into the cover (x along
+    the period, y the stack normal, z along the lines; the direction of the specular order of
+    a wave incident at (θ, φ)); ``"down"``: r̂ = (sinθ cosφ, −cosθ, sinθ sinφ) into a lossless
+    substrate. Lorentz reciprocity with a distant dipole in that direction gives
+
+    .. math:: \\frac{dP}{d\\Omega} = \\frac{n k_0^2 Z_0}{32\\pi^2}
+              \\left|p\\cdot\\langle E_{pw}\\rangle\\right|^2 ,
+
+    with the index n of the medium of the direction and the total field E_pw of the unit
+    plane wave incident from r̂ (travelling along −r̂, polarisation s or p of that plane of
+    incidence: :func:`solve` at (θ, φ + π); directions into the substrate on the problem
+    mirrored at y = 0), averaged over the dipole's Gaussian: the in-plane g2 by a
+    ``quadrature_points``² Gauss–Hermite rule on the solved field, the z-smearing as the factor
+    exp(−σ²β²/2) of the direction's β. For a homogeneous medium the sum over s and p is
+    n k0² Z0 |p⊥|² e^{−(n k0 σ)²}/(32π²), whose integral over the sphere is
+    ``P_bulk = dipole_vacuum_power(|p|) · n · e^{−(n k0 σ)²}``. One solve per direction and
+    polarisation, no singularities; it gives the radiated part only (not the guided or the
+    absorbed power, not the total Purcell factor).
+
+    ``dipole``: ``position`` (x0, y0), ``moment`` (p_x, p_y, p_z) [A m], ``sigma`` [m], as
+    :func:`emit`. ``mesh``, ``materials``, ``stack``, ``order``, ``pml`` (``None`` or a
+    ``{"top", "bottom"}`` dict for directions into the substrate) and ``solve_kwargs`` as
+    :func:`solve`. ``normalized`` divides by ``P_bulk``. Returns an :class:`EmissionPattern`.
+    Raises ``GratingError`` for a lossy medium of a direction, an invalid dipole or a curved
+    mesh with directions into the substrate."""
+    t0 = time.perf_counter()
+    k0 = float(units.vacuum_wavenumber(omega))
+    position = np.asarray(dipole["position"], dtype=float)
+    moment = np.asarray(dipole["moment"], dtype=complex)
+    sigma = float(dipole["sigma"])
+    if position.shape != (2,) or moment.shape != (3,) or not sigma > 0:
+        raise GratingError("dipole: position (x0, y0), moment (px, py, pz) and sigma > 0 needed")
+    pol = tuple(str(p) for p in pol)
+    directions = [(float(t), float(f), str(s)) for t, f, s in directions]
+    for theta, _phi, side in directions:
+        if side not in ("up", "down"):
+            raise GratingError(f"emission_pattern: side {side!r}, use 'up' or 'down'")
+        if not 0.0 <= theta < 0.5 * np.pi:
+            raise GratingError("emission_pattern: theta must lie in [0, pi/2)")
+    # the host medium of the dipole (for P_bulk)
+    material_map = _material_map(materials, stack, float(omega))
+    locator = hpfem.PointLocator2D(mesh)
+    located = locator.locate([float(position[0]), float(position[1])])
+    if located is None:
+        raise GratingError("dipole: the position lies outside the mesh")
+    tag = int(mesh.cell_tag(int(located.cell)))
+    host = material_map.at(tag) if material_map.has(tag) else stack.material_at(list(position))
+    n_host = complex(host.refractive_index)
+    if abs(n_host.imag) > 1e-12:
+        raise GratingError("dipole: the emitter must lie in a lossless medium (ADR-0013)")
+    p_norm = float(np.linalg.norm(moment))
+    p_bulk = (
+        float(hpfem.dipole_vacuum_power(p_norm, float(omega)))
+        * n_host.real
+        * math.exp(-((n_host.real * k0 * sigma) ** 2))
+    )
+    # the problems: as given for "up", mirrored at y = 0 for "down"
+    frames = {"up": (mesh, stack, pml, position, moment)}
+    if any(side == "down" for _t, _f, side in directions):
+        if solve_kwargs.get("bottom", "pml") != "pml":
+            raise GratingError("emission_pattern: directions into the substrate need bottom='pml'")
+        if pml is not None and not isinstance(pml, Mapping):
+            raise GratingError("emission_pattern: give the PML as None or {'top', 'bottom'}")
+        mirrored_pml = None if pml is None else {"top": pml.get("bottom", 0.0),
+                                                 "bottom": pml.get("top", 0.0)}  # fmt: skip
+        frames["down"] = (_mirrored_cell(mesh), _mirrored_stack(stack), mirrored_pml,
+                          position * np.array([1.0, -1.0]),
+                          moment * np.array([1.0, -1.0, 1.0]))  # fmt: skip
+    z0 = hpfem.constants.Z0
+    amplitude = np.zeros((len(directions), len(pol)), dtype=complex)
+    n_dir = np.zeros(len(directions))
+    nodes_cache = {}
+    for i, (theta, phi, side) in enumerate(directions):
+        cell_mesh, cell_stack, cell_pml, x0, p = frames[side]
+        n_medium = complex(cell_stack.incidence_medium.refractive_index)
+        if abs(n_medium.imag) > 1e-12:
+            raise GratingError(f"emission_pattern: the medium of the {side} directions is lossy")
+        n_dir[i] = n_medium.real
+        if side not in nodes_cache:
+            nodes_cache[side] = _gauss_hermite_points(x0, sigma, quadrature_points)
+        nodes, weights = nodes_cache[side]
+        for j, polarisation in enumerate(pol):
+            result = solve(cell_mesh, materials, cell_stack, polarisation, theta, phi + np.pi,
+                           omega, order, pml=cell_pml, **solve_kwargs)  # fmt: skip
+            values = np.asarray(result.field(nodes, quantity="E"), dtype=complex)
+            if not np.all(np.isfinite(values)):
+                raise GratingError("emission_pattern: the dipole's Gaussian leaves the mesh")
+            mean = weights @ values  # the in-plane Gaussian average of (E_x, E_y, E_z)
+            smear = math.exp(-0.5 * (sigma * float(result.wave.beta)) ** 2)
+            amplitude[i, j] = smear * complex(p @ mean)
+    scale = n_dir[:, None] * k0**2 * z0 / (32 * np.pi**2)
+    d_p = scale * np.abs(amplitude) ** 2
+    if normalized:
+        d_p = d_p / p_bulk
+    return EmissionPattern(directions, pol, d_p, p_bulk, bool(normalized), amplitude, n_dir,
+                           {"total": time.perf_counter() - t0})  # fmt: skip
+
+
 __all__ = [
     "EmissionOrder",
+    "EmissionPattern",
     "EmissionResult",
     "GratingError",
     "GratingResult",
     "Order",
+    "emission_pattern",
     "emit",
     "solve",
     "validate",
