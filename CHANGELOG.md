@@ -3,6 +3,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Cross-section channels for bodies of revolution on layer stacks (M18 S2, ADR-0014 §4, written by
+  the helper agent `opt-jobs`): `axisymmetric_absorbed_power` and
+  `AxisymmetricScattering.absorbed_power` / `incident_absorbed_power` / `scatterer_cells`
+  (absorption of the body, absorption change around holes), `axisymmetric_flux_channels`
+  (scattered power up / down / along the layers), `axisymmetric_disc_flux` (aperture transmission
+  with the stack's own part) and the flux of the total field; a small sphere above glass
+  reproduces the image-dipole absorption to 2e-3.
 - Layered background for the axisymmetric solver (M18 S1, ADR-0014, written by the helper agent
   `opt-jobs`): `AxisymmetricScatteringSetup.background` takes a `LayerStack3D` normal to the axis
   and forms the scattered-field source against the stack at each cell, so particles, holes and

@@ -478,12 +478,15 @@ particles on substrates, nanoparticle-on-mirror, holes and grooves in films (neg
   centroid, checks (interfaces on mesh lines, no deviation in the PML), `layered_axisymmetric_wave`
   (top / bottom, s / p, value and curl) with the φ-transform reference, reciprocity / TIR and the
   homogeneous limit; Python bindings (written by the helper agent `opt-jobs`)
-- [ ] S2: axisymmetric absorbed power (new; orders orthogonal in φ) and its variant with the
+- [ ] S2 (ongoing): axisymmetric absorbed power (new; orders orthogonal in φ) and its variant with the
   stack field (absorption of the body, absorption change around holes), scattered power split into
   up / down / lateral, `axisymmetric_disc_flux` (aperture transmission); tests: quasi-static sphere
   on a substrate, power balance of a hole in an Au film; 3D cross-checks with `Scattering<3>` +
   `LayerStack<3>` (sphere on a stack, the hole) as long local runs (`validation-long`) with stored
-  regression records
+  regression records. Done: axisymmetric absorbed power with the stack-field variant (body absorption, absorption
+  change), channels up / down / lateral, `axisymmetric_disc_flux`, the quasi-static sphere above
+  a substrate against the image dipole and the power balance of a hole in an absorbing film
+  (written by the helper agent `opt-jobs`). Open: the 3D cross-checks, run together with S4
 - [ ] S3: reciprocity-based far field in both half-spaces, collection over a numerical aperture;
   tests: homogeneous limit against the near-to-far transform, reciprocity with a dipole source
 - [ ] S4: docs (theory/axisymmetric.md "Layered background"), python.md, example
