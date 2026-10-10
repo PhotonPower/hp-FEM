@@ -22,6 +22,7 @@
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/mesh.hpp"
+#include "hpfem/physics/layer_stack.hpp"
 #include "hpfem/physics/postprocess.hpp"
 #include "hpfem/pml/pml.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
@@ -225,7 +226,9 @@ struct AxisymmetricError {
 /// Description of an axisymmetric scattering problem (scattered-field formulation): the
 /// incident field is a solution in the background medium, the source
 /// @f$ k_0^2(\varepsilon_r - \varepsilon_{bg})E^{inc} @f$ lives in the cells whose material
-/// differs from the background, the PML absorbs the scattered field.
+/// differs from the background, the PML absorbs the scattered field. The background is one
+/// material (`materials.background()`) or a planar layer stack normal to the axis
+/// (`background`, ADR-0014).
 struct AxisymmetricScatteringSetup {
   Real omega = 0;                     ///< angular frequency [rad/s]
   materials::MaterialMap materials;   ///< by cell tag; the background for unlisted tags
@@ -233,6 +236,14 @@ struct AxisymmetricScatteringSetup {
   mesh::Tag axis_tag = mesh::kNoTag;  ///< facets on the axis r = 0 (required)
   int azimuthal_order = 1;            ///< m of the incident component
   std::optional<pml::PmlBox<2>> pml;  ///< absorbing layers (r-max, z-min, z-max)
+  /// Layered background (ADR-0014): planar layers normal to the axis, the z of the stack is the
+  /// y of the meridian mesh. The incident field is then the stack's plane wave of order m
+  /// (`layered_axisymmetric_wave`), the source @f$ k_0^2(\varepsilon_c -
+  /// \varepsilon_{stack}(z_c))E^{inc} @f$ lives only where the material of a cell deviates
+  /// from the stack at its centroid (particles and holes alike), and no cell of the PML may
+  /// deviate (the deviation must be bounded). Interfaces must lie on mesh lines; the materials
+  /// of the layer cells are given by tag in `materials` as usual.
+  std::optional<LayerStack<3>> background;
   /// m-th component of the incident field (scattered-field formulation) ...
   AxisymmetricField incident;
   /// ... or the volume source f = iωμ0 J of order m (total-field formulation,
@@ -258,11 +269,17 @@ struct AxisymmetricScatteredField {
 class AxisymmetricScattering {
  public:
   /// @throws InvalidArgument for ω ≤ 0, neither or both of incident field and current, a
-  ///         missing axis tag, mismatched maps, or a PML with a layer on the axis side.
+  ///         missing axis tag, mismatched maps, a PML with a layer on the axis side, a cell
+  ///         straddling an interface of the layered background, or (with an incident field) a
+  ///         PML cell whose material deviates from the layered background.
   AxisymmetricScattering(const fespace::NedelecDofMap<2>& meridian,
                          const fespace::DofMap<2>& azimuthal, AxisymmetricScatteringSetup setup);
   [[nodiscard]] const AxisymmetricScatteringSetup& setup() const noexcept { return setup_; }
   [[nodiscard]] Real wavenumber() const noexcept { return k0_; }
+  /// Background material of a cell: the layer of `setup.background` at the cell centroid,
+  /// otherwise `materials.background()`. The scattered-field source is proportional to
+  /// `material(c) − background_material(c)`.
+  [[nodiscard]] const materials::Material& background_material(Index cell) const;
   /// Per-cell form: material tensors (stretched inside the PML) and the contrast source.
   [[nodiscard]] assembly::AxisymmetricForm form_of_cell(Index cell) const;
   /// @throws Error if the factorisation fails.
@@ -282,6 +299,9 @@ class AxisymmetricScattering {
  private:
   const fespace::NedelecDofMap<2>* meridian_;
   const fespace::DofMap<2>* azimuthal_;
+  /// The checks of a layered background (interfaces on mesh lines, no deviation in the PML).
+  void check_background() const;
+
   AxisymmetricScatteringSetup setup_;
   AxisymmetricDofSets sets_;
   Real k0_ = 0;
@@ -343,6 +363,46 @@ enum class PlanePolarisation { kS, kP };
 /// converges once |m| exceeds @f$ k_\perp @f$ times the radius of the scatterer.
 [[nodiscard]] AxisymmetricField oblique_plane_wave(Complex amplitude, Real k, Real theta_i,
                                                    PlanePolarisation polarisation, int m);
+
+/// Side of a layer stack from which a plane wave comes.
+enum class StackSide {
+  kTop,     ///< from the incidence medium, travelling towards −z
+  kBottom,  ///< from the substrate (lossless), travelling towards +z
+};
+
+/// Order m of the plane wave on a layer stack, see `layered_axisymmetric_wave`.
+struct AxisymmetricLayeredWave {
+  AxisymmetricField value;  ///< @f$ (E_r,\ v = -i r E_\varphi,\ E_z) @f$ of order m
+  /// Cylindrical curl @f$ ((\nabla\times E)_r, (\nabla\times E)_\varphi, (\nabla\times E)_z) @f$
+  /// of order m (the convention of `axisymmetric_error`), @f$ = i\omega\mu_0 H @f$.
+  AxisymmetricField curl;
+  Real reflectance = 0;    ///< R of the bare stack for this side
+  Real transmittance = 0;  ///< T of the bare stack for this side
+  Real absorptance = 0;    ///< 1 − R − T
+};
+
+/// Order m of the plane wave of `LayerStack<3>::plane_wave` (ADR-0014 §2–3): the wave of
+/// amplitude |E| = `amplitude` [V/m] at the angle θ ∈ [0, π/2) [rad] from the normal, in-plane
+/// wave vector along +x, coming from the incidence medium (`kTop`, travelling towards −z) or
+/// from the substrate (`kBottom`, travelling towards +z; the substrate must be lossless), with
+/// the background field of the stack in every layer. In layer j the field is an up and a down
+/// partial wave with the common real in-plane wavenumber @f$ k_\rho = k_0 n_{inc}\sin\theta @f$
+/// and the vertical wavenumbers @f$ \pm k_{z,j} @f$ (complex in lossy layers and beyond the
+/// critical angle); each is expanded by Jacobi–Anger as in `oblique_plane_wave` with its complex
+/// polarisation vector, @f$ a_n = i^n J_n(k_\rho r) @f$. `kBottom` is the wave from above on the
+/// reversed stack (incidence medium the substrate, layers reversed) mirrored z → −z:
+/// @f$ (E_r, v, E_z)(r, z) \mapsto (E_r, v, -E_z)(r, -z) @f$, curl
+/// @f$ (C_r, C_\varphi, C_z) \mapsto (-C_r, -C_\varphi, C_z) @f$. At θ = 0 only m = ±1 are
+/// nonzero. Polarisation as `oblique_plane_wave` on both sides: s has E along y, p has H along +y
+/// (on the bottom side the sign of the mirrored p wave is flipped accordingly), so a homogeneous
+/// stack gives `oblique_plane_wave` at θ_i = π − θ (top) and θ_i = θ (bottom). Cost per point: a
+/// few Bessel functions of one argument.
+/// @throws InvalidArgument for k0 ≤ 0, θ outside [0, π/2), grazing propagation in a layer
+///         (`LayerStack::plane_wave`) or `kBottom` on a lossy substrate.
+[[nodiscard]] AxisymmetricLayeredWave layered_axisymmetric_wave(const LayerStack<3>& stack, Real k0,
+                                                                Real theta, Polarisation pol, int m,
+                                                                StackSide side = StackSide::kTop,
+                                                                Complex amplitude = 1.0);
 
 /// Fields of several orders and their powers through a common surface.
 struct AxisymmetricOrders {

@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
+#include <memory>
 #include <numeric>
 #include <vector>
 
@@ -417,17 +419,77 @@ AxisymmetricScattering::AxisymmetricScattering(const fespace::NedelecDofMap<2>& 
         "thickness must be 0)");
   }
   k0_ = setup_.omega / constants::c0;
+  if (setup_.background) check_background();
   sets_ = axisymmetric_dof_sets(meridian, azimuthal, setup_.pec_tags, setup_.axis_tag,
                                 setup_.azimuthal_order);
-  log().info("AxisymmetricScattering: m = {}, k0 = {:.6g}, {} free of {} block DoFs, PML {}",
-             setup_.azimuthal_order, k0_, sets_.free.size(),
-             meridian.num_dofs() + azimuthal.num_dofs(), setup_.pml ? "yes" : "no");
+  log().info(
+      "AxisymmetricScattering: m = {}, k0 = {:.6g}, {} free of {} block DoFs, PML {}, background "
+      "{}",
+      setup_.azimuthal_order, k0_, sets_.free.size(), meridian.num_dofs() + azimuthal.num_dofs(),
+      setup_.pml ? "yes" : "no",
+      setup_.background ? fmt::format("{} layers", setup_.background->num_layers()) : "uniform");
+}
+
+void AxisymmetricScattering::check_background() const {
+  const auto& mesh = meridian_->mesh();
+  const LayerStack<3>& stack = *setup_.background;
+  Real z_min = std::numeric_limits<Real>::infinity();
+  Real z_max = -std::numeric_limits<Real>::infinity();
+  for (Index v = 0; v < mesh.num_vertices(); ++v) {
+    z_min = std::min(z_min, mesh.vertex(v)(1));
+    z_max = std::max(z_max, mesh.vertex(v)(1));
+  }
+  // relative to the mesh extent along the axis (mesh lines sit on the interfaces only up to
+  // rounding), as Scattering<Dim>
+  const Real tolerance = 1e-9 * std::max(std::abs(stack.top() - stack.bottom()), z_max - z_min);
+  const auto differs = [](const materials::Material& a, const materials::Material& b) {
+    const auto close = [](Complex x, Complex y) {
+      return std::abs(x - y) <= 1e-12 * std::max(1.0, std::abs(y));
+    };
+    return !close(a.eps_r, b.eps_r) || !close(a.mu_r, b.mu_r);
+  };
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    const Point<2> centroid = mesh::affine_map(mesh, c).centroid();
+    const int region = stack.region(centroid(1));
+    const Real above =
+        region == 0 ? std::numeric_limits<Real>::infinity() : stack.interface(region - 1);
+    const Real below = region == stack.num_layers() + 1 ? -std::numeric_limits<Real>::infinity()
+                                                        : stack.interface(region);
+    for (const Index v : mesh.cell_vertices(c)) {
+      const Real z = mesh.vertex(v)(1);
+      if (z > above + tolerance || z < below - tolerance) {
+        throw InvalidArgument(fmt::format(
+            "AxisymmetricScattering: cell {} straddles an interface of the layered background "
+            "(vertex z = {} outside the region [{}, {}] of its centroid); put the interfaces on "
+            "mesh lines",
+            c, z, below, above));
+      }
+    }
+    if (setup_.incident && setup_.pml && setup_.pml->in_layer(centroid)) {
+      const auto& material = setup_.materials.of_cell(mesh, c);
+      const auto& layer = stack.material(region);
+      if (differs(material, layer)) {
+        throw InvalidArgument(fmt::format(
+            "AxisymmetricScattering: cell {} (tag {}) in the PML deviates from the layered "
+            "background (eps_r {} + {}i against {} + {}i of stack region {}); the body must stay "
+            "out of the PML and the layer cells must carry the stack's materials",
+            c, mesh.cell_tag(c), std::real(material.eps_r), std::imag(material.eps_r),
+            std::real(layer.eps_r), std::imag(layer.eps_r), region));
+      }
+    }
+  }
+}
+
+const materials::Material& AxisymmetricScattering::background_material(Index cell) const {
+  if (!setup_.background) return setup_.materials.background();
+  const Point<2> centroid = mesh::affine_map(meridian_->mesh(), cell).centroid();
+  return setup_.background->material(setup_.background->region(centroid(1)));
 }
 
 assembly::AxisymmetricForm AxisymmetricScattering::form_of_cell(Index cell) const {
   const auto& mesh = meridian_->mesh();
   const auto& material = setup_.materials.of_cell(mesh, cell);
-  const auto& background = setup_.materials.background();
+  const auto& background = background_material(cell);
   assembly::AxisymmetricForm form;
   if (setup_.pml && setup_.pml->in_layer(mesh::affine_map(mesh, cell).centroid())) {
     const int p = meridian_->cell_order(cell);
@@ -677,6 +739,146 @@ AxisymmetricField oblique_plane_wave(Complex amplitude, Real k, Real theta_i,
     const Complex e_z = phase * p_z * a(m, rho);
     return Eigen::Matrix<Complex, 3, 1>(e_r, -kI * rho * e_phi, e_z);
   };
+}
+
+namespace {
+
+/// i^n J_n(x) for x ≥ 0 (J_{−n} = (−1)^n J_n).
+Complex jacobi_anger(int n, Real x) {
+  static const Complex powers[4] = {{1.0, 0.0}, {0.0, 1.0}, {-1.0, 0.0}, {0.0, -1.0}};
+  const int order = std::abs(n);
+  Real j = std::cyl_bessel_j(static_cast<Real>(order), x);
+  if (n < 0 && order % 2 == 1) j = -j;
+  return powers[((n % 4) + 4) % 4] * j;
+}
+
+using Vector3c = Eigen::Matrix<Complex, 3, 1>;
+
+/// Non-conjugating cross product (Eigen's conjugates for complex scalars).
+Vector3c cross(const Vector3c& a, const Vector3c& b) {
+  return Vector3c(a(1) * b(2) - a(2) * b(1), a(2) * b(0) - a(0) * b(2), a(0) * b(1) - a(1) * b(0));
+}
+
+/// The stack of a wave from the substrate side: incidence medium the substrate, layers in
+/// reverse order, substrate the incidence medium, mirrored z → −z.
+LayerStack<3> reversed_stack(const LayerStack<3>& stack) {
+  if (std::imag(stack.substrate().eps_r) != 0) {
+    throw InvalidArgument(
+        "layered_axisymmetric_wave: incidence from the bottom needs a lossless substrate");
+  }
+  std::vector<Layer> layers;
+  for (int i = stack.num_layers(); i >= 1; --i) {
+    layers.push_back(Layer{stack.material(i), stack.interface(i - 1) - stack.interface(i)});
+  }
+  return LayerStack<3>(stack.substrate(), std::move(layers), stack.incidence_medium(),
+                       -stack.bottom());
+}
+
+/// Order m of the stack's plane wave in the frame of the (possibly reversed) stack.
+struct LayeredOrder {
+  LayeredOrder(LayerStack<3> frame, bool mirror) : stack(std::move(frame)), mirrored(mirror) {}
+
+  LayerStack<3> stack;
+  bool mirrored = false;
+  int m = 0;
+  Real k_rho = 0;
+  Real omega = 0;
+  Polarisation pol = Polarisation::kP;
+  std::vector<Complex> eps, kz, down, up;
+  Complex scale;
+
+  /// Order-m cylindrical components (P_ρ, P_φ, P_z) of the Cartesian vector P e^{i k_ρ x} at ρ.
+  [[nodiscard]] Vector3c cylindrical(const Vector3c& p, Real rho) const {
+    const Complex a_minus = jacobi_anger(m - 1, k_rho * rho);
+    const Complex a_plus = jacobi_anger(m + 1, k_rho * rho);
+    const Complex sum = 0.5 * (a_minus + a_plus);
+    const Complex diff = (a_minus - a_plus) / (2.0 * kI);
+    return Vector3c(p(0) * sum + p(1) * diff, -p(0) * diff + p(1) * sum,
+                    p(2) * jacobi_anger(m, k_rho * rho));
+  }
+
+  /// (E_r, v, E_z) and the cylindrical curl at the meridian point x of the original frame.
+  void evaluate(const Point<2>& x, Vector3c* value, Vector3c* curl) const {
+    const Real rho = x(0);
+    const Real z = mirrored ? -x(1) : x(1);
+    const int j = stack.region(z);
+    const auto idx = static_cast<std::size_t>(j);
+    const int n = stack.num_layers();
+    const Real z_top = j == 0 ? stack.top() : stack.interface(j - 1);
+    const Real z_bottom = j == n + 1 ? stack.bottom() : (j == 0 ? stack.top() : stack.interface(j));
+    const Complex u_down = scale * down[idx] * std::exp(-kI * kz[idx] * (z - z_top));
+    const Complex u_up = scale * up[idx] * std::exp(kI * kz[idx] * (z - z_bottom));
+    Vector3c e = Vector3c::Zero();
+    Vector3c h = Vector3c::Zero();
+    const Vector3c s_hat(0.0, 1.0, 0.0);  // perpendicular to the plane of incidence (azimuth 0)
+    for (const auto& [u, sign] : {std::pair{u_down, -1.0}, std::pair{u_up, 1.0}}) {
+      if (u == Complex{0.0, 0.0}) continue;
+      const Vector3c k(k_rho, 0.0, sign * kz[idx]);
+      Vector3c e_wave;
+      Vector3c h_wave;
+      if (pol == Polarisation::kS) {
+        e_wave = u * s_hat;                                    // E = u ŝ
+        h_wave = cross(k, e_wave) / (omega * constants::mu0);  // H = k × E / (ω μ0)
+      } else {
+        h_wave = u * s_hat;                                                 // H = u ŝ
+        e_wave = -cross(k, h_wave) / (omega * constants::eps0 * eps[idx]);  // E = −k × H/(ω ε0 ε)
+      }
+      e += cylindrical(e_wave, rho);
+      h += cylindrical(h_wave, rho);
+    }
+    const Real flip = mirrored ? -1.0 : 1.0;
+    if (value) *value = Vector3c(e(0), -kI * rho * e(1), flip * e(2));
+    if (curl) {
+      const Complex factor = kI * omega * constants::mu0;  // curl E = i ω μ0 H
+      *curl = Vector3c(flip * factor * h(0), flip * factor * h(1), factor * h(2));
+    }
+  }
+};
+
+}  // namespace
+
+AxisymmetricLayeredWave layered_axisymmetric_wave(const LayerStack<3>& stack, Real k0, Real theta,
+                                                  Polarisation pol, int m, StackSide side,
+                                                  Complex amplitude) {
+  if (!(theta >= 0 && theta < constants::pi / 2)) {
+    throw InvalidArgument(fmt::format(
+        "layered_axisymmetric_wave: theta = {} must lie in [0, pi/2) (the in-plane wave vector "
+        "is along +x; other azimuths are a phase e^(i m phi0) of every order)",
+        theta));
+  }
+  auto data = std::make_shared<LayeredOrder>(
+      side == StackSide::kTop ? stack : reversed_stack(stack), side == StackSide::kBottom);
+  const LayeredPlaneWave<3> wave = data->stack.plane_wave(k0, theta, pol);
+  const Real n0 = std::real(data->stack.incidence_medium().refractive_index());
+  data->m = m;
+  data->k_rho = k0 * n0 * std::sin(theta);
+  data->omega = k0 * constants::c0;
+  data->pol = pol;
+  for (int j = 0; j <= data->stack.num_layers() + 1; ++j) {
+    data->eps.push_back(data->stack.material(j).eps_r);
+  }
+  data->kz = wave.kz;
+  data->down = wave.down;
+  data->up = wave.up;
+  // u amplitude of |E| = amplitude: s |E| = |u|; p |E| = |H| Z0 / n0 (LayerStack::plane_wave)
+  data->scale = pol == Polarisation::kS ? amplitude : amplitude * n0 / constants::Z0;
+  // p: H along +y on both sides (the convention of oblique_plane_wave); the mirror flips it
+  if (side == StackSide::kBottom && pol == Polarisation::kP) data->scale = -data->scale;
+  AxisymmetricLayeredWave out;
+  out.value = [data](const Point<2>& x) {
+    Vector3c e;
+    data->evaluate(x, &e, nullptr);
+    return e;
+  };
+  out.curl = [data](const Point<2>& x) {
+    Vector3c c;
+    data->evaluate(x, nullptr, &c);
+    return c;
+  };
+  out.reflectance = wave.reflectance;
+  out.transmittance = wave.transmittance;
+  out.absorptance = wave.absorptance;
+  return out;
 }
 
 Real AxisymmetricOrders::total_power() const {

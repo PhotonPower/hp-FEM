@@ -306,6 +306,76 @@ superposed orders carrying the total power to $10^{-2}$, and the cross-section c
 exponentially in $p$ (both polarisations, relative errors $3\cdot10^{-1}$, $8\cdot10^{-3}$,
 $1.5\cdot10^{-3}$, $8\cdot10^{-5}$ for $p = 1, \dots, 4$ with seven to nine orders).
 
+## Layered background (`layered_axisymmetric_wave`, ADR-0014)
+
+A body of revolution on a substrate or in a stack of planar layers normal to the axis is a
+scattering problem on a layered background, as for the 2D / 3D solvers
+([layered background](maxwell.md#layered-background-physicslayer_stackhpp-adr-0009), ADR-0009). With
+`AxisymmetricScatteringSetup::background` (a `LayerStack<3>` whose $z$ is the $y$ of the meridian
+mesh) the scattered-field source is formed against the stack at the cell centroid,
+
+$$
+f = k_0^2\,\bigl(\varepsilon_c - \varepsilon_{stack}(z_c)\bigr)\,E^{inc}_m ,
+$$
+
+so it lives only where the body deviates from the stack. The sign does not matter: an air hole
+or a groove in a layer is a source like a particle. The bare stack has no source and scatters
+nothing for every order. The PML stretches each cell's own material, so the layers continue
+into the radial PML; the constructor rejects a cell that straddles an interface (interfaces must
+lie on mesh lines) and, with an incident field, a PML cell whose material deviates from the
+stack (the deviation must be radially bounded, otherwise the "scattered" field would contain the
+non-decaying reflected and transmitted waves of an infinite layer).
+
+**The incident orders.** The stack's plane wave (`LayerStack<3>::plane_wave`, in-plane wave
+vector along $+x$) is in layer $j$ the sum of a downward and an upward partial wave with the
+common real in-plane wavenumber $k_\rho = k_0 n_{inc}\sin\theta$ (phase matching) and the vertical
+wavenumbers $\mp k_{z,j}$, $k_{z,j} = \sqrt{k_0^2\varepsilon_j - k_\rho^2}$ with
+$\mathrm{Im}\,k_{z,j} \ge 0$ (complex in lossy layers and beyond the critical angle). With the
+scalar amplitude $u$ of the recursion ($E_s$ for s, $H$ for p) the vectors of a partial wave
+with $k = (k_\rho, 0, \pm k_{z,j})$ are
+
+$$
+\text{s:}\ E = u\,\hat y,\ H = \frac{k\times E}{\omega\mu_0};\qquad
+\text{p:}\ H = u\,\hat y,\ E = -\frac{k\times H}{\omega\varepsilon_0\varepsilon_j},
+$$
+
+complex for complex $k_{z,j}$. Because $k_\rho$ is real, each partial wave expands by the
+Jacobi–Anger formulas of [oblique incidence](#oblique-incidence-oblique_plane_wave-scatter_orders)
+with its complex Cartesian vector $P$ in place of $E_0\hat p$:
+$P_{\rho,m} = \tfrac{P_x}{2}(a_{m-1}+a_{m+1}) + \tfrac{P_y}{2i}(a_{m-1}-a_{m+1})$,
+$P_{\varphi,m} = -\tfrac{P_x}{2i}(a_{m-1}-a_{m+1}) + \tfrac{P_y}{2}(a_{m-1}+a_{m+1})$,
+$P_{z,m} = P_z a_m$, $a_n = i^n J_n(k_\rho r)$, times the vertical exponential of the partial wave.
+`layered_axisymmetric_wave(stack, k0, theta, pol, m, side)` returns the sum in the scaled
+components $(E_r, v = -irE_\varphi, E_z)$ and the cylindrical curl $i\omega\mu_0 H_m$ (the
+convention of `axisymmetric_error`), with the reflectance, transmittance and absorptance of
+the bare stack. A homogeneous stack gives `oblique_plane_wave` at $\theta_i = \pi - \theta$.
+
+**Incidence from the substrate side.** A wave from below is the wave from above on the reversed
+stack (incidence medium the substrate, which must be lossless; layers in reverse order; substrate
+the incidence medium; top at $-z_{bottom}$) mirrored $z \to -z$. The mirror maps
+$(E_r, v, E_z)(r, z) \mapsto (E_r, v, -E_z)(r, -z)$ and, the curl being a pseudovector,
+$(C_r, C_\varphi, C_z) \mapsto (-C_r, -C_\varphi, C_z)$. The mirror would turn $H = u\hat y$ of
+p polarisation into $-u\hat y$; the sign is flipped back so that p has $H$ along $+\hat y$ on
+both sides (a homogeneous stack gives `oblique_plane_wave` at $\theta_i = \theta$). Beyond the
+critical angle of the substrate the wave is totally reflected and evanescent in the cover:
+illumination of particles on a prism.
+
+**Verification** (`tests/unit/physics/test_axisymmetric_layered.cpp`,
+`python/tests/test_axisymmetric_layered.py`): the orders agree with the numerical Fourier
+transform over $\varphi$ of the 3D field of `LayerStack<3>::plane_wave` on rings (air, glass, a
+lossy metal layer and the substrate; $m = -3 \dots 5$; s and p; normal, oblique and, from the
+substrate side, beyond the critical angle) to $10^{-12}$ in value and curl; a homogeneous stack
+reproduces `oblique_plane_wave` from both sides; the reversed lossless stack has the same R and T
+(reciprocity), R = 1 beyond the critical angle with the field in the cover decaying as
+$e^{-\kappa z}$; the flux of the summed orders through discs above and below the stack is
+$(1 - R)$ and $T$ times the incident power through the disc (both sides, lossy layer included),
+which checks value, curl and normalisation together. On the mesh, the bare stack gives a
+scattered field of exactly zero for several orders, an air hole in a layer is a source, the
+checks reject a deviation in the PML and an interface off the mesh lines, and a vacuum stack
+reproduces the uniform solver coefficient by coefficient and the Mie cross-section of the
+sphere. Post-processing per channel (absorbed power, scattered power above, below and along the
+layers, aperture transmission) and the far field per half-space follow in M18 S2 and S3.
+
 ## hp-adaptivity on the meridian plane (`adaptivity/axisymmetric_estimator.hpp`)
 
 The adaptive loop of [hp-adaptivity.md](hp-adaptivity.md) runs unchanged on the meridian
