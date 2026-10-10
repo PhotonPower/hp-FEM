@@ -469,9 +469,10 @@ Proposal of 10 October 2026 from the GUI work, reviewed the same day; channels, 
 interface in [`axisymmetric-layered-features.md`](axisymmetric-layered-features.md) (IDs S0–S4 as
 there). ADR-0009 (layered background) carried over to the body-of-revolution solver of ADR-0010:
 particles on substrates, nanoparticle-on-mirror, holes and grooves in films (negative deviations).
-- [ ] S0: ADR-0014 (background stack in `AxisymmetricScatteringSetup`, order-m expansion of the
-  stack field with real k_ρ and complex k_z, substrate-side incidence by the reversed stack,
-  cross-section channels in layered media)
+- [x] S0: ADR-0014 (accepted, `docs/adr/0014-axisymmetric-layered-background.md`): background
+  stack in `AxisymmetricScatteringSetup`, analytic order-m expansion of the stack field with real
+  k_ρ and complex k_z (numerical φ-transform as the test reference), substrate-side incidence by
+  the reversed stack, new axisymmetric absorbed power, cross-section channels in layered media
 - [ ] S1: `AxisymmetricScatteringSetup::background`, contrast against the stack,
   `layered_axisymmetric_wave` (field and curl, all layers, evanescent / lossy k_z; generalised
   Jacobi–Anger expansion of the partial waves), substrate-side incidence; tests: bare stack

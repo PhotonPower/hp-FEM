@@ -3,6 +3,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- ADR-0014 (M18 S0): layered background for the axisymmetric solver — the stack as background of
+  `AxisymmetricScatteringSetup`, the analytic order-m expansion of the stack field, substrate-side
+  incidence by the reversed stack, the axisymmetric absorbed power and the cross-section channels.
 - Milestone M18 (layered background for the axisymmetric solver: particles on substrates,
   nanoparticle-on-mirror, holes and grooves in films) in the roadmap, with the reviewed
   specification `docs/axisymmetric-layered-features.md` (S0–S4).
