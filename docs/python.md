@@ -221,6 +221,27 @@ is importable. `hpfem.meshing.structured_unit_cell(cell, nx, rows)` meshes a `Un
 without Gmsh (columns over the period, rows of cells stacked from the bottom, tags by
 priority), which the runner uses for `"mesh": {"structured": ...}`.
 
+**Study tasks (schema version 2, M16 S9).** A document with `"version": 2` may also have
+`"task": "optimize"`, `"reconstruct"` or `"uq"` (version-1 documents run unchanged and still
+report version 1). Its `"parameters"` are geometry parameters of the model's shapes
+(`{"name", "shape", "trapezoid": "cd" | "height" | "angle"}` or `{"name", "shape", "field":
+"width"}`) and permittivities (`{"name", "material": tag, "part": "re" | "im"}`), each with
+`"bounds"`; `"configurations"` list the measured efficiencies (`wavelength`, `theta_deg`,
+`phi_deg`, `polarisation`, `orders`); `"morph"` sets the band of fixed nodes, the quality
+threshold and remeshing of a structured mesh. Values are in job units (lengths times `unit`,
+angles in degrees). The runner builds an `hpfem.opt.GratingEvaluator` on the morphed reference
+mesh and drives a study whose store `<name>.study.jsonl` lies next to `results.json`, so
+running the job again replays the evaluations and continues. `"optimize"` takes `objective`,
+`maximize`, `method` (`"L-BFGS-B"`, `"Nelder-Mead"`, `"differential-evolution"`,
+`"bayesian"`), `max_evaluations`, `x0`; `"reconstruct"` takes `measured` (or `synthetic`
+`{"params", "noise", "seed"}`), `sigma`, `x0` and optionally `posterior` (emcee, extra
+`opt-mcmc`); `"uq"` takes `inputs` (`{"normal": [mean, std]}` / `{"uniform": [lo, hi]}`),
+`propagation` (`"linear"` or `"surrogate"` with `points`, `active`, `samples`) and `sobol`.
+Events: `evaluation` per evaluation (also in `results["points"]`), `remesh`, `cancelled`,
+`done`; the results hold the task's block with the parameters in job units. The full schema is
+in the module docstring; `python/tests/test_run_study.py` runs all three tasks, the replay,
+cancellation and the version-1 compatibility.
+
 ## Diagnostics (`hpfem.diagnostics`)
 
 `hpfem.grating.validate(...)` (the arguments of `solve`) and
@@ -610,6 +631,21 @@ Monte Carlo and Sobol' indices against the closed form; on a nonlinear model Mon
 the surrogate against Monte Carlo on the function (1–2 %) and the linearised std as the
 small-tolerance limit. `examples/fabrication_tolerance` propagates CD, height and side-wall
 angle tolerances of the silicon grating to its reflectance spectrum.
+
+**Dipole emitters in the cell (M17 S1).** `grating.emit(mesh, materials, stack, dipole,
+omega, kx=0, beta=0, order=4, pml=..., bottom="pml", orders_max=3, ...)` solves one cell problem
+of a dipole array — one Gaussian dipole per period with the phase `exp(i kx P)` from cell to cell
+and `exp(i beta z)` along the lines, the cell problem of the array scanning of a single dipole
+(ADR-0013). `dipole = {"position": (x0, y0), "moment": (px, py, pz), "sigma": s}` (SI, current
+moment [A m], solver frame: x along the period, y the stack normal, z along the lines); the
+Gaussian must lie 6σ inside the cell and outside the PML, in a lossless medium. Geometry, PML and
+measurement lines are those of `grating.solve`; cells whose tag is not in `materials` take the
+stack material at their centroid. The `EmissionResult` holds `P_cell` (the delivered power,
+`-½ Re ∫ conj(J)·E`, [W/m per unit β]), `orders_up` / `orders_down` (`EmissionOrder` with the
+radiated `power` per order), `up`, `down`, the PML-boundary fluxes `flux_up` / `flux_down`,
+`absorbed` and `A_by_tag`, the `guided` remainder and `field(points)`. The building blocks are
+`hpfem.conical_gaussian_dipole` and `hpfem.conical_source_power` (docs/theory/maxwell.md "Dipole
+emitters").
 
 **Scalar E_z path.** For the s polarisation at `phi = 0` (`scalar="auto"`, the default)
 `grating.solve` lets `ConicalScattering` factorise only the H1 block (`setup.scalar_ez`), about

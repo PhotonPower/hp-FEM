@@ -3,6 +3,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Job schema version 2 (M16 S9, ADR-0012 §7, written by the helper agent `opt-jobs`): `hpfem.run`
+  reads versions 1 and 2; version-1 documents run unchanged. The study tasks `"optimize"`
+  (`minimize` / `bayesian_optimize`), `"reconstruct"` (`fit` with the Laplace uncertainties,
+  measured or synthetic data, optional emcee posterior) and `"uq"` (linear propagation or global
+  surrogate with Monte Carlo and Sobol' indices) evaluate the efficiencies of the cell under
+  `"configurations"` as functions of `"parameters"` (trapezoid CD / height / side-wall angle,
+  shape fields, permittivities; job units) through a `GratingEvaluator` on the morphed reference
+  mesh, with the study store `<name>.study.jsonl` next to `results.json` (a rerun replays it),
+  `evaluation` / `remesh` / `cancelled` events and cancellation.
 - Milestone M17 (dipole emitters in periodic structures: Purcell factor, emission into orders
   and guided modes by array scanning over kx and β) in the roadmap, with the reviewed
   specification `docs/dipole-emitters-features.md` (S0–S4).
@@ -10,6 +19,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   scanning of the conical cell problem over kx and β (z-smearing as a factor per β sample),
   the delivered power of a sample as the volume integral of J*·E, guided-mode poles subtracted
   with β_g(kx) from the bands, cost model.
+- Phased dipole arrays in periodic structures (M17 S1): `physics::conical_gaussian_dipole` (the
+  cell source of the M11 Gaussian dipole with the z-smearing as exp(-σ²β²/2)),
+  `physics::conical_source_power` (-½ Re ∫ conj(J)·E) and `hpfem.grating.emit` (one cell
+  problem: delivered power, radiated power per Floquet order up and down, PML-boundary fluxes,
+  absorption by tag, guided remainder); checked against the closed form of a phased dipole
+  array in a homogeneous cell and by the energy balance on a lossy ridge.
 - Milestone M16 (optimisation, calibration and uncertainty quantification) in the roadmap,
   with the specification `docs/optimisation-uq-features.md` (S0–S9).
 - ADR-0012 (M16 S0): scope of `hpfem.opt` (NumPy/SciPy required; BoTorch, emcee, SALib as

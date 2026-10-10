@@ -52,6 +52,49 @@ phases of a solve. The eigen tasks emit ``mode`` (``i``, ``m``, ``omega`` as [re
 ``wavelength``, ``Q``, ``residual``) per mode and ``point`` (``i``, ``n``, ``kx``,
 ``kx_over_g``, ``beta``, ``modes``, ``dofs``, ``seconds``, ``timing``) per Bloch wavenumber;
 the results hold them under ``"points"`` as well.
+
+**Schema version 2** (M16 S9, ADR-0012 §7) adds the study tasks ``"optimize"``,
+``"reconstruct"`` and ``"uq"`` (version-1 documents run unchanged; results and
+``version_info`` report the document's version). They evaluate the efficiencies of the cell
+under ``"configurations"`` as functions of ``"parameters"``
+(:class:`hpfem.opt.GratingEvaluator` on a morphed reference mesh) through a study whose
+store ``<name>.study.jsonl`` lies next to ``results.json`` — running the job again replays it
+and continues:
+
+.. code-block:: json
+
+    {"version": 2, "task": "reconstruct", "model": {...}, "mesh": {...}, "materials": {...},
+     "stack": {...}, "solver": {"order": 3, "pml": {"top": 419, "bottom": 419}},
+     "parameters": [{"name": "cd", "shape": 0, "trapezoid": "cd", "bounds": [80, 120]},
+                    {"name": "swa", "shape": 0, "trapezoid": "angle", "bounds": [80, 90]},
+                    {"name": "w", "shape": 0, "field": "width", "bounds": [180, 220]},
+                    {"name": "eps", "material": 3, "part": "re", "bounds": [2.0, 2.6]}],
+     "configurations": [{"wavelength": 405, "theta_deg": 65, "phi_deg": 0,
+                         "polarisation": "s", "orders": [["R", 0], ["T", 0]]}],
+     "morph": {"band": [-300, 450], "quality_threshold": 0.3, "remesh": false},
+     "reconstruct": {"measured": [0.1, 0.8], "sigma": 0.002, "x0": {"cd": 100},
+                     "posterior": {"steps": 2000, "walkers": 16}}}
+
+Parameter values (bounds, ``x0``, distributions, results) are in job units: lengths times
+``unit``, angles in degrees, permittivities as they are. ``"optimize"``: ``objective`` (index
+or label of an observable, default 0), ``maximize``, ``method`` (``"L-BFGS-B"``,
+``"Nelder-Mead"``, ``"differential-evolution"`` or ``"bayesian"`` with ``acquisition`` and
+``use_gradients``), ``max_evaluations``, ``x0``, ``seed`` (:func:`hpfem.opt.minimize`,
+:func:`hpfem.opt.bayesian_optimize`). ``"reconstruct"``: ``measured`` values or
+``synthetic`` ``{"params", "noise", "seed"}`` (data from the model itself), ``sigma`` (number,
+list, ``"relative"`` or none), ``x0``, ``method``; the fit with its Laplace standard errors
+and correlations (:func:`hpfem.opt.fit`) and, with ``posterior``, emcee samples
+(:func:`hpfem.opt.sample`; needs the optional extra ``opt-mcmc``). ``"uq"``: ``inputs``
+``{"name": {"normal": [mean, std]}}`` or ``{"uniform": [lower, upper]}``, the other
+parameters at their reference values (or ``fixed``), ``propagation`` ``"linear"``
+(:func:`hpfem.opt.linear_propagation`) or ``"surrogate"`` (``points``, ``active``,
+``samples``: :func:`hpfem.opt.build_global_surrogate` and :func:`hpfem.opt.monte_carlo`),
+``sobol`` (:func:`hpfem.opt.sobol_indices` on the surrogate; the variance shares of the
+linearisation otherwise). Events: ``start`` (``points`` null), ``mesh``, ``estimate``, one
+``evaluation`` per evaluation (``index``, ``params``, ``values``, ``status``, ``cached``,
+``seconds``; also in ``results["points"]``), ``remesh``, ``cancelled`` and ``done``; the
+results carry ``task``, ``study``, ``parameters`` (scale to SI and reference value),
+``observables`` and the block of the task.
 """
 
 from __future__ import annotations
@@ -71,15 +114,18 @@ import numpy as np
 import hpfem
 from hpfem import grating, materials, meshing, units
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+SUPPORTED_VERSIONS = (1, 2)
+"""schema versions this runner reads; version-1 documents run unchanged"""
 
 
 class JobError(ValueError):
     """A problem with the job document."""
 
 
-def version_info() -> dict[str, Any]:
-    """Version, platform, build features and solver backends (also for the ``start`` event)."""
+def version_info(schema: int = SCHEMA_VERSION) -> dict[str, Any]:
+    """Version, platform, build features and solver backends (also for the ``start`` event);
+    ``schema`` is the version of the document being run (default: the newest)."""
     try:
         import gmsh  # noqa: F401
 
@@ -88,7 +134,7 @@ def version_info() -> dict[str, Any]:
         has_gmsh = False
     return {
         "hpfem": hpfem.__version__,
-        "schema": SCHEMA_VERSION,
+        "schema": int(schema),
         "python": platform.python_version(),
         "platform": platform.platform(),
         "numpy": np.__version__,
@@ -252,9 +298,11 @@ def run_job(
     events, ``cancel()`` is polled between points."""
     emit = emit or (lambda event: None)
     base = Path(base) if base is not None else Path.cwd()
-    if int(_get(job, "version", 1)) != SCHEMA_VERSION:
+    version = int(_get(job, "version", 1))
+    if version not in SUPPORTED_VERSIONS:
         raise JobError(
-            f"version {job.get('version')!r}: this runner reads schema version {SCHEMA_VERSION}"
+            f"version {job.get('version')!r}: this runner reads schema versions "
+            f"{', '.join(map(str, SUPPORTED_VERSIONS))}"
         )
     if _get(job, "problem", "grating") != "grating":
         raise JobError(f"problem {job.get('problem')!r}: only 'grating' jobs are supported")
@@ -266,15 +314,24 @@ def run_job(
         for t, m in dict(_get(job, "materials", required=True)).items()
     }
     task = str(_get(job, "task", "scattering"))
-    if task not in ("scattering", "resonances", "bands"):
-        raise JobError(f"task {task!r}: use 'scattering', 'resonances' or 'bands'")
+    tasks = ("scattering", "resonances", "bands") + (STUDY_TASKS if version >= 2 else ())
+    if task not in tasks:
+        hint = " (the study tasks need version 2)" if task in STUDY_TASKS else ""
+        raise JobError(f"task {task!r}: use {', '.join(repr(t) for t in tasks)}{hint}")
     incidence = _get(job, "incidence", required=task == "scattering") or {}
     polarisation = str(_get(incidence, "polarisation", "p"))
     theta0 = float(_get(incidence, "theta_deg", 0.0)) * units.deg
     phi = float(_get(incidence, "phi_deg", 0.0)) * units.deg
     sweep = _get(job, "sweep", {})
-    resonance = _get(job, "resonance", required=task != "scattering") or {}
-    if task != "scattering":
+    resonance = _get(job, "resonance", required=task in ("resonances", "bands")) or {}
+    if task in STUDY_TASKS:
+        configurations = _get(job, "configurations", required=True)
+        if not configurations:
+            raise JobError("configurations: at least one measurement configuration")
+        wavelengths = [float(_get(configurations[0], "wavelength", required=True,
+                                  where="configurations[0]")) * unit]  # fmt: skip
+        thetas = [0.0]
+    elif task != "scattering":
         wavelengths = [
             float(_get(resonance, "wavelength", required=True, where="resonance")) * unit
         ]
@@ -313,8 +370,8 @@ def run_job(
         {
             "event": "start",
             "job": _get(job, "name", ""),
-            "points": len(wavelengths),
-            "version_info": version_info(),
+            "points": None if task in STUDY_TASKS else len(wavelengths),
+            "version_info": version_info(version),
         }
     )
     omega0 = units.angular_frequency(wavelength=wavelengths[0])
@@ -342,15 +399,19 @@ def run_job(
     except (ValueError, RuntimeError) as error:  # a problem the solve reports properly
         emit({"event": "estimate", "text": f"no estimate: {error}"})
     results: dict[str, Any] = {
-        "version": SCHEMA_VERSION,
+        "version": version,
         "job": _get(job, "name", ""),
-        "version_info": version_info(),
+        "version_info": version_info(version),
         "mesh": {k: (v.tolist() if isinstance(v, np.ndarray) else v) for k, v in report.items()},
         "points": [],
         "maps": [],
         "cancelled": False,
     }
     t_start = time.perf_counter()
+    if task in STUDY_TASKS:
+        model = _study_model(job, cell, mesh, material_specs, unit, omega0)
+        _run_study_task(job, task, model, out, emit, cancel, results)
+        return _finish(results, out, emit, t_start)
     if task != "scattering":
         _run_modes(
             job, task, resonance, mesh, material_specs, unit, order, pml, options, maps, out,
@@ -596,6 +657,361 @@ def _run_modes(
                 emit({"event": "map", **entry})
 
 
+# --- the study tasks of schema version 2 -------------------------------------------------------
+
+STUDY_TASKS = ("optimize", "reconstruct", "uq")
+
+
+def _to_list(value):
+    return np.asarray(value, dtype=float).tolist()
+
+
+class _StudyModel:
+    """The evaluator of a study task and the job-unit scales of its parameters."""
+
+    def __init__(self, evaluator, scales: dict[str, float], reference: dict[str, float]):
+        self.evaluator = evaluator
+        self.names = list(scales)
+        self.scales = scales
+        self.reference = reference  # job units
+
+    def to_job(self, params_si) -> dict[str, float]:
+        return {n: float(params_si[n]) / self.scales[n] for n in self.names if n in params_si}
+
+    def to_si(self, values, where: str) -> dict[str, float]:
+        unknown = set(values) - set(self.names)
+        if unknown:
+            raise JobError(f"{where}: unknown parameters {sorted(unknown)}")
+        return {n: float(v) * self.scales[n] for n, v in values.items()}
+
+
+def _study_model(job: Mapping, cell, mesh, material_specs, unit: float, omega0: float):
+    import dataclasses
+
+    from hpfem import opt
+
+    geometry, material_parameters, scales = [], [], {}
+    for i, p in enumerate(_get(job, "parameters", required=True)):
+        where = f"parameters[{i}]"
+        name = str(_get(p, "name", required=True, where=where))
+        bounds = _get(p, "bounds", required=True, where=where)
+        if "material" in p:
+            scale = 1.0
+            material_parameters.append(
+                opt.MaterialParameter(
+                    name,
+                    int(p["material"]),
+                    str(_get(p, "part", "re")),
+                    float(bounds[0]),
+                    float(bounds[1]),
+                )  # fmt: skip
+            )
+        elif "trapezoid" in p:
+            key = str(p["trapezoid"])
+            index = {"cd": 0, "height": 1, "angle": 2}.get(key)
+            if index is None:
+                raise JobError(f"{where}: trapezoid parameter {key!r}, use cd, height or angle")
+            scale = units.deg if key == "angle" else unit
+            base = opt.trapezoid_parameters(int(_get(p, "shape", required=True, where=where)))
+            geometry.append(dataclasses.replace(base[index], name=name,
+                                                lower=float(bounds[0]) * scale,
+                                                upper=float(bounds[1]) * scale))  # fmt: skip
+        elif "field" in p:
+            scale = unit
+            geometry.append(opt.GeometryParameter.field(
+                name, int(_get(p, "shape", required=True, where=where)), str(p["field"]),
+                float(bounds[0]) * scale, float(bounds[1]) * scale,
+            ))  # fmt: skip
+        else:
+            raise JobError(f"{where}: give 'trapezoid', 'field' (with 'shape') or 'material'")
+        if name in scales:
+            raise JobError(f"{where}: duplicate parameter name {name!r}")
+        scales[name] = scale
+    morph_spec = _get(job, "morph", {})
+    band = _get(morph_spec, "band")
+    morph = opt.Morph(
+        cell, mesh, geometry, quality_threshold=float(_get(morph_spec, "quality_threshold", 0.3)),
+        band=None if band is None else (float(band[0]) * unit, float(band[1]) * unit),
+    )  # fmt: skip
+    evaluator_materials = dict(material_specs)
+    for p in material_parameters:  # a material parameter needs a frequency-independent material
+        spec = material_specs.get(p.tag)
+        if not isinstance(spec, materials.Constant):
+            raise JobError(f"parameter {p.name}: material {p.tag} must be given as eps or n")
+        evaluator_materials[p.tag] = spec.at(omega0)
+    configurations = []
+    for i, c in enumerate(_get(job, "configurations", required=True)):
+        where = f"configurations[{i}]"
+        orders = [(str(o[0]), int(o[1])) for o in _get(c, "orders", [["R", 0]])]
+        configurations.append(opt.Configuration(
+            float(_get(c, "wavelength", required=True, where=where)) * unit,
+            float(_get(c, "theta_deg", 0.0)) * units.deg,
+            float(_get(c, "phi_deg", 0.0)) * units.deg,
+            str(_get(c, "polarisation", "s")), tuple(orders),
+        ))  # fmt: skip
+    solver = _get(job, "solver", {})
+    pml_spec = _get(solver, "pml")
+    pml = (
+        {k: float(v) * unit for k, v in pml_spec.items()} if isinstance(pml_spec, Mapping) else None
+    )
+    mesher = None
+    mesh_spec = _get(job, "mesh", {})
+    if bool(_get(morph_spec, "remesh", False)):
+        if "structured" not in mesh_spec:
+            raise JobError("morph.remesh: only structured meshes are rebuilt by the runner")
+        s = mesh_spec["structured"]
+        rows = [(float(r[0]) * unit, float(r[1]) * unit, int(r[2])) for r in s["rows"]]
+
+        def mesher(new_cell, nx=int(s["nx"]), rows=rows):
+            return meshing.structured_unit_cell(new_cell, nx, rows)
+
+    evaluator = opt.GratingEvaluator(
+        morph, evaluator_materials, lambda omega: _stack(job["stack"], omega, unit),
+        configurations, material_parameters=material_parameters,
+        order=int(_get(solver, "order", 3)), pml=pml, mesher=mesher,
+        solve_options={"orders_max": int(_get(solver, "orders_max", 3)),
+                       "bottom": str(_get(solver, "bottom", "pml"))},
+        name=str(_get(job, "name", "grating")) or "grating",
+    )  # fmt: skip
+    reference = {name: morph.reference[name] / scales[name] for name in morph.reference}
+    for p in material_parameters:
+        reference[p.name] = p.get(evaluator_materials)
+    return _StudyModel(evaluator, scales, reference)
+
+
+def _distribution(spec, scale: float, where: str):
+    from hpfem import opt
+
+    if "normal" in spec:
+        mean, std = spec["normal"]
+        return opt.Normal(float(mean) * scale, float(std) * scale)
+    if "uniform" in spec:
+        lo, hi = spec["uniform"]
+        return opt.Uniform(float(lo) * scale, float(hi) * scale)
+    raise JobError(f"{where}: give {{'normal': [mean, std]}} or {{'uniform': [lower, upper]}}")
+
+
+def _run_study_task(job, task, model: _StudyModel, out, emit, cancel, results) -> None:
+    """optimize / reconstruct / uq on a study whose store lies next to the results."""
+    from hpfem import opt
+
+    path = None
+    if out is not None:
+        stem = "".join(
+            ch if ch.isalnum() or ch in "-_" else "_" for ch in str(_get(job, "name", ""))
+        )
+        path = out / f"{stem or 'job'}.study.jsonl"
+
+    def forward(event: Mapping) -> None:
+        kind = event.get("event")
+        if kind == "evaluation":
+            entry = {
+                "index": int(event.get("index", len(results["points"]))),
+                "params": model.to_job(event.get("params", {})),
+                "values": event.get("values"),
+                "status": event.get("status", "ok"),
+                "cached": bool(event.get("cached", False)),
+                "seconds": event.get("cost"),
+            }
+            results["points"].append(entry)
+            emit({"event": "evaluation", **entry})
+        elif kind == "remesh":
+            emit({"event": "remesh", "mesh_id": event.get("mesh_id"),
+                  "params": model.to_job(event.get("params", {}))})  # fmt: skip
+
+    study = opt.Study(model.evaluator, path, emit=forward, cancel=cancel)
+    results["task"] = task
+    results["study"] = None if path is None else str(path)
+    results["parameters"] = {n: {"scale": model.scales[n], "reference": model.reference[n]}
+                             for n in model.names}  # fmt: skip
+    results["observables"] = list(model.evaluator.observables)
+    spec = _get(job, task, {})
+    try:
+        if task == "optimize":
+            results["optimize"] = _optimize(study, model, spec)
+        elif task == "reconstruct":
+            results["reconstruct"] = _reconstruct(study, model, spec)
+        else:
+            results["uq"] = _uq(study, model, spec)
+    except hpfem.Cancelled:
+        results["cancelled"] = True
+        emit({"event": "cancelled", "i": len(results["points"]), "n": None})
+
+
+def _objective(spec, observables):
+    objective = _get(spec, "objective", 0)
+    if isinstance(objective, str) and objective not in observables:
+        raise JobError(f"optimize.objective {objective!r}: not one of {observables}")
+    return objective
+
+
+def _optimize(study, model: _StudyModel, spec: Mapping) -> dict:
+    from hpfem import opt
+
+    method = str(_get(spec, "method", "L-BFGS-B"))
+    objective = _objective(spec, study.observables)
+    x0 = _get(spec, "x0")
+    common = dict(maximize=bool(_get(spec, "maximize", False)),
+                  max_evaluations=_get(spec, "max_evaluations"))  # fmt: skip
+    if method in ("bayesian", "bo"):
+        result = opt.bayesian_optimize(
+            study, objective, acquisition=str(_get(spec, "acquisition", "ei")),
+            use_gradients=bool(_get(spec, "use_gradients", False)),
+            seed=int(_get(spec, "seed", 0)), **{**common, "max_evaluations":
+                                                int(common["max_evaluations"] or 30)},
+        )  # fmt: skip
+    else:
+        result = opt.minimize(
+            study, objective, method=method,
+            x0=None if x0 is None else model.to_si(x0, "optimize.x0"),
+            seed=_get(spec, "seed"), **common,
+        )  # fmt: skip
+    return {
+        "method": method,
+        "objective": objective,
+        "params": model.to_job(result.params),
+        "value": float(result.value),
+        "values": _to_list(result.evaluation.values) if result.evaluation is not None else None,
+        "success": bool(result.success),
+        "message": str(result.message),
+        "evaluations": int(result.evaluations),
+        "new_evaluations": int(result.new_evaluations),
+        "cache_hits": int(result.cache_hits),
+    }
+
+
+def _reconstruct(study, model: _StudyModel, spec: Mapping) -> dict:
+    from hpfem import opt
+
+    measured = _get(spec, "measured")
+    synthetic = _get(spec, "synthetic")
+    if (measured is None) == (synthetic is None):
+        raise JobError("reconstruct: give either 'measured' values or 'synthetic' data")
+    sigma = _get(spec, "sigma")
+    out: dict[str, Any] = {}
+    if synthetic is not None:  # data from the model itself, with Gaussian noise
+        truth = model.to_si(_get(synthetic, "params", required=True, where="synthetic"),
+                            "reconstruct.synthetic.params")  # fmt: skip
+        clean = study.evaluate({**model.to_si(model.reference, "reference"), **truth}).values
+        noise = float(_get(synthetic, "noise", 0.0))
+        rng = np.random.default_rng(int(_get(synthetic, "seed", 0)))
+        measured = clean + noise * rng.standard_normal(len(clean))
+        sigma = noise if sigma is None and noise > 0 else sigma
+        out["measured"] = _to_list(measured)
+    if isinstance(sigma, list):
+        sigma = np.asarray(sigma, dtype=float)
+    x0 = _get(spec, "x0")
+    result = opt.fit(
+        study, np.asarray(measured, dtype=float), sigma,
+        x0=None if x0 is None else model.to_si(x0, "reconstruct.x0"),
+        method=str(_get(spec, "method", "lm")),
+        max_iterations=int(_get(spec, "max_iterations", 200)),
+    )  # fmt: skip
+    names = list(result.names)
+    std = {n: float(s) / model.scales[n] for n, s in zip(names, result.std, strict=True)}
+    out.update({
+        "params": model.to_job(result.params),
+        "std": std,
+        "correlation": np.asarray(result.correlation, dtype=float).tolist(),
+        "names": names,
+        "chi2_red": float(result.chi2_red),
+        "cost": float(result.cost),
+        "at_bounds": list(result.at_bounds),
+        "warnings": [str(w) for w in result.warnings],
+        "iterations": int(result.iterations),
+        "evaluations": int(result.evaluations),
+        "success": bool(result.success),
+        "message": str(result.message),
+        "values": _to_list(result.values),
+        "residual": _to_list(result.residual),
+    })  # fmt: skip
+    posterior = _get(spec, "posterior")
+    if posterior is not None:
+        try:
+            import emcee  # noqa: F401
+        except ImportError as error:
+            raise JobError(
+                "reconstruct.posterior needs emcee, the optional extra opt-mcmc "
+                "(pip install hpfem[opt-mcmc])"
+            ) from error
+        walkers = _get(posterior, "walkers")
+        post = opt.sample(result, walkers=None if walkers is None else int(walkers),
+                          steps=int(_get(posterior, "steps", 2000)),
+                          seed=int(_get(posterior, "seed", 0)))  # fmt: skip
+        scale = np.array([model.scales[n] for n in post.names])
+        out["posterior"] = {
+            "names": list(post.names),
+            "mean": _to_list(np.asarray(post.mean) / scale),
+            "std": _to_list(np.asarray(post.std) / scale),
+            "quantiles": {
+                str(q): _to_list(np.asarray(v) / scale) for q, v in post.quantiles.items()
+            },
+            "acceptance": float(post.acceptance),
+            "autocorr": _to_list(post.autocorr),
+            "walkers": int(post.walkers),
+            "steps": int(post.steps),
+        }
+    return out
+
+
+def _uq(study, model: _StudyModel, spec: Mapping) -> dict:
+    from hpfem import opt
+
+    inputs_spec = dict(_get(spec, "inputs", required=True, where="uq"))
+    inputs = {}
+    for name, dist in inputs_spec.items():
+        if name not in model.scales:
+            raise JobError(f"uq.inputs: unknown parameter {name!r}")
+        inputs[name] = _distribution(dist, model.scales[name], f"uq.inputs.{name}")
+    fixed = model.to_si({n: v for n, v in model.reference.items() if n not in inputs}, "reference")
+    fixed.update(model.to_si(dict(_get(spec, "fixed", {})), "uq.fixed"))
+    observables = _get(spec, "observables")
+    propagation = str(_get(spec, "propagation", "linear"))
+    out: dict[str, Any] = {"propagation": propagation, "inputs": list(inputs)}
+    if propagation == "linear":
+        lin = opt.linear_propagation(study, inputs, observables=observables, fixed=fixed)
+        scale = np.array([model.scales[n] for n in lin.inputs])
+        out.update({
+            "observables": list(lin.observables),
+            "values": _to_list(lin.values),
+            "std": _to_list(lin.std),
+            "covariance": np.asarray(lin.covariance).tolist(),
+            "jacobian": (np.asarray(lin.jacobian) * scale).tolist(),  # per job unit
+            "contributions": np.asarray(lin.contributions).tolist(),
+        })  # fmt: skip
+        if bool(_get(spec, "sobol", False)):  # linear model: the shares are the indices
+            out["sobol"] = {"first": out["contributions"], "total": out["contributions"]}
+        return out
+    if propagation != "surrogate":
+        raise JobError(f"uq.propagation {propagation!r}: use 'linear' or 'surrogate'")
+    surrogate = opt.build_global_surrogate(
+        study, inputs, points=_get(spec, "points"), active=int(_get(spec, "active", 0)),
+        gradients=bool(_get(spec, "gradients", True)), observables=observables, fixed=fixed,
+        seed=int(_get(spec, "seed", 0)),
+    )  # fmt: skip
+    mc = opt.monte_carlo(surrogate, inputs, samples=int(_get(spec, "samples", 10000)),
+                         seed=int(_get(spec, "seed", 0)))  # fmt: skip
+    out.update({
+        "observables": list(mc.observables),
+        "mean": _to_list(mc.mean),
+        "std": _to_list(mc.std),
+        "quantiles": {str(q): _to_list(v) for q, v in mc.quantiles.items()},
+        "clipped": int(mc.clipped),
+        "surrogate_std": _to_list(mc.surrogate_std),
+    })  # fmt: skip
+    if bool(_get(spec, "sobol", False)):
+        sob = opt.sobol_indices(surrogate, inputs, samples=int(_get(spec, "sobol_samples", 4096)),
+                                seed=int(_get(spec, "seed", 0)))  # fmt: skip
+        out["sobol"] = {
+            "first": np.asarray(sob.first).tolist(),
+            "total": np.asarray(sob.total).tolist(),
+            "first_conf": np.asarray(sob.first_conf).tolist(),
+            "total_conf": np.asarray(sob.total_conf).tolist(),
+            "samples": int(sob.samples),
+        }
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     import argparse
 
@@ -637,7 +1053,10 @@ def main(argv: list[str] | None = None) -> int:
     return 2 if results["cancelled"] else 0
 
 
-__all__ = ["JobError", "SCHEMA_VERSION", "main", "run_job", "version_info"]
+__all__ = [
+    "JobError", "SCHEMA_VERSION", "STUDY_TASKS", "SUPPORTED_VERSIONS", "main", "run_job",
+    "version_info",
+]  # fmt: skip
 
 if __name__ == "__main__":
     sys.exit(main())

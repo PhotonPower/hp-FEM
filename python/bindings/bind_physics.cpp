@@ -13,6 +13,7 @@
 #include "hpfem/physics/conical_resonance.hpp"
 #include "hpfem/physics/conical_scattering.hpp"
 #include "hpfem/physics/conical_sweep.hpp"
+#include "hpfem/physics/dipole_emission.hpp"
 #include "hpfem/physics/field_sampling.hpp"
 #include "hpfem/physics/kept_factorisation.hpp"
 #include "hpfem/physics/propagating_mode.hpp"
@@ -790,6 +791,15 @@ void bind_physics(py::module_& m) {
     using physics::ConicalVector;
     using ND = fespace::NedelecDofMap<2>;
     using H1 = fespace::DofMap<2>;
+    m.def("conical_gaussian_dipole", &physics::conical_gaussian_dipole, py::arg("position"),
+          py::arg("moment"), py::arg("sigma"), py::arg("omega"), py::arg("beta"),
+          "f = i omega mu0 J of the cell problem of a Gaussian dipole (M17, ADR-0013): current "
+          "moment (p_x, p_y, p_z) [A m] at (x0, y0), smearing sigma, the z-smearing as "
+          "exp(-sigma^2 beta^2 / 2); scaled components (f_x, f_y, -i f_z) for "
+          "ConicalScatteringSetup.current");
+    m.def("conical_source_power", &physics::conical_source_power, py::arg("problem"),
+          py::arg("solution"), py::arg("extra_order") = 4, Release(),
+          "-1/2 Re integral conj(J).E dA of the current of a total-field conical problem [W/m]");
     m.def("conical_plane_wave", &physics::conical_plane_wave, py::arg("amplitude"),
           py::arg("wave_vector"),
           "Scaled components (E0x, E0y, -i E0z) e^{i(kx x + ky y)} of the plane wave E0 e^{i k.x}; "

@@ -24,6 +24,7 @@ add_library(hpfem
   physics/conical_postprocess.cpp
   physics/conical_resonance.cpp
   physics/eigen_sensitivity.cpp
+  physics/dipole_emission.cpp
   physics/kept_factorisation.cpp
   physics/parameter_sensitivity.cpp
   physics/sensitivity.cpp
