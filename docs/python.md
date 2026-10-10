@@ -790,6 +790,19 @@ for m in range(-m_max, m_max + 1):
     fields.append(hpfem.AxisymmetricScattering(nd, h1, setup).solve())
 ```
 
+Per order, `problem.absorbed_power(field)` gives the absorption of the total field (per cell and
+tag; the body is `problem.scatterer_cells()`), `problem.incident_absorbed_power()` that of the bare
+stack in the same cells (their difference over a region around a hole is the absorption change),
+`axisymmetric_flux_channels(..., surface, stack)` the scattered power split into `up` / `down` /
+`lateral`, and `axisymmetric_disc_flux(..., z, radius, -1, wave.value, wave.curl)` the transmission
+through a disc with the stack's own part (`background`, `change()`); `axisymmetric_poynting_flux`
+takes the same `added_value` / `added_curl` for the flux of the total field. Sum every quantity over
+the orders.
+The far field in both half-spaces comes from `axisymmetric_layered_far_field(..., surface, stack,
+theta_up, theta_down)` (reciprocity with the stack's plane waves; `.up` / `.down` are
+`AxisymmetricFarField`s with `radiated_power()` and `power_between(theta_min, theta_max)` for a
+collection cone, e.g. `power_between(0, asin(NA / n))` for an objective above the sample).
+
 **Band derivatives and group velocity.** With `setup.keep_modes = True` a
 `BandStructure2D/3D` keeps the eigenvectors in `Bands.modes`, and the bands can be
 differentiated without another eigensolve: `band_permittivity_derivative(problem, bands, tag)`

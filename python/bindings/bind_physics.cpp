@@ -1381,6 +1381,14 @@ void bind_physics(py::module_& m) {
              "the stack layer at the cell centroid (layered background), otherwise "
              "materials.background")
         .def("solve", &AxisymmetricScattering::solve, Release(), "scattered field of order m")
+        .def("absorbed_power", &AxisymmetricScattering::absorbed_power, py::arg("field"),
+             py::arg("extra_order") = 4, Release(),
+             "absorbed power of the total field (incident field added), PML cells left out")
+        .def("incident_absorbed_power", &AxisymmetricScattering::incident_absorbed_power,
+             py::arg("extra_order") = 4, Release(),
+             "absorbed power of the incident (stack) field alone in the same cells")
+        .def("scatterer_cells", &AxisymmetricScattering::scatterer_cells,
+             "cells outside the PML whose material deviates from the background (the body)")
         .def("estimate", &AxisymmetricScattering::estimate, py::arg("field"),
              py::arg("options") = adaptivity::EstimatorOptions{}, Release(),
              "r-weighted residual indicators of a solution (adaptivity.Estimate)")
@@ -1409,13 +1417,31 @@ void bind_physics(py::module_& m) {
         .def_readonly("f_theta", &physics::AxisymmetricFarField::f_theta)
         .def_readonly("f_phi", &physics::AxisymmetricFarField::f_phi)
         .def("radiated_power", &physics::AxisymmetricFarField::radiated_power,
-             "int |F|^2 dOmega / (2 Z) [W] over the sampled angles");
+             "int |F|^2 dOmega / (2 Z) [W] over the sampled angles")
+        .def("power_between", &physics::AxisymmetricFarField::power_between, py::arg("theta_min"),
+             py::arg("theta_max"),
+             "the same over the sampled angles in [theta_min, theta_max] (a collection cone: "
+             "[0, asin(NA / n)] above, [pi - asin(NA / n), pi] below)");
     m.def("axisymmetric_far_field", &physics::axisymmetric_far_field, py::arg("meridian"),
           py::arg("azimuthal"), py::arg("meridian_coefficients"), py::arg("azimuthal_coefficients"),
           py::arg("azimuthal_order"), py::arg("omega"), py::arg("materials"), py::arg("surface"),
           py::arg("theta"), py::arg("order") = 8, Release(),
           "Near-to-far transform of the order-m field on a closed surface of revolution in the "
           "background medium, sampled at the polar angles theta");
+    py::class_<physics::AxisymmetricLayeredFarField>(
+        m, "AxisymmetricLayeredFarField",
+        "Far field of one order on a layer stack: up (cover, theta < pi/2) and down (substrate, "
+        "theta > pi/2), each an AxisymmetricFarField")
+        .def_readonly("up", &physics::AxisymmetricLayeredFarField::up)
+        .def_readonly("down", &physics::AxisymmetricLayeredFarField::down);
+    m.def("axisymmetric_layered_far_field", &physics::axisymmetric_layered_far_field,
+          py::arg("meridian"), py::arg("azimuthal"), py::arg("meridian_coefficients"),
+          py::arg("azimuthal_coefficients"), py::arg("azimuthal_order"), py::arg("omega"),
+          py::arg("materials"), py::arg("surface"), py::arg("stack"), py::arg("theta_up"),
+          py::arg("theta_down"), py::arg("order") = 8, Release(),
+          "Far field of the order-m field in the cover (theta_up in [0, pi/2)) and the lossless "
+          "substrate (theta_down in (pi/2, pi]) by reciprocity with the layered plane waves "
+          "(ADR-0014); the surface encloses every source and scatterer");
     py::enum_<physics::PlanePolarisation>(m, "PlanePolarisation",
                                           "Polarisation relative to the plane of incidence")
         .value("S", physics::PlanePolarisation::kS, "E along y")
@@ -1484,9 +1510,52 @@ void bind_physics(py::module_& m) {
     m.def("axisymmetric_poynting_flux", &physics::axisymmetric_poynting_flux, py::arg("meridian"),
           py::arg("azimuthal"), py::arg("meridian_coefficients"), py::arg("azimuthal_coefficients"),
           py::arg("azimuthal_order"), py::arg("omega"), py::arg("materials"), py::arg("surface"),
-          py::arg("order") = 8, Release(),
+          py::arg("order") = 8, py::arg("added_value") = physics::AxisymmetricField{},
+          py::arg("added_curl") = physics::AxisymmetricField{}, Release(),
           "Power [W] of the order-m field through the surface of revolution of the meridian "
-          "surface (2 pi r Re(E x H*) . n / 2 integrated)");
+          "surface (2 pi r Re(E x H*) . n / 2 integrated); added_value / added_curl: an analytic "
+          "order-m field (e.g. layered_axisymmetric_wave(...).value / .curl) added for the flux "
+          "of the total field");
+    py::class_<physics::AxisymmetricFluxChannels>(
+        m, "AxisymmetricFluxChannels",
+        "Power [W] through a surface split by a layer stack: up (above the top interface), down "
+        "(below the bottom interface), lateral (between them, along the layers)")
+        .def_readonly("up", &physics::AxisymmetricFluxChannels::up)
+        .def_readonly("down", &physics::AxisymmetricFluxChannels::down)
+        .def_readonly("lateral", &physics::AxisymmetricFluxChannels::lateral)
+        .def("total", &physics::AxisymmetricFluxChannels::total);
+    m.def("axisymmetric_flux_channels", &physics::axisymmetric_flux_channels, py::arg("meridian"),
+          py::arg("azimuthal"), py::arg("meridian_coefficients"), py::arg("azimuthal_coefficients"),
+          py::arg("azimuthal_order"), py::arg("omega"), py::arg("materials"), py::arg("surface"),
+          py::arg("stack"), py::arg("order") = 8,
+          py::arg("added_value") = physics::AxisymmetricField{},
+          py::arg("added_curl") = physics::AxisymmetricField{}, Release(),
+          "axisymmetric_poynting_flux split into the channels up / down / lateral of the stack "
+          "(each quadrature point by its height)");
+    py::class_<physics::AxisymmetricDiscFlux>(
+        m, "AxisymmetricDiscFlux",
+        "Power [W] through a disc r <= R: total (field + added field), background (added field "
+        "alone), change() = total - background")
+        .def_readonly("total", &physics::AxisymmetricDiscFlux::total)
+        .def_readonly("background", &physics::AxisymmetricDiscFlux::background)
+        .def("change", &physics::AxisymmetricDiscFlux::change);
+    m.def("axisymmetric_disc_flux", &physics::axisymmetric_disc_flux, py::arg("meridian"),
+          py::arg("azimuthal"), py::arg("meridian_coefficients"), py::arg("azimuthal_coefficients"),
+          py::arg("azimuthal_order"), py::arg("omega"), py::arg("materials"), py::arg("z"),
+          py::arg("radius"), py::arg("direction") = -1,
+          py::arg("added_value") = physics::AxisymmetricField{},
+          py::arg("added_curl") = physics::AxisymmetricField{}, py::arg("order") = 8, Release(),
+          "Power of the order-m field through the disc r <= radius on the mesh line y = z along "
+          "direction (-1 downwards, +1 upwards), with and without the added analytic field "
+          "(aperture transmission, ADR-0014)");
+    m.def("axisymmetric_absorbed_power", &physics::axisymmetric_absorbed_power, py::arg("meridian"),
+          py::arg("azimuthal"), py::arg("meridian_coefficients"), py::arg("azimuthal_coefficients"),
+          py::arg("azimuthal_order"), py::arg("omega"), py::arg("materials"),
+          py::arg("added") = physics::AxisymmetricField{},
+          py::arg("pml") = std::optional<pml::PmlBox<2>>{}, py::arg("extra_order") = 4, Release(),
+          "Absorbed power (AbsorbedPower: total, by_tag, per_cell) [W] of the order-m field with "
+          "the analytic field `added` (scaled components) added, PML cells left out; the orders "
+          "add up");
   }
 
   using physics::PropagatingMode;

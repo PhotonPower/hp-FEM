@@ -57,6 +57,8 @@ hpfem_add_test(convergence_axisymmetric_mie_sphere convergence
   axisymmetric_mie_sphere.cpp)
 hpfem_add_test(convergence_axisymmetric_oblique_sphere convergence
   axisymmetric_oblique_sphere.cpp)
+hpfem_add_test(convergence_axisymmetric_sphere_on_substrate convergence
+  axisymmetric_sphere_on_substrate.cpp)
 
 hpfem_add_test(convergence_axisymmetric_hp_corner convergence
   axisymmetric_hp_corner.cpp)

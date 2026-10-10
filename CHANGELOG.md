@@ -10,6 +10,20 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   miss it within 40; the conical DWR estimate predicts the order error with the right sign
   (effectivity 0.7–1.0), and choosing p by |η| ≤ 0.1 σ keeps the reconstruction bias at 0.1
   standard deviations, while adding η² to the noise leaves the p = 2 bias (0.6 std) in place.
+- Far field of bodies of revolution on layer stacks (M18 S3, ADR-0014 §4, written by the helper
+  agent `opt-jobs`): `axisymmetric_layered_far_field` gives the pattern of every order in the cover
+  and in a lossless substrate by reciprocity with the stack's plane waves (no layered Green's
+  function), `AxisymmetricFarField.power_between` the power collected by an objective of numerical
+  aperture NA; checked against the near-to-far transform in the homogeneous limit (3e-12) and
+  against a dipole above glass, also beyond the critical angle, in amplitude (8e-4) and power
+  (2e-3).
+- Cross-section channels for bodies of revolution on layer stacks (M18 S2, ADR-0014 §4, written by
+  the helper agent `opt-jobs`): `axisymmetric_absorbed_power` and
+  `AxisymmetricScattering.absorbed_power` / `incident_absorbed_power` / `scatterer_cells`
+  (absorption of the body, absorption change around holes), `axisymmetric_flux_channels`
+  (scattered power up / down / along the layers), `axisymmetric_disc_flux` (aperture transmission
+  with the stack's own part) and the flux of the total field; a small sphere above glass
+  reproduces the image-dipole absorption to 2e-3.
 - Layered background for the axisymmetric solver (M18 S1, ADR-0014, written by the helper agent
   `opt-jobs`): `AxisymmetricScatteringSetup.background` takes a `LayerStack3D` normal to the axis
   and forms the scattered-field source against the stack at each cell, so particles, holes and
@@ -53,7 +67,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `physics::conical_source_power` (-½ Re ∫ conj(J)·E) and `hpfem.grating.emit` (one cell
   problem: delivered power, radiated power per Floquet order up and down, PML-boundary fluxes,
   absorption by tag, guided remainder); checked against the closed form of a phased dipole
-  array in a homogeneous cell and by the energy balance on a lossy ridge.
+  array in a homogeneous cell and by the energy balance on a lossy ridge. The measurement lines
+  keep 6σ from the dipole; the guided remainder uses the order powers, and `pml_leak` reports
+  the power a too-near PML exchanges through barely evanescent orders (with a warning).
 - Milestone M16 (optimisation, calibration and uncertainty quantification) in the roadmap,
   with the specification `docs/optimisation-uq-features.md` (S0–S9).
 - ADR-0012 (M16 S0): scope of `hpfem.opt` (NumPy/SciPy required; BoTorch, emcee, SALib as
