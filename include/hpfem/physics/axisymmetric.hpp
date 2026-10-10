@@ -448,7 +448,8 @@ struct AxisymmetricLayeredFarField {
 /// from the top for the cover, from the bottom for the substrate) with the factor
 /// @f$ 2\pi(-1)^m @f$ at φ = 0, the phase is referred to the origin. A homogeneous stack gives
 /// `axisymmetric_far_field`. Sources may lie anywhere inside S (scattered field of a body on the
-/// stack, or the total field of a dipole if S lies in one layer); S must not cross a lossy layer.
+/// stack, or the total field of a dipole if S lies in one layer); S may cross the layers, lossy
+/// ones included (reciprocity holds in any reciprocal medium; outside S only the stack).
 /// The power into the half-spaces is `up.radiated_power()` and `down.radiated_power()`
 /// (sampled up to grazing); in a lossless stack the scattered power minus both is guided along
 /// the layers. `theta_up` ⊂ [0, π/2), `theta_down` ⊂ (π/2, π].
