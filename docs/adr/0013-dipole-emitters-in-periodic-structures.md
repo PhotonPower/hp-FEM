@@ -1,6 +1,6 @@
 # 0013 — Dipole emitters in periodic structures by array scanning of the conical cell problem
 
-**Status:** accepted; §3a amendment proposed (2026-10-10)
+**Status:** accepted; §3a amendment accepted (2026-10-10)
 **Date:** 2026-10-09
 
 ## Context
@@ -73,7 +73,7 @@ mirror-symmetric about x0 the kx integral runs over half the zone. Quadrature:
   of x0 to the nearest interface with a higher index) fall below the tolerance. The cut-off grows
   like 1/d and is reported in the cost estimate (§5).
 
-#### 3a. Amendment (2026-10-10, proposed): the kx integral on a complex contour
+#### 3a. Amendment (2026-10-10, accepted): the kx integral on a complex contour
 
 On the real kx axis the integrand has integrable 1/k_y singularities at the light-line crossings.
 There the field consists of grazing orders, which a PML of finite thickness does not absorb, so
