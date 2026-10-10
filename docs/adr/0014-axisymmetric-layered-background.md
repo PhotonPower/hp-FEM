@@ -59,6 +59,12 @@ the curl accordingly. Test: R and T of the reversed bare stack against the forwa
 (reciprocity), and total internal reflection beyond the critical angle (R = 1 for a lossless
 stack, an evanescent field in the cover).
 
+*Polarisation reference (clarified with M18 S1):* the mirror alone would turn the magnetic field
+of the p wave from +y to −y. `layered_axisymmetric_wave` undoes that sign, so that p has H along
++y from both sides and the homogeneous-stack limit from below equals `oblique_plane_wave(θ)`, as
+from above it equals `oblique_plane_wave(π − θ)`. Only the phase reference of the p amplitude is
+affected; fields, R and T are unchanged.
+
 ### 4. Post-processing channels
 
 All normalised by the incident intensity n_inc |E0|² / (2 Z0):

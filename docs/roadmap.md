@@ -474,10 +474,10 @@ particles on substrates, nanoparticle-on-mirror, holes and grooves in films (neg
   stack in `AxisymmetricScatteringSetup`, analytic order-m expansion of the stack field with real
   k_ρ and complex k_z (numerical φ-transform as the test reference), substrate-side incidence by
   the reversed stack, new axisymmetric absorbed power, cross-section channels in layered media
-- [ ] S1: `AxisymmetricScatteringSetup::background`, contrast against the stack,
-  `layered_axisymmetric_wave` (field and curl, all layers, evanescent / lossy k_z; generalised
-  Jacobi–Anger expansion of the partial waves), substrate-side incidence; tests: bare stack
-  (E_sca = 0, R / T by flux), homogeneous-stack limit, reversed stack and total internal reflection
+- [x] S1: `AxisymmetricScatteringSetup::background`, contrast against the stack at the cell
+  centroid, checks (interfaces on mesh lines, no deviation in the PML), `layered_axisymmetric_wave`
+  (top / bottom, s / p, value and curl) with the φ-transform reference, reciprocity / TIR and the
+  homogeneous limit; Python bindings (written by the helper agent `opt-jobs`)
 - [ ] S2: axisymmetric absorbed power (new; orders orthogonal in φ) and its variant with the
   stack field (absorption of the body, absorption change around holes), scattered power split into
   up / down / lateral, `axisymmetric_disc_flux` (aperture transmission); tests: quasi-static sphere
