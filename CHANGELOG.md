@@ -3,6 +3,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Milestone M18 (layered background for the axisymmetric solver: particles on substrates,
+  nanoparticle-on-mirror, holes and grooves in films) in the roadmap, with the reviewed
+  specification `docs/axisymmetric-layered-features.md` (S0–S4).
 - Job schema version 2 (M16 S9, ADR-0012 §7, written by the helper agent `opt-jobs`): `hpfem.run`
   reads versions 1 and 2; version-1 documents run unchanged. The study tasks `"optimize"`
   (`minimize` / `bayesian_optimize`), `"reconstruct"` (`fit` with the Laplace uncertainties,
