@@ -419,7 +419,41 @@ normal incidence absorbs, relative to the same sphere in vacuum, the image-dipol
 $|E_{ext}/E_0|^2/|1 - \alpha\beta/(32\pi d^3)|^2$ (Wind, Vlieger and Bedeaux 1987) to
 $1.7\cdot10^{-3}$, the size of the neglected multipole images, converged in p to $10^{-4}$, while
 the value without the image term is 5.6 % off (`tests/convergence/axisymmetric_sphere_on_substrate.cpp`).
-The far field per half-space follows in M18 S3.
+
+**Far field per half-space** (`axisymmetric_layered_far_field`, M18 S3). The Green's function of
+the stack is not needed: by Lorentz reciprocity, the field at a distant point $R\hat r$ of a
+half-space with index $n$, projected on a transverse unit vector $\hat e$, equals the overlap of
+the field on a closed surface $S$ around all sources with the field of a current element $\hat e$
+at $R\hat r$, and near the body that field is the stack's plane wave arriving from $\hat r$,
+$\tfrac{i\omega\mu_0}{4\pi R}e^{iknR}E_{pw}$ (incident amplitude 1, reflections included). With
+$E \approx F e^{iknR}/R$,
+
+$$
+F\cdot\hat e = \frac{i\omega\mu_0}{4\pi}\oint_S \bigl(E\times H_{pw} - E_{pw}\times H\bigr)\cdot n\,dS ,
+$$
+
+$\hat e = \hat\theta$ for the p and $-\hat\varphi$ for the s wave. For the order $m$ at
+$\varphi = 0$ the azimuthal integral picks the order $-m$ of the arriving wave (in-plane wave
+vector along $-x$: the wave of `layered_axisymmetric_wave` rotated by $\pi$) with the factor
+$2\pi(-1)^m$; the meridian integral is done on the quadrature points of $S$. Directions into the
+cover use the wave from the top at $\theta$, directions into a lossless substrate the wave from
+the bottom at $\pi - \theta$; the phase of the stack wave, referred to its top (bottom)
+interface, is moved to the origin. The pattern of the full field is $\sum_m F_m(\theta)e^{im\varphi}$
+(`superpose_far_field` per half-space), the power into a half-space `radiated_power()`, into a
+collection cone of numerical aperture NA `power_between(0, asin(NA/n))` (below:
+$[\pi - \arcsin(\mathrm{NA}/n), \pi]$). In a lossless stack the scattered power minus the two
+half-spaces is carried along the layers (guided modes). $S$ must enclose every source; it may
+lie in one layer (a dipole above a substrate) or cross lossless layers.
+
+**Verification** (`tests/unit/physics/test_axisymmetric_farfield_layered.cpp`,
+`python/tests/test_axisymmetric_farfield_layered.py`): for a vacuum stack the pattern of a
+scattering sphere equals the near-to-far transform `axisymmetric_far_field` in both
+half-spaces to $3\cdot10^{-12}$ (m = ±1, stack interface through the sphere); for the total field
+of an axial Gaussian dipole $0.8\lambda$ above glass (p = 3) the amplitudes in the
+air and in the glass, also beyond the critical angle, agree with the reciprocity value of the
+source, $\tfrac{i\omega\mu_0}{4\pi}\,p\,E_{pw,z}(0, h)\,e^{-k^2\sigma^2/2}$, to $8\cdot10^{-4}$, and the
+power into air and glass adds up to the flux through the surface around the dipole to
+$2\cdot10^{-3}$ (no guided modes at a single interface).
 
 ## hp-adaptivity on the meridian plane (`adaptivity/axisymmetric_estimator.hpp`)
 

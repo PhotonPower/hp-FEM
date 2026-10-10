@@ -409,6 +409,10 @@ struct AxisymmetricFarField {
   /// Radiated power @f$ \int |F|^2 d\Omega / (2Z) @f$ [W] of this order by the trapezoidal
   /// rule over the sampled angles (which should cover 0 … π).
   [[nodiscard]] Real radiated_power() const;
+  /// The same over the sampled angles in [`theta_min`, `theta_max`] only (sample the limits):
+  /// the power collected by a cone, e.g. an objective of numerical aperture NA in a medium of
+  /// index n above the body: [0, asin(NA / n)], below it: [π − asin(NA / n), π].
+  [[nodiscard]] Real power_between(Real theta_min, Real theta_max) const;
 };
 
 /// Near-to-far-field transform of the order-m field on a closed surface of revolution in the
@@ -424,6 +428,38 @@ struct AxisymmetricFarField {
     const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
     Real omega, const materials::MaterialMap& materials, const Surface<2>& surface,
     const std::vector<Real>& theta, int order = 8);
+
+/// Far field of an order-m field on a layered background in both half-spaces, see
+/// `axisymmetric_layered_far_field`: `up` in the cover (polar angles θ < π/2 from +z, wavenumber
+/// and impedance of the cover), `down` in the substrate (θ > π/2).
+struct AxisymmetricLayeredFarField {
+  AxisymmetricFarField up;
+  AxisymmetricFarField down;
+};
+
+/// Far field by reciprocity (ADR-0014 §4, M18 S3): with the equivalent currents of the field on a
+/// closed surface S of revolution around every source and scatterer, the amplitude
+/// @f$ E \approx F(\theta)\,e^{im\varphi}\,e^{iknR}/R @f$ in the direction r̂ of either half-space
+/// is the overlap with the layered plane wave arriving from r̂ (incident amplitude 1, the stack's
+/// reflections included):
+/// @f$ F\cdot\hat e = \frac{i\omega\mu_0}{4\pi}\oint_S (E\times H_{pw} - E_{pw}\times H)\cdot n\,dS
+/// @f$, with @f$ \hat e = \hat\theta @f$ for the p and @f$ -\hat\varphi @f$ for the s wave. The φ
+/// integral leaves the order −m of the wave (`layered_axisymmetric_wave` at θ from the normal,
+/// from the top for the cover, from the bottom for the substrate) with the factor
+/// @f$ 2\pi(-1)^m @f$ at φ = 0, the phase is referred to the origin. A homogeneous stack gives
+/// `axisymmetric_far_field`. Sources may lie anywhere inside S (scattered field of a body on the
+/// stack, or the total field of a dipole if S lies in one layer); S must not cross a lossy layer.
+/// The power into the half-spaces is `up.radiated_power()` and `down.radiated_power()`
+/// (sampled up to grazing); in a lossless stack the scattered power minus both is guided along
+/// the layers. `theta_up` ⊂ [0, π/2), `theta_down` ⊂ (π/2, π].
+/// @throws InvalidArgument if the coefficient vectors do not match the maps, an angle lies in the
+///         wrong half-space or at grazing, or `theta_down` is given for a lossy substrate.
+[[nodiscard]] AxisymmetricLayeredFarField axisymmetric_layered_far_field(
+    const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
+    const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
+    Real omega, const materials::MaterialMap& materials, const Surface<2>& surface,
+    const LayerStack<3>& stack, const std::vector<Real>& theta_up,
+    const std::vector<Real>& theta_down, int order = 8);
 
 /// Polarisation of a plane wave relative to its plane of incidence (the x–z plane).
 enum class PlanePolarisation { kS, kP };

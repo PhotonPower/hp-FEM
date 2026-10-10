@@ -798,6 +798,10 @@ stack in the same cells (their difference over a region around a hole is the abs
 through a disc with the stack's own part (`background`, `change()`); `axisymmetric_poynting_flux`
 takes the same `added_value` / `added_curl` for the flux of the total field. Sum every quantity over
 the orders.
+The far field in both half-spaces comes from `axisymmetric_layered_far_field(..., surface, stack,
+theta_up, theta_down)` (reciprocity with the stack's plane waves; `.up` / `.down` are
+`AxisymmetricFarField`s with `radiated_power()` and `power_between(theta_min, theta_max)` for a
+collection cone, e.g. `power_between(0, asin(NA / n))` for an objective above the sample).
 
 **Band derivatives and group velocity.** With `setup.keep_modes = True` a
 `BandStructure2D/3D` keeps the eigenvectors in `Bands.modes`, and the bands can be

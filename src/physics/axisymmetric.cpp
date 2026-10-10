@@ -852,6 +852,18 @@ Real AxisymmetricFarField::radiated_power() const {
   return 2 * constants::pi * integral / (2 * impedance);
 }
 
+Real AxisymmetricFarField::power_between(Real theta_min, Real theta_max) const {
+  Real integral = 0;
+  const auto density = [&](std::size_t j) {
+    return (std::norm(f_theta[j]) + std::norm(f_phi[j])) * std::sin(theta[j]);
+  };
+  for (std::size_t i = 1; i < theta.size(); ++i) {
+    if (theta[i - 1] < theta_min || theta[i] > theta_max) continue;
+    integral += 0.5 * (density(i - 1) + density(i)) * (theta[i] - theta[i - 1]);
+  }
+  return 2 * constants::pi * integral / (2 * impedance);
+}
+
 AxisymmetricFarField axisymmetric_far_field(
     const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
     const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
@@ -943,6 +955,101 @@ AxisymmetricFarField axisymmetric_far_field(
     out.f_phi[t] = prefactor * (impedance * n_phi - l_theta);
   }
   return out;
+}
+
+AxisymmetricLayeredFarField axisymmetric_layered_far_field(
+    const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
+    const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
+    Real omega, const materials::MaterialMap& materials, const Surface<2>& surface,
+    const LayerStack<3>& stack, const std::vector<Real>& theta_up,
+    const std::vector<Real>& theta_down, int order) {
+  if (meridian_coefficients.size() != meridian.num_dofs() ||
+      azimuthal_coefficients.size() != azimuthal.num_dofs()) {
+    throw InvalidArgument("axisymmetric_layered_far_field: coefficients do not match the maps");
+  }
+  constexpr Real kGrazing = 1e-9;
+  for (const Real theta : theta_up) {
+    if (!(theta >= 0 && theta < constants::pi / 2 - kGrazing)) {
+      throw InvalidArgument(fmt::format(
+          "axisymmetric_layered_far_field: theta_up = {} must lie in [0, pi/2)", theta));
+    }
+  }
+  for (const Real theta : theta_down) {
+    if (!(theta > constants::pi / 2 + kGrazing && theta <= constants::pi)) {
+      throw InvalidArgument(fmt::format(
+          "axisymmetric_layered_far_field: theta_down = {} must lie in (pi/2, pi]", theta));
+    }
+  }
+  if (!theta_down.empty() && std::imag(stack.substrate().eps_r) != 0) {
+    throw InvalidArgument(
+        "axisymmetric_layered_far_field: no far field in a lossy substrate (theta_down given)");
+  }
+  const Real k0 = omega / constants::c0;
+  const int m = azimuthal_order;
+  // the field and the weight r ds at the quadrature points of the surface
+  struct Sample {
+    SurfacePoint<2> point;
+    ModeFields f;
+    Complex mu_r;
+  };
+  std::vector<Sample> samples;
+  for (const auto& point : surface_quadrature<2>(meridian.mesh(), surface, order)) {
+    const Real r = point.x(0);
+    if (!(r > 0)) continue;
+    samples.push_back(
+        {point,
+         mode_fields_at(meridian, azimuthal, meridian_coefficients, azimuthal_coefficients, m,
+                        omega, materials, point.cell, point.xi, r),
+         materials.of_cell(meridian.mesh(), point.cell).mu_r});
+  }
+  const Complex sign = (m % 2 == 0) ? 1.0 : -1.0;  // e^{i m pi}
+  // F . e for the wave of polarisation pol arriving at the angle theta_inc from the normal
+  const auto amplitude = [&](Real theta_inc, Polarisation pol, StackSide side) {
+    const auto wave = layered_axisymmetric_wave(stack, k0, theta_inc, pol, -m, side);
+    Complex integral{0.0, 0.0};
+    for (const Sample& s : samples) {
+      const ModeFields w =
+          add_analytic(ModeFields{}, wave.value, wave.curl, s.point.x, omega, s.mu_r);
+      const ModeFields& f = s.f;
+      // (A x B) . n with n = (n_r, 0, n_z) in cylindrical components, no conjugation
+      const auto cross_n = [&s](Complex a_r, Complex a_phi, Complex a_z, Complex b_r, Complex b_phi,
+                                Complex b_z) {
+        return s.point.normal(0) * (a_phi * b_z - a_z * b_phi) +
+               s.point.normal(1) * (a_r * b_phi - a_phi * b_r);
+      };
+      integral += s.point.weight * s.point.x(0) *
+                  (cross_n(f.e_r, f.e_phi, f.e_z, w.h_r, w.h_phi, w.h_z) -
+                   cross_n(w.e_r, w.e_phi, w.e_z, f.h_r, f.h_phi, f.h_z));
+    }
+    // the stack wave's incident part has its phase at the top (bottom) interface: refer it to
+    // the origin
+    const bool top = side == StackSide::kTop;
+    const Real n =
+        std::real((top ? stack.incidence_medium() : stack.substrate()).refractive_index());
+    const Real kz = k0 * n * std::cos(theta_inc);
+    const Complex phase =
+        top ? std::exp(-kI * kz * stack.top()) : std::exp(kI * kz * stack.bottom());
+    // i omega mu0 / (4 pi) times the 2 pi of the phi integral
+    return kI * (omega * constants::mu0 / 2) * sign * phase * integral;
+  };
+  const auto half_space = [&](const std::vector<Real>& theta, StackSide side) {
+    const bool top = side == StackSide::kTop;
+    const Real n =
+        std::real((top ? stack.incidence_medium() : stack.substrate()).refractive_index());
+    AxisymmetricFarField out;
+    out.azimuthal_order = m;
+    out.wavenumber = k0 * n;
+    out.impedance = constants::Z0 / n;
+    out.theta = theta;
+    for (const Real angle : theta) {
+      const Real theta_inc = top ? angle : constants::pi - angle;
+      // p: e = theta_hat, s: e = -phi_hat (both half-spaces)
+      out.f_theta.push_back(amplitude(theta_inc, Polarisation::kP, side));
+      out.f_phi.push_back(-amplitude(theta_inc, Polarisation::kS, side));
+    }
+    return out;
+  };
+  return {half_space(theta_up, StackSide::kTop), half_space(theta_down, StackSide::kBottom)};
 }
 
 AxisymmetricField oblique_plane_wave(Complex amplitude, Real k, Real theta_i,

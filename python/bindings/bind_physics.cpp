@@ -1417,13 +1417,31 @@ void bind_physics(py::module_& m) {
         .def_readonly("f_theta", &physics::AxisymmetricFarField::f_theta)
         .def_readonly("f_phi", &physics::AxisymmetricFarField::f_phi)
         .def("radiated_power", &physics::AxisymmetricFarField::radiated_power,
-             "int |F|^2 dOmega / (2 Z) [W] over the sampled angles");
+             "int |F|^2 dOmega / (2 Z) [W] over the sampled angles")
+        .def("power_between", &physics::AxisymmetricFarField::power_between, py::arg("theta_min"),
+             py::arg("theta_max"),
+             "the same over the sampled angles in [theta_min, theta_max] (a collection cone: "
+             "[0, asin(NA / n)] above, [pi - asin(NA / n), pi] below)");
     m.def("axisymmetric_far_field", &physics::axisymmetric_far_field, py::arg("meridian"),
           py::arg("azimuthal"), py::arg("meridian_coefficients"), py::arg("azimuthal_coefficients"),
           py::arg("azimuthal_order"), py::arg("omega"), py::arg("materials"), py::arg("surface"),
           py::arg("theta"), py::arg("order") = 8, Release(),
           "Near-to-far transform of the order-m field on a closed surface of revolution in the "
           "background medium, sampled at the polar angles theta");
+    py::class_<physics::AxisymmetricLayeredFarField>(
+        m, "AxisymmetricLayeredFarField",
+        "Far field of one order on a layer stack: up (cover, theta < pi/2) and down (substrate, "
+        "theta > pi/2), each an AxisymmetricFarField")
+        .def_readonly("up", &physics::AxisymmetricLayeredFarField::up)
+        .def_readonly("down", &physics::AxisymmetricLayeredFarField::down);
+    m.def("axisymmetric_layered_far_field", &physics::axisymmetric_layered_far_field,
+          py::arg("meridian"), py::arg("azimuthal"), py::arg("meridian_coefficients"),
+          py::arg("azimuthal_coefficients"), py::arg("azimuthal_order"), py::arg("omega"),
+          py::arg("materials"), py::arg("surface"), py::arg("stack"), py::arg("theta_up"),
+          py::arg("theta_down"), py::arg("order") = 8, Release(),
+          "Far field of the order-m field in the cover (theta_up in [0, pi/2)) and the lossless "
+          "substrate (theta_down in (pi/2, pi]) by reciprocity with the layered plane waves "
+          "(ADR-0014); the surface encloses every source and scatterer");
     py::enum_<physics::PlanePolarisation>(m, "PlanePolarisation",
                                           "Polarisation relative to the plane of incidence")
         .value("S", physics::PlanePolarisation::kS, "E along y")
