@@ -55,3 +55,15 @@ solve 166 ms, download 52 ms by `HPFEM_GPU_TIMING=1`). The frequency sweep is bo
 8 snapshot factorisations (5.7 s) against 0.07 s of projections and 0.14 s of reduced solves.
 Device-resident sweep vectors would have saved at most the 0.1 s of transfers and were not
 built.
+
+`m18_validation_3d.py` (with `m18_meshes_3d.py`) — the M18 3D cross-checks of the axisymmetric
+solver on layer stacks (docs/axisymmetric-layered-features.md, tests 5 and 7), a long local run:
+a gold sphere on air / SiO2 / Si3N4 / glass at 45° p (absorption, scattering up / down /
+lateral, |E| at three points) and a 200 nm hole through a 100 nm gold film on glass (T / T_geom,
+absorption change), each against the 2.5D solution of the same geometry. The gmsh meshes come
+from a Python with gmsh (`mesh`, 3–7 MB, kept outside the repository), `estimate` prints the
+DoFs, memory and factorisation time per run, `run` solves and records into
+`results/<date>-validation-m18-3d.json` after every run and resumes an interrupted sweep. The 3D
+factorisations need MUMPS or cuDSS. Estimates for the default meshes (MUMPS): sphere p = 2 / 3:
+155 k / 377 k DoFs, 3.3 / 11.3 GB, about 1 / 4 min per wavelength; hole p = 2 / 3: 309 k / 750 k
+DoFs, 8.1 / 27.4 GB, about 3 / 16 min per wavelength (2 and 3 wavelengths).
