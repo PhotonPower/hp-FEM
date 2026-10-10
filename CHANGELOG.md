@@ -6,6 +6,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - ADR-0014 (M18 S0): layered background for the axisymmetric solver — the stack as background of
   `AxisymmetricScatteringSetup`, the analytic order-m expansion of the stack field, substrate-side
   incidence by the reversed stack, the axisymmetric absorbed power and the cross-section channels.
+- Emission pattern by reciprocity (M17 S2, Stage C, ADR-0013 §6, written by the helper agent
+  `opt-jobs`): `hpfem.grating.emission_pattern` gives the far-field power per unit solid angle of
+  a single Gaussian dipole in given directions and polarisations, into the cover and (on the
+  problem mirrored at y = 0) into a lossless substrate, from one `grating.solve` per direction
+  with the plane wave incident from it: dP/dΩ = n k0² Z0 |p·⟨E⟩|²/(32π²), the field averaged
+  over the dipole's Gaussian; `EmissionPattern` with `dP_dOmega` (optionally / `P_bulk`),
+  `total`, `P_bulk`. Verified against the closed-form dipole pattern and P_bulk in a homogeneous
+  cell (1e-6), the plane-wave Fresnel far field of a dipole above glass (1e-6) and the m = 0
+  order of `grating.emit` on a glass ridge (2e-5).
 - Milestone M18 (layered background for the axisymmetric solver: particles on substrates,
   nanoparticle-on-mirror, holes and grooves in films) in the roadmap, with the reviewed
   specification `docs/axisymmetric-layered-features.md` (S0–S4).
