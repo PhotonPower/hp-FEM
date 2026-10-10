@@ -688,3 +688,110 @@ data (Olmon et al. 2012). The five-digit comparison therefore remains out of rea
 the authors' $\varepsilon$; what is validated here is the order expansion, the cylindrical PML
 and the hp resolution of a 1 nm gap between curved metal surfaces, consistent with the
 dielectric Mie checks of the axisymmetric solver (C and `docs/theory/axisymmetric.md`).
+
+## H. Gradient-based against gradient-free optimisation on a grating (M16 S8)
+
+**Problem.** The quick silicon line grating of `examples/grating_reconstruction` (Si on Si,
+period 300 nm; R0 for s and p at 65° and 400 / 550 / 700 nm, six observables; p = 2, about
+15k DoFs), three parameters CD ∈ [70, 130] nm, height ∈ [90, 150] nm and side-wall angle
+∈ [78°, 90°], the reference mesh at the start geometry (112 nm, 108 nm, 88.5°), morphed exactly
+and remeshed when the quality guard trips. Objective: the spectrum match
+$F(p) = \sum_i ((R_i(p) - R_i^{target})/\sigma)^2$ with σ = 0.002 and the target from the same
+model at the truth (100 nm, 120 nm, 86°) on a mesh built there; on the morphed start mesh the
+truth gives $F = 0.016$ (the floor of the discretisation, largest deviation $1.9\cdot10^{-4}$),
+so $F \le m = 6$ means a match to the noise level and $F \le 0.06$ one to a tenth of it.
+Budget 40 evaluations, seeds 0–2 (initial designs; random starts in the box for the local
+methods). Driver `benchmarks/opt_validation.py bo`, record
+`benchmarks/results/2026-10-10-validation-opt-bo.json` (three processes with 6 threads each).
+Both studies of S8 ran before the fix of the grating PML angle (#156, every grating PML was
+designed for normal incidence); target and model share the PML, so the comparisons are
+self-consistent, but the absolute efficiencies differ slightly from those of today's code.
+
+| method | evaluations to $F \le m$ (seeds 0 / 1 / 2) | best $F$ after 40 | s per evaluation |
+|---|---|---|---|
+| Bayesian optimisation, EI | 39 / 26 / 30 | 1.16 / 0.42 / 0.53 | 5.4 |
+| Bayesian optimisation, EI, gradient-enhanced | 16 / 31 / 22 | 0.26 / 0.15 / 0.16 | 9.0 |
+| Nelder–Mead | – / – / 40 | 34 / 41 / 4.5 | 8.0 |
+| differential evolution | – / – / – | 338 / 775 / 285 | 8.6 |
+| L-BFGS-B (random start) | – / 27 / – | 3364 / 0.38 / 2828 | 7.5 |
+
+At the best points the gradient-enhanced BO is within 0.04 nm in CD, 0.13–0.20 nm in height and
+0.04–0.09° in angle, plain BO within 0.09 nm, 0.08–0.23 nm and 0.03–0.19°; the BO runs remeshed
+10–22 times (the initial designs fill the box).
+
+**Assessment.** Gradient-enhanced BO reaches the noise level in fewer evaluations on two of three
+seeds (16 and 22 against 39 and 30; on seed 1 the plain one is faster, 26 against 31) and ends
+2–4 times lower in $F$ on all three. An evaluation with the Jacobian costs about 1.7 times one
+without, so in wall time the two are close up to the noise level and the gradients pay off in
+the final accuracy. The local gradient method alone is fast when it starts in the basin (seed 1:
+the noise level in 27 evaluations, $F = 0.38$) but stops at a corner of the box from two of three
+random starts; Nelder–Mead and differential evolution are far from the goal after 40
+evaluations (differential evolution needs a population of tens per generation). No method
+reached $F \le 0.06$ within 40 evaluations. The study is small (three seeds, one problem, one
+budget) and the per-evaluation times include the contention of three parallel processes; it
+supports the plan of S3/S5 — a global surrogate stage, with gradients where the evaluator
+provides them, before a local least-squares fit — rather than proving a general ranking.
+
+## I. The DWR estimate as fidelity indicator (M16 S8)
+
+**Question.** ADR-0012 §6 does not use the DWR estimate as Gaussian noise of a surrogate (the
+discretisation error is systematic and signed), but as a fidelity indicator: refine until
+$|\eta| \le \kappa\sigma$ with κ = 0.1. The study checks the premises of that rule on a
+reconstruction: is the estimate accurate on a morphed mesh, does the rule keep the bias of the
+fitted parameters at the size it promises, and what does the rejected alternative — the
+estimate added to the noise — do?
+
+**Problem.** The cell, observables and parameters of section H; data from p = 5 on a mesh built
+at the truth (100 nm, 120 nm, 86°) plus Gaussian noise σ = 0.002, seeds 0–4. Each strategy fits
+the same five data sets with `opt.fit` (least squares from the start geometry 112 nm, 108 nm,
+88.5°, Laplace standard deviations about 0.25 nm in CD, 0.45 nm in height and 0.30° in angle).
+The bias of a strategy is measured *paired*: the shift of its estimate against the p = 4 fit of
+the same data set, averaged over the seeds (the noise realisation cancels; the spread of the
+shift over the seeds is below a third of its mean for CD and angle at p = 2). Driver
+`benchmarks/opt_validation.py dwr`, record `benchmarks/results/2026-10-10-validation-opt-dwr.json`.
+Data, model and reference share the PML of section H (before #156).
+
+**Effectivity.** At the truth on the morphed start mesh, the signed DWR estimate
+(`conical_dwr_estimate` of the order functional) against the true error (p = 5 on the same
+mesh), largest over the six observables:
+
+| p | largest true error | largest estimate | after subtracting the estimate | largest $\eta$ at the start |
+|---|---|---|---|---|
+| 2 | $1.73\cdot10^{-3}$ | $1.71\cdot10^{-3}$ | $2.8\cdot10^{-4}$ | $2.96\cdot10^{-3}$ |
+| 3 | $2.80\cdot10^{-4}$ | $2.01\cdot10^{-4}$ | $7.9\cdot10^{-5}$ | $1.98\cdot10^{-4}$ |
+| 4 | $7.86\cdot10^{-5}$ | $7.86\cdot10^{-5}$ | $1.9\cdot10^{-8}$ | $7.97\cdot10^{-5}$ |
+
+The sign is right for every observable; the estimate captures 69–99 % of the error at p = 3 and
+all of it at p = 4, so subtracting it gains a factor 6, 4 and 4000. The bound $\sum_K |r_K|$
+overestimates by 1.7 to $10^3$ and is no stopping criterion. With κσ = $2\cdot10^{-4}$ the rule
+selects p = 3 at the start geometry.
+
+**Fits.**
+
+| strategy | shift against p = 4: CD / height / angle | same, in the fit's std | rms deviation from the truth, in std | within 2 std | evaluations | median time per fit |
+|---|---|---|---|---|---|---|
+| p = 2 | +0.170 nm / +0.071 nm / −0.126° | 0.68 / 0.16 / −0.42 | 0.87 / 0.85 / 0.53 | 15 of 15 | 10.4 | 81 s |
+| p = 2, $\sigma^2 + \eta^2$ as noise | +0.149 nm / −0.086 nm / −0.069° | 0.59 / −0.17 / −0.22 | 0.80 / 0.95 / 0.61 | 15 of 15 | 9.8 | 151 s |
+| p = 3 (the DWR rule) | +0.028 nm / −0.002 nm / −0.021° | 0.11 / −0.01 / −0.07 | 0.77 / 0.95 / 0.78 | 15 of 15 | 10.2 | 284 s |
+| p = 4 (reference) | 0 | 0 | 0.80 / 0.95 / 0.84 | 15 of 15 | 11.4 | 800 s |
+
+(The rule's fits repeat the p = 3 computation and agree with it to $10^{-7}$; the median times
+are from a workstation shared with other jobs and indicate the ratio only, the record has every
+run.)
+
+**Assessment.** The premises hold on this problem. The estimate is accurate enough to choose
+the order: the rule picks p = 3 and the bias there is 0.11 std in CD and below 0.1 std in the
+other parameters — the size κ = 0.1 promises — at a third of the cost of p = 4. At p = 2, where
+$\eta$ reaches 1.5σ, the bias is 0.68 std in CD and 0.42 std in angle. Adding $\eta^2$ to the
+noise variance does not remove it (0.59 / 0.22 std): it widens the error bars by at most 13 %
+and reweights the observables, but a systematic error stays a shift — the reason ADR-0012
+gives for not doing so. The bias at p = 2 is invisible in the usual diagnostics: all strategies
+cover the truth within 2 std in every run and their rms deviations are alike, because the noise
+(rms ≈ 1 std) dominates five realisations; only the paired comparison shows it. Subtracting the
+estimate from the p = 2 values would give near-p = 3 accuracy at p = 2 cost (factor 6 in the
+error above); this correction was not tried in the fits.
+
+Not tested: the hypothesis in its full form, multi-fidelity BO with the DWR estimate as the
+fidelity indicator against single-fidelity BO (`opt.multi_fidelity_optimize` needs BoTorch,
+which the local environment does not have); the study supports the indicator, not yet the
+multi-fidelity acquisition built on it. One problem, five seeds, one κ.
