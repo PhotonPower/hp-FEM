@@ -1,0 +1,50 @@
+{
+ "study": "M18 3D cross-checks (ADR-0014; docs/axisymmetric-layered-features.md tests 5 and 7)",
+ "runs": {},
+ "estimates": {
+  "sphere_on_stack/p2": {
+   "cells": 23179,
+   "dofs": 155344,
+   "factor_entries": 141962912,
+   "memory_gb": 3.309002501,
+   "factor_minutes_estimate": 0.6841425636626733,
+   "runs": 2,
+   "describe": "155344 DoFs, 6.68 M nonzeros, factors 142 M entries (MUMPS): about 3.31 GB"
+  },
+  "sphere_on_stack/p3": {
+   "cells": 23179,
+   "dofs": 377160,
+   "factor_entries": 463251063,
+   "memory_gb": 11.262313422,
+   "factor_minutes_estimate": 4.0328205620549715,
+   "runs": 2,
+   "describe": "377160 DoFs, 32.3 M nonzeros, factors 463 M entries (MUMPS): about 11.26 GB"
+  },
+  "nanohole/p2": {
+   "cells": 46318,
+   "dofs": 308754,
+   "factor_entries": 354758147,
+   "memory_gb": 8.090702672,
+   "factor_minutes_estimate": 2.7026065727128548,
+   "runs": 3,
+   "describe": "308754 DoFs, 13.4 M nonzeros, factors 355 M entries (MUMPS): about 8.09 GB"
+  },
+  "nanohole/p3": {
+   "cells": 46318,
+   "dofs": 750165,
+   "factor_entries": 1158754192,
+   "memory_gb": 27.352662636,
+   "factor_minutes_estimate": 15.95406067486834,
+   "runs": 3,
+   "describe": "750165 DoFs, 64.5 M nonzeros, factors 1.16e+03 M entries (MUMPS): about 27.35 GB"
+  }
+ },
+ "info": {
+  "hpfem": "0.4.0",
+  "python": "3.14.5",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "backends": [
+   "DirectSolverBackend.SPARSE_LU"
+  ]
+ }
+}

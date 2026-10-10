@@ -492,14 +492,16 @@ particles on substrates, nanoparticle-on-mirror, holes and grooves in films (neg
   regression records. Done: axisymmetric absorbed power with the stack-field variant (body absorption, absorption
   change), channels up / down / lateral, `axisymmetric_disc_flux`, the quasi-static sphere above
   a substrate against the image dipole and the power balance of a hole in an absorbing film
-  (written by the helper agent `opt-jobs`). Open: the 3D cross-checks, run together with S4
+  (written by the helper agent `opt-jobs`). Open: the 3D cross-checks and the full spectra of
+  `examples/particle_on_substrate` as long local runs
 - [x] S3: reciprocity-based far field in both half-spaces (`axisymmetric_layered_far_field`),
   collection over a numerical aperture (`power_between`); tests: homogeneous limit against the
   near-to-far transform, reciprocity with a dipole source above glass (amplitudes in both
   half-spaces, power balance) (written by the helper agent `opt-jobs`)
-- [ ] S4: docs (theory/axisymmetric.md "Layered background"), python.md, example
+- [x] S4: docs (theory/axisymmetric.md "Layered background"), python.md, example
   `examples/particle_on_substrate` (Au sphere on glass, dark field; NPoM gap mode; single nanohole
-  in a gold film, transmission spectrum)
+  in a gold film, transmission) with README and a quick regression test (written by the helper
+  agent `opt-jobs`)
 
 ## Backlog / ideas
 - [ ] the full ring resonator with ports in 3D (M12 stage B): needs an hp-mesh that is fine
