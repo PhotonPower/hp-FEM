@@ -443,7 +443,8 @@ interface, is moved to the origin. The pattern of the full field is $\sum_m F_m(
 collection cone of numerical aperture NA `power_between(0, asin(NA/n))` (below:
 $[\pi - \arcsin(\mathrm{NA}/n), \pi]$). In a lossless stack the scattered power minus the two
 half-spaces is carried along the layers (guided modes). $S$ must enclose every source; it may
-lie in one layer (a dipole above a substrate) or cross lossless layers.
+lie in one layer (a dipole above a substrate) or cross the layers, lossy ones included (the
+reciprocity theorem holds in any reciprocal medium; outside $S$ there is only the stack).
 
 **Verification** (`tests/unit/physics/test_axisymmetric_farfield_layered.cpp`,
 `python/tests/test_axisymmetric_farfield_layered.py`): for a vacuum stack the pattern of a
@@ -454,6 +455,11 @@ air and in the glass, also beyond the critical angle, agree with the reciprocity
 source, $\tfrac{i\omega\mu_0}{4\pi}\,p\,E_{pw,z}(0, h)\,e^{-k^2\sigma^2/2}$, to $8\cdot10^{-4}$, and the
 power into air and glass adds up to the flux through the surface around the dipole to
 $2\cdot10^{-3}$ (no guided modes at a single interface).
+
+**Example.** `examples/particle_on_substrate` puts the pieces together: a gold sphere on glass in
+dark field (channels, collection over NA 0.5), a nanoparticle on a gold mirror (the gap mode far
+to the red of the free sphere) and a nanohole in a gold film (T / T_geom, absorption change), each
+with the power balance of the total field.
 
 ## hp-adaptivity on the meridian plane (`adaptivity/axisymmetric_estimator.hpp`)
 

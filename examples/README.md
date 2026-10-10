@@ -23,3 +23,4 @@ runtime) and a driver. The M3–M5 examples are C++ programs (`main.cpp`, built 
 | `gold_dimer/`          | Plasmonic gap field of a gold sphere dimer (M10 benchmark, axisymmetric solver) | M10 |
 | `grating_reconstruction/` | Scatterometry: CD / height / side-wall angle of a Si grating with uncertainties | M16 |
 | `fabrication_tolerance/` | Fabrication tolerances of a Si grating propagated to its reflectance (linearised, Monte Carlo, Sobol') | M16 |
+| `particle_on_substrate/` | Bodies of revolution on layer stacks: gold sphere on glass in dark field, nanoparticle on a mirror, nanohole in a gold film | M18 |
