@@ -1,6 +1,7 @@
 """hpfem.grating.solve (M15 F2): the glass lamellar grating of the conical validation test
 against the conical RCWA references of docs/gui-support-features.md, the lossy silver case
-with the PEC bottom, snapping of interfaces, and the error messages."""
+with the PEC bottom, snapping of interfaces, the PML designed for the largest angle, and
+the error messages."""
 
 import numpy as np
 import pytest
@@ -82,6 +83,20 @@ def test_glass_grating_matches_the_conical_rcwa(pol, theta_deg, phi_deg, r_ref, 
     assert result.substrate_line is not None and result.substrate_line < 0 < result.cover_line
 
 
+def test_pml_profile_is_designed_for_the_largest_angle():
+    """The PML profile covers the incidence angle (the binding takes degrees; until 2026-10-10
+    the angle went in as radians, a normal-incidence profile for every angle)."""
+    mesh, pml = unit_cell()
+    glass = hpfem.Material.dielectric(1.5)
+    stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)
+    materials = {SUB: glass, RIDGE_TAG: glass}
+    result = grating.solve(mesh, materials, stack, "s", 40 * units.deg, 0.0, OMEGA, order=2,
+                           pml={"top": pml, "bottom": pml}, orders_max=2)  # fmt: skip
+    normal = hpfem.PmlProfile.for_angle(0.0, 1e-6).reflection
+    at_incidence = hpfem.PmlProfile.for_angle(40.0, 1e-6).reflection
+    assert result.pml.profile.reflection <= at_incidence * (1 + 1e-12) < normal
+
+
 def test_scalar_ez_path_matches_the_block_solve():
     mesh, pml = unit_cell()
     glass = hpfem.Material.dielectric(1.5)
@@ -96,7 +111,21 @@ def test_scalar_ez_path_matches_the_block_solve():
     assert abs(scalar.R - full.R) < 1e-9 and abs(scalar.T - full.T) < 1e-9
     for a, b in zip(scalar.R_orders, full.R_orders, strict=True):
         assert np.allclose(a.amplitude, b.amplitude, atol=1e-9)
-    assert scalar.timing["solver.factorisation"] <= full.timing["solver.factorisation"]
+    # the scalar path factorises the H1 block alone (5-10 times faster here); on a shared machine a
+    # single timing can still flip, so compare the best of up to three solves of each path (#149)
+    key = "solver.factorisation"
+
+    def factorisation(path):
+        return grating.solve(mesh, {SUB: glass, RIDGE_TAG: glass}, stack, "s", 40 * units.deg, 0.0,
+                             OMEGA, scalar=path, **common).timing[key]  # fmt: skip
+
+    t_scalar, t_full = scalar.timing[key], full.timing[key]
+    for _ in range(2):
+        if t_scalar <= t_full:
+            break
+        t_scalar = min(t_scalar, factorisation(True))
+        t_full = min(t_full, factorisation(False))
+    assert t_scalar <= t_full
     # p polarisation and conical incidence stay on the block path; forcing raises
     p = grating.solve(mesh, {SUB: glass, RIDGE_TAG: glass}, stack, "p", 40 * units.deg, 0.0,
                       OMEGA, **common)  # fmt: skip

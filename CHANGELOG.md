@@ -3,6 +3,33 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Example `examples/particle_on_substrate` (M18 S4, written by the helper agent `opt-jobs`): bodies
+  of revolution on layer stacks — a gold sphere on glass in dark field (absorption, scattering up /
+  down / along the interface, collection by an NA 0.5 objective), a nanoparticle on a gold mirror
+  (gap mode far to the red of the free sphere) and a nanohole in a gold film (T / T_geom,
+  absorption change), each with the power balance of the total field; quick configuration as
+  regression test.
+- Far field of bodies of revolution on layer stacks (M18 S3, ADR-0014 §4, written by the helper
+  agent `opt-jobs`): `axisymmetric_layered_far_field` gives the pattern of every order in the cover
+  and in a lossless substrate by reciprocity with the stack's plane waves (no layered Green's
+  function), `AxisymmetricFarField.power_between` the power collected by an objective of numerical
+  aperture NA; checked against the near-to-far transform in the homogeneous limit (3e-12) and
+  against a dipole above glass, also beyond the critical angle, in amplitude (8e-4) and power
+  (2e-3).
+- Cross-section channels for bodies of revolution on layer stacks (M18 S2, ADR-0014 §4, written by
+  the helper agent `opt-jobs`): `axisymmetric_absorbed_power` and
+  `AxisymmetricScattering.absorbed_power` / `incident_absorbed_power` / `scatterer_cells`
+  (absorption of the body, absorption change around holes), `axisymmetric_flux_channels`
+  (scattered power up / down / along the layers), `axisymmetric_disc_flux` (aperture transmission
+  with the stack's own part) and the flux of the total field; a small sphere above glass
+  reproduces the image-dipole absorption to 2e-3.
+- Layered background for the axisymmetric solver (M18 S1, ADR-0014, written by the helper agent
+  `opt-jobs`): `AxisymmetricScatteringSetup.background` takes a `LayerStack3D` normal to the axis
+  and forms the scattered-field source against the stack at each cell, so particles, holes and
+  grooves in substrates and films are bounded scatterers; `layered_axisymmetric_wave` gives the
+  order-m component of the stack's plane wave (value and curl, analytic per layer, from the top or
+  from a lossless substrate including total internal reflection), verified against the azimuthal
+  Fourier transform of the 3D stack field to 1e-12.
 - ADR-0014 (M18 S0): layered background for the axisymmetric solver — the stack as background of
   `AxisymmetricScatteringSetup`, the analytic order-m expansion of the stack field, substrate-side
   incidence by the reversed stack, the axisymmetric absorbed power and the cross-section channels.
@@ -157,6 +184,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   side-wall angle tolerances of a silicon grating propagated to its reflectance spectrum.
 
 ### Fixed
+- The PML of `hpfem.grating` (`solve`, `validate`, `resonances`, and on the M17 branches `emit`
+  and `emission_pattern`) was designed for a normal-incidence profile at every angle: the largest
+  propagating-order angle went into `PmlProfile.for_angle` in radians, but the binding takes
+  degrees (since M15 F2). The profile now covers that angle (capped at 80°). Grazing orders
+  close to a Rayleigh anomaly had leaked back from the PML. For the dipole array scanning of
+  M17 this meant 11 % error on one β slice; with the fix it is 0.6 %. The test
+  `test_pml_profile_is_designed_for_the_largest_angle` guards it.
 - Shape derivatives of grating efficiencies along a mesh velocity that deforms the cells at a
   measurement line lying on mesh facets (the default midway line of structured cells): the
   order amplitude sampled on facets is not differentiable there (the normal Nédélec

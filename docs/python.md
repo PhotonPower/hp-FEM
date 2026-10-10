@@ -773,6 +773,36 @@ incidence (project files: `pml.profile.theta_max` and `target`), `dwr_estimate` 
 `point_value_functional` or a Python functional for goal-oriented estimation, `VtkWriter2D`
 for meshes with data arrays. `help(hpfem.<name>)` shows the bound signature and docstring.
 
+Bodies of revolution on substrates and in layer stacks (ADR-0014): set
+`AxisymmetricScatteringSetup.background` to a `LayerStack3D` normal to the axis (its z is the y of
+the meridian mesh, interfaces on mesh lines, the layer cells tagged with the stack's materials)
+and take the incident order from `layered_axisymmetric_wave(stack, k0, theta, pol, m,
+side="top")` (`pol` `"s"` / `"p"`, `side` `"top"` or `"bottom"` for a lossless substrate; the
+result has `value` and `curl` callables and R, T, A of the bare stack). The source then lives
+only where a cell deviates from the stack, particles and holes alike:
+
+```python
+stack = hpfem.LayerStack3D(hpfem.Material.vacuum(), [hpfem.Layer(gold, 50e-9)], glass, 0.0)
+setup.background = stack
+for m in range(-m_max, m_max + 1):
+    setup.azimuthal_order = m
+    setup.incident = hpfem.layered_axisymmetric_wave(stack, k0, theta, "p", m).value
+    fields.append(hpfem.AxisymmetricScattering(nd, h1, setup).solve())
+```
+
+Per order, `problem.absorbed_power(field)` gives the absorption of the total field (per cell and
+tag; the body is `problem.scatterer_cells()`), `problem.incident_absorbed_power()` that of the bare
+stack in the same cells (their difference over a region around a hole is the absorption change),
+`axisymmetric_flux_channels(..., surface, stack)` the scattered power split into `up` / `down` /
+`lateral`, and `axisymmetric_disc_flux(..., z, radius, -1, wave.value, wave.curl)` the transmission
+through a disc with the stack's own part (`background`, `change()`); `axisymmetric_poynting_flux`
+takes the same `added_value` / `added_curl` for the flux of the total field. Sum every quantity over
+the orders.
+The far field in both half-spaces comes from `axisymmetric_layered_far_field(..., surface, stack,
+theta_up, theta_down)` (reciprocity with the stack's plane waves; `.up` / `.down` are
+`AxisymmetricFarField`s with `radiated_power()` and `power_between(theta_min, theta_max)` for a
+collection cone, e.g. `power_between(0, asin(NA / n))` for an objective above the sample).
+
 **Band derivatives and group velocity.** With `setup.keep_modes = True` a
 `BandStructure2D/3D` keeps the eigenvectors in `Bands.modes`, and the bands can be
 differentiated without another eigensolve: `band_permittivity_derivative(problem, bands, tag)`

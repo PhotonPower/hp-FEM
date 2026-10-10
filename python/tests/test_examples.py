@@ -229,3 +229,37 @@ def test_fabrication_tolerance_propagates_and_ranks_the_tolerances(tmp_path):
     assert result.evaluations == result.surrogate_points + 1
     saved = json.loads((tmp_path / "fabrication_tolerance.json").read_text(encoding="utf-8"))
     assert saved["linear_std"] == pytest.approx(result.linear_std)
+
+
+def test_particle_on_substrate_channels_gap_mode_and_hole(tmp_path):
+    example = load_example("particle_on_substrate")
+    result = example.run(quick=True, out=str(tmp_path / "particle.json"))
+    assert json.loads((tmp_path / "particle.json").read_text(encoding="utf-8"))["quick"]
+    # dark field: channels add up, no lateral channel on a half-space, the cone collects part
+    # of the upward scattering, Poynting's theorem for the total field, the plasmon in range
+    rows = result["darkfield"]["spectrum"]
+    for row in rows:
+        assert row["sigma_scattering_nm2"] == pytest.approx(
+            row["sigma_up_nm2"] + row["sigma_down_nm2"] + row["sigma_lateral_nm2"]
+        )
+        assert row["sigma_extinction_nm2"] == pytest.approx(
+            row["sigma_scattering_nm2"] + row["sigma_absorption_nm2"]
+        )
+        assert row["sigma_lateral_nm2"] == 0.0
+        assert 0 < row["sigma_collected_nm2"] < row["sigma_up_nm2"]
+        assert abs(row["balance"]) < 2e-2
+    peak = max(rows, key=lambda r: r["sigma_scattering_nm2"])["wavelength_nm"]
+    assert 500 <= peak <= 580
+    # NPoM: the gap mode scatters far to the red of the free sphere, much more strongly
+    npom = result["npom"]
+    assert npom["peak_on_mirror_nm"] >= npom["peak_isolated_nm"] + 50
+    on_mirror = max(r["sigma_scattering_nm2"] for r in npom["on_mirror"])
+    isolated = max(r["sigma_scattering_nm2"] for r in npom["isolated"])
+    assert on_mirror > 5 * isolated
+    for row in npom["on_mirror"] + npom["isolated"]:
+        assert abs(row["balance"]) < 5e-2
+    # nanohole: the hole transmits far more per area than the film, the balance closes
+    for row in result["hole"]["spectrum"]:
+        assert 0.1 < row["T_over_T_geom"] < 1.5
+        assert row["T_over_T_geom"] > 50 * row["film_transmittance"]
+        assert abs(row["balance"]) < 5e-2

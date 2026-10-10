@@ -474,21 +474,28 @@ particles on substrates, nanoparticle-on-mirror, holes and grooves in films (neg
   stack in `AxisymmetricScatteringSetup`, analytic order-m expansion of the stack field with real
   k_ρ and complex k_z (numerical φ-transform as the test reference), substrate-side incidence by
   the reversed stack, new axisymmetric absorbed power, cross-section channels in layered media
-- [ ] S1: `AxisymmetricScatteringSetup::background`, contrast against the stack,
-  `layered_axisymmetric_wave` (field and curl, all layers, evanescent / lossy k_z; generalised
-  Jacobi–Anger expansion of the partial waves), substrate-side incidence; tests: bare stack
-  (E_sca = 0, R / T by flux), homogeneous-stack limit, reversed stack and total internal reflection
-- [ ] S2: axisymmetric absorbed power (new; orders orthogonal in φ) and its variant with the
+- [x] S1: `AxisymmetricScatteringSetup::background`, contrast against the stack at the cell
+  centroid, checks (interfaces on mesh lines, no deviation in the PML), `layered_axisymmetric_wave`
+  (top / bottom, s / p, value and curl) with the φ-transform reference, reciprocity / TIR and the
+  homogeneous limit; Python bindings (written by the helper agent `opt-jobs`)
+- [ ] S2 (ongoing): axisymmetric absorbed power (new; orders orthogonal in φ) and its variant with the
   stack field (absorption of the body, absorption change around holes), scattered power split into
   up / down / lateral, `axisymmetric_disc_flux` (aperture transmission); tests: quasi-static sphere
   on a substrate, power balance of a hole in an Au film; 3D cross-checks with `Scattering<3>` +
   `LayerStack<3>` (sphere on a stack, the hole) as long local runs (`validation-long`) with stored
-  regression records
-- [ ] S3: reciprocity-based far field in both half-spaces, collection over a numerical aperture;
-  tests: homogeneous limit against the near-to-far transform, reciprocity with a dipole source
-- [ ] S4: docs (theory/axisymmetric.md "Layered background"), python.md, example
+  regression records. Done: axisymmetric absorbed power with the stack-field variant (body absorption, absorption
+  change), channels up / down / lateral, `axisymmetric_disc_flux`, the quasi-static sphere above
+  a substrate against the image dipole and the power balance of a hole in an absorbing film
+  (written by the helper agent `opt-jobs`). Open: the 3D cross-checks and the full spectra of
+  `examples/particle_on_substrate` as long local runs
+- [x] S3: reciprocity-based far field in both half-spaces (`axisymmetric_layered_far_field`),
+  collection over a numerical aperture (`power_between`); tests: homogeneous limit against the
+  near-to-far transform, reciprocity with a dipole source above glass (amplitudes in both
+  half-spaces, power balance) (written by the helper agent `opt-jobs`)
+- [x] S4: docs (theory/axisymmetric.md "Layered background"), python.md, example
   `examples/particle_on_substrate` (Au sphere on glass, dark field; NPoM gap mode; single nanohole
-  in a gold film, transmission spectrum)
+  in a gold film, transmission) with README and a quick regression test (written by the helper
+  agent `opt-jobs`)
 
 ## Backlog / ideas
 - [ ] the full ring resonator with ports in 3D (M12 stage B): needs an hp-mesh that is fine

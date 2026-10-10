@@ -306,6 +306,161 @@ superposed orders carrying the total power to $10^{-2}$, and the cross-section c
 exponentially in $p$ (both polarisations, relative errors $3\cdot10^{-1}$, $8\cdot10^{-3}$,
 $1.5\cdot10^{-3}$, $8\cdot10^{-5}$ for $p = 1, \dots, 4$ with seven to nine orders).
 
+## Layered background (`layered_axisymmetric_wave`, ADR-0014)
+
+A body of revolution on a substrate or in a stack of planar layers normal to the axis is a
+scattering problem on a layered background, as for the 2D / 3D solvers
+([layered background](maxwell.md#layered-background-physicslayer_stackhpp-adr-0009), ADR-0009). With
+`AxisymmetricScatteringSetup::background` (a `LayerStack<3>` whose $z$ is the $y$ of the meridian
+mesh) the scattered-field source is formed against the stack at the cell centroid,
+
+$$
+f = k_0^2\,\bigl(\varepsilon_c - \varepsilon_{stack}(z_c)\bigr)\,E^{inc}_m ,
+$$
+
+so it lives only where the body deviates from the stack. The sign does not matter: an air hole
+or a groove in a layer is a source like a particle. The bare stack has no source and scatters
+nothing for every order. The PML stretches each cell's own material, so the layers continue
+into the radial PML; the constructor rejects a cell that straddles an interface (interfaces must
+lie on mesh lines) and, with an incident field, a PML cell whose material deviates from the
+stack (the deviation must be radially bounded, otherwise the "scattered" field would contain the
+non-decaying reflected and transmitted waves of an infinite layer).
+
+**The incident orders.** The stack's plane wave (`LayerStack<3>::plane_wave`, in-plane wave
+vector along $+x$) is in layer $j$ the sum of a downward and an upward partial wave with the
+common real in-plane wavenumber $k_\rho = k_0 n_{inc}\sin\theta$ (phase matching) and the vertical
+wavenumbers $\mp k_{z,j}$, $k_{z,j} = \sqrt{k_0^2\varepsilon_j - k_\rho^2}$ with
+$\mathrm{Im}\,k_{z,j} \ge 0$ (complex in lossy layers and beyond the critical angle). With the
+scalar amplitude $u$ of the recursion ($E_s$ for s, $H$ for p) the vectors of a partial wave
+with $k = (k_\rho, 0, \pm k_{z,j})$ are
+
+$$
+\text{s:}\ E = u\,\hat y,\ H = \frac{k\times E}{\omega\mu_0};\qquad
+\text{p:}\ H = u\,\hat y,\ E = -\frac{k\times H}{\omega\varepsilon_0\varepsilon_j},
+$$
+
+complex for complex $k_{z,j}$. Because $k_\rho$ is real, each partial wave expands by the
+Jacobi–Anger formulas of [oblique incidence](#oblique-incidence-oblique_plane_wave-scatter_orders)
+with its complex Cartesian vector $P$ in place of $E_0\hat p$:
+$P_{\rho,m} = \tfrac{P_x}{2}(a_{m-1}+a_{m+1}) + \tfrac{P_y}{2i}(a_{m-1}-a_{m+1})$,
+$P_{\varphi,m} = -\tfrac{P_x}{2i}(a_{m-1}-a_{m+1}) + \tfrac{P_y}{2}(a_{m-1}+a_{m+1})$,
+$P_{z,m} = P_z a_m$, $a_n = i^n J_n(k_\rho r)$, times the vertical exponential of the partial wave.
+`layered_axisymmetric_wave(stack, k0, theta, pol, m, side)` returns the sum in the scaled
+components $(E_r, v = -irE_\varphi, E_z)$ and the cylindrical curl $i\omega\mu_0 H_m$ (the
+convention of `axisymmetric_error`), with the reflectance, transmittance and absorptance of
+the bare stack. A homogeneous stack gives `oblique_plane_wave` at $\theta_i = \pi - \theta$.
+
+**Incidence from the substrate side.** A wave from below is the wave from above on the reversed
+stack (incidence medium the substrate, which must be lossless; layers in reverse order; substrate
+the incidence medium; top at $-z_{bottom}$) mirrored $z \to -z$. The mirror maps
+$(E_r, v, E_z)(r, z) \mapsto (E_r, v, -E_z)(r, -z)$ and, the curl being a pseudovector,
+$(C_r, C_\varphi, C_z) \mapsto (-C_r, -C_\varphi, C_z)$. The mirror would turn $H = u\hat y$ of
+p polarisation into $-u\hat y$; the sign is flipped back so that p has $H$ along $+\hat y$ on
+both sides (a homogeneous stack gives `oblique_plane_wave` at $\theta_i = \theta$). Beyond the
+critical angle of the substrate the wave is totally reflected and evanescent in the cover:
+illumination of particles on a prism.
+
+**Verification** (`tests/unit/physics/test_axisymmetric_layered.cpp`,
+`python/tests/test_axisymmetric_layered.py`): the orders agree with the numerical Fourier
+transform over $\varphi$ of the 3D field of `LayerStack<3>::plane_wave` on rings (air, glass, a
+lossy metal layer and the substrate; $m = -3 \dots 5$; s and p; normal, oblique and, from the
+substrate side, beyond the critical angle) to $10^{-12}$ in value and curl; a homogeneous stack
+reproduces `oblique_plane_wave` from both sides; the reversed lossless stack has the same R and T
+(reciprocity), R = 1 beyond the critical angle with the field in the cover decaying as
+$e^{-\kappa z}$; the flux of the summed orders through discs above and below the stack is
+$(1 - R)$ and $T$ times the incident power through the disc (both sides, lossy layer included),
+which checks value, curl and normalisation together. On the mesh, the bare stack gives a
+scattered field of exactly zero for several orders, an air hole in a layer is a source, the
+checks reject a deviation in the PML and an interface off the mesh lines, and a vacuum stack
+reproduces the uniform solver coefficient by coefficient and the Mie cross-section of the
+sphere.
+
+**Cross-sections per channel** (ADR-0014 §4, M18 S2). Every quantity is a sum over the orders,
+which are orthogonal in $\varphi$; normalised by the incident intensity
+$I = n_{inc}|E_0|^2/(2Z_0)$ it is a cross-section.
+
+- *Absorbed power* (`axisymmetric_absorbed_power`, `AxisymmetricScattering::absorbed_power`): the
+  Joule heating $\tfrac{\omega\varepsilon_0}{2}\mathrm{Im}\,\varepsilon_r|E_m|^2$ integrated with
+  the weight $2\pi r$, $|E_m|^2 = |E_r|^2 + |v|^2/r^2 + |E_z|^2$, per cell and per tag, the PML
+  cells left out. The class method adds the incident field per quadrature point, so it is the
+  absorption of the total field (stack + scattered). The absorption of the *body* is the sum over
+  `scatterer_cells()` (the cells deviating from the stack). Around a hole the body is lossless and
+  the meaningful quantity is the *absorption change* in a bounded region: the total-field
+  absorption with the actual materials minus `incident_absorbed_power()`, the stack field in the
+  bare stack (every cell with its background material). It is negative where the hole removes
+  more absorbing metal than the field it scatters deposits.
+- *Scattered power by channel* (`axisymmetric_flux_channels`): the Poynting flux of the scattered
+  field through a closed surface of mesh lines around the body, each quadrature point assigned by
+  its height to `up` (above the top interface, into the cover), `down` (below the bottom
+  interface) or `lateral` (between them: power carried along the layers, guided or absorbed
+  outside the surface). In a lossy substrate `down` decreases with the depth of the surface.
+- *Flux of the total field* (`axisymmetric_poynting_flux` with `added_value` / `added_curl`, the
+  stack wave's value and curl): Poynting's theorem in a bounded region, the inflow of the total
+  field equals its absorption inside.
+- *Aperture transmission* (`axisymmetric_disc_flux`): the flux through the disc $r \le R$ on a
+  mesh line $z$, for the total field and for the stack field alone through the same facets
+  (`background`; summed over the orders it is $T\,I\cos\theta\,\pi R^2$); `change()` is the
+  transmission caused by the hole, normalised by $I\pi a^2$ for $T/T_{geom}$.
+- *Extinction*: absorption plus scattering. The optical theorem of a homogeneous background does
+  not hold on a stack; the generalised version is out of scope.
+
+**Verification** (`tests/unit/physics/test_axisymmetric_channels.cpp`,
+`python/tests/test_axisymmetric_channels.py`): a lossy sphere ($\varepsilon = 4 + i$, $ka = 1.5$,
+p = 3) absorbs the Mie absorption cross-section to $10^{-2}$, scattering plus absorption give the
+Mie extinction to $10^{-2}$, and the total field flows into the sphere at the rate it is absorbed;
+on the bare stack (air / glass / lossy metal / glass) the stack field's absorption in a cylinder
+and its flux through discs above and below, summed over the orders, give $A$, $1 - R$ and $T$ of
+the stack to $10^{-6}$ (s and p, oblique); for an air hole through the metal film the inflow of the
+total field into a bounded region equals its absorption (p = 3, $2\cdot10^{-2}$), the stack field
+alone balances analytically, the absorption change equals the change of the inflow, the body is
+exactly the hole cells, and the channels add up to the scattered flux (no lateral part on a
+half-space). A small sphere ($ka = 0.05$, $\varepsilon = -5 + i$) half a radius above glass at
+normal incidence absorbs, relative to the same sphere in vacuum, the image-dipole value
+$|E_{ext}/E_0|^2/|1 - \alpha\beta/(32\pi d^3)|^2$ (Wind, Vlieger and Bedeaux 1987) to
+$1.7\cdot10^{-3}$, the size of the neglected multipole images, converged in p to $10^{-4}$, while
+the value without the image term is 5.6 % off (`tests/convergence/axisymmetric_sphere_on_substrate.cpp`).
+
+**Far field per half-space** (`axisymmetric_layered_far_field`, M18 S3). The Green's function of
+the stack is not needed: by Lorentz reciprocity, the field at a distant point $R\hat r$ of a
+half-space with index $n$, projected on a transverse unit vector $\hat e$, equals the overlap of
+the field on a closed surface $S$ around all sources with the field of a current element $\hat e$
+at $R\hat r$, and near the body that field is the stack's plane wave arriving from $\hat r$,
+$\tfrac{i\omega\mu_0}{4\pi R}e^{iknR}E_{pw}$ (incident amplitude 1, reflections included). With
+$E \approx F e^{iknR}/R$,
+
+$$
+F\cdot\hat e = \frac{i\omega\mu_0}{4\pi}\oint_S \bigl(E\times H_{pw} - E_{pw}\times H\bigr)\cdot n\,dS ,
+$$
+
+$\hat e = \hat\theta$ for the p and $-\hat\varphi$ for the s wave. For the order $m$ at
+$\varphi = 0$ the azimuthal integral picks the order $-m$ of the arriving wave (in-plane wave
+vector along $-x$: the wave of `layered_axisymmetric_wave` rotated by $\pi$) with the factor
+$2\pi(-1)^m$; the meridian integral is done on the quadrature points of $S$. Directions into the
+cover use the wave from the top at $\theta$, directions into a lossless substrate the wave from
+the bottom at $\pi - \theta$; the phase of the stack wave, referred to its top (bottom)
+interface, is moved to the origin. The pattern of the full field is $\sum_m F_m(\theta)e^{im\varphi}$
+(`superpose_far_field` per half-space), the power into a half-space `radiated_power()`, into a
+collection cone of numerical aperture NA `power_between(0, asin(NA/n))` (below:
+$[\pi - \arcsin(\mathrm{NA}/n), \pi]$). In a lossless stack the scattered power minus the two
+half-spaces is carried along the layers (guided modes). $S$ must enclose every source; it may
+lie in one layer (a dipole above a substrate) or cross the layers, lossy ones included (the
+reciprocity theorem holds in any reciprocal medium; outside $S$ there is only the stack).
+
+**Verification** (`tests/unit/physics/test_axisymmetric_farfield_layered.cpp`,
+`python/tests/test_axisymmetric_farfield_layered.py`): for a vacuum stack the pattern of a
+scattering sphere equals the near-to-far transform `axisymmetric_far_field` in both
+half-spaces to $3\cdot10^{-12}$ (m = ±1, stack interface through the sphere); for the total field
+of an axial Gaussian dipole $0.8\lambda$ above glass (p = 3) the amplitudes in the
+air and in the glass, also beyond the critical angle, agree with the reciprocity value of the
+source, $\tfrac{i\omega\mu_0}{4\pi}\,p\,E_{pw,z}(0, h)\,e^{-k^2\sigma^2/2}$, to $8\cdot10^{-4}$, and the
+power into air and glass adds up to the flux through the surface around the dipole to
+$2\cdot10^{-3}$ (no guided modes at a single interface).
+
+**Example.** `examples/particle_on_substrate` puts the pieces together: a gold sphere on glass in
+dark field (channels, collection over NA 0.5), a nanoparticle on a gold mirror (the gap mode far
+to the red of the free sphere) and a nanohole in a gold film (T / T_geom, absorption change), each
+with the power balance of the total field.
+
 ## hp-adaptivity on the meridian plane (`adaptivity/axisymmetric_estimator.hpp`)
 
 The adaptive loop of [hp-adaptivity.md](hp-adaptivity.md) runs unchanged on the meridian
