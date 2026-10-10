@@ -326,7 +326,8 @@ def _prepare(
         float(theta),
     )
     theta_max = min(theta_max, 80 * units.deg)
-    profile = hpfem.PmlProfile.for_angle(theta_max, pml_target, 1.0, 2)
+    # the binding takes degrees
+    profile = hpfem.PmlProfile.for_angle(theta_max / units.deg, pml_target, 1.0, 2)
     if isinstance(pml, hpfem.PmlBox2D):
         box = pml
         t_top = y_max - box.upper[1]

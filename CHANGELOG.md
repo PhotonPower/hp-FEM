@@ -125,6 +125,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   side-wall angle tolerances of a silicon grating propagated to its reflectance spectrum.
 
 ### Fixed
+- The PML of `hpfem.grating` (`solve`, `validate`, `resonances`, and on the M17 branches `emit`
+  and `emission_pattern`) was designed for a normal-incidence profile at every angle: the largest
+  propagating-order angle went into `PmlProfile.for_angle` in radians, but the binding takes
+  degrees (since M15 F2). The profile now covers that angle (capped at 80°). Grazing orders
+  close to a Rayleigh anomaly had leaked back from the PML. For the dipole array scanning of
+  M17 this meant 11 % error on one β slice; with the fix it is 0.6 %. The test
+  `test_pml_profile_is_designed_for_the_largest_angle` guards it.
 - Shape derivatives of grating efficiencies along a mesh velocity that deforms the cells at a
   measurement line lying on mesh facets (the default midway line of structured cells): the
   order amplitude sampled on facets is not differentiable there (the normal Nédélec
