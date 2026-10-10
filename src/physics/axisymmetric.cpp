@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <map>
 #include <memory>
 #include <numeric>
 #include <vector>
@@ -18,6 +19,7 @@
 #include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
+#include "hpfem/core/parallel.hpp"
 #include "hpfem/fespace/h1_basis.hpp"
 #include "hpfem/fespace/nedelec_basis.hpp"
 #include "hpfem/mesh/geometry.hpp"
@@ -430,6 +432,18 @@ AxisymmetricScattering::AxisymmetricScattering(const fespace::NedelecDofMap<2>& 
       setup_.background ? fmt::format("{} layers", setup_.background->num_layers()) : "uniform");
 }
 
+namespace {
+
+/// Whether two materials differ beyond round-off (relative 1e-12) in ε or μ.
+bool materials_differ(const materials::Material& a, const materials::Material& b) {
+  const auto close = [](Complex x, Complex y) {
+    return std::abs(x - y) <= 1e-12 * std::max(1.0, std::abs(y));
+  };
+  return !close(a.eps_r, b.eps_r) || !close(a.mu_r, b.mu_r);
+}
+
+}  // namespace
+
 void AxisymmetricScattering::check_background() const {
   const auto& mesh = meridian_->mesh();
   const LayerStack<3>& stack = *setup_.background;
@@ -442,12 +456,6 @@ void AxisymmetricScattering::check_background() const {
   // relative to the mesh extent along the axis (mesh lines sit on the interfaces only up to
   // rounding), as Scattering<Dim>
   const Real tolerance = 1e-9 * std::max(std::abs(stack.top() - stack.bottom()), z_max - z_min);
-  const auto differs = [](const materials::Material& a, const materials::Material& b) {
-    const auto close = [](Complex x, Complex y) {
-      return std::abs(x - y) <= 1e-12 * std::max(1.0, std::abs(y));
-    };
-    return !close(a.eps_r, b.eps_r) || !close(a.mu_r, b.mu_r);
-  };
   for (Index c = 0; c < mesh.num_cells(); ++c) {
     const Point<2> centroid = mesh::affine_map(mesh, c).centroid();
     const int region = stack.region(centroid(1));
@@ -468,7 +476,7 @@ void AxisymmetricScattering::check_background() const {
     if (setup_.incident && setup_.pml && setup_.pml->in_layer(centroid)) {
       const auto& material = setup_.materials.of_cell(mesh, c);
       const auto& layer = stack.material(region);
-      if (differs(material, layer)) {
+      if (materials_differ(material, layer)) {
         throw InvalidArgument(fmt::format(
             "AxisymmetricScattering: cell {} (tag {}) in the PML deviates from the layered "
             "background (eps_r {} + {}i against {} + {}i of stack region {}); the body must stay "
@@ -585,29 +593,252 @@ ModeFields mode_fields_at(const fespace::NedelecDofMap<2>& meridian,
 
 }  // namespace
 
-Real axisymmetric_poynting_flux(const fespace::NedelecDofMap<2>& meridian,
-                                const fespace::DofMap<2>& azimuthal,
-                                const Vector& meridian_coefficients,
-                                const Vector& azimuthal_coefficients, int azimuthal_order,
-                                Real omega, const materials::MaterialMap& materials,
-                                const Surface<2>& surface, int order) {
+namespace {
+
+/// The order-m fields at a point with an analytic field (scaled components and cylindrical
+/// curl) added; H of the added field with μ of the cell.
+ModeFields add_analytic(ModeFields f, const AxisymmetricField& value, const AxisymmetricField& curl,
+                        const Point<2>& x, Real omega, Complex mu_r) {
+  if (!value) return f;
+  const Real r = x(0);
+  const Eigen::Matrix<Complex, 3, 1> e = value(x);
+  const Eigen::Matrix<Complex, 3, 1> c = curl(x);
+  const Complex factor = 1.0 / (kI * omega * constants::mu0 * mu_r);
+  f.e_r += e(0);
+  f.e_phi += kI * e(1) / r;
+  f.e_z += e(2);
+  f.h_r += factor * c(0);
+  f.h_phi += factor * c(1);
+  f.h_z += factor * c(2);
+  return f;
+}
+
+/// Only the analytic field (the FEM part zero).
+ModeFields analytic_only(const AxisymmetricField& value, const AxisymmetricField& curl,
+                         const Point<2>& x, Real omega, Complex mu_r) {
+  return add_analytic(ModeFields{}, value, curl, x, omega, mu_r);
+}
+
+/// 2π r ½ Re(E × H*) · n at a surface point (without the quadrature weight).
+Real flux_density(const ModeFields& f, const SurfacePoint<2>& point) {
+  const Complex s_r = f.e_phi * std::conj(f.h_z) - f.e_z * std::conj(f.h_phi);
+  const Complex s_z = f.e_r * std::conj(f.h_phi) - f.e_phi * std::conj(f.h_r);
+  return 2 * constants::pi * point.x(0) * 0.5 *
+         (s_r * point.normal(0) + s_z * point.normal(1)).real();
+}
+
+void check_flux_arguments(const fespace::NedelecDofMap<2>& meridian,
+                          const fespace::DofMap<2>& azimuthal, const Vector& meridian_coefficients,
+                          const Vector& azimuthal_coefficients,
+                          const AxisymmetricField& added_value, const AxisymmetricField& added_curl,
+                          const char* what) {
   if (meridian_coefficients.size() != meridian.num_dofs() ||
       azimuthal_coefficients.size() != azimuthal.num_dofs()) {
-    throw InvalidArgument("axisymmetric_poynting_flux: coefficients do not match the maps");
+    throw InvalidArgument(fmt::format("{}: coefficients do not match the maps", what));
   }
-  Real power = 0;
+  if (static_cast<bool>(added_value) != static_cast<bool>(added_curl)) {
+    throw InvalidArgument(
+        fmt::format("{}: give both the value and the curl of the added field, or neither", what));
+  }
+}
+
+/// Visits the quadrature points of a surface off the axis with the fields there (FEM field
+/// plus the added analytic field).
+template <typename Visit>
+void visit_flux_points(const fespace::NedelecDofMap<2>& meridian,
+                       const fespace::DofMap<2>& azimuthal, const Vector& meridian_coefficients,
+                       const Vector& azimuthal_coefficients, int azimuthal_order, Real omega,
+                       const materials::MaterialMap& materials, const Surface<2>& surface,
+                       int order, const AxisymmetricField& added_value,
+                       const AxisymmetricField& added_curl, Visit&& visit) {
   for (const auto& point : surface_quadrature<2>(meridian.mesh(), surface, order)) {
     const Real r = point.x(0);
     if (!(r > 0)) continue;  // the axis contributes nothing (weight r)
-    const ModeFields f =
+    const Complex mu_r = materials.of_cell(meridian.mesh(), point.cell).mu_r;
+    const ModeFields f = add_analytic(
         mode_fields_at(meridian, azimuthal, meridian_coefficients, azimuthal_coefficients,
-                       azimuthal_order, omega, materials, point.cell, point.xi, r);
-    const Complex s_r = f.e_phi * std::conj(f.h_z) - f.e_z * std::conj(f.h_phi);
-    const Complex s_z = f.e_r * std::conj(f.h_phi) - f.e_phi * std::conj(f.h_r);
-    power += point.weight * 2 * constants::pi * r * 0.5 *
-             (s_r * point.normal(0) + s_z * point.normal(1)).real();
+                       azimuthal_order, omega, materials, point.cell, point.xi, r),
+        added_value, added_curl, point.x, omega, mu_r);
+    visit(point, f, mu_r);
   }
+}
+
+}  // namespace
+
+Real axisymmetric_poynting_flux(
+    const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
+    const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
+    Real omega, const materials::MaterialMap& materials, const Surface<2>& surface, int order,
+    const AxisymmetricField& added_value, const AxisymmetricField& added_curl) {
+  check_flux_arguments(meridian, azimuthal, meridian_coefficients, azimuthal_coefficients,
+                       added_value, added_curl, "axisymmetric_poynting_flux");
+  Real power = 0;
+  visit_flux_points(meridian, azimuthal, meridian_coefficients, azimuthal_coefficients,
+                    azimuthal_order, omega, materials, surface, order, added_value, added_curl,
+                    [&power](const SurfacePoint<2>& point, const ModeFields& f, Complex) {
+                      power += point.weight * flux_density(f, point);
+                    });
   return power;
+}
+
+AxisymmetricFluxChannels axisymmetric_flux_channels(
+    const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
+    const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
+    Real omega, const materials::MaterialMap& materials, const Surface<2>& surface,
+    const LayerStack<3>& stack, int order, const AxisymmetricField& added_value,
+    const AxisymmetricField& added_curl) {
+  check_flux_arguments(meridian, azimuthal, meridian_coefficients, azimuthal_coefficients,
+                       added_value, added_curl, "axisymmetric_flux_channels");
+  AxisymmetricFluxChannels out;
+  const int substrate = stack.num_layers() + 1;
+  visit_flux_points(meridian, azimuthal, meridian_coefficients, azimuthal_coefficients,
+                    azimuthal_order, omega, materials, surface, order, added_value, added_curl,
+                    [&](const SurfacePoint<2>& point, const ModeFields& f, Complex) {
+                      const Real p = point.weight * flux_density(f, point);
+                      const int region = stack.region(point.x(1));
+                      if (region == 0) {
+                        out.up += p;
+                      } else if (region == substrate) {
+                        out.down += p;
+                      } else {
+                        out.lateral += p;
+                      }
+                    });
+  return out;
+}
+
+AxisymmetricDiscFlux axisymmetric_disc_flux(
+    const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
+    const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
+    Real omega, const materials::MaterialMap& materials, Real z, Real radius, int direction,
+    const AxisymmetricField& added_value, const AxisymmetricField& added_curl, int order) {
+  check_flux_arguments(meridian, azimuthal, meridian_coefficients, azimuthal_coefficients,
+                       added_value, added_curl, "axisymmetric_disc_flux");
+  if (!(radius > 0)) {
+    throw InvalidArgument(fmt::format("axisymmetric_disc_flux: radius {} <= 0", radius));
+  }
+  const auto& mesh = meridian.mesh();
+  const Surface<2> line = Surface<2>::plane(mesh, 1, z, direction);
+  // the facets of the line inside the disc, which must cover [0, radius]
+  Surface<2> disc;
+  Real covered = 0;
+  const Real tolerance = 1e-9 * radius;
+  for (const auto& facet : line.facets) {
+    const auto& fv = mesh.facet_vertices(facet.facet);
+    const Real a = mesh.vertex(fv[0])(0);
+    const Real b = mesh.vertex(fv[1])(0);
+    if (std::max(a, b) <= radius + tolerance) {
+      disc.facets.push_back(facet);
+      covered += std::abs(b - a);
+    }
+  }
+  if (std::abs(covered - radius) > 1e-6 * radius) {
+    throw InvalidArgument(fmt::format(
+        "axisymmetric_disc_flux: the facets of the line z = {} cover {} of the radius {}; the "
+        "disc must start on the axis and end at a mesh vertex",
+        z, covered, radius));
+  }
+  AxisymmetricDiscFlux out;
+  visit_flux_points(
+      meridian, azimuthal, meridian_coefficients, azimuthal_coefficients, azimuthal_order, omega,
+      materials, disc, order, added_value, added_curl,
+      [&](const SurfacePoint<2>& point, const ModeFields& f, Complex mu_r) {
+        out.total += point.weight * flux_density(f, point);
+        if (added_value) {
+          out.background +=
+              point.weight *
+              flux_density(analytic_only(added_value, added_curl, point.x, omega, mu_r), point);
+        }
+      });
+  return out;
+}
+
+AbsorbedPower axisymmetric_absorbed_power(
+    const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
+    const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
+    Real omega, const materials::MaterialMap& materials, const AxisymmetricField& added,
+    const std::optional<pml::PmlBox<2>>& pml, int extra_order) {
+  if (meridian_coefficients.size() != meridian.num_dofs() ||
+      azimuthal_coefficients.size() != azimuthal.num_dofs()) {
+    throw InvalidArgument("axisymmetric_absorbed_power: coefficients do not match the maps");
+  }
+  const auto& mesh = meridian.mesh();
+  const auto loss = [&](Index c) {
+    if (pml && pml->in_layer(mesh::affine_map(mesh, c).centroid())) return 0.0;
+    return std::imag(materials.of_cell(mesh, c).eps_r);
+  };
+  AbsorbedPower result;
+  result.per_cell.assign(as_size(mesh.num_cells()), 0.0);
+  parallel_for(mesh.num_cells(), [&](Index c, int) {
+    const Real im_eps = loss(c);
+    if (!(im_eps > 0)) return;
+    const int p = std::max(meridian.cell_order(c), azimuthal.cell_order(c));
+    const auto rule = assembly::simplex_quadrature<2>(2 * p + extra_order);
+    const auto geometry = mesh::cell_geometry(mesh, c);
+    Real integral = 0;
+    for (std::size_t q = 0; q < rule.size(); ++q) {
+      const auto g = geometry->evaluate(rule.points[q]);
+      const Real r = g.x(0);
+      if (!(r > 0)) continue;
+      ModeFields f =
+          mode_fields_at(meridian, azimuthal, meridian_coefficients, azimuthal_coefficients,
+                         azimuthal_order, omega, materials, c, rule.points[q], r);
+      if (added) {
+        const Eigen::Matrix<Complex, 3, 1> e = added(g.x);
+        f.e_r += e(0);
+        f.e_phi += kI * e(1) / r;
+        f.e_z += e(2);
+      }
+      const Real norm2 = std::norm(f.e_r) + std::norm(f.e_phi) + std::norm(f.e_z);
+      integral += rule.weights[q] * std::abs(g.det) * 2 * constants::pi * r * norm2;
+    }
+    result.per_cell[as_size(c)] = 0.5 * omega * constants::eps0 * im_eps * integral;
+  });
+  std::map<mesh::Tag, Real> tags;
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    if (!(loss(c) > 0)) continue;
+    tags[mesh.cell_tag(c)] += result.per_cell[as_size(c)];
+    result.total += result.per_cell[as_size(c)];
+  }
+  result.by_tag.assign(tags.begin(), tags.end());
+  return result;
+}
+
+AbsorbedPower AxisymmetricScattering::absorbed_power(const AxisymmetricScatteredField& field,
+                                                     int extra_order) const {
+  return axisymmetric_absorbed_power(*meridian_, *azimuthal_, field.meridian, field.azimuthal,
+                                     field.azimuthal_order, setup_.omega, setup_.materials,
+                                     setup_.incident, setup_.pml, extra_order);
+}
+
+AbsorbedPower AxisymmetricScattering::incident_absorbed_power(int extra_order) const {
+  const Vector zero_e = Vector::Zero(meridian_->num_dofs());
+  const Vector zero_v = Vector::Zero(azimuthal_->num_dofs());
+  if (!setup_.incident) {
+    AbsorbedPower none;
+    none.per_cell.assign(as_size(meridian_->mesh().num_cells()), 0.0);
+    return none;
+  }
+  // the bare background: every cell with the background material (the stack's layer)
+  materials::MaterialMap background = setup_.materials;
+  for (Index c = 0; c < meridian_->mesh().num_cells(); ++c) {
+    background.set_cell(c, background_material(c));
+  }
+  return axisymmetric_absorbed_power(*meridian_, *azimuthal_, zero_e, zero_v,
+                                     setup_.azimuthal_order, setup_.omega, background,
+                                     setup_.incident, setup_.pml, extra_order);
+}
+
+std::vector<Index> AxisymmetricScattering::scatterer_cells() const {
+  const auto& mesh = meridian_->mesh();
+  std::vector<Index> cells;
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    if (setup_.pml && setup_.pml->in_layer(mesh::affine_map(mesh, c).centroid())) continue;
+    if (materials_differ(setup_.materials.of_cell(mesh, c), background_material(c))) {
+      cells.push_back(c);
+    }
+  }
+  return cells;
 }
 
 Real AxisymmetricFarField::radiated_power() const {

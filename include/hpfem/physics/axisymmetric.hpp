@@ -22,6 +22,7 @@
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/mesh.hpp"
+#include "hpfem/physics/absorption.hpp"
 #include "hpfem/physics/layer_stack.hpp"
 #include "hpfem/physics/postprocess.hpp"
 #include "hpfem/pml/pml.hpp"
@@ -290,6 +291,21 @@ class AxisymmetricScattering {
   [[nodiscard]] adaptivity::Estimate estimate(
       const AxisymmetricScatteredField& field,
       const adaptivity::EstimatorOptions& options = {}) const;
+  /// Absorbed power of the total field of a solution (ADR-0014 §4): the scattered field plus
+  /// the incident field `setup.incident` in the scattered-field formulation, the field itself
+  /// with a current; per cell and per tag, cells inside the PML left out (their loss is the
+  /// absorber's). Units [W] for this order; the orders add up.
+  [[nodiscard]] AbsorbedPower absorbed_power(const AxisymmetricScatteredField& field,
+                                             int extra_order = 4) const;
+  /// Absorbed power of the incident field alone in the bare background: every cell with
+  /// `background_material` (the stack's layer, also in the cells of the body), PML left out;
+  /// zero without an incident field or with a lossless uniform background. Summed over a
+  /// bounded region, `absorbed_power` minus this is the absorption change caused by the body
+  /// (negative where a hole removes absorbing material).
+  [[nodiscard]] AbsorbedPower incident_absorbed_power(int extra_order = 4) const;
+  /// Cells outside the PML whose material deviates from `background_material` (particles and
+  /// holes): the body whose total-field absorption is the absorption cross-section.
+  [[nodiscard]] std::vector<Index> scatterer_cells() const;
   /// Error of a solution against an exact field (`axisymmetric_error`).
   [[nodiscard]] AxisymmetricError error(const AxisymmetricScatteredField& field,
                                         const AxisymmetricField& exact,
@@ -312,11 +328,74 @@ class AxisymmetricScattering {
 /// H^*)\cdot n\,ds @f$ with @f$ H = \nabla\times E / (i\omega\mu) @f$ from the cylindrical curl
 /// of the mode and μ of the inside cell. Orders do not mix, so the power of a field with
 /// several orders is the sum over m.
-/// @throws InvalidArgument if the coefficient vectors do not match the maps.
+/// `added_value` / `added_curl` (both or neither): an analytic order-m field in the scaled
+/// components and its cylindrical curl added at every quadrature point, e.g. the stack field
+/// of `layered_axisymmetric_wave` for the flux of the total field (ADR-0009 §5).
+/// @throws InvalidArgument if the coefficient vectors do not match the maps or only one of
+///         `added_value` and `added_curl` is given.
 [[nodiscard]] Real axisymmetric_poynting_flux(
     const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
     const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
-    Real omega, const materials::MaterialMap& materials, const Surface<2>& surface, int order = 8);
+    Real omega, const materials::MaterialMap& materials, const Surface<2>& surface, int order = 8,
+    const AxisymmetricField& added_value = {}, const AxisymmetricField& added_curl = {});
+
+/// Power through a surface split by the layers of a stack (ADR-0014 §4): the part through the
+/// surface above the top interface (`up`, into the cover), below the bottom interface (`down`,
+/// into the substrate) and between them (`lateral`, radially along the layers: guided and
+/// absorbed in the layers outside the surface). Every quadrature point is assigned by its
+/// height with `LayerStack::region`; the surface should cross the interfaces, not run along
+/// them. In a lossy substrate `down` depends on the depth of the surface.
+struct AxisymmetricFluxChannels {
+  Real up = 0;       ///< [W]
+  Real down = 0;     ///< [W]
+  Real lateral = 0;  ///< [W]
+  [[nodiscard]] Real total() const noexcept { return up + down + lateral; }
+};
+
+/// `axisymmetric_poynting_flux` split into the channels of `stack` (arguments as there).
+/// @throws InvalidArgument as `axisymmetric_poynting_flux`.
+[[nodiscard]] AxisymmetricFluxChannels axisymmetric_flux_channels(
+    const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
+    const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
+    Real omega, const materials::MaterialMap& materials, const Surface<2>& surface,
+    const LayerStack<3>& stack, int order = 8, const AxisymmetricField& added_value = {},
+    const AxisymmetricField& added_curl = {});
+
+/// Power of an order-m field through the disc r ≤ `radius` at height z (aperture
+/// transmission, ADR-0014 §4): `total` of the field plus the added analytic field, `background`
+/// of the added field alone through the same facets, both along `direction` (−1: downwards,
+/// the transmitted power of a wave from the top is positive; +1: upwards). `change()` is the
+/// transmission caused by the body; summed over the orders, `background` is the stack's
+/// transmittance times the incident power on the disc. [W].
+struct AxisymmetricDiscFlux {
+  Real total = 0;
+  Real background = 0;
+  [[nodiscard]] Real change() const noexcept { return total - background; }
+};
+
+/// The disc must lie on a mesh line y = z and end at a mesh vertex r = `radius`.
+/// @throws InvalidArgument as `axisymmetric_poynting_flux`, for a radius ≤ 0, a direction other
+///         than ±1, or a disc that is not covered by facets of the mesh line.
+[[nodiscard]] AxisymmetricDiscFlux axisymmetric_disc_flux(
+    const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
+    const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
+    Real omega, const materials::MaterialMap& materials, Real z, Real radius, int direction = -1,
+    const AxisymmetricField& added_value = {}, const AxisymmetricField& added_curl = {},
+    int order = 8);
+
+/// Absorbed power of an order-m field (ADR-0014 §4): the Joule heating
+/// @f$ \tfrac{\omega\varepsilon_0}{2}\,\mathrm{Im}\,\varepsilon_r\,|E_m|^2 @f$ integrated with
+/// the weight 2πr over every lossy cell, @f$ |E_m|^2 = |E_r|^2 + |E_\varphi|^2 + |E_z|^2 @f$
+/// with @f$ E_\varphi = i v / r @f$; the orders are orthogonal in φ, so the power of a field with
+/// several orders is the sum over m (per cell as well). `added` (scaled components) is added at
+/// every quadrature point: the incident or stack field for the total field. Cells whose
+/// centroid lies in `pml` are left out. Rules of degree 2p + `extra_order`. [W].
+/// @throws InvalidArgument if the coefficient vectors do not match the maps.
+[[nodiscard]] AbsorbedPower axisymmetric_absorbed_power(
+    const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
+    const Vector& meridian_coefficients, const Vector& azimuthal_coefficients, int azimuthal_order,
+    Real omega, const materials::MaterialMap& materials, const AxisymmetricField& added = {},
+    const std::optional<pml::PmlBox<2>>& pml = std::nullopt, int extra_order = 4);
 
 /// Far-field pattern of an order-m field, @f$ E \approx F(\theta)\,e^{im\varphi}\,e^{ikR}/R @f$
 /// in the background medium, sampled at the polar angles `theta` (from the +z axis).
