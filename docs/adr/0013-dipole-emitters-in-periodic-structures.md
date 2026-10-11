@@ -1,6 +1,6 @@
 # 0013 — Dipole emitters in periodic structures by array scanning of the conical cell problem
 
-**Status:** accepted; §3a amendment accepted (2026-10-10); §4a amendment proposed (2026-10-11)
+**Status:** accepted; §3a amendment accepted (2026-10-10); §4a amendment accepted (2026-10-11)
 **Date:** 2026-10-09
 
 ## Context
@@ -186,7 +186,7 @@ used in the tests to cross-check the subtraction. **Deferred:** contour deformat
 β (needs complex β in the conical forms, a PML design and `layered_conical_wave` for complex β;
 a separate decision once the assembly supports it).
 
-#### 4a. Amendment (2026-10-11, proposed): guided-mode poles by bumps of the kx contour
+#### 4a. Amendment (2026-10-11, accepted): guided-mode poles by bumps of the kx contour
 
 With the complex kx contour of §3a there is a simpler route than the subtraction above. For a
 lossless structure a guided mode is a simple pole of the analytic integrand pᴴ A(kx, β) p on
