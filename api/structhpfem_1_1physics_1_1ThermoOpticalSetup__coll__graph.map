@@ -1,0 +1,5 @@
+<map id="hpfem::physics::ThermoOpticalSetup&lt; Dim &gt;" name="hpfem::physics::ThermoOpticalSetup&lt; Dim &gt;">
+<area shape="rect" id="Node000001" title="Description of the coupled problem." alt="" coords="5,93,231,133"/>
+<area shape="rect" id="Node000002" href="$structhpfem_1_1physics_1_1ThermalSetup.html" title="Description of the heat&#45;conduction problem." alt="" coords="8,5,228,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="121,44,121,93,115,93,115,44"/>
+</map>

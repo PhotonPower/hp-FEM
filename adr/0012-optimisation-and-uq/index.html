@@ -1,0 +1,1360 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/adr/0012-optimisation-and-uq/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>0012 — Optimisation, calibration and UQ in hpfem.opt on the discrete sensitivities - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#0012-optimisation-calibration-and-uq-in-hpfemopt-on-the-discrete-sensitivities" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              0012 — Optimisation, calibration and UQ in hpfem.opt on the discrete sensitivities
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-package-and-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Package and dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-evaluator-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Evaluator contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-shape-parameters-morph-a-reference-mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Shape parameters morph a reference mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-derivatives-one-mechanism-two-modes-kept-factorisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Derivatives: one mechanism, two modes, kept factorisation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-study-store-json-lines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Study store: JSON lines
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-statistics-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Statistics conventions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-parallel-evaluation-and-the-job-runner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Parallel evaluation and the job runner
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternatives considered
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="0012-optimisation-calibration-and-uq-in-hpfemopt-on-the-discrete-sensitivities">0012 — Optimisation, calibration and UQ in <code>hpfem.opt</code> on the discrete sensitivities</h1>
+<p><strong>Status:</strong> accepted (amends <a href="../0007-direct-solver-backends/">0007</a>)
+<strong>Date:</strong> 2026-10-09</p>
+<h2 id="context">Context</h2>
+<p>Milestone M16 (<code>docs/optimisation-uq-features.md</code>, items S0–S9) adds optimisation, parameter
+retrieval with uncertainties and uncertainty propagation. Its premise is that the solver is not a
+black box: M12 gives derivatives of observables with respect to permittivities
+(<code>physics/sensitivity.hpp</code>) and node coordinates (ADR-0011), the DWR estimator gives an error
+estimate per goal, and hp-refinement gives fidelity levels. Looking at the code as it is on
+<code>main</code> after 0.4.0:</p>
+<ul>
+<li><code>adjoint_solution</code> / <code>conical_adjoint_solution</code> assemble the system again and call
+  <code>solvers::solve_direct</code>, i.e. every adjoint solve is a new factorisation. "One extra solve on
+  the existing factorisation" is not true yet.</li>
+<li><code>solvers::LinearSolver</code> (ADR-0007) has <code>solve</code> and <code>solve_many</code>, no solve with Aᵀ. The
+  complex-symmetric systems (curl–curl with symmetric tensors, PML, Dirichlet elimination,
+  condensation, hanging nodes) have Aᵀ = A; with Bloch phases they do not.</li>
+<li>A geometry parameter is a mesh velocity <code>V</code> that the user builds by hand
+  (<code>region_normal_velocity</code>, or an array). The Gmsh route (<code>meshing.unit_cell_mesh</code>) produces a
+  new topology for every parameter value; <code>meshing.structured_unit_cell</code> keeps the topology for
+  fixed <code>nx</code> and <code>rows</code>.</li>
+<li>Only material derivatives have an analytic residual derivative (<code>-k0² M_tag</code>); shape
+  derivatives use central differences of element integrals (ADR-0011). Frequency and angle
+  derivatives do not exist.</li>
+<li>The job runner <code>hpfem.run</code> reads schema version 1 only and rejects anything else.</li>
+<li>NumPy and SciPy are already required dependencies of the Python package.</li>
+</ul>
+<p>The decisions below are expensive to reverse: the evaluator contract and the study file format
+are what every optimiser, the GUI and stored studies depend on, and the solver interface change
+touches all backends.</p>
+<h2 id="decision">Decision</h2>
+<h3 id="1-package-and-dependencies">1. Package and dependencies</h3>
+<ul>
+<li>A pure-Python subpackage <code>hpfem.opt</code> (modules <code>parameters</code>, <code>evaluator</code>, <code>study</code>, <code>optimize</code>,
+  <code>lsq</code>, <code>gp</code>, <code>bo</code>, <code>posterior</code>, <code>uq</code>), imported explicitly (<code>import hpfem.opt</code>), not by
+  <code>import hpfem</code>. New C++ only for section 4 (residual derivatives, kept factorisation,
+  transposed solve) and for the eigenvalue derivatives of S4.</li>
+<li>Required: NumPy and SciPy, as today. Own code where the project has an advantage: parameters
+  and morphing, the derivatives, Gauss–Newton / Levenberg–Marquardt, the Laplace approximation,
+  a light Gaussian process (Matérn 5/2 ARD, noise, derivative observations), the study framework.</li>
+<li>Optional extras in <code>pyproject.toml</code>: <code>opt-bo = ["botorch"]</code> (multi-fidelity, multi-objective,
+  gradient-enhanced BO on PyTorch), <code>opt-mcmc = ["emcee"]</code>, <code>opt-sa = ["SALib"]</code>. They are
+  imported lazily inside the functions that need them; a missing extra raises an <code>ImportError</code>
+  that names the extra. None of them is load-bearing for P1. The README dependency table lists
+  them when they are added (CLAUDE.md §10). The CI <code>python</code> job installs the light extras
+  (emcee, SALib); BoTorch paths are tested where it is installed and skipped otherwise.</li>
+</ul>
+<h3 id="2-evaluator-contract">2. Evaluator contract</h3>
+<p>An evaluator maps parameters to <strong>real</strong> observables:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Evaluation</span><span class="p">:</span>
+    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>          <span class="c1"># SI values, keyed by parameter name</span>
+    <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>                <span class="c1"># (m,) real observables</span>
+    <span class="n">jacobian</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span>       <span class="c1"># (m, n) d values / d params, columns in parameter order</span>
+    <span class="n">error</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span>          <span class="c1"># (m,) DWR estimate of |error| per observable, or None</span>
+    <span class="n">cost</span><span class="p">:</span> <span class="nb">float</span>                       <span class="c1"># wall time in seconds</span>
+    <span class="n">fidelity</span><span class="p">:</span> <span class="nb">dict</span>                    <span class="c1"># e.g. {"order": 4, "level": 0}</span>
+    <span class="n">mesh_id</span><span class="p">:</span> <span class="nb">int</span>                      <span class="c1"># which reference mesh (section 3); changes on remesh</span>
+    <span class="n">status</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"ok"</span>                <span class="c1"># "ok" | "failed" | "cancelled"</span>
+    <span class="n">meta</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>   <span class="c1"># dofs, backend, timings</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Evaluator</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Parameter</span><span class="p">]</span>
+    <span class="n">observables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>            <span class="c1"># names, length m</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">jacobian</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">fidelity</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">cancel</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Evaluation</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<ul>
+<li>Complex quantities (amplitudes, eigenvalues) enter as two observables <code>Re</code> and <code>Im</code>; the
+  holomorphic derivative gives both columns. Optimisers, least squares and Gaussian processes
+  work on real vectors only.</li>
+<li>Parameters are SI internally; <code>hpfem.units</code> converts at the user boundary, as everywhere.</li>
+<li>A failed solve returns <code>status="failed"</code> with NaN values instead of raising, so that a study
+  survives a bad point; the optimiser decides (penalty, shrink step, skip).</li>
+<li><code>error</code> is a magnitude bound, not a standard deviation (section 6).</li>
+</ul>
+<h3 id="3-shape-parameters-morph-a-reference-mesh">3. Shape parameters morph a reference mesh</h3>
+<ul>
+<li><code>Parameter(name, lower, upper, unit, scale, velocity)</code>. <code>velocity(mesh, value)</code> returns the
+  node field <code>V = ∂x/∂p</code> of ADR-0011 for the reference mesh. Three sources:
+  (a) builders on tagged regions (<code>region_normal_velocity</code>, translation, and the affine stretch of
+  a ridge for width and height); (b) a fixed-topology mesher: if the mesher returns meshes of
+  identical topology for <code>p ± h</code> (the structured unit-cell mesher with fixed <code>nx</code> and <code>rows</code>),
+  <code>V</code> is the central difference of the node coordinates, exact for any parameter the mesher maps
+  smoothly; (c) a user array.</li>
+<li>A study keeps a <strong>reference mesh</strong> at <code>p_ref</code>. An evaluation at <code>p</code> uses
+  <code>x(p) = x_ref + Σ_i (p_i − p_ref,i) V_i</code> (<code>move_nodes</code>), or the fixed-topology mesher directly
+  when one is available. Cell tags, constraints and the DoF map stay those of the reference mesh,
+  so the objective is a smooth function of <code>p</code> and its derivative is exactly the one of
+  ADR-0011.</li>
+<li><code>V</code> must vanish on Bloch faces, on facets with non-zero Dirichlet data and on the top and
+  bottom of a grating cell (ADR-0011, <code>grating.shape_sensitivity</code>); <code>Parameter</code> checks this once
+  per reference mesh and raises otherwise.</li>
+<li><strong>Quality guard:</strong> after a move, every cell's shape quality (ratio of inscribed to
+  circumscribed radius, normalised to 1 for the equilateral simplex) is compared with the
+  reference. An inverted cell, or a quality below <code>0.3</code> of the reference value, rejects the
+  move; the study then <strong>remeshes</strong> at <code>p</code> (new reference, new <code>mesh_id</code>) and records a <code>remesh</code>
+  event. Local optimisers treat a remesh as a restart (L-BFGS memory, trust region); surrogates
+  keep the points, and the jump is part of the discretisation error.</li>
+<li>Finite-difference checks of derivatives run on the morphed mesh, never across a remesh.</li>
+<li><strong>Amendment (2026-10-09, M16 S3): the morph is nonlinear in the parameters.</strong> The linear
+  superposition <code>x(p) = x_ref + Σ_i (p_i − p_ref,i) V_i</code> is exact for each parameter alone
+  but not jointly: the wall of a trapezoid moves with <code>h·cot(α)</code>, and the missing cross term of
+  height and side-wall angle shifted the corners of a reconstructed line by 0.25 nm at
+  Δh = 12 nm, Δα = 2.5° — a bias of 2.5 standard errors in the side-wall angle of the
+  <code>examples/grating_reconstruction</code> fit, reproduced for every noise realisation. <code>Morph</code> now
+  puts the nodes on the shapes' boundaries at the same place of the changed shape (edge and
+  fraction for a polygon, angle for an ellipse: the exact geometry of <code>cell_at(p)</code> for any
+  combination of values) and moves the other nodes by the same harmonic extension (a linear
+  operator, factorised once), so <code>x(p) = x_ref + H (b(p) − b_ref)</code>. The derivative at <code>p</code> is
+  <code>V(p) = H db/dp(p)</code>, taken by central differences of this node map (<code>velocity_at(p, name)</code>;
+  source (b) above applied to our own fixed-topology map); at the reference it equals the
+  velocity of <code>shape_velocity</code>. Topology, tags, DoF numbering, the quality guard, the band of
+  fixed nodes and the remesh semantics are unchanged.</li>
+<li><strong>Amendment (2026-10-09, M16 S3): measurement lines on mesh facets.</strong> A velocity must not
+  deform the cells at a measurement line that lies on mesh facets: the order amplitude sampled
+  on facets is not differentiable along it (the normal Nédélec component jumps across facets,
+  the located cell changes; the Jacobian of a p-polarised line was off by a factor of ten).
+  <code>Morph(..., band=(y_low, y_high))</code> keeps every node on and beyond the band edges fixed;
+  <code>grating.jacobian</code> / <code>shape_sensitivity</code> refuse such velocities.</li>
+</ul>
+<h3 id="4-derivatives-one-mechanism-two-modes-kept-factorisation">4. Derivatives: one mechanism, two modes, kept factorisation</h3>
+<ul>
+<li><strong>Residual derivatives by directional differences.</strong> For any parameter θ (material value,
+  shape velocity, frequency, angle of incidence) the vector <code>r_θ = ∂b/∂θ − (∂A/∂θ) e</code> is
+  computed at fixed <code>e</code> by central differences of the element residuals <code>b_K − A_K e_K</code> along θ
+  (step <code>1e-6</code> relative, as ADR-0011), cell-parallel. The analytic material path stays where it
+  exists; everything else uses this one routine. For a functional vector that depends on θ
+  (moving cells, frequency-dependent orders) the term <code>(∂q/∂θ)ᵀ e</code> is added as in ADR-0011.</li>
+<li><strong>Adjoint mode:</strong> <code>Aᵀ z_k = q_k</code> per observable, <code>dQ_k/dθ = z_kᵀ r_θ</code>. <strong>Direct (tangent)
+  mode:</strong> <code>A s_θ = r_θ</code> per parameter, <code>dQ_k/dθ = q_kᵀ s_θ</code>. Both cost one solve per column on
+  the forward factorisation plus cheap residual differences. The evaluator picks per
+  factorisation (frequency, angle, polarisation) the mode with fewer solves:
+  direct if <code>n ≤ m</code>, adjoint otherwise; both use <code>solve_many</code>. A test checks that the two modes
+  agree to <code>1e-8</code> relative and both agree with finite differences of the solve.</li>
+<li><strong>Kept factorisation.</strong> <code>Scattering</code> / <code>ConicalScattering</code> get an option to keep the
+  <code>LinearSolver</code> after <code>solve</code> (memory: the factors stay alive until the result is dropped), and
+  the sensitivity functions accept the kept solver instead of factorising again. The reduced
+  system with hanging-node and Bloch constraints is the one that is kept, so the adjoint and the
+  tangent solves see the same constraints as the forward solve.</li>
+<li><strong>Transposed solve (amends ADR-0007).</strong> <code>LinearSolver</code> gets
+  <code>solve_transposed(const Vector&amp;)</code> and <code>solve_transposed_many</code>. Default implementation: if the
+  factorised matrix was declared or detected complex-symmetric, it is <code>solve</code>; otherwise the
+  backend uses its native transposed solve (Eigen SparseLU <code>transpose().solve()</code>, MUMPS
+  <code>ICNTL(9) ≠ 1</code>), and a backend without one factorises Aᵀ once on demand (the FEM pattern is
+  structurally symmetric, so <code>refactorize</code> applies) and keeps it. For a reciprocal medium with
+  Bloch phases Aᵀ(k) = A(−k), which the tests use as a cross-check.</li>
+<li>Frequency and angle derivatives use the same residual differences (the incident field, the
+  Bloch phases and the PML stretch all depend on ω and the angles); dispersive ε(ω) enters
+  through the material model, no separate path.</li>
+</ul>
+<h3 id="5-study-store-json-lines">5. Study store: JSON lines</h3>
+<ul>
+<li>A study is an append-only JSON-lines file (<code>*.study.jsonl</code>, UTF-8, one object per line,
+  flushed after every line). The first line is the header:</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"study"</span><span class="p">,</span><span class="w"> </span><span class="nt">"schema"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"hpfem"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;version&gt;"</span><span class="p">,</span><span class="w"> </span><span class="nt">"space"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="err">...</span><span class="p">},</span>
+<span class="w"> </span><span class="nt">"evaluator"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"settings"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="err">...</span><span class="p">},</span><span class="w"> </span><span class="nt">"hash"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;sha256 of the canonical settings&gt;"</span><span class="p">},</span>
+<span class="w"> </span><span class="nt">"created"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;ISO 8601&gt;"</span><span class="p">}</span>
+</code></pre></div>
+<ul>
+<li>Later lines: <code>"evaluation"</code> (the fields of <code>Evaluation</code>, arrays as nested lists, NaN as
+  <code>null</code>, floats written with <code>repr</code> so they round-trip), <code>"remesh"</code> (<code>mesh_id</code>, <code>params</code>,
+  reason), <code>"state"</code> (optimiser checkpoint: method, iteration, internal state needed to resume),
+  <code>"proposal"</code> (points proposed but not yet evaluated), <code>"note"</code>.</li>
+<li><strong>Resume</strong> = read the file, rebuild the cache and the optimiser state from the last <code>state</code>
+  line, re-evaluate open proposals. A truncated last line (crash during a write) is ignored.</li>
+<li><strong>Cache key:</strong> parameter values normalised by their scale and rounded to 12 significant
+  digits, plus <code>fidelity</code> and the evaluator hash. A changed evaluator setting therefore never
+  reuses old values silently.</li>
+<li>Fields and meshes are never stored in the study; only observables, derivatives and metadata.
+  The same events are streamed to the job runner and the GUI.</li>
+</ul>
+<h3 id="6-statistics-conventions">6. Statistics conventions</h3>
+<ul>
+<li>Least squares minimise <code>½ ‖W^{1/2}(y(p) − y_meas)‖²</code> with <code>W = diag(1/σ²)</code> from the
+  measurement uncertainties. The Laplace covariance is <code>(Jᵀ W J)⁻¹</code> at the optimum (scaled by the
+  reduced χ² when σ is unknown), computed in scaled parameters and reported in SI.</li>
+<li>The DWR estimate is <strong>not</strong> used as Gaussian noise of a surrogate: the discretisation error is
+  systematic, smooth in <code>p</code> and signed. It is used (a) to refine an evaluation adaptively until
+  <code>error ≤ κ σ</code> with <code>κ = 0.1</code> by default, and (b) as the fidelity indicator for multi-fidelity
+  BO. Whether (b) beats the plain alternatives is the hypothesis of S8; the result is reported
+  in <code>docs/validation.md</code> either way.</li>
+</ul>
+<h3 id="7-parallel-evaluation-and-the-job-runner">7. Parallel evaluation and the job runner</h3>
+<ul>
+<li>Evaluations run <strong>sequentially</strong> by default (OpenMP uses the cores, cuDSS the one GPU).
+  <code>workers=k &gt; 1</code> starts <code>k</code> spawned processes, each with <code>OMP_NUM_THREADS = cores // k</code>, after a
+  memory check <code>k · estimate_memory(...) &lt; available memory</code>; with the cuDSS backend <code>k</code> is
+  forced to 1.</li>
+<li><code>hpfem.run</code> moves to schema version 2 with the tasks <code>optimize</code>, <code>reconstruct</code> and <code>uq</code>;
+  it keeps reading version 1 documents unchanged. Progress, cancellation and timing use the
+  existing event mechanism; a study task writes its <code>*.study.jsonl</code> next to the result.</li>
+</ul>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>New C++ in P1: the kept factorisation, <code>solve_transposed</code> in all three backends (with the
+  on-demand Aᵀ fallback), and the residual-difference routine for arbitrary parameters. ADR-0007
+  is amended by section 4; its status line and table entry say so.</li>
+<li>Keeping the factorisation holds the factors in memory as long as a result object lives; the
+  Python API releases them with the result, and <code>estimate_memory</code> already predicts their size.</li>
+<li>Morphing limits a study to shape changes the reference mesh can follow; large moves go through
+  a remesh, which local optimisers see as a restart. Studies on Gmsh meshes therefore work best
+  with region-based velocities; the structured mesher gives exact velocities for free.</li>
+<li>The evaluator contract is real-valued; complex goals cost two observables but keep every
+  optimiser and surrogate simple.</li>
+<li>JSON lines are human-readable, survive crashes and stream to the GUI, but large studies with
+  big Jacobians grow linearly; a study of 10⁴ evaluations with 100 × 10 Jacobians is a few tens
+  of MB, acceptable.</li>
+<li>Three optional extras widen the test matrix; the tests that need them skip cleanly without.</li>
+<li>The job schema version 2 needs the GUI to read version 2 results; version 1 stays valid.</li>
+</ul>
+<h2 id="alternatives-considered">Alternatives considered</h2>
+<ul>
+<li><strong>Black-box only</strong> (no derivatives, as the commercial optimiser) — throws away the cheapest
+  information the solver has; least-squares reconstruction and its uncertainties would need
+  finite differences or sampling.</li>
+<li><strong>Remeshing at every evaluation, finite-difference gradients</strong> — the objective jumps with the
+  mesh at the size of the discretisation error, which breaks line searches and Gauss–Newton and
+  makes finite differences meaningless at small steps.</li>
+<li><strong>Adjoint mode only</strong> — scatterometry (many orders, wavelengths and angles; three to five
+  parameters) would pay one solve per observable instead of one per parameter.</li>
+<li><strong>Factorising Aᵀ always / transposing the matrix in Python</strong> — doubles the memory and the
+  factorisation time in the common complex-symmetric case, where the existing factors suffice.</li>
+<li><strong>BoTorch (PyTorch) as a required dependency</strong> — a large binary dependency for every user,
+  including those who only want least squares; kept optional.</li>
+<li><strong>Own MCMC samplers, Sobol' estimators, polynomial chaos</strong> — mature libraries exist; the
+  project has no advantage there. Polynomial chaos is not planned (backlog).</li>
+<li><strong>SQLite or HDF5 for studies</strong> — binary, harder to inspect and merge; SQLite needs locking
+  for concurrent workers, HDF5 a dependency. JSON lines with a single writer (the study process)
+  suffice.</li>
+<li><strong>Automatic differentiation of the assembly</strong> — rejected in ADR-0011 for the same reasons.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

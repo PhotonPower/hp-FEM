@@ -1,0 +1,1243 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/theory/multiphysics/">
+      
+      
+        <link rel="prev" href="../solvers/">
+      
+      
+        <link rel="next" href="../axisymmetric/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Multiphysics - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#multiphysics-optical-heating" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Multiphysics
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#absorbed-power-density" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Absorbed power density
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#heat-conduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Heat conduction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#feedback-temperature-dependent-permittivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feedback: temperature-dependent permittivity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#carrier-generation-for-device-solvers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Carrier generation for device solvers
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#absorbed-power-density" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Absorbed power density
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#heat-conduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Heat conduction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#feedback-temperature-dependent-permittivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feedback: temperature-dependent permittivity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#carrier-generation-for-device-solvers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Carrier generation for device solvers
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="multiphysics-optical-heating">Multiphysics: optical heating</h1>
+<p>The first multiphysics step (roadmap M9) couples the time-harmonic solution to a steady
+heat-conduction problem on the same mesh. Conventions as everywhere: time dependence
+<span class="arithmatex">\(e^{-i\omega t}\)</span>, SI units, lossy media have <span class="arithmatex">\(\mathrm{Im}\,\varepsilon_r &gt; 0\)</span>.</p>
+<h2 id="absorbed-power-density">Absorbed power density</h2>
+<p>The time-averaged power dissipated per volume by a time-harmonic field is</p>
+<div class="arithmatex">\[
+q(\mathbf{x}) = \frac{\omega\varepsilon_0}{2}\,\mathrm{Im}\big(\varepsilon_r(\mathbf{x})\big)\,
+|\mathbf{E}(\mathbf{x})|^2 \qquad [\mathrm{W/m^3}],
+\]</div>
+<p>the integrand of the absorbed power of <code>physics/postprocess.hpp</code> (in 2D the density is per
+unit length of the invariant direction, so the integral is W/m). It is discontinuous at
+material interfaces (the jump of <span class="arithmatex">\(\mathrm{Im}\,\varepsilon_r\)</span>) and, with the Nédélec field,
+also in its normal component across every facet; it is piecewise polynomial of degree <span class="arithmatex">\(2p\)</span>
+on affine cells.</p>
+<p><code>physics::absorbed_power_load</code> therefore does not represent <span class="arithmatex">\(q\)</span> in a continuous space but
+assembles its load on the H1 space directly, cell by cell at the quadrature points,</p>
+<div class="arithmatex">\[
+b_i = \sum_K \int_K \phi_i\, q_h, \qquad q_h = \tfrac{\omega\varepsilon_0}{2}\,
+\mathrm{Im}(\varepsilon_{r,K})\,|\mathbf{E}_h|^2 ,
+\]</div>
+<p>which is exact for the polynomial integrand with the rule of degree <span class="arithmatex">\(2p + 2\)</span> (the
+<code>source_reference</code> member of <code>assembly::ScalarForm</code> evaluates a source in reference
+coordinates of the cell being assembled). The sum of the vertex entries of <span class="arithmatex">\(b\)</span> is the
+absorbed power (the constant 1 of the hierarchical basis has coefficient 1 on the vertex
+functions and 0 on the bubbles). <code>absorbed_power_density</code> returns the hierarchical H1
+interpolant of <span class="arithmatex">\(q_h\)</span> instead, for export and plotting; it smears the jump at an interface
+over one cell and is not meant for integration.</p>
+<h2 id="heat-conduction">Heat conduction</h2>
+<p>The temperature solves the steady heat equation with the thermal conductivity <span class="arithmatex">\(\kappa\)</span>
+[W/(m K)] per material tag,</p>
+<div class="arithmatex">\[
+-\nabla\cdot(\kappa\nabla T) = q \ \text{in } \Omega, \qquad
+T = T_D \text{ on } \Gamma_D, \qquad \kappa\,\partial_n T = 0 \text{ on } \partial\Omega\setminus\Gamma_D ,
+\]</div>
+<p>in the weak form <span class="arithmatex">\(\int_\Omega \kappa\nabla T\cdot\nabla v = \int_\Omega q\,v\)</span> on the
+hierarchical H1 space of <code>docs/theory/scalar-fem.md</code>: <code>physics::Thermal</code> assembles the
+stiffness matrix with the per-cell conductivity (<code>assemble_h1</code> with a form per cell), takes
+the fixed temperatures on tagged facets as Dirichlet data (<code>dirichlet_values</code>, eliminated
+symmetrically), leaves the other walls adiabatic (natural condition) and solves with the
+direct solver backends. On a locally refined mesh the H1 hanging-node constraints are
+applied before the elimination, as in the scattering problem. <code>solve(q)</code> takes source
+coefficients on the same map (load <span class="arithmatex">\(Mq\)</span>), <code>solve_load(b)</code> an assembled load such as the
+absorbed power, <code>total_power(q)</code> integrates source coefficients. Convective (Robin) walls
+and temperature-dependent material data follow with the feedback loop of the next
+roadmap item.</p>
+<h2 id="feedback-temperature-dependent-permittivity">Feedback: temperature-dependent permittivity</h2>
+<p>With a thermo-optic coefficient the loop closes: the permittivity of a material follows its
+temperature, <span class="arithmatex">\(\varepsilon_r(T) = \varepsilon_r(T_0) + \frac{d\varepsilon_r}{dT}(T - T_0)\)</span> with a
+complex coefficient per tag (the imaginary part changes the absorption, the real part the
+resonance position), and the optical problem has to be solved again. <code>physics::ThermoOptical</code>
+runs the fixed-point iteration</p>
+<div class="arithmatex">\[
+\mathbf{E}^{(n)} = \text{Scattering}\big(\varepsilon_r(T^{(n-1)})\big), \qquad
+T^{(n)} = (1 - r)\,T^{(n-1)} + r\,\text{Thermal}\big(q(\mathbf{E}^{(n)})\big),
+\]</div>
+<p>starting from <span class="arithmatex">\(T^{(0)} = T_0\)</span>, until <span class="arithmatex">\(\max|T^{(n)} - T^{(n-1)}|\)</span> falls below a tolerance;
+the permittivity is evaluated at the cell centroid and stored as a per-cell override of the
+<code>MaterialMap</code> (<code>set_cell</code>), so every downstream quantity — forms, absorbed power, load —
+sees the heated material. The relaxation <span class="arithmatex">\(r \in (0, 1]\)</span> damps the iteration when the
+coupling is strong (absorption that grows with temperature can run away physically, too);
+without any thermo-optic coefficient the first pass is the answer. The state returned
+carries the final solution, temperature, materials, absorbed power and the history of the
+temperature changes.</p>
+<p><strong>Verification</strong> (<code>tests/unit/physics/test_thermo_optical.cpp</code>): without a coefficient the
+loop reproduces <code>Scattering</code> + <code>Thermal</code> in one pass; with one, the fixed point is
+self-consistent (the permittivities of the final temperature reproduce the final temperature
+to <span class="arithmatex">\(10^{-5}\)</span> K), the temperature shift scales linearly with a small coefficient (ratio 2
+for twice the coefficient, within 10 %), and under-relaxation reaches the same fixed point.</p>
+<h2 id="carrier-generation-for-device-solvers">Carrier generation for device solvers</h2>
+<p>Every absorbed photon of energy <span class="arithmatex">\(\hbar\omega\)</span> creates one electron–hole pair, so the
+generation rate of a monochromatic field is <span class="arithmatex">\(G = q / (\hbar\omega)\)</span> [1/(m³ s)].
+<code>physics::absorbed_power_per_cell</code> integrates <span class="arithmatex">\(q\)</span> over every cell (the same quadrature as
+<code>absorbed_power</code>, which is now its sum) and <code>hpfem.pv</code> builds the device-solver quantities
+on top: the generation rate per cell (power over photon energy and cell measure) and as an
+H1 field, the spectral sum over several monochromatic solutions with the weights
+<span class="arithmatex">\(w_\lambda = S(\lambda)\,\Delta\lambda / I_0\)</span> (spectral irradiance times band width over the
+intensity of the unit incident wave each solution was computed with), the laterally
+averaged depth profile <span class="arithmatex">\(G(z)\)</span> for one-dimensional device solvers (volume-weighted bins
+over the cell centroids) and the export as meshio cell data or CSV. A damped plane wave
+<span class="arithmatex">\(e^{ik n x}\)</span> gives the Beer–Lambert profile <span class="arithmatex">\(G \propto e^{-2k\,\mathrm{Im}(n)\,x}\)</span>, which
+the Python test recovers from the binned cells to 1 %. <code>examples/solar_cell_texture</code>
+combines light trapping, generation profile and heating of a textured silicon cell.</p>
+<p>A thermal problem on the optical mesh is usually over-resolved in the metal and
+under-resolved far away — the optical PML region has no thermal meaning and is simply part
+of the conducting domain (the heat sink is wherever the fixed temperature is set).</p>
+<p><strong>Verification.</strong> <code>tests/unit/physics/test_thermal.cpp</code>: a uniform field in a lossy block
+gives the expected density, the vertex sum of the load equals <code>absorbed_power</code> to
+<span class="arithmatex">\(10^{-10}\)</span>; a two-material strip with <span class="arithmatex">\(T = 0\)</span> and <span class="arithmatex">\(T = 1\)</span> at its ends has the exact
+interface temperature <span class="arithmatex">\(\kappa_2/(\kappa_1 + \kappa_2)\)</span> (piecewise linear, exact for
+<span class="arithmatex">\(p \ge 1\)</span>, also on a hanging-node mesh); setup errors. <code>tests/convergence/heat_conduction.cpp</code>:
+a plane wave <span class="arithmatex">\(E_y = E_0 e^{iknx}\)</span> with complex <span class="arithmatex">\(n\)</span> in a lossy slab (interpolated into the
+Nédélec space) has the density <span class="arithmatex">\(q_0 e^{-ax}\)</span>, <span class="arithmatex">\(a = 2k\,\mathrm{Im}\,n\)</span>, and with <span class="arithmatex">\(T = 0\)</span> at
+both ends of the strip the closed-form temperature</p>
+<div class="arithmatex">\[
+T(x) = \frac{q_0}{\kappa a^2}\Big[1 - e^{-ax} - \frac{x}{L}\big(1 - e^{-aL}\big)\Big];
+\]</div>
+<p>the relative <span class="arithmatex">\(L^2\)</span> error of the computed temperature decays exponentially under
+p-refinement (<span class="arithmatex">\(9.6\cdot10^{-2}\)</span>, <span class="arithmatex">\(1.0\cdot10^{-3}\)</span>, <span class="arithmatex">\(3.5\cdot10^{-5}\)</span>, <span class="arithmatex">\(1.1\cdot10^{-6}\)</span>,
+<span class="arithmatex">\(6.1\cdot10^{-9}\)</span> for <span class="arithmatex">\(p = 1..5\)</span> on eight cells) and with rate <span class="arithmatex">\(\ge p\)</span> under h-refinement —
+the Nédélec interpolant of the wave is <span class="arithmatex">\(O(h^p)\)</span>, so the temperature cannot do better than
+the field it is driven by.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

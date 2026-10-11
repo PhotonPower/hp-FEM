@@ -1,0 +1,1195 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/adr/0008-gpu-backend/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>0008 — GPU backend: cuDSS direct solver behind LinearSolver, no GPU assembly - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#0008-gpu-backend-cudss-direct-solver-behind-linearsolver-no-gpu-assembly" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              0008 — GPU backend: cuDSS direct solver behind LinearSolver, no GPU assembly
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternatives considered
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="0008-gpu-backend-cudss-direct-solver-behind-linearsolver-no-gpu-assembly">0008 — GPU backend: cuDSS direct solver behind <code>LinearSolver</code>, no GPU assembly</h1>
+<p><strong>Status:</strong> accepted · <strong>Date:</strong> 2026-10-03 · amends 0007</p>
+<h2 id="context">Context</h2>
+<p>The backlog asked for "GPU assembly". The maintainer's machine has an NVIDIA GeForce RTX
+3090 (24 GB, compute capability 8.6, CUDA 13.4, cuDSS 0.8); the library is built with
+MinGW GCC (CLAUDE.md §4a) and CI runs on Ubuntu without a GPU. Three facts shape the
+decision:</p>
+<ol>
+<li><strong>Toolchain.</strong> On Windows nvcc only accepts MSVC as host compiler, and MSVC and MinGW
+   objects cannot be linked into one C++ library (different ABI and runtimes). GPU code
+   can therefore not be a <code>.cu</code> file inside <code>src/</code>.</li>
+<li><strong>Arithmetic.</strong> Everything in hp-FEM is <code>complex&lt;double&gt;</code> (principle 4) and <em>hp</em>
+   convergence to 1e-10 does not tolerate single precision. The RTX 3090 is a consumer
+   card with about 0.5 TFLOPS in double precision, the same order as the 24-thread CPU
+   with AVX2, so compute-bound element assembly cannot gain much. GPUs win on
+   bandwidth-bound work: 936 GB/s against about 60 GB/s.</li>
+<li><strong>Measurement</strong> (<code>benchmarks/gpu/</code>, results in <code>benchmarks/results/2026-10-03-VR-gpu.json</code>,
+   complex double, 24 OpenMP threads, MUMPS 5.9 sequential, Eigen SparseLU, cuSPARSE
+   generic SpMV, cuDSS 0.8 LU with <code>CUDSS_MTYPE_GENERAL</code>):</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>matrix</th>
+<th>unknowns / nnz</th>
+<th>SpMV CPU → GPU</th>
+<th>factorise SparseLU / MUMPS / cuDSS</th>
+<th>one solve SparseLU / MUMPS / cuDSS</th>
+<th>8 rhs SparseLU / cuDSS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Newmark operator, square, p = 2</td>
+<td>163 k / 1.9 M</td>
+<td>0.30 ms → 0.13 ms (2.3×)</td>
+<td>5.0 s / 1.8 s / 0.78 s</td>
+<td>59 ms / 74 ms / 2.6 ms</td>
+<td>0.43 s / 0.012 s</td>
+</tr>
+<tr>
+<td>scattering S − k₀²M with PML, cube, p = 2</td>
+<td>70 k / 2.9 M</td>
+<td>0.54 ms → 0.18 ms (2.9×)</td>
+<td>591 s / 6.8 s / 3.8 s</td>
+<td>0.78 s / 0.84 s / 5.9 ms</td>
+<td>6.2 s / 0.030 s</td>
+</tr>
+<tr>
+<td>Newmark operator, square, p = 3</td>
+<td>1.37 M / 27.6 M</td>
+<td>21.7 ms → 1.6 ms (14×)</td>
+<td>334 s / 12.3 s / 3.6 s</td>
+<td>2.3 s / 0.48 s / 13 ms</td>
+<td>13.8 s / 0.072 s</td>
+</tr>
+</tbody>
+</table>
+<p>Residuals are 1e-13 … 1e-15 for all backends. Against MUMPS the GPU factorisation is
+   1.8–3.4× faster, a repeated solve 30–140× faster; SpMV gains 2–3× while the matrix fits the
+   CPU caches and 14× beyond (1.37 M unknowns). The cuDSS factorisation times are those of
+   the first factorisation in a process (cold, including the cuDSS initialisation); a second
+   factorisation in the same process is faster for the two smaller matrices (0.42 s / 1.7 s,
+   <code>factorize_gpu_s</code> of the re-measured lines in the JSON; 3.0 s unchanged for the largest).
+   cuDSS judges tiny pivots by an <em>absolute</em> threshold: the benchmark therefore factorises
+   <code>s·A</code> with <code>s = 1/max|a_ij|</code> and rescales the solutions, exactly as the <code>hpfem_gpu</code>
+   library does, and records <code>CUDSS_DATA_NPIVOTS</code> (0 for all three matrices, scaled and
+   unscaled; the free-DoF Newmark and mass operators of <code>physics::TimeDomain</code>, whose
+   largest entries are ~1e-15, had 32770 pivots perturbed unscaled and are refused by the
+   library without the scaling).</p>
+<h2 id="decision">Decision</h2>
+<ul>
+<li>The GPU work goes into a <strong>direct-solver backend on cuDSS</strong> behind <code>solvers::LinearSolver</code>
+  (<code>DirectSolverBackend::kCudss</code>, opt-in; <code>kAuto</code> keeps preferring MUMPS until a later
+  decision on a size threshold). The targets are the workloads that factorise once and
+  solve many times: Newmark time stepping, shift-invert Arnoldi, parameter sweeps and
+  reduced bases, goal-oriented dual solves.</li>
+<li>The backend is a <strong>separate DLL with a C ABI</strong> (<code>gpu/</code>: own CMake project built with
+  nvcc + MSVC, header <code>hpfem_gpu.h</code> without CUDA types, opaque handle, <code>int64</code> indices,
+  interleaved double pairs for complex values, status codes and a per-handle error string,
+  an API version check). The MinGW library loads it at run time (<code>LoadLibrary</code> / <code>dlopen</code>)
+  behind <code>HPFEM_ENABLE_CUDA</code> and needs no CUDA at build time; without the DLL or a GPU
+  <code>available(kCudss)</code> is false and <code>make_direct_solver(kCudss)</code> throws with the searched
+  paths. CI can build with the option on and tests the failure path.</li>
+<li><code>LinearSolver</code> gains <code>solve_many(const Matrix&amp;)</code> for several right-hand sides (default
+  column loop; native in SparseLU, MUMPS and cuDSS). This amends ADR-0007.</li>
+<li><strong>No GPU assembly.</strong> Element assembly stays on the CPU (OpenMP); the backlog item is
+  reworded accordingly. It can be revisited for a data-centre GPU with full-rate FP64.</li>
+</ul>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>One more optional, platform-specific build (<code>gpu/</code>), documented in <code>gpu/README.md</code>; the
+  DLL depends only on <code>cudss64_0.dll</code>. Linux is covered by the same C ABI (<code>.so</code>), untested
+  for now.</li>
+<li>The transient solver, the eigensolvers and the sweeps profit without code changes once
+  they pass <code>kCudss</code> (and use <code>solve_many</code> where they have several right-hand sides).</li>
+<li>cuDSS pivots statically with an absolute tiny-pivot threshold; the DLL factorises the
+  matrix scaled to <code>max|a_ij| = 1</code>, rescales every solution, and checks
+  <code>CUDSS_DATA_NPIVOTS</code> to report singular matrices instead of returning a wrong solution.</li>
+<li><code>benchmarks/solver_integration.cpp</code> records the end-to-end effect
+  (<code>benchmarks/results/2026-10-03-VR-gpu-integration.json</code>, summarised in
+  docs/theory/solvers.md): time step 3.8× faster than MUMPS, batched 8-rhs solve 5.7×,
+  resonance 1.9×; the real gauged Lanczos gains nothing from the complexified GPU
+  factorisation at 92 k unknowns.</li>
+<li>Factors beyond the device memory: the GPU library switches to cuDSS's hybrid memory mode
+  automatically (peak estimate after the analysis against the free device memory, factors
+  partly in host memory, device limit = free memory minus a reserve; <code>HPFEM_GPU_HYBRID</code>
+  forces it), fails with the numbers if even the host memory would not suffice (then <code>kAuto</code>
+  takes MUMPS), and reports mode and memory through <code>hpfem_gpu_factor_info2</code> (API version 2,
+  version-1 libraries still load). Measured (<code>bench_hybrid_memory</code>, 3D Maxwell p = 2): at
+  1.28 M unknowns with 1.43 G factor entries (23 GB) the automatic hybrid mode factorises in
+  105 s against 186 s for sequential MUMPS and solves in 1.9 s against 34 s; in device mode
+  below that (16 GB of factors at 858 k unknowns) 45 s against 106 s. The "hybrid before
+  MUMPS" expectation of the decision holds on this machine.</li>
+<li><code>solvers::Symmetry::kComplexSymmetric</code> lets cuDSS (upper triangle, <code>CUDSS_MTYPE_SYMMETRIC</code>)
+  and MUMPS (<code>SYM = 2</code>) factorise the complex-symmetric curl–curl systems as LDLᵀ; the caller
+  guarantees the structure, SparseLU ignores the flag.</li>
+<li>The shift-invert Arnoldi of the complex eigensolvers keeps its Krylov basis on the device
+  (<code>solvers::DeviceArnoldi</code>, API version 4: Gram–Schmidt as reduction and update kernels,
+  gauge projection with a second cuDSS factorisation, Ritz and restart vectors as <span class="arithmatex">\(V_m c\)</span>)
+  whenever the shift is factorised by cuDSS and the memory estimate fits; otherwise the
+  host basis with device solves. Measured (<code>bench_device_arnoldi</code>): 20–35 % less time for
+  <code>Resonance</code>, 30–35 % for the gauged <code>BandStructure</code> at 92 k–369 k unknowns on top of the
+  cuDSS solves — the factorisation and the solves themselves dominate what remains.</li>
+<li>Double precision stays the only precision; no mixed-precision shortcuts.</li>
+<li><code>kAuto</code> prefers cuDSS from <code>HPFEM_GPU_MIN_UNKNOWNS</code> unknowns on (default 10 000, decided in
+  <code>factorize</code>; the GPU library is loaded only then). The value is where the GPU
+  factorisation draws level with sequential MUMPS on the RTX 3090 in 2D and 3D
+  (<code>benchmarks/results/2026-10-03-VR-backend-threshold.json</code>); below it every factorisation
+  takes less than 40 ms. Backends agree only to about 1e-12 relative, so no test may rely on
+  bitwise equality between runs. Where cuDSS refuses a system (perturbed pivots, which the
+  <em>hp</em>-adaptive systems with hanging nodes trigger even after the scaling), <code>kAuto</code> warns and
+  falls back to MUMPS / SparseLU; accepting perturbed factorisations with iterative refinement
+  lost accuracy at a few thousand perturbed pivots and is not done. The diagonal
+  equilibration <span class="arithmatex">\(D(sA)D\)</span> inside the library (added after the first measurements) removes
+  the perturbed pivots of the hp systems entirely (0 in every step of the L-shape and
+  plasmonic-wedge tests against 103 / 2 639 and 28 / 1 591 / 16 356 before; the matching and
+  reordering options of cuDSS changed nothing), so these systems run on the GPU too; the
+  complete test suites pass with every system on cuDSS.</li>
+</ul>
+<h2 id="alternatives-considered">Alternatives considered</h2>
+<ul>
+<li><strong>GPU assembly (CUDA kernels for the element matrices)</strong>: rejected for this hardware
+  (FP64 rate) and because it would require the MSVC toolchain inside the library build.</li>
+<li><strong>Switching the Windows build to MSVC</strong> so that <code>.cu</code> files could live in <code>src/</code>: rejected,
+  the whole dependency stack (MUMPS, OpenBLAS, pybind11 module) is set up for MinGW and CI.</li>
+<li><strong>OpenCL or Vulkan compute</strong> (no second host compiler): rejected, no vendor direct
+  solver comparable to cuDSS and poor complex-double support.</li>
+<li><strong>cuSOLVER / cuSPARSE triangular solves on a CPU factorisation</strong>: rejected, the
+  factorisation itself is the larger part for 3D problems.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

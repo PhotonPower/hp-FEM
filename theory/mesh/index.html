@@ -1,0 +1,2038 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/theory/mesh/">
+      
+      
+        <link rel="prev" href="../maxwell/">
+      
+      
+        <link rel="next" href="../nedelec/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Mesh topology - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#mesh-topology-entities-numbering-and-orientation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Mesh topology
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#entities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#global-numbering-of-derived-entities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global numbering of derived entities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#global-orientation-adr-0003" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global orientation (ADR-0003)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connectivity-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connectivity tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tags-physical-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tags (physical groups)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generators
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gmsh-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gmsh input
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mesh-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mesh report
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#geometry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Geometry
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Geometry">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#curved-cells-order-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Curved cells (order 2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#point-location" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Point location
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#refinement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refinement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#local-refinement-meshadaptive_meshhpp-adr-0006" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local refinement (mesh/adaptive_mesh.hpp, ADR-0006)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vtk-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VTK export
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="VTK export">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#subdivision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subdivision
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#field-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Field export
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification-testsunitmesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification (tests/unit/mesh/)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#entities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#global-numbering-of-derived-entities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global numbering of derived entities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#global-orientation-adr-0003" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global orientation (ADR-0003)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connectivity-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connectivity tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tags-physical-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tags (physical groups)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generators
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gmsh-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gmsh input
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mesh-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mesh report
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#geometry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Geometry
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Geometry">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#curved-cells-order-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Curved cells (order 2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#point-location" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Point location
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#refinement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refinement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#local-refinement-meshadaptive_meshhpp-adr-0006" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local refinement (mesh/adaptive_mesh.hpp, ADR-0006)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vtk-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VTK export
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="VTK export">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#subdivision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subdivision
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#field-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Field export
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification-testsunitmesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification (tests/unit/mesh/)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="mesh-topology-entities-numbering-and-orientation">Mesh topology: entities, numbering and orientation</h1>
+<p><code>mesh::Mesh&lt;Dim&gt;</code> (<code>include/hpfem/mesh/mesh.hpp</code>) is a conforming simplicial mesh:
+triangles for <code>Dim = 2</code>, tetrahedra for <code>Dim = 3</code>. It stores what the user supplies,
+vertices and cells, and <strong>derives</strong> all lower-dimensional entities so that every part of
+the code sees the same edges and faces with the same orientation. This page is the single
+source of truth for the rules; code comments point here.</p>
+<h2 id="entities">Entities</h2>
+<table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>2D (triangle)</th>
+<th>3D (tetrahedron)</th>
+<th>stored as</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>vertex</td>
+<td>3 per cell</td>
+<td>4 per cell</td>
+<td><code>Point&lt;Dim&gt;</code> in SI metres</td>
+</tr>
+<tr>
+<td>edge</td>
+<td>3 per cell</td>
+<td>6 per cell</td>
+<td>ascending pair <span class="arithmatex">\((a, b)\)</span> of global vertex ids</td>
+</tr>
+<tr>
+<td>face</td>
+<td>—</td>
+<td>4 per cell</td>
+<td>ascending triple <span class="arithmatex">\((a, b, c)\)</span></td>
+</tr>
+<tr>
+<td>facet (codim 1)</td>
+<td>= edge</td>
+<td>= face</td>
+<td>view onto the above</td>
+</tr>
+<tr>
+<td>cell</td>
+<td>triangle</td>
+<td>tetrahedron</td>
+<td>global vertex ids in <strong>local</strong> order</td>
+</tr>
+</tbody>
+</table>
+<p>The <em>local</em> numbering of a cell's vertices, edges and faces is fixed by
+<code>mesh::SimplexTopology&lt;Dim&gt;</code> (<code>include/hpfem/mesh/simplex_topology.hpp</code>) and documented
+on the <a href="../nedelec/#reference-elements-and-local-numbering-binding">Nédélec page</a>.
+<code>fespace::ReferenceElement&lt;Dim&gt;</code> re-uses these tables; nothing may redefine them.</p>
+<h2 id="global-numbering-of-derived-entities">Global numbering of derived entities</h2>
+<p>Edges and faces are found by collecting, for every cell and local entity, the tuple of
+global vertex ids <strong>sorted ascending</strong>, then sorting all tuples and assigning consecutive
+ids to the distinct ones. Hence</p>
+<ul>
+<li>edge <span class="arithmatex">\(e\)</span> has <code>edge_vertices(e) = (a, b)</code> with <span class="arithmatex">\(a &lt; b\)</span>, and edge ids increase
+  lexicographically in <span class="arithmatex">\((a, b)\)</span>;</li>
+<li>face <span class="arithmatex">\(f\)</span> has <code>face_vertices(f) = (a, b, c)</code> with <span class="arithmatex">\(a &lt; b &lt; c\)</span>, ids lexicographic;</li>
+<li>the numbering depends only on the vertex numbering, not on cell order or on the mesh
+  generator, and construction costs <span class="arithmatex">\(O(N \log N)\)</span> for <span class="arithmatex">\(N\)</span> cells.</li>
+</ul>
+<h2 id="global-orientation-adr-0003">Global orientation (ADR-0003)</h2>
+<p>High-order edge and face shape functions depend on the orientation of their entity, so
+neighbouring cells must agree on it. The rule is purely combinatorial:</p>
+<div class="arithmatex">\[
+\text{edge } (a,b) \text{ points from } \min(a,b) \text{ to } \max(a,b), \qquad
+\text{face } (a,b,c) \text{ is oriented by } a &lt; b &lt; c .
+\]</div>
+<p>Each cell records how its <em>local</em> traversal relates to this <em>global</em> orientation:</p>
+<ul>
+<li><strong>Edges.</strong> <code>cell_edge_flipped(c)[k]</code> is <code>true</code> when local edge <span class="arithmatex">\(k = (v_i, v_j)\)</span> of
+  cell <span class="arithmatex">\(c\)</span> has global ids with <span class="arithmatex">\(g(v_i) &gt; g(v_j)\)</span>, i.e. the local direction runs against the
+  global one. The DoF map multiplies the odd-order edge functions by <span class="arithmatex">\(-1\)</span> in that case.</li>
+<li><strong>Faces (3D).</strong> <code>cell_face_permutations(c)[i]</code> is a code <span class="arithmatex">\(k \in \{0,\dots,5\}\)</span> into
+  <code>kFacePermutations</code>, the six permutations of <span class="arithmatex">\(\{0,1,2\}\)</span> in lexicographic order:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>code</th>
+<th>0</th>
+<th>1</th>
+<th>2</th>
+<th>3</th>
+<th>4</th>
+<th>5</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>permutation</td>
+<td>(0,1,2)</td>
+<td>(0,2,1)</td>
+<td>(1,0,2)</td>
+<td>(1,2,0)</td>
+<td>(2,0,1)</td>
+<td>(2,1,0)</td>
+</tr>
+</tbody>
+</table>
+<p>With $\pi = $ <code>kFacePermutations[k]</code>, local face vertex <span class="arithmatex">\(j\)</span> equals global sorted face
+  vertex <span class="arithmatex">\(\pi_j\)</span>: <code>cell_vertices(c)[kFaceVertices[i][j]] == face_vertices(f)[π[j]]</code>.
+  Code 0 means local and global order agree. The DoF map uses <span class="arithmatex">\(\pi\)</span> to permute and
+  sign-correct the face functions (Zaglmayr, Sect. 5.2.3).</p>
+<p>Because the rule depends only on global vertex ids, it survives refinement (new vertices
+get new ids, old edges keep their orientation) and extends to Bloch-periodic faces matched
+by vertex correspondence.</p>
+<h2 id="connectivity-tables">Connectivity tables</h2>
+<p>All tables are built once at construction, in <span class="arithmatex">\(O(N)\)</span> after the entity numbering:</p>
+<table>
+<thead>
+<tr>
+<th>table</th>
+<th>call</th>
+<th>content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>cell → edges</td>
+<td><code>cell_edges(c)</code></td>
+<td>global edge ids per local edge</td>
+</tr>
+<tr>
+<td>cell → faces</td>
+<td><code>cell_faces(c)</code> (3D)</td>
+<td>global face ids per local face</td>
+</tr>
+<tr>
+<td>facet → cells</td>
+<td><code>facet_cells(f)</code>, <code>facet_local_indices(f)</code></td>
+<td>the one or two cells (ascending) and the facet's local number in each; <code>kInvalidIndex</code> / <code>-1</code> on the boundary</td>
+</tr>
+<tr>
+<td>cell → neighbours</td>
+<td><code>cell_neighbors(c)</code></td>
+<td>neighbour across local facet <span class="arithmatex">\(k\)</span>, <code>kInvalidIndex</code> on the boundary</td>
+</tr>
+<tr>
+<td>edge → cells</td>
+<td><code>edge_cells(e)</code></td>
+<td>all cells containing the edge, ascending (CSR storage)</td>
+</tr>
+<tr>
+<td>boundary</td>
+<td><code>boundary_facets()</code>, <code>is_boundary_facet(f)</code></td>
+<td>facets with exactly one cell, ascending</td>
+</tr>
+</tbody>
+</table>
+<p>A facet referenced by more than two cells makes the mesh non-manifold; construction then
+throws <code>InvalidArgument</code> naming the facet's vertices. The edge ring <code>edge_cells(e)</code> is what
+edge-based DoFs, hanging-edge constraints and residual jump terms iterate over; in 2D it
+coincides with the facet pair.</p>
+<h2 id="tags-physical-groups">Tags (physical groups)</h2>
+<p>Materials and boundary conditions are attached through integer tags in the Gmsh
+convention (<code>Tag</code>, positive; <code>kNoTag = 0</code> means untagged):</p>
+<ul>
+<li><strong>cell tags</strong> (dimension <span class="arithmatex">\(d\)</span>): the material region of a cell. Given at construction or
+  set later with <code>set_cell_tag</code>; <code>cells_with_tag(t)</code> lists a region.</li>
+<li><strong>facet tags</strong> (dimension <span class="arithmatex">\(d-1\)</span>): boundary facets for boundary conditions, interior
+  facets for material interfaces, flux surfaces or Bloch pairs. <code>set_facet_tags</code> takes the
+  facets as vertex tuples in any order, exactly as a mesh file lists boundary elements, and
+  resolves them with <code>facet_id</code> by binary search in the lexicographically sorted entity
+  list (<code>edge_id(a, b)</code>, <code>face_id(a, b, c)</code> do the same for edges and faces). Unknown
+  tuples are an error. <code>tag_boundary(t)</code> tags every still-untagged boundary facet, the
+  usual move for generated meshes.</li>
+<li><strong>names</strong>: <code>set_tag_name(dim, tag, name)</code> / <code>tag_name</code> / <code>tag_by_name</code> keep Gmsh
+  physical names per dimension, so problem definitions can say <code>"silicon"</code> or <code>"pec"</code>.</li>
+</ul>
+<p>Tags never affect topology or numbering and may be edited after construction.</p>
+<h2 id="generators">Generators</h2>
+<p><code>rectangle(nx, ny, lower, upper)</code> and <code>box(nx, ny, nz, lower, upper)</code> in
+<code>mesh/generators.hpp</code> build structured meshes of axis-aligned boxes: every square is split
+along the diagonal from <span class="arithmatex">\((i,j)\)</span> to <span class="arithmatex">\((i+1,j+1)\)</span>, every cube into the six Kuhn tetrahedra
+that share its body diagonal. Vertices are numbered <span class="arithmatex">\(x\)</span>-fastest. Boundary facets receive a
+tag per side (<code>box_tag::kXMin = 1</code>, <code>kXMax = 2</code>, <code>kYMin = 3</code>, …), so boundary conditions
+and Bloch pairs can be addressed without a mesh file.</p>
+<p><code>disc(n, centre, radius)</code> and <code>ball(n, centre, radius)</code> map the square / cube meshes onto
+the disc / ball with the elliptical map <span class="arithmatex">\((u, v) \mapsto (u\sqrt{1 - v^2/2},\,
+v\sqrt{1 - u^2/2})\)</span> (and its three-dimensional analogue), tag the whole boundary with
+<code>kDiscBoundary = 1</code> and, by default, project the boundary edge nodes onto the circle /
+sphere with <code>curve_boundary</code> (geometry order 2); <code>curved = false</code> keeps the polygonal
+boundary for comparisons. <code>curve_boundary(m, tag, project)</code> does the same for any tagged
+boundary of any mesh with a user-supplied projection. <code>square_with_disc(n, R, W, W_out)</code>
+builds the scatterer-in-a-box mesh of the Mie test: the inner square of the grid is
+mapped onto the disc of radius <span class="arithmatex">\(R\)</span>, the ring up to the square of half-width <span class="arithmatex">\(W\)</span> blends
+between circle and square, the grid continues uniformly to <span class="arithmatex">\(W_{out}\)</span> (PML space); the
+inclusion cells are tagged and the interface edges are curved onto the circle.</p>
+<h2 id="gmsh-input">Gmsh input</h2>
+<p><code>read_gmsh&lt;Dim&gt;(path, scale)</code> in <code>mesh/gmsh.hpp</code> reads <strong>MSH format 4.1, ASCII</strong> (Gmsh
+≥ 4.1, <code>Mesh.MshFileVersion = 4.1</code>, binary off). The mapping is:</p>
+<table>
+<thead>
+<tr>
+<th>Gmsh</th>
+<th>hpfem</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>elements of dimension <span class="arithmatex">\(d\)</span> (3-node triangles, 4-node tetrahedra; 6-node / 10-node second-order elements, whose extra nodes become edge nodes)</td>
+<td>cells</td>
+</tr>
+<tr>
+<td>first physical group of the element's entity</td>
+<td>cell tag (<code>kNoTag</code> if none)</td>
+</tr>
+<tr>
+<td>elements of dimension <span class="arithmatex">\(d-1\)</span> (2- or 3-node lines, 3- or 6-node triangles)</td>
+<td>facet tags via <code>set_facet_tags</code></td>
+</tr>
+<tr>
+<td><code>$PhysicalNames</code> of dimensions <span class="arithmatex">\(d\)</span> and <span class="arithmatex">\(d-1\)</span></td>
+<td><code>tag_name</code> / <code>tag_by_name</code></td>
+</tr>
+<tr>
+<td>node tags (may be sparse)</td>
+<td>vertices in file order (second order: the corner nodes only)</td>
+</tr>
+<tr>
+<td>coordinates × <code>scale</code></td>
+<td>SI metres; <span class="arithmatex">\(z\)</span> dropped for <span class="arithmatex">\(d = 2\)</span></td>
+</tr>
+</tbody>
+</table>
+<p>Elements of other dimensions are ignored, non-simplex elements (quads, hexes, …) and files
+mixing first- and second-order cells are an error. Second-order files (<code>Mesh.ElementOrder
+= 2</code>) give curved cells: Gmsh's extra nodes are assigned to the edges by their vertex
+pairs (triangle: (0,1) (1,2) (2,0); tetrahedron: (0,1) (1,2) (0,2) (0,3) (2,3) (1,3)).
+Unknown sections (<code>$NodeData</code>, …) are skipped. <code>read_gmsh_with_periodic</code> additionally returns
+the <code>$Periodic</code> section (Gmsh's <code>setPeriodic</code>) as <code>PeriodicLink</code>s: for every link of dimension
+<span class="arithmatex">\(d-1\)</span> the first physical groups of the two entities become the master and slave facet tags
+and the translation part of the affine transform (or, without one, the difference of the
+first corresponding node pair) scaled by <code>scale</code> becomes the shift; links with the same tags
+and shift are merged, links of points (and edges in 3D) are ignored, an entity without a
+physical group is an error. In Python <code>read_gmsh_periodic(file, scale, dim)</code> returns
+<code>(mesh, [(master_tag, slave_tag, shift), ...])</code>; adding the Bloch phase gives the
+<code>PeriodicPair</code>s. Since the non-matching coupling (M15 F16) the two sides need no matching
+nodes, so the section is a convenience, not a requirement.</p>
+<h2 id="mesh-report">Mesh report</h2>
+<p><code>mesh::report(mesh)</code> (<code>mesh/report.hpp</code>, Python <code>mesh_report(mesh)</code> and
+<code>hpfem.meshing.report(mesh, materials)</code>) collects what a mesh dialog shows before a run: the
+numbers of vertices, cells, facets and boundary facets; the smallest and the mean angle (the
+three angles of every triangle, the six dihedral angles of every tetrahedron); the largest
+aspect ratio, circumradius over inradius normalised so that the regular simplex gives 1; the
+shortest, mean and longest edge; the number of curved (quadratic) cells and of those whose
+Jacobian changes sign on a sample of reference points (<code>invalid_cells</code>); the untagged cells,
+the distinct cell and facet tags and the hanging entities. <code>mesh::check_periodic(mesh, master,
+slave, shift)</code> pairs the facets of a periodic direction by shifted centroid and reports the
+matched and unmatched counts and the largest mismatch; <code>identical()</code> says whether the two sides
+are meshed identically (which the Bloch coupling no longer needs).</p>
+<h2 id="geometry">Geometry</h2>
+<p><code>mesh/geometry.hpp</code> provides the affine map of a cell,</p>
+<div class="arithmatex">\[
+x(\xi) = x_0 + J\,\xi, \qquad x_0 = x(v_0), \qquad J_{:,i-1} = x(v_i) - x(v_0),
+\]</div>
+<p>with the reference simplex and local vertex order of <code>SimplexTopology&lt;Dim&gt;</code>. <code>AffineMap</code>
+stores <span class="arithmatex">\(x_0\)</span>, <span class="arithmatex">\(J\)</span>, <span class="arithmatex">\(J^{-T}\)</span> (the covariant Piola factor of the
+<a href="../nedelec/#mapping">Nédélec mapping</a>), the <strong>signed</strong> <span class="arithmatex">\(\det J\)</span> and the diameter <span class="arithmatex">\(h_K\)</span>
+(longest edge). The local vertex order of a cell is not required to be positively oriented,
+because entity orientation is fixed by global vertex ids (ADR-0003); integrals therefore
+use <code>volume()</code> <span class="arithmatex">\(= |\det J| / d!\)</span> and the Piola transforms use <span class="arithmatex">\(\det J\)</span> consistently.
+`to_reference(x) = J^{-1}(x - x_0)$ is exact for affine cells and serves point location.</p>
+<p>Facet quantities for boundary terms and jump residuals: <code>facet_measure(f)</code> (edge length,
+triangle area) and <code>outward_normal(c, k)</code>, the unit normal of local facet <span class="arithmatex">\(k\)</span> pointing out
+of cell <span class="arithmatex">\(c\)</span>; the two normals of an interior facet are opposite.</p>
+<p>Degenerate cells (<span class="arithmatex">\(|\det J| \le 10^{-12} h^d\)</span>) are rejected with <code>InvalidArgument</code>.</p>
+<h3 id="curved-cells-order-2">Curved cells (order 2)</h3>
+<p><code>cell_geometry(m, c)</code> returns a <code>CellGeometry&lt;Dim&gt;</code> that evaluates <span class="arithmatex">\(x(\xi)\)</span>, <span class="arithmatex">\(J(\xi)\)</span>,
+<span class="arithmatex">\(J^{-T}(\xi)\)</span> and <span class="arithmatex">\(\det J(\xi)\)</span> at any reference point and inverts the map, so that
+quadrature, basis mapping and point location never need to know whether a cell is
+straight or curved. Affine cells wrap <code>AffineMap</code>. For curved cells the mesh carries <strong>one
+extra node per global edge</strong> (<code>Mesh::set_edge_nodes</code>), the image of the edge midpoint on
+the true boundary; since the node belongs to the edge it is shared by all adjacent cells
+and needs no orientation. The cell map is the quadratic Lagrange interpolant</p>
+<div class="arithmatex">\[
+x(\xi) = \sum_{i} \lambda_i(2\lambda_i - 1)\, x_i + \sum_{e=(a,b)} 4\lambda_a\lambda_b\, m_e ,
+\]</div>
+<p>with barycentric coordinates <span class="arithmatex">\(\lambda\)</span>, vertices <span class="arithmatex">\(x_i\)</span> in local order and edge nodes <span class="arithmatex">\(m_e\)</span>
+in local edge order. With <span class="arithmatex">\(m_e\)</span> at the straight midpoints it reduces exactly to the affine
+map. <code>to_reference</code> uses a Newton iteration started from the vertex-based affine map.</p>
+<p>Curved cells enter everything else through this interface: the assemblers raise the
+quadrature degree by two on non-affine cells (the Piola factors <span class="arithmatex">\(J^{-T}\)</span> and <span class="arithmatex">\(\det J\)</span>
+are rational), point location inverts the map by Newton, the Dirichlet projections use
+the cell geometry on the boundary, and subdivision places sub-vertices on the curved
+map. Sources of curved meshes: second-order Gmsh files, <code>disc</code> / <code>ball</code>, and
+<code>curve_boundary</code> with a projection. The convergence test
+<code>tests/convergence/curved_boundary.cpp</code> shows the point of it: Poisson on the disc and
+the ball (<span class="arithmatex">\(u = 1 - r^2\)</span>) converges with the full rates <span class="arithmatex">\(p + 1\)</span> in <span class="arithmatex">\(L^2\)</span> for <span class="arithmatex">\(p = 1, 2\)</span> on
+curved meshes, while the polygonal boundary caps the <span class="arithmatex">\(L^2\)</span> rate at 2; a Maxwell plane
+wave with its exact tangential trace on the circle converges with rate <span class="arithmatex">\(p\)</span>.</p>
+<h3 id="point-location">Point location</h3>
+<p><code>PointLocator(m, tol)</code> (<code>mesh/point_location.hpp</code>) answers "which cell contains the
+physical point <span class="arithmatex">\(x\)</span>, and at which reference coordinates <span class="arithmatex">\(\xi\)</span>?" — the basis of field
+evaluation at arbitrary points (detectors, line scans, mode overlaps) and of
+interpolation between meshes. It builds a <strong>uniform background grid</strong> over the bounding
+box of the mesh with about one cell per bucket (buckets shaped like the box, so a long
+thin domain gets a long thin grid); every bucket lists the cells whose bounding box meets
+it, in ascending cell order. For curved cells the bounding box uses the Bézier control
+points <span class="arithmatex">\(2m_e - (x_a + x_b)/2\)</span> of the quadratic edges, because the Bernstein form of the
+Lagrange map has the convex-hull property while the Lagrange nodes do not.</p>
+<p>A query maps <span class="arithmatex">\(x\)</span> to its bucket and tests the candidates with <code>to_reference</code>
+(exact for affine cells, Newton for curved ones; a diverging Newton iteration means
+"outside"). A cell contains <span class="arithmatex">\(x\)</span> if all barycentric coordinates satisfy <span class="arithmatex">\(\lambda_i \ge
+-\text{tol}\)</span> with the dimensionless tolerance (default <span class="arithmatex">\(10^{-10}\)</span>), so points on facets
+and vertices are found and rounding noise is absorbed; the returned <span class="arithmatex">\(\xi\)</span> is not
+clamped. Points on a shared facet are assigned to the <strong>lowest adjacent cell id</strong>, which
+makes results independent of the grid resolution. <code>locate(x, hint)</code> first tries <code>hint</code>
+and its facet neighbours, which makes sequences of nearby points (line scans, particle
+tracks) O(1) per point. Build cost is O(#cells), a query costs the number of candidates
+in one bucket.</p>
+<p><code>assembly::evaluate_h1</code>, <code>evaluate_hcurl</code> and <code>evaluate_hcurl_curl</code> have overloads taking
+a <code>PointLocator</code> and a physical point; they return <code>std::nullopt</code> for points outside the
+mesh.</p>
+<h2 id="refinement">Refinement</h2>
+<p><code>refine_uniform(m)</code> (<code>mesh/refinement.hpp</code>) performs one <strong>red (regular) refinement</strong> of
+every cell and returns the new mesh together with the child → parent cell map and the
+vertex created on every parent edge. Parent vertices keep their ids, the vertex of parent
+edge <span class="arithmatex">\(e\)</span> gets id <span class="arithmatex">\(V + e\)</span>, and the children of parent cell <span class="arithmatex">\(c\)</span> are the cells <span class="arithmatex">\(4c + i\)</span> (2D)
+or <span class="arithmatex">\(8c + i\)</span> (3D).</p>
+<ul>
+<li><strong>Triangle</strong>: four congruent triangles through the edge midpoints; orientation and
+  shape are preserved exactly.</li>
+<li><strong>Tetrahedron</strong>: the four corner tetrahedra plus four from the inner octahedron, cut
+  along the diagonal between the midpoints of edges <span class="arithmatex">\((0,2)\)</span> and <span class="arithmatex">\((1,3)\)</span> with the child
+  vertex orders of Bey (Computing 55, 1995). With these orders repeated refinement
+  produces at most three congruence classes, so shape regularity is bounded; the eight
+  children have equal volume.</li>
+</ul>
+<p>Transferred to the children: cell tags, facet tags (to the child facets on a tagged
+parent facet), tag names, and curved geometry: new vertices sit at the parent edge nodes
+and child edge nodes are evaluated with the parent cell map, so the refined mesh
+represents the same quadratic surface (the P2 area of a curved cell is invariant under
+refinement, which the tests check with an exact rule).</p>
+<h2 id="local-refinement-meshadaptive_meshhpp-adr-0006">Local refinement (<code>mesh/adaptive_mesh.hpp</code>, ADR-0006)</h2>
+<p><code>AdaptiveMesh&lt;Dim&gt;(root)</code> keeps a tree of red-refined cells over a conforming root mesh and
+exposes its leaves as the current mesh (<code>mesh()</code>). <code>refine(marked)</code> splits the marked leaf
+cells with the same child patterns as <code>refine_uniform</code> (<code>detail::RedRefinement</code>) and
+enforces the <strong>one-irregular rule</strong> by refining first every coarser leaf cell that shares a
+vertex with a cell to be split and every leaf cell that owns the <em>parent</em> of one of its
+facets. Both checks are needed: in 3D the inner child face of a face shares no vertex with
+the coarse neighbour, so vertex balance alone would let a coarse face meet level-2 faces.
+The closure may split a cell created in the same call again; the returned
+<code>RefinementStep</code> relates every new leaf cell to its old cell (<code>parent</code>) and the chain of
+child numbers (<code>path</code>, empty if unchanged; <code>old_reference</code> composes
+<code>detail::parent_reference</code> along it).</p>
+<p>The leaf mesh is <strong>non-conforming</strong> where a coarse cell meets refined neighbours. A coarse
+edge <span class="arithmatex">\((a,b)\)</span> whose midpoint vertex <span class="arithmatex">\(m\)</span> exists together with the half edges <span class="arithmatex">\((a,m)\)</span>, <span class="arithmatex">\((m,b)\)</span>
+is a <em>hanging edge</em>, a coarse face whose four child faces exist is a <em>hanging face</em>; the
+hierarchy registers them with <code>Mesh::set_hanging</code>. The mesh then reports
+<code>facet_hanging_role(f)</code> (parent / child / none), <code>hanging_parent_facet(f)</code>,
+<code>hanging_child_facets(f)</code> and the lists <code>hanging_edges()</code>, <code>hanging_faces()</code>; parent and
+child facets have one cell each but are <strong>not</strong> boundary facets, and <code>cell_neighbors</code> stays
+<code>kInvalidIndex</code> across them. Consumers that loop over facets treat a hanging child facet
+against the cell of its parent facet (<code>residual_estimate</code>, <code>Surface::around_cells</code>,
+<code>surface_quadrature</code> with the coarse cell inside).</p>
+<p>Transferred by the hierarchy: cell tags; facet tags of the root to every leaf facet whose
+vertices all lie on a tagged root facet (barycentric test in the root cell); tag names;
+curved geometry (new vertices and leaf edge nodes are evaluated with the root cell maps, as
+in <code>refine_uniform</code>). <code>root_cell(c)</code> / <code>root_reference(c, ξ)</code> give the ancestry of a leaf
+cell. <code>refine_all()</code> reproduces <code>refine_uniform</code> of the leaf mesh.</p>
+<p><code>extract(mesh, cells)</code> (<code>mesh/generators.hpp</code>) cuts a conforming sub-mesh out of a mesh with
+renumbered vertices and transferred tags, e.g. an L-shaped domain out of a <code>rectangle</code>.</p>
+<p>Verification (<code>tests/unit/mesh/test_adaptive_mesh.cpp</code>): cell and vertex counts, volumes,
+boundary counts and tags after single and repeated refinements in 2D and 3D; the 2:1 balance
+over all vertex-sharing pairs; the hanging tables (midpoint positions, one cell per
+parent / child facet, children covering the parent, every one-cell interior facet
+registered); <code>refine_all</code> against <code>refine_uniform</code>; curved discs; the refinement step's
+parent map.</p>
+<h2 id="vtk-export">VTK export</h2>
+<p><code>io::VtkWriter&lt;Dim&gt;</code> (<code>include/hpfem/io/vtk.hpp</code>) writes a mesh with attached data as a
+VTK XML unstructured grid (<code>.vtu</code>) for ParaView, VisIt or pyvista:</p>
+<ul>
+<li>cells become <code>VTK_TRIANGLE</code> / <code>VTK_TETRA</code>; a second-order mesh exports its edge nodes
+  as extra points and the cells as <code>VTK_QUADRATIC_TRIANGLE</code> / <code>VTK_QUADRATIC_TETRA</code>
+  (VTK's edge order of the tetrahedron, (0,1) (1,2) (0,2) (0,3) (1,3) (2,3), is applied),
+  so curved cells are displayed curved;</li>
+<li>the cell tag is always written as <code>cell_tag</code>; further cell or point scalars, integer
+  ids and vectors are attached fluently, complex data as <code>&lt;name&gt;_re</code> / <code>&lt;name&gt;_im</code>;</li>
+<li>data arrays are plain text (<code>VtkFormat::kAscii</code>) or inline base64 (<code>kBinary</code>, default,
+  exact and about four times smaller).</li>
+</ul>
+<p><code>io::write_vtu_facets</code> writes the boundary (or all) facets as lines / triangles with
+<code>facet_tag</code>, <code>facet_index</code> and <code>is_boundary</code>, sharing the point numbering of the cell file
+so the two overlay exactly.</p>
+<h3 id="subdivision">Subdivision</h3>
+<p><code>subdivide(m, n)</code> (<code>mesh/subdivision.hpp</code>) splits every cell into <span class="arithmatex">\(n^d\)</span> sub-simplices of
+equal reference volume: the lattice <span class="arithmatex">\(\xi = (i, j[, k])/n\)</span> with <span class="arithmatex">\(i + j [+ k] \le n\)</span>, upward
+and downward triangles in 2D and, per lattice cube, a corner tetrahedron, an octahedron cut
+into four and an inverted tetrahedron in 3D (Freudenthal–Bey). Sub-vertices are placed
+with the parent cell map, so curved cells become piecewise straight, and they are
+<strong>duplicated per parent cell</strong>, so that fields which jump across facets (normal components
+of <span class="arithmatex">\(E\)</span>, curls) stay discontinuous in the output. Cell tags are inherited; the result also
+records the parent cell of every sub-cell and the parent cell and reference coordinates of
+every sub-vertex.</p>
+<h3 id="field-export">Field export</h3>
+<p><code>io::FieldExporter(m, n)</code> (<code>io/field_export.hpp</code>) wraps a <code>VtkWriter</code> on the <span class="arithmatex">\(n\)</span>-fold
+subdivided mesh and evaluates discrete fields at the sub-vertices: <code>h1(name, dofs, u_h)</code>
+writes a scalar field, <code>hcurl(name, dofs, e_h)</code> a Nédélec field (physical components via
+the covariant Piola map) together with its curl as <code>curl_&lt;name&gt;</code> (scalar in 2D, vector in
+3D), complex data as <code>_re</code> / <code>_im</code>; parent-cell data is broadcast to the sub-cells. Choose
+<span class="arithmatex">\(n\)</span> of the order of the polynomial degree. For a coarse overview on the original mesh,
+<code>io::cell_averages</code> / <code>cell_average_curls</code> return <span class="arithmatex">\(|K|^{-1}\int_K u_h\)</span> per cell for
+<code>VtkWriter::cell_scalars</code> / <code>cell_vectors</code> (which accept complex vectors as well).</p>
+<h2 id="api-summary">API summary</h2>
+<table>
+<thead>
+<tr>
+<th>call</th>
+<th>returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>num_vertices/edges/faces/facets/cells()</code></td>
+<td>counts</td>
+</tr>
+<tr>
+<td><code>vertex(v)</code>, <code>vertices()</code></td>
+<td>coordinates</td>
+</tr>
+<tr>
+<td><code>cell_vertices(c)</code></td>
+<td>global vertex ids in local order</td>
+</tr>
+<tr>
+<td><code>cell_edges(c)</code>, <code>cell_edge_flipped(c)</code></td>
+<td>global edge ids and flip flags per local edge</td>
+</tr>
+<tr>
+<td><code>cell_faces(c)</code>, <code>cell_face_permutations(c)</code></td>
+<td>(3D) global face ids and permutation codes</td>
+</tr>
+<tr>
+<td><code>cell_facets(c)</code></td>
+<td>edges in 2D, faces in 3D</td>
+</tr>
+<tr>
+<td><code>facet_cells(f)</code>, <code>facet_local_indices(f)</code>, <code>cell_neighbors(c)</code>, <code>edge_cells(e)</code></td>
+<td>inverse connectivity</td>
+</tr>
+<tr>
+<td><code>boundary_facets()</code>, <code>num_boundary_facets()</code>, <code>is_boundary_facet(f)</code></td>
+<td>boundary</td>
+</tr>
+<tr>
+<td><code>edge_id(a,b)</code>, <code>face_id(a,b,c)</code>, <code>facet_id(vertices)</code></td>
+<td>entity lookup by vertices</td>
+</tr>
+<tr>
+<td><code>cell_tag(c)</code>, <code>facet_tag(f)</code>, <code>set_*</code>, <code>set_facet_tags</code>, <code>tag_boundary</code>, <code>*_with_tag</code></td>
+<td>tags</td>
+</tr>
+<tr>
+<td><code>set_tag_name</code>, <code>tag_name</code>, <code>tag_by_name</code></td>
+<td>physical names</td>
+</tr>
+<tr>
+<td><code>affine_map(m, c)</code>, <code>affine_maps(m)</code></td>
+<td><span class="arithmatex">\(x_0\)</span>, <span class="arithmatex">\(J\)</span>, <span class="arithmatex">\(J^{-T}\)</span>, <span class="arithmatex">\(\det J\)</span>, <span class="arithmatex">\(h_K\)</span>, <code>to_physical</code>, <code>to_reference</code>, <code>volume</code>, <code>centroid</code></td>
+</tr>
+<tr>
+<td><code>facet_measure(m, f)</code>, <code>outward_normal(m, c, k)</code></td>
+<td>facet geometry</td>
+</tr>
+<tr>
+<td><code>geometry_order()</code>, <code>set_edge_nodes</code>, <code>edge_node(e)</code></td>
+<td>second-order geometry nodes</td>
+</tr>
+<tr>
+<td><code>cell_geometry(m, c)</code> → <code>CellGeometry</code> (<code>evaluate</code>, <code>to_reference</code>, <code>h</code>, <code>order</code>)</td>
+<td>order-independent cell geometry</td>
+</tr>
+<tr>
+<td><code>PointLocator(m, tol)</code> → <code>locate(x)</code>, <code>locate(x, hint)</code>, <code>reference_coordinates(c, x)</code></td>
+<td>point location (background grid)</td>
+</tr>
+<tr>
+<td><code>refine_uniform(m)</code> → <code>Refined</code> (<code>mesh</code>, <code>parent_cell</code>, <code>edge_vertex</code>)</td>
+<td>red refinement</td>
+</tr>
+<tr>
+<td><code>AdaptiveMesh(root)</code> → <code>mesh()</code>, <code>refine(marked)</code> → <code>RefinementStep</code>, <code>refine_all()</code>, <code>level(c)</code></td>
+<td>local refinement (one-irregular)</td>
+</tr>
+<tr>
+<td><code>set_hanging</code>, <code>hanging_edges()</code>, <code>hanging_faces()</code>, <code>facet_hanging_role(f)</code>, <code>hanging_parent_facet(f)</code>, <code>hanging_child_facets(f)</code>, <code>is_conforming()</code></td>
+<td>hanging entities</td>
+</tr>
+<tr>
+<td><code>extract(m, cells)</code>, <code>extract(m, keep)</code></td>
+<td>sub-mesh of selected cells</td>
+</tr>
+<tr>
+<td><code>io::VtkWriter(m).cell_scalars(...).point_vectors(...).write(path)</code>, <code>io::write_vtu_facets</code></td>
+<td>VTK export</td>
+</tr>
+<tr>
+<td><code>subdivide(m, n)</code> → <code>Subdivided</code> (<code>mesh</code>, <code>parent_cell</code>, <code>vertex_parent</code>, <code>vertex_xi</code>)</td>
+<td>uniform subdivision for visualisation</td>
+</tr>
+<tr>
+<td><code>io::FieldExporter(m, n).h1(...).hcurl(...).write(path)</code>, <code>io::cell_averages</code>, <code>io::cell_average_curls</code></td>
+<td>field export</td>
+</tr>
+<tr>
+<td><code>edge_vertices(e)</code>, <code>face_vertices(f)</code>, <code>facet_vertices(f)</code></td>
+<td>ascending vertex tuples</td>
+</tr>
+</tbody>
+</table>
+<p>Construction throws <code>InvalidArgument</code> naming the cell if a vertex id is out of range or
+repeated. Accessors check indices with <code>HPFEM_ASSERT</code>.</p>
+<h2 id="verification-testsunitmesh">Verification (<code>tests/unit/mesh/</code>)</h2>
+<ul>
+<li>the local tables equal those on the Nédélec page; every tetrahedron edge lies in exactly
+  two faces;</li>
+<li>for every cell and local entity, flip flags and permutation codes reproduce the local
+  vertex order from the stored ascending tuple;</li>
+<li>entity counts and the Euler characteristic (<span class="arithmatex">\(V - E + F = 1\)</span> for a triangulated disk,
+  <span class="arithmatex">\(V - E + F - T = 1\)</span> for a tetrahedralised ball) on structured meshes;</li>
+<li>topology is invariant under random renumbering of vertices, cells and local vertex order;</li>
+<li>every inverse table is checked against cell → entity, neighbour relations are symmetric,
+  boundary facet counts (<span class="arithmatex">\(4n\)</span> edges on the <span class="arithmatex">\(n \times n\)</span> square, <span class="arithmatex">\(12n^2\)</span> faces on the
+  <span class="arithmatex">\(n \times n \times n\)</span> cube) and edge rings (six tetrahedra on a cube's body diagonal);</li>
+<li>non-manifold inputs are rejected;</li>
+<li>tags: lookup by unordered vertex tuples, tagging from vertex lists, <code>tag_boundary</code>
+  counts on structured meshes, names per dimension, error paths;</li>
+<li>generators: counts, exact corner coordinates, one side tag per boundary facet;</li>
+<li>Gmsh: hand-written 2D/3D files with physical groups, a round trip of a generated
+  rectangle with sparse node tags, the file overload, rejected formats and elements,
+  skipped sections;</li>
+<li>geometry: identity on the reference triangle, scaled/rotated/translated cells with a
+  non-identity local order, <span class="arithmatex">\(J^{-T}J^T = I\)</span> and vertex round trips on every cell, signed
+  determinants, Kuhn-cube volumes summing to the box volume, facet measures, opposite
+  interior normals and axis-aligned boundary normals, degenerate cells rejected;</li>
+<li>curved geometry: partition of unity of the quadratic shape functions, exact
+  reproduction of the affine map with midpoint nodes, a quarter-disc approximated by one
+  curved triangle (edge node on the arc, area <span class="arithmatex">\(4\sqrt2/3 - 1/6\)</span> by the degree-2 midpoint
+  rule, Newton inversion), the same in 3D, <code>cell_geometry</code> dispatch, size checks;</li>
+<li>point location: random points of structured 2D/3D meshes (also randomly renumbered
+  with mixed local orientations) agree with a brute-force scan and with the hinted
+  search and map back to <span class="arithmatex">\(x\)</span>; vertices and centroids are found; outside points, the
+  tolerance, lowest-cell-id assignment on shared facets, grid aspect ratio, and a curved
+  quarter-disc cell whose bulge beyond the straight triangle is located while points
+  beyond the arc are rejected;</li>
+<li>refinement: child volumes sum to the parent, equal child volumes, Euler
+  characteristic invariant, refined rectangle equals the finer generated rectangle in
+  counts, tags and vertex set, boundary tags quadruple on the box, repeated refinement,
+  curved P2 area invariant;</li>
+<li>subdivision: counts, equal sub-volumes with the parent's orientation, sub-vertices on
+  the parent map and on the lattice, inherited tags, <span class="arithmatex">\(n = 1\)</span> reproduces the cells with
+  duplicated vertices, a curved cell's sub-mesh area converging to the P2 quarter disc
+  from below; field export (<code>tests/unit/io/</code>): cell averages of projected fields, and
+  the written point coordinates and arrays parsed back and compared with the exact
+  fields (value and curl, 2D and 3D), broadcast cell data, error paths;</li>
+<li>VTK: ASCII arrays parsed back (points, connectivity, offsets, types, cell tags, real,
+  complex and vector data), binary arrays base64-decoded back to the exact values,
+  quadratic cells with VTK's edge order, size checks, file output, facet files.</li>
+</ul>
+<p>M1 is complete; next is M2 (reference elements, quadrature, Lagrange basis, DoF map).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

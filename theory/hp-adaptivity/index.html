@@ -1,0 +1,1654 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/theory/hp-adaptivity/">
+      
+      
+        <link rel="prev" href="../scalar-fem/">
+      
+      
+        <link rel="next" href="../error-estimation/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>hp-adaptivity - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#hp-adaptivity" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              hp-adaptivity
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loop
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hp-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hp decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="hp decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#error-prediction-adaptivitypredictionhpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error prediction (adaptivity/prediction.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coefficient-decay-adaptivitysmoothnesshpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coefficient decay (adaptivity/smoothness.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hanging-nodes-and-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hanging nodes and constraints
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Hanging nodes and constraints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#adaptive-p-refinement-on-a-smooth-solution-testsconvergenceadaptive_p_refinementcpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adaptive p-refinement on a smooth solution (tests/convergence/adaptive_p_refinement.cpp)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hp-adaptivity-on-the-l-shape-testsconvergenceadaptive_hp_refinementcpp-test-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hp-adaptivity on the L-shape (tests/convergence/adaptive_hp_refinement.cpp, test #7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plasmonic-wedge-testsconvergenceplasmonic_wedgecpp-test-7-second-part" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plasmonic wedge (tests/convergence/plasmonic_wedge.cpp, test #7 second part)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adaptive-h-refinement-on-the-l-shape-testsconvergenceadaptive_h_refinementcpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adaptive h-refinement on the L-shape (tests/convergence/adaptive_h_refinement.cpp)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#periodic-faces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Periodic faces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bodies-of-revolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bodies of revolution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conical-incidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conical incidence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-structure-consequences-why-m1m2-must-prepare-this" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data-structure consequences (why M1/M2 must prepare this)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loop
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hp-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hp decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="hp decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#error-prediction-adaptivitypredictionhpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error prediction (adaptivity/prediction.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coefficient-decay-adaptivitysmoothnesshpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coefficient decay (adaptivity/smoothness.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hanging-nodes-and-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hanging nodes and constraints
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Hanging nodes and constraints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#adaptive-p-refinement-on-a-smooth-solution-testsconvergenceadaptive_p_refinementcpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adaptive p-refinement on a smooth solution (tests/convergence/adaptive_p_refinement.cpp)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hp-adaptivity-on-the-l-shape-testsconvergenceadaptive_hp_refinementcpp-test-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hp-adaptivity on the L-shape (tests/convergence/adaptive_hp_refinement.cpp, test #7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plasmonic-wedge-testsconvergenceplasmonic_wedgecpp-test-7-second-part" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plasmonic wedge (tests/convergence/plasmonic_wedge.cpp, test #7 second part)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adaptive-h-refinement-on-the-l-shape-testsconvergenceadaptive_h_refinementcpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adaptive h-refinement on the L-shape (tests/convergence/adaptive_h_refinement.cpp)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#periodic-faces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Periodic faces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bodies-of-revolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bodies of revolution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conical-incidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conical incidence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-structure-consequences-why-m1m2-must-prepare-this" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data-structure consequences (why M1/M2 must prepare this)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="hp-adaptivity">hp-adaptivity</h1>
+<h2 id="goal">Goal</h2>
+<p>For solutions that are piecewise analytic with isolated singularities (material corners,
+metal tips, PML interfaces) the error of an appropriately graded <span class="arithmatex">\(hp\)</span>-mesh decays as</p>
+<div class="arithmatex">\[
+\|E - E_{hp}\| \le C \exp\left(-b\, N^{1/(d+1)}\right)
+\]</div>
+<p>in the number of DoFs <span class="arithmatex">\(N\)</span> (Babuška &amp; Guo 1986, Schwab 1998), versus algebraic
+<span class="arithmatex">\(N^{-p/d}\)</span> for <span class="arithmatex">\(h\)</span>-refinement and stagnation for pure <span class="arithmatex">\(p\)</span>-refinement near singularities.
+This is the headline feature; convergence test #7 (CLAUDE.md §8) must show it.</p>
+<h2 id="loop">Loop</h2>
+<div class="highlight"><pre><span></span><code>SOLVE → ESTIMATE → MARK → DECIDE (h or p) → REFINE → (repeat)
+</code></pre></div>
+<ol>
+<li><strong>Estimate</strong>: element indicators <span class="arithmatex">\(\eta_K\)</span> from <a href="../error-estimation/">error-estimation.md</a>.</li>
+<li><strong>Mark</strong>: Dörfler criterion — smallest set <span class="arithmatex">\(\mathcal M\)</span> with
+   <span class="arithmatex">\(\sum_{K\in\mathcal M}\eta_K^2 \ge \theta \sum_K \eta_K^2\)</span>, <span class="arithmatex">\(\theta\approx 0.5\)</span>.
+   Implemented as <code>adaptivity::dorfler_marking</code> (<code>maximum_marking</code> as the simpler alternative).</li>
+<li><strong>Decide</strong> per marked <span class="arithmatex">\(K\)</span> (see <a href="#hp-decision">hp decision</a> below):</li>
+<li><strong>error prediction</strong> (Melenk &amp; Wohlmuth 2001, <code>adaptivity::hp_decide_by_prediction</code>):
+     a cell whose indicator fell to the value predicted for a smooth solution after the
+     last refinement is <strong>p-refined</strong>, one that fell short is <strong>h-refined</strong> — the default;</li>
+<li><strong>coefficient decay</strong> (Mavriplis 1994; Houston &amp; Süli 2005,
+     <code>adaptivity::hp_decide</code>): the decay rate <span class="arithmatex">\(\sigma_K\)</span> of the Legendre (Dubiner)
+     coefficients of <span class="arithmatex">\(E_{hp}|_K\)</span>, p-refinement above a threshold — reliable only once the
+     local singularity is resolved;</li>
+<li>to be implemented later: the "reference solution" strategy of Demkowicz (solve on
+     <span class="arithmatex">\(h/2, p+1\)</span> and project) — more expensive but very robust.</li>
+<li><strong>Refine</strong>:</li>
+<li><span class="arithmatex">\(h\)</span>: red refinement of the marked cells with the <strong>one-irregular rule</strong> (a face or
+     edge may be shared by at most two levels), <code>mesh::AdaptiveMesh::refine</code>. Hanging
+     edges/faces produce <strong>constrained DoFs</strong>: the slave DoFs are linear combinations of
+     master DoFs computed by interpolation of the master shape functions on the refined
+     entity (<code>assembly::hanging_constraints</code>, see below). The constraints reduce the
+     assembled system (<span class="arithmatex">\(P^H A P\)</span>) before the Dirichlet data is imposed on the free DoFs.</li>
+<li><span class="arithmatex">\(p\)</span>: raise the cell order (<code>adaptivity::p_refine</code>, or <code>hp_refine</code> together with the
+     h-step: children inherit the parent's order, p-marked cells are raised); shared
+     edges/faces take the <strong>minimum</strong> order of adjacent cells (minimum rule) so the space
+     stays conforming. The spaces are nested, so <code>assembly::prolongate</code> (with
+     <code>identity_step</code> for a pure p-step) transfers solutions exactly.</li>
+<li>PML cells follow the refinement of the adjacent interior cells; never refine the
+     PML alone.</li>
+<li><strong>Transfer</strong>: prolongate the previous solution (<code>assembly::prolongate</code>, exact by
+   hierarchical interpolation) as the initial guess for iterative solvers; direct solvers
+   ignore it.</li>
+</ol>
+<h2 id="hp-decision">hp decision</h2>
+<h3 id="error-prediction-adaptivitypredictionhpp">Error prediction (<code>adaptivity/prediction.hpp</code>)</h3>
+<p>After a refinement step every new cell carries the indicator it would have if the solution
+were smooth there (Melenk &amp; Wohlmuth 2001):</p>
+<div class="arithmatex">\[
+\eta^{\text{pred}}_{K'} = \gamma_p\,\eta_K \ \text{(p-refined)},\qquad
+\eta^{\text{pred}}_{K'} = \frac{\gamma_h\, 2^{-p_K}}{\sqrt{n_{\text{children}}}}\,\eta_K \ \text{(child of } K),\qquad
+\eta^{\text{pred}}_{K'} = \gamma_n\,\eta_K \ \text{(unchanged)},
+\]</div>
+<p>with <span class="arithmatex">\(\gamma_p = 0.63 \approx \sqrt{0.4}\)</span>, <span class="arithmatex">\(\gamma_h = 2\)</span>, <span class="arithmatex">\(\gamma_n = 1\)</span> (<code>PredictionOptions</code>,
+the defaults of deal.II). A marked cell with <span class="arithmatex">\(\eta_{K'} \le \eta^{\text{pred}}_{K'}\)</span> achieved
+the smooth rate and is p-refined next, otherwise it is h-refined; in the first step (no
+prediction) everything is h-refined. The corner cells of a singular solution never reach
+the predicted <span class="arithmatex">\(2^{-p}\)</span> reduction, so they are h-refined for ever, while cells at a fixed
+distance-to-size ratio gain the predicted factor from each p-step.</p>
+<p><code>hp_refine</code> with <code>spread_p</code> (default) also raises the lower-order facet neighbours of a
+p-refined cell by one: under the minimum rule the shared edges would otherwise stay at the
+neighbour's order and the raised cell would only gain interior functions, which the
+estimator keeps marking. Spreading raised the exponential rate <span class="arithmatex">\(b\)</span> of the L-shape run from
+<span class="arithmatex">\(0.23\)</span> to <span class="arithmatex">\(0.28\)</span> and halved the error at <span class="arithmatex">\(12\,000\)</span> DoFs.</p>
+<h3 id="coefficient-decay-adaptivitysmoothnesshpp">Coefficient decay (<code>adaptivity/smoothness.hpp</code>)</h3>
+<p><span class="arithmatex">\(E_{hp}|_K\)</span> is expanded component-wise in the <span class="arithmatex">\(L^2\)</span>-orthonormal Dubiner basis of the
+reference cell (<code>fespace::DubinerBasis</code>, Legendre and Jacobi polynomials in collapsed
+coordinates). With <span class="arithmatex">\(a_n^2 = \sum_{|\alpha| = n}|c_\alpha|^2\)</span> the least-squares fit
+<span class="arithmatex">\(\log a_n \approx C - \sigma n\)</span> over <span class="arithmatex">\(n = 0 \dots p_K\)</span> gives the decay rate; a field
+represented exactly (<span class="arithmatex">\(a_{p} = 0\)</span>) counts as infinitely smooth. A cell is p-refined if
+$\sigma_K \ge \tau(p_K) = $ <code>smooth_threshold</code> <span class="arithmatex">\(+\)</span> <code>threshold_scale</code><span class="arithmatex">\(/p_K\)</span> with the
+defaults <span class="arithmatex">\(1 + 3.5/p\)</span>, and cells below <code>min_decision_order</code> <span class="arithmatex">\(= 2\)</span> are p-refined without a
+decision. The <span class="arithmatex">\(1/p\)</span> term was calibrated on the interpolant of the corner singularity
+<span class="arithmatex">\(\nabla(r^{2/3}\sin\tfrac{2\theta}{3})\)</span>: a sequence that decays algebraically looks
+exponential over few modes, and its fitted rate drops with <span class="arithmatex">\(p\)</span> (corner cells: <span class="arithmatex">\(4.1, 2.0,
+1.4, 1.1, 0.9, 0.7\)</span> for <span class="arithmatex">\(p = 1 \dots 6\)</span>, cells away from the corner stay above
+<span class="arithmatex">\(1.4\)</span>).</p>
+<p><strong>Measured limitation.</strong> The decay of the <em>Galerkin solution</em> is not the decay of the
+exact field: on an unresolved corner cell the discrete solution is a smooth polynomial,
+with rates <span class="arithmatex">\(3.1\)</span>–<span class="arithmatex">\(3.9\)</span> at <span class="arithmatex">\(p = 2\)</span> and <span class="arithmatex">\(2.0\)</span>–<span class="arithmatex">\(2.5\)</span> at <span class="arithmatex">\(p = 4\)</span>, above the thresholds, so the
+corner is p-refined up to <span class="arithmatex">\(p = 6\)</span> before the first h-step and the loop converges no
+faster than h-adaptivity. This is why the error prediction is the default; the decay
+indicator remains available for solutions whose singularities are resolved, and as the
+smoothness measure of the prolongated solution in later strategies.</p>
+<h2 id="hanging-nodes-and-constraints">Hanging nodes and constraints</h2>
+<p>A hanging edge <span class="arithmatex">\((a,b)\)</span> with midpoint <span class="arithmatex">\(m\)</span> faces the half edges <span class="arithmatex">\((a,m)\)</span>, <span class="arithmatex">\((m,b)\)</span> of the
+refined side; a hanging face <span class="arithmatex">\((a,b,c)\)</span> faces its four child faces, the three half edges of
+each of its edges and the three edges between the midpoints. The DoFs of the fine entities
+are <strong>slaves</strong> of the <strong>masters</strong> on the parent entity and its boundary (for a face: the
+face DoFs, the DoFs of its three edges and, in H1, its three vertices):</p>
+<div class="arithmatex">\[
+u_s = \sum_m c_{sm}\, u_m, \qquad c_{sm} = \text{coefficient of fine function } s
+\text{ in the hierarchical interpolant of master function } \phi_m .
+\]</div>
+<p>The coefficients are computed numerically: every master function (evaluated through the
+coarse cell in global orientation) is interpolated onto the child entities with
+<code>assembly::interpolate</code>, which is exact because the parent's trace is a polynomial of
+degree <span class="arithmatex">\(p_{\text{parent}} \le p_{\text{child}}\)</span> (the DoF map's minimum rule includes the
+children). Fine functions of higher degree than the parent get the coefficient <span class="arithmatex">\(0\)</span> — they
+are constrained to vanish. Hanging faces are processed first, then hanging edges whose
+half edges are not yet constrained; a slave never has two constraints. The resulting
+space is exactly the conforming subspace: tangential (H(curl)) or full (H1) continuity
+across every hanging facet, and a global polynomial of the space is reproduced exactly.
+See ADR-0006.</p>
+<p>Verification (<code>tests/unit/assembly/test_hanging_constraints.cpp</code>, <code>test_prolongation.cpp</code>):
+random constrained vectors are continuous / tangentially continuous across all hanging
+facets of twice-refined corners in 2D and 3D for <span class="arithmatex">\(p \le 4\)</span> / <span class="arithmatex">\(3\)</span> and for random per-cell
+orders; the number of constrained DoFs equals the count of fine-entity DoFs; a quadratic
+field of <span class="arithmatex">\(\mathrm{ND}_3\)</span> is solved exactly by <code>physics::Scattering</code> on the hanging mesh with
+vanishing residual estimate; prolongated functions agree with the originals pointwise and
+satisfy the constraints of the refined mesh.</p>
+<h3 id="adaptive-p-refinement-on-a-smooth-solution-testsconvergenceadaptive_p_refinementcpp">Adaptive p-refinement on a smooth solution (<code>tests/convergence/adaptive_p_refinement.cpp</code>)</h3>
+<p>Plane wave with <span class="arithmatex">\(k = 6\)</span> on a <span class="arithmatex">\(4     imes 4\)</span> mesh of the unit square, exact trace on the
+boundary, Dörfler marking ($    heta = 0.8$) of the residual indicators, <span class="arithmatex">\(p \leftarrow p + 1\)</span>
+on the marked cells (minimum rule on the shared edges): the error decays like
+<span class="arithmatex">\(\exp(-0.41\sqrt{N})\)</span>, from <span class="arithmatex">\(1\)</span> at <span class="arithmatex">\(56\)</span> DoFs (<span class="arithmatex">\(p = 1\)</span>) to <span class="arithmatex">\(2.5\cdot 10^{-8}\)</span> at <span class="arithmatex">\(2694\)</span> DoFs
+(<span class="arithmatex">\(p \le 9\)</span>) in 16 steps; the effectivity index stays within <span class="arithmatex">\(60 \dots 118\)</span> (its constant
+grows with <span class="arithmatex">\(p\)</span>). The transferred solution agrees pointwise with the previous one in every
+step.</p>
+<h3 id="hp-adaptivity-on-the-l-shape-testsconvergenceadaptive_hp_refinementcpp-test-7">hp-adaptivity on the L-shape (<code>tests/convergence/adaptive_hp_refinement.cpp</code>, test #7)</h3>
+<p>Same problem, starting from <span class="arithmatex">\(p = 1\)</span> on 24 cells, Dörfler <span class="arithmatex">\(\theta = 0.5\)</span>, decision by error
+prediction, p-spreading, hanging-node h-refinement:</p>
+<table>
+<thead>
+<tr>
+<th>DoF</th>
+<th>44</th>
+<th>1 300</th>
+<th>4 100</th>
+<th>8 000</th>
+<th>11 800</th>
+<th>16 700</th>
+<th>21 800</th>
+<th>26 300</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="arithmatex">\(\|E - E_{hp}\|_{H(\mathrm{curl})}\)</span></td>
+<td><span class="arithmatex">\(6.2\cdot10^{-1}\)</span></td>
+<td><span class="arithmatex">\(2.9\cdot10^{-2}\)</span></td>
+<td><span class="arithmatex">\(2.4\cdot10^{-3}\)</span></td>
+<td><span class="arithmatex">\(9.1\cdot10^{-4}\)</span></td>
+<td><span class="arithmatex">\(3.9\cdot10^{-4}\)</span></td>
+<td><span class="arithmatex">\(1.6\cdot10^{-4}\)</span></td>
+<td><span class="arithmatex">\(9.8\cdot10^{-5}\)</span></td>
+<td><span class="arithmatex">\(6.2\cdot10^{-5}\)</span></td>
+</tr>
+</tbody>
+</table>
+<p>Fit <span class="arithmatex">\(\exp(-b N^{1/3})\)</span> over the last ten steps: <span class="arithmatex">\(b = 0.28\)</span>; the algebraic slope for
+<span class="arithmatex">\(N \ge 4000\)</span> is <span class="arithmatex">\(-2.2\)</span>, steeper than any fixed-<span class="arithmatex">\(p\)</span> h-adaptivity with <span class="arithmatex">\(p \le 4\)</span> reaches,
+and the error at <span class="arithmatex">\(12\,000\)</span> DoFs is <span class="arithmatex">\(2.7\times\)</span> below the <span class="arithmatex">\(p = 2\)</span> h-adaptive run. The final
+mesh has 20 levels of geometric grading at the corner with <span class="arithmatex">\(p = 2\)</span> in the innermost rings
+and <span class="arithmatex">\(p\)</span> up to <span class="arithmatex">\(6\)</span>–<span class="arithmatex">\(7\)</span> outside; the corner cells are never p-refined; the effectivity index
+stays between <span class="arithmatex">\(2\)</span> and <span class="arithmatex">\(4\)</span>. Beyond <span class="arithmatex">\(\approx 40\,000\)</span> DoFs the error stalls near <span class="arithmatex">\(10^{-5}\)</span>:
+the direct solver's accuracy on the graded high-order system (M6).</p>
+<h3 id="plasmonic-wedge-testsconvergenceplasmonic_wedgecpp-test-7-second-part">Plasmonic wedge (<code>tests/convergence/plasmonic_wedge.cpp</code>, test #7 second part)</h3>
+<p>A metal quadrant (<span class="arithmatex">\(\varepsilon = -9 + 1.2i\)</span>, the quadrant <span class="arithmatex">\(x &gt; 0\)</span>, <span class="arithmatex">\(y &lt; 0\)</span> of <span class="arithmatex">\([-1,1]^2\)</span>)
+meets vacuum at a <span class="arithmatex">\(90^\circ\)</span> corner. The quasi-static corner field <span class="arithmatex">\(E = \nabla(r^\nu\Phi(\psi))\)</span>
+with piecewise cosines <span class="arithmatex">\(\Phi\)</span> and the complex exponent <span class="arithmatex">\(\nu = 0.5726 - 0.0149i\)</span> from
+<span class="arithmatex">\(\varepsilon_2\tan(3\pi\nu/4) + \varepsilon_1\tan(\pi\nu/4) = 0\)</span> is curl-free and satisfies
+the interface conditions exactly, so it solves <span class="arithmatex">\(\nabla\times\nabla\times E - k^2\varepsilon E =
+-k^2\varepsilon E\)</span> with its own trace as boundary data: a manufactured solution with a
+material corner singularity <span class="arithmatex">\(|E| \sim r^{-0.43}\)</span>, stronger than the PEC corner
+(<span class="arithmatex">\(r^{-1/3}\)</span>). Uniform refinement would converge like <span class="arithmatex">\(N^{-0.29}\)</span>; the hp loop (Dörfler
+<span class="arithmatex">\(0.5\)</span>, error prediction, from <span class="arithmatex">\(p = 1\)</span> on 32 cells) reaches an error of <span class="arithmatex">\(1.3\cdot10^{-3}\)</span> at
+<span class="arithmatex">\(21\,000\)</span> DoFs from <span class="arithmatex">\(10.8\)</span> on the start mesh, with <span class="arithmatex">\(b = 0.28\)</span> in <span class="arithmatex">\(\exp(-bN^{1/3})\)</span> over
+the last ten steps, an algebraic slope of <span class="arithmatex">\(-2.0\)</span> for <span class="arithmatex">\(N \ge 4000\)</span>, the corner cells
+h-refined in 112 of 116 decisions and the effectivity index between 1 and 5.3.</p>
+<h3 id="adaptive-h-refinement-on-the-l-shape-testsconvergenceadaptive_h_refinementcpp">Adaptive h-refinement on the L-shape (<code>tests/convergence/adaptive_h_refinement.cpp</code>)</h3>
+<p><span class="arithmatex">\(E = \nabla(r^{2/3}\sin\tfrac{2\theta}{3})\)</span> on <span class="arithmatex">\([-1,1]^2 \setminus [0,1]\times[-1,0]\)</span> with
+<span class="arithmatex">\(k = 1\)</span> and the exact trace on the boundary, Dörfler marking with <span class="arithmatex">\(\theta = 0.5\)</span>:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>uniform, <span class="arithmatex">\(p = 2\)</span></th>
+<th>adaptive, <span class="arithmatex">\(p = 1\)</span></th>
+<th>adaptive, <span class="arithmatex">\(p = 2\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>rate in <span class="arithmatex">\(N\)</span> (last steps)</td>
+<td><span class="arithmatex">\(-0.35\)</span></td>
+<td><span class="arithmatex">\(-0.58\)</span></td>
+<td><span class="arithmatex">\(-1.11\)</span></td>
+</tr>
+<tr>
+<td>optimal <span class="arithmatex">\(-p/2\)</span></td>
+<td>—</td>
+<td><span class="arithmatex">\(-0.5\)</span></td>
+<td><span class="arithmatex">\(-1.0\)</span></td>
+</tr>
+<tr>
+<td>effectivity <span class="arithmatex">\(\eta / \|E - E_h\|\)</span></td>
+<td>4.1 … 4.5</td>
+<td>2.1 … 3.8</td>
+<td>3.4 … 4.7</td>
+</tr>
+</tbody>
+</table>
+<p>The largest indicator sits at the corner in every step; 16 steps reach <span class="arithmatex">\(10^{-3}\)</span> relative
+error with 12 600 DoFs at <span class="arithmatex">\(p = 2\)</span> in 3 s. The singular solution limits uniform refinement to
+<span class="arithmatex">\(N^{-1/3}\)</span> for every <span class="arithmatex">\(p\)</span> (the <span class="arithmatex">\(h\)</span> part of convergence test #7; the <span class="arithmatex">\(hp\)</span> part follows with
+the <span class="arithmatex">\(hp\)</span> decision).</p>
+<h2 id="periodic-faces">Periodic faces</h2>
+<p>Bloch-periodic constraints (<code>assembly::bloch_constraints</code>) pair the facets of the two faces one
+to one and need identical meshes on both sides. Local refinement breaks this as soon as a
+cell at one face is marked, or refined by the one-irregular closure of a neighbour, while
+its partner is not. <code>AdaptiveMesh::set_periodic({master_tag, slave_tag, shift})</code> declares
+the pairs; <code>refine</code> (and therefore <code>hp_refine</code>) then mirrors every refinement across the
+pair after the closure: facets of one face without a partner of the same position and
+size on the other face split the cell owning the nearest coarser partner facet, repeated
+until both faces match. The mirrored cells inherit their parent's order like any closure
+cell. Unit test: <code>tests/unit/mesh/test_adaptive_periodic.cpp</code> (2D and 3D, marked face
+cells, closure next to a face, <code>hp_refine</code>, the constraints of both spaces built after
+every step). Since stage 2 of M15 F16 the mirroring is optional: <code>bloch_constraints</code> couples
+faces refined to different levels and orders exactly
+(<a href="../maxwell/#bloch-periodic-constraints-assemblyperiodichpp">maxwell.md</a>), and the residual
+estimators include the jump across the Bloch faces, so the cells at the faces are marked and
+refined like any other and the orders of the paired cells need not agree (case (d) of
+<code>conical_grating_hp</code>: ridge off centre, faces refined independently).</p>
+<h2 id="bodies-of-revolution">Bodies of revolution</h2>
+<p>The loop runs unchanged on the meridian mesh of the axisymmetric solver: the problem
+classes constrain the hanging DoFs of both spaces, and <code>adaptivity::axisymmetric_residual_estimate</code>
+is the r-weighted residual estimator of the mode equation. See
+<a href="../axisymmetric/#hp-adaptivity-on-the-meridian-plane">axisymmetric.md</a> for the formulas and
+the convergence test at a re-entrant PEC edge (exponential in <span class="arithmatex">\(N^{1/3}\)</span>, <span class="arithmatex">\(b = 0.27\)</span>).</p>
+<h2 id="conical-incidence">Conical incidence</h2>
+<p>The conical solver takes part in the same loop: <code>ConicalScattering::estimate</code> returns the
+indicators of <code>adaptivity::conical_residual_estimate</code>
+(<a href="../error-estimation/#conical-incidence-adaptivityconical_residual_estimate">error-estimation.md</a>),
+<code>ConicalScattering::error</code> the L2 errors of the field and the conical curl against an exact
+field, and <code>hp_refine</code> raises the orders of both maps together (the two spaces share the
+per-cell order). The Bloch faces of a grating may be refined independently and carry different
+orders (the non-matching coupling of M15 F16); <code>AdaptiveMesh::set_periodic</code> keeps them
+identical when that is wanted. The convergence tests are <code>conical_hp_corner</code> (manufactured gradient mode at a
+re-entrant PEC corner, <span class="arithmatex">\(\beta = 1.3\)</span>: exponential with <span class="arithmatex">\(b = 0.26\)</span>, the corner cells h-refined)
+and <code>conical_grating_hp</code> (the Ag lamellar grating of M15 F1 under TM at 50° with the layered
+background, Bloch faces and PML: <span class="arithmatex">\(\Delta R_{-1} = -5\cdot 10^{-6}\)</span>, <span class="arithmatex">\(\Delta R_0 = -2.2\cdot 10^{-4}\)</span>
+at 88 k DoFs where uniform meshes stagnate at <span class="arithmatex">\(5\cdot 10^{-3}\)</span>; the loop starts at <span class="arithmatex">\(p = 4\)</span> because
+the energy-norm marking never touches the PML and air cells, see
+<a href="../../validation/#e-hp-adaptive-silver-grating-with-the-conical-solver-m15-f1">validation.md</a>).</p>
+<p><strong>Goal-driven loop, pre-refinement and the generator.</strong> <code>physics::conical_dwr_estimate</code>
+(<a href="../error-estimation/#conical-solver-physicsconical_dwr_estimate">error-estimation.md</a>)
+supplies goal indicators for the same marking and hp decision;
+<code>adaptivity::refine_at_points(adaptive, points, levels)</code> pre-refines the cells at known
+singular points (material corners) before the loop, so the first steps do not spend their
+budget on finding them. From Python, <code>hpfem.adaptive_solve(adaptive, factory, observe=…,
+goal=…, tolerance=…, max_dofs=…)</code> is a generator of the whole loop: the factory builds and
+solves the problem on the current mesh and orders, every step yields DoFs, <span class="arithmatex">\(\eta\)</span>, the
+observables (reflectances, fluxes) and their change since the previous step, the goal value
+and the estimated goal error, and the loop stops when all changes and the goal error are
+below the tolerance (<code>AdaptiveStep.converged</code>), the "stop at tolerance" mode of the GUI
+(<a href="../../python/">python.md</a>).</p>
+<h2 id="data-structure-consequences-why-m1m2-must-prepare-this">Data-structure consequences (why M1/M2 must prepare this)</h2>
+<ul>
+<li>DoF numbering is <strong>entity-based</strong> (vertex → edge → face → cell) with a per-entity order,
+  not a per-cell block of fixed size.</li>
+<li>The mesh keeps parent/child relations and level numbers (<code>mesh::AdaptiveMesh</code>).</li>
+<li><code>fespace::Constraints</code> (<code>slave = Σ c_i master_i</code>) serves Bloch-periodic boundaries and
+  hanging nodes alike (<code>append</code> combines them) and reduces the assembled system by
+  <span class="arithmatex">\(P^H A P\)</span>; <code>physics::Scattering</code> imposes the Dirichlet data on the free DoFs after the
+  reduction.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

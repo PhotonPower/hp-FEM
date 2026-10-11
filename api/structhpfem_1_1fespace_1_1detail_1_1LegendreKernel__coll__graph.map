@@ -1,0 +1,7 @@
+<map id="hpfem::fespace::detail::LegendreKernel&lt; Dim &gt;" name="hpfem::fespace::detail::LegendreKernel&lt; Dim &gt;">
+<area shape="rect" id="Node000001" title="Legendre factors , j = 0..n, with gradients (no λ prefactor)." alt="" coords="280,41,468,81"/>
+<area shape="rect" id="Node000002" href="$classhpfem_1_1fespace_1_1detail_1_1KernelArray.html" title=" " alt="" coords="5,5,173,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="187,35,280,47,279,52,187,40"/>
+<area shape="rect" id="Node000003" href="$classhpfem_1_1fespace_1_1detail_1_1KernelArray.html" title=" " alt="" coords="5,70,173,125"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="187,82,279,71,280,76,187,88"/>
+</map>

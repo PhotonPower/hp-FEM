@@ -1,0 +1,26 @@
+var searchData=
+[
+  ['name_0',['name',['../structhpfem_1_1io_1_1VtkWriter_1_1Array.html#a95967aa872571fb6e07a9b35eb03e124',1,'hpfem::io::VtkWriter::Array']]],
+  ['normal_1',['normal',['../structhpfem_1_1physics_1_1OrderLine.html#a06ef45d9428961d41fbc6e58724f7a2c',1,'hpfem::physics::OrderLine::normal'],['../structhpfem_1_1physics_1_1SurfacePoint.html#a7819652a16678b330656d5d22c4d3ab3',1,'hpfem::physics::SurfacePoint::normal']]],
+  ['normal_5fjump_2',['normal_jump',['../structhpfem_1_1adaptivity_1_1ResidualParts.html#a6f30852b92295eb7011bbc9bfc1cfbce',1,'hpfem::adaptivity::ResidualParts']]],
+  ['normalisation_3',['normalisation',['../structhpfem_1_1physics_1_1ModeAdjoint.html#a286d0be3aca14e845d4d3f23da310041',1,'hpfem::physics::ModeAdjoint']]],
+  ['num_5fbands_4',['num_bands',['../structhpfem_1_1physics_1_1BandStructureSetup.html#a10306c10eba2b010ff860a602372164f',1,'hpfem::physics::BandStructureSetup']]],
+  ['num_5fboundary_5ffacets_5',['num_boundary_facets',['../structhpfem_1_1mesh_1_1MeshReport.html#abbeddc9234d9e65eedb5f3c060fce243',1,'hpfem::mesh::MeshReport']]],
+  ['num_5fcells_6',['num_cells',['../structhpfem_1_1mesh_1_1MeshReport.html#a678969884896d6209f61769a7fa9ac72',1,'hpfem::mesh::MeshReport']]],
+  ['num_5fconverged_7',['num_converged',['../structhpfem_1_1solvers_1_1ComplexEigenResult.html#af85a90d7d95a95369342ebf4e38a9ba2',1,'hpfem::solvers::ComplexEigenResult']]],
+  ['num_5fcurved_8',['num_curved',['../structhpfem_1_1mesh_1_1MeshReport.html#a26d4976366bce976f89d011d38ac4fac',1,'hpfem::mesh::MeshReport']]],
+  ['num_5fdofs_9',['num_dofs',['../structhpfem_1_1physics_1_1KeptFactorisation_1_1Parts.html#a217bbea396c46c568ed832dbeb049126',1,'hpfem::physics::KeptFactorisation::Parts']]],
+  ['num_5feigenvalues_10',['num_eigenvalues',['../structhpfem_1_1solvers_1_1EigenOptions.html#a8580204caf0e32747b5e9bf81d0302b2',1,'hpfem::solvers::EigenOptions']]],
+  ['num_5ffacets_11',['num_facets',['../structhpfem_1_1mesh_1_1MeshReport.html#ac35105bd71d3fdec2bb0bf1a91b0fbbe',1,'hpfem::mesh::MeshReport']]],
+  ['num_5fh1_12',['num_h1',['../structhpfem_1_1assembly_1_1AxisymmetricSystem.html#a52423279ff503d3123ac17ccfc340331',1,'hpfem::assembly::AxisymmetricSystem::num_h1'],['../structhpfem_1_1assembly_1_1ConicalSystem.html#a064838ac8a92e6469105f52741894535',1,'hpfem::assembly::ConicalSystem::num_h1']]],
+  ['num_5fhanging_13',['num_hanging',['../structhpfem_1_1mesh_1_1MeshReport.html#ad2e6d9e4f705413e2ee0a718a2edfa84',1,'hpfem::mesh::MeshReport']]],
+  ['num_5finvalid_14',['num_invalid',['../structhpfem_1_1mesh_1_1MeshReport.html#af4a4bcdd402f9bed80011f33cd893879',1,'hpfem::mesh::MeshReport']]],
+  ['num_5fmaster_15',['num_master',['../structhpfem_1_1mesh_1_1PeriodicCheck.html#a47443a6e2c74ea8f7c8e6658d35b7799',1,'hpfem::mesh::PeriodicCheck']]],
+  ['num_5fmodes_16',['num_modes',['../structhpfem_1_1physics_1_1AxisymmetricCavitySetup.html#abdb2f38e4f86abac8ce5a8f087cff91f',1,'hpfem::physics::AxisymmetricCavitySetup::num_modes'],['../structhpfem_1_1physics_1_1AxisymmetricResonanceSetup.html#a3d894afda67d79691652afdf3db39619',1,'hpfem::physics::AxisymmetricResonanceSetup::num_modes'],['../structhpfem_1_1physics_1_1ConicalResonanceSetup.html#a66e02e52157df01371feee6b607f33bb',1,'hpfem::physics::ConicalResonanceSetup::num_modes'],['../structhpfem_1_1physics_1_1WaveguideSetup.html#a362c26ce7ec2f6974deb808ff02291cc',1,'hpfem::physics::WaveguideSetup::num_modes'],['../structhpfem_1_1physics_1_1ResonanceSetup.html#a90d6b1d7c022e8d01249f16b2a60f88d',1,'hpfem::physics::ResonanceSetup::num_modes'],['../structhpfem_1_1physics_1_1WaveguidePort.html#a52bcece9a882a325d26dd632686f6c4e',1,'hpfem::physics::WaveguidePort::num_modes']]],
+  ['num_5fnedelec_17',['num_nedelec',['../structhpfem_1_1assembly_1_1AxisymmetricSystem.html#afea57e0ec8cab2aaee0d863dc49ec7cd',1,'hpfem::assembly::AxisymmetricSystem::num_nedelec'],['../structhpfem_1_1assembly_1_1ConicalSystem.html#a2c66bec78f780d93e1c9a4e2b6324bca',1,'hpfem::assembly::ConicalSystem::num_nedelec']]],
+  ['num_5fold_5fcells_18',['num_old_cells',['../structhpfem_1_1mesh_1_1RefinementStep.html#aa4bf7879af4e1dc4bc157188a83741fb',1,'hpfem::mesh::RefinementStep']]],
+  ['num_5fslave_19',['num_slave',['../structhpfem_1_1mesh_1_1PeriodicCheck.html#a590f781f7daebf8ad8f6dabf95997df6',1,'hpfem::mesh::PeriodicCheck']]],
+  ['num_5fsteps_20',['num_steps',['../structhpfem_1_1ProgressEvent.html#a54744e93623dbbc02dc6e81ecf89af4d',1,'hpfem::ProgressEvent']]],
+  ['num_5funtagged_21',['num_untagged',['../structhpfem_1_1mesh_1_1MeshReport.html#a4f82f2efa196ccdd1272f4d7400f9ebd',1,'hpfem::mesh::MeshReport']]],
+  ['num_5fvertices_22',['num_vertices',['../structhpfem_1_1mesh_1_1MeshReport.html#a9155a06172b9f08850a621f5840ddb7d',1,'hpfem::mesh::MeshReport']]]
+];

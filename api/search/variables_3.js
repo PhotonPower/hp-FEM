@@ -1,0 +1,22 @@
+var searchData=
+[
+  ['d_0',['d',['../structhpfem_1_1physics_1_1MieSphere.html#abb1c3815752948199ac84945af7ffe2a',1,'hpfem::physics::MieSphere']]],
+  ['data_1',['data',['../structhpfem_1_1io_1_1VtkWriter_1_1Array.html#a3f6fbaf8e368106382a4bde24f949b55',1,'hpfem::io::VtkWriter::Array']]],
+  ['decay_2',['decay',['../structhpfem_1_1adaptivity_1_1HpDecision.html#a93d07a5a92159a71b54942a9efcb4e24',1,'hpfem::adaptivity::HpDecision']]],
+  ['density_3',['density',['../structhpfem_1_1physics_1_1AbsorptionDensity.html#a202ae4910895a11ada78d44d157ba534',1,'hpfem::physics::AbsorptionDensity']]],
+  ['derivative_4',['derivative',['../structhpfem_1_1physics_1_1TimeSignal.html#aea1b15ef7130bb88e945d5c220c097b9',1,'hpfem::physics::TimeSignal']]],
+  ['det_5',['det',['../structhpfem_1_1mesh_1_1AffineMap.html#aa7f7e74407b4de3be10798482cdc322f',1,'hpfem::mesh::AffineMap::det'],['../structhpfem_1_1mesh_1_1GeometryPoint.html#ad575251b67427d0c4987e7473434b42d',1,'hpfem::mesh::GeometryPoint::det']]],
+  ['difference_5fstep_6',['difference_step',['../structhpfem_1_1adaptivity_1_1EstimatorOptions.html#a40e7ab3ad64636ea6bf80df7e31ad021',1,'hpfem::adaptivity::EstimatorOptions']]],
+  ['diffusion_7',['diffusion',['../structhpfem_1_1assembly_1_1ScalarForm.html#ae266049bcc590350c2f85c4dd4ee601f',1,'hpfem::assembly::ScalarForm']]],
+  ['diffusion_5ftensor_8',['diffusion_tensor',['../structhpfem_1_1assembly_1_1ScalarForm.html#af0f8d32f8a66ffd39d252dd838563997',1,'hpfem::assembly::ScalarForm']]],
+  ['dirichlet_9',['dirichlet',['../structhpfem_1_1physics_1_1KeptFactorisation_1_1Parts.html#addee7fdcde8379c21b68307d22b71d7a',1,'hpfem::physics::KeptFactorisation::Parts']]],
+  ['divergence_10',['divergence',['../structhpfem_1_1adaptivity_1_1ResidualParts.html#ae11068220c766ac481a1a23ef3ebb593',1,'hpfem::adaptivity::ResidualParts']]],
+  ['divergence_5fterms_11',['divergence_terms',['../structhpfem_1_1adaptivity_1_1EstimatorOptions.html#a859bfa1beb8c823dae1de28237557092',1,'hpfem::adaptivity::EstimatorOptions']]],
+  ['dlambda_12',['dlambda',['../structhpfem_1_1physics_1_1ResonanceDerivative.html#a9a3972261a3cf5a77df7ad0504157150',1,'hpfem::physics::ResonanceDerivative']]],
+  ['dofs_13',['dofs',['../structhpfem_1_1assembly_1_1DofValues.html#af4524e1ea2344926cc37b40f7e543a5d',1,'hpfem::assembly::DofValues::dofs'],['../structhpfem_1_1solvers_1_1MemoryEstimate.html#a2d2d2e69a184ad2474d08024fa1006ef',1,'hpfem::solvers::MemoryEstimate::dofs']]],
+  ['domega_14',['domega',['../structhpfem_1_1physics_1_1ResonanceDerivative.html#a2e7198522a1043e79bdbcf76f7800d7c',1,'hpfem::physics::ResonanceDerivative']]],
+  ['down_15',['down',['../structhpfem_1_1physics_1_1AxisymmetricFluxChannels.html#a69203d06f73b9d8a5c8bc657ede868a9',1,'hpfem::physics::AxisymmetricFluxChannels::down'],['../structhpfem_1_1physics_1_1AxisymmetricLayeredFarField.html#aec5777483c4b1de884762334ad583517',1,'hpfem::physics::AxisymmetricLayeredFarField::down'],['../structhpfem_1_1physics_1_1LayeredPlaneWave.html#a31d15f5e5d17ea3b78a205f89bd61d30',1,'hpfem::physics::LayeredPlaneWave::down']]],
+  ['dquality_16',['dquality',['../structhpfem_1_1physics_1_1ResonanceDerivative.html#a921183afbc042d449e9ffc6633dea8fe',1,'hpfem::physics::ResonanceDerivative']]],
+  ['dt_17',['dt',['../structhpfem_1_1physics_1_1TimeDomainSetup.html#a99e706cf0ef22f91a873e04369f00023',1,'hpfem::physics::TimeDomainSetup']]],
+  ['dwavelength_18',['dwavelength',['../structhpfem_1_1physics_1_1ResonanceDerivative.html#a7084fcaa972759a68b4a557cfa484773',1,'hpfem::physics::ResonanceDerivative']]]
+];
