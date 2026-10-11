@@ -3,6 +3,17 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Validation of the optimisation stack (M16 S8, `benchmarks/opt_validation.py`,
+  `docs/validation.md` H and I): gradient-enhanced Bayesian optimisation reaches the noise
+  level of a three-parameter grating reconstruction in 16–31 evaluations and ends 2–4× lower
+  than without gradients, while Nelder–Mead, differential evolution and random-start L-BFGS-B
+  miss it within 40; the conical DWR estimate predicts the order error with the right sign
+  (effectivity 0.7–1.0), and choosing p by |η| ≤ 0.1 σ keeps the reconstruction bias at 0.1
+  standard deviations, while adding η² to the noise leaves the p = 2 bias (0.6 std) in place.
+- Drivers of the M18 3D cross-checks (written by the helper agent `opt-jobs`):
+  `benchmarks/m18_validation_3d.py` (`mesh` / `estimate` / `run`; a sphere on a two-layer stack and
+  a nanohole in a gold film against the axisymmetric solver, on symmetry-reduced 3D domains with
+  gmsh meshes from `benchmarks/m18_meshes_3d.py`; resumable JSON records). The runs are pending.
 - Example `examples/particle_on_substrate` (M18 S4, written by the helper agent `opt-jobs`): bodies
   of revolution on layer stacks — a gold sphere on glass in dark field (absorption, scattering up /
   down / along the interface, collection by an NA 0.5 objective), a nanoparticle on a gold mirror

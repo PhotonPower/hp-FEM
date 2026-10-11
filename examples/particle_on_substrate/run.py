@@ -401,9 +401,10 @@ def npom(quick):
 # --- the nanohole --------------------------------------------------------------------------------
 
 
-def nanohole(quick):
+def nanohole(quick, wavelengths=None):
     """A hole of radius 100 nm through a 100 nm gold film on glass, normal incidence: the power
-    the hole adds below the film over the power on the hole area, and the power balance."""
+    the hole adds below the film over the power on the hole area, and the power balance;
+    `wavelengths` [m] replaces the sweep of the configuration."""
     r_hole, film = 100 * units.nm, 100 * units.nm
     fine = (10 if quick else 5) * units.nm
     coarse = (60 if quick else 40) * units.nm
@@ -437,9 +438,10 @@ def nanohole(quick):
     surface = surface_inside(mesh, inside)
     region = np.array([inside(*mesh.cell_centroid(c)) for c in range(mesh.num_cells)])
     glass = hpfem.Material.dielectric(N_GLASS)
-    wavelengths = (
+    sweep = (
         np.array([600.0, 750.0, 900.0]) if quick else np.arange(600.0, 1001.0, 10.0)
     ) * units.nm
+    wavelengths = sweep if wavelengths is None else np.asarray(wavelengths, dtype=float)
     zero_e, zero_v = np.zeros(nd.num_dofs, complex), np.zeros(h1.num_dofs, complex)
     rows = []
     print(f"nanohole: {mesh.num_cells} cells")
