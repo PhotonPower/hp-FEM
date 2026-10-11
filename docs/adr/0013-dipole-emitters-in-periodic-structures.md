@@ -109,19 +109,22 @@ Measured, homogeneous cell, y dipole:
 2. *One PML profile per β for all kx samples.* `grating.emit` designs the profile from the
    direction of (Re kx, β), which makes the integrand depend on Re kx alone, so it is not
    analytic. The scan uses one profile, designed for the 80° cap.
-3. *A complex Bloch phase in the cell problem.* `emit` takes complex kx. Its order
-   post-processing is for real kx only.
+3. *A complex Bloch phase in the cell problem.* `dipole_emission` sets up the cell problem
+   itself, with the phase e^{i kx P} for a complex kx. `emit`, whose order post-processing is
+   for real kx only, stays as it is.
 
 **Scope.**
 
 - The contour gives the total delivered power and the Purcell factor.
 - The channel powers (flux per order, absorption) are quadratic in the field and not analytic.
   They are not integrated on the contour. Instead:
-  - up and down come from the reciprocity pattern (§6), integrated over each half-space, where
-    the weight cos θ suppresses the grazing directions;
+  - up and down come from the reciprocity pattern (§6), integrated over each half-space. The
+    grazing directions are harmless there: the plane-wave problems carry the grazing wave in
+    the analytic background, and the PML only has to absorb the field scattered by the
+    structure;
   - the non-radiated part P_em − up − down is the absorbed power in a lossy structure and the
     guided power in a lossless one (§4).
-- Real-axis order sums remain as a diagnostic.
+- The real-axis rule (`depth = 0`) remains as a diagnostic.
 - Guided-mode poles on the real axis (§4) are unaffected: the contour returns to the real axis
   between the crossings.
 
@@ -133,6 +136,35 @@ Measured, homogeneous cell, y dipole:
   The result does not depend on the path to 5e-7. The −0.075 % is the discretisation error.
 - With the Pᴴ elimination the same detour gave +9.9 % and +19.4 %, which was the failure that
   led to this amendment.
+
+**Found during the implementation (M17 S3).** These refine the contour and the channels; the
+decision itself is unchanged.
+
+- *Bump height.* For β above k0·n a medium is evanescent, and its branch points are complex:
+  2πm/P ± iκ, with κ = (β² − k0²n²)^{1/2}. The PML replaces their cuts by strings of poles of
+  the truncated cell problem, and those strings run down towards the real axis.
+  - The failure case: a dipole 400 nm above glass, period 0.8 µm, β = 1.013 k0. The slice
+    changed by a factor of 0.6 to 5 with the depth, and F_P was 3–5 % off.
+  - The fix: the height of a bump is capped at 0.05 times its distance to the nearest complex
+    branch point.
+- *kx window and panels.* The cell problem depends on kx only through e^{i kx P}. Without
+  symmetry, the window is therefore the period that starts in the middle of the widest gap
+  between crossings. The real stretches between bumps get panels that grow geometrically away
+  from each bump.
+- *Node counts.* β needs more nodes than kx: the factor e^{2ik_y d} of a dipole at a distance d
+  from an interface oscillates in β. There are separate counts, `nodes` for β and `kx_nodes`
+  for kx. For a dipole 400 nm above glass at 1 µm, the rule integrates the Fresnel spectrum to
+  5e-4 with 6/4 and to 2e-4 with 8/4.
+- *Mirror symmetries.* The rule uses β ≥ 0 and, for a symmetric cell, half the zone. The matrix
+  entries that are odd under these symmetries are set to zero after the integration (xz and yz
+  always, xy for a symmetric cell). Otherwise a moment mixing the axes would double them instead
+  of cancelling them.
+- *Channels.* The θ quadrature of a half-space is split at its critical angles, with the points
+  crowded towards them, because the forbidden light makes a square-root kink there. The
+  material map is completed cell by cell before the substrate problem is mirrored.
+- *Validation* (`benchmarks/m17_dipole_scan.py`, p = 3, 8/4 points). The Purcell factors of a
+  dipole 400 nm above glass agree with the Sommerfeld integral to 8e-5 for a period of 1 µm and
+  to 1e-3 for 0.8 µm, and up and down to 1e-5.
 
 ### 4. Guided-mode poles: subtraction with the modes from the bands
 

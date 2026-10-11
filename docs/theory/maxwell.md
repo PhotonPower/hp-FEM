@@ -296,9 +296,22 @@ DoFs: $A_f = P^H A P$, $b_f = P^H b$, solve, $x = P x_f$. The conjugate transpos
 the weak form is bilinear (test functions are not conjugated), and the boundary terms on
 the two periodic faces cancel only when the test functions carry the *inverse* phase
 $e^{-i\mathbf{k}\cdot\mathbf{a}}$, which for real Bloch vectors is the conjugate (a plain
-transpose gives a wrong, non-convergent solution; complex Bloch vectors — evanescent
-Bloch waves — would need the inverse instead and are not supported yet). For real
-coefficients (hanging nodes) the two coincide. `physics::Scattering` does this when `ScatteringSetup::periodic`
+transpose gives a wrong, non-convergent solution). For real coefficients (hanging nodes) the
+two coincide.
+
+**Complex Bloch vectors** (ADR-0013 §3a). For a complex $k$ the phase
+$\lambda = e^{i\mathbf{k}\cdot\mathbf{a}}$ leaves the unit circle, and $\bar\lambda$ is no
+longer the inverse: $P^H A P$ would still give a solution that satisfies the Bloch condition,
+but not an analytic function of $k$, so a contour integral over $k$ would change with the
+contour. `Constraints::set_test` therefore takes a second set of constraints of the same
+structure, the test space $Q$, and the reduction becomes $Q^H A P$, $Q^H b$. `ConicalScattering`
+builds $Q$ with the phases $1/\bar\lambda$ whenever a phase lies off the unit circle. Then
+$Q^H$ holds $1/\lambda$, the test functions carry the inverse phase as in the real case, and
+the reduced system is a Laurent polynomial in $\lambda$. On the unit circle $Q = P$. The kept
+factorisation reduces forward loads with $Q^H$ and expands adjoint solutions with $\bar Q$.
+Verified by unit tests: the reduced matrix equals $Q^H A P$ and is analytic in $\lambda$
+(Cauchy–Riemann), while $P^H A P$ is not; the power matrix of a conical cell problem at a
+complex $k_x$ is analytic, with central-difference defects falling like $h^2$. `physics::Scattering` does this when `ScatteringSetup::periodic`
 is set; Dirichlet data is applied before the reduction, which is consistent for DoFs that
 are both constrained and prescribed (box corners) as long as the data itself is periodic.
 
@@ -1449,7 +1462,8 @@ shifts the Poynting flux through the PML boundary and $P_{cell}$ by up to about 
 the guided remainder from the order powers ($P_{cell}$ − up − down − absorbed, ADR-0013 §2) and
 reports the difference of fluxes and order powers as `pml_leak`, with a warning above
 $10^{-3}P_{cell}$ (move the PML away from the source); in the flat glass case of the test it is
-0.9 % with 296 nm of PML and below $10^{-3}$ with 740 nm. Both findings came from the helper
+0.24 % with 296 nm of PML and below $10^{-3}$ with 740 nm (0.9 % before the PML profile was
+designed for the largest order angle, #156). Both findings came from the helper
 agent that wrote Stage C.
 
 **Stage C, angle-resolved emission by reciprocity** (`hpfem.grating.emission_pattern`, M17
@@ -1485,4 +1499,89 @@ $P_{bulk}$ (both to $10^{-6}$), a dipole above glass against the plane-wave Fres
 computed independently (direct and reflected wave in air, transmitted wave in glass, also
 beyond the critical angle; $10^{-6}$), and a glass ridge against the $m = 0$ order of Stage A at
 $(k_x, \beta) = (0.3, 0.2)\,k_0$ ($2\cdot10^{-5}$; the opposite direction differs by a factor of
-three). Stage B (array scanning with the guided-mode poles) is the next step of M17.
+three).
+
+**Stage B, a single dipole by array scanning** (`hpfem.grating.dipole_emission`, M17 S3,
+ADR-0013 §3 and §3a). The power of the single dipole is the integral of the cell power over
+$k_x$ and $\beta$. For a moment along $x$, $y$ or $z$ the integrand is even in $\beta$, so
+$\beta$ runs over $[0, \beta_{max}]$ and the result is doubled. Each sample gives the
+$3\times3$ power matrix
+
+$$
+A_{ij}(k_x, \beta) = -\tfrac12\int g_2\,e^{-\sigma^2\beta^2/2}\,(E_j)_i\,dA ,
+\qquad P_{cell}(p) = \mathrm{Re}\,p^H A\,p ,
+$$
+
+from the responses $E_j$ to the three unit moments, solved on one kept factorisation
+(`conical_dipole_responses`, `conical_dipole_power_matrix`). Neither the load nor $A$ contains a
+conjugate, so $A$ is analytic in $k_x$. The integrated matrix $I = \sum_i w_i A_i$ gives the
+power of any moment as $\mathrm{Re}\,p^H I p$. The entries that are odd under the mirror
+symmetries the rule exploits ($xz$, $yz$ under $\beta \to -\beta$; $xy$ under
+$k_x \to -k_x$ for a symmetric cell) are set to zero, because they integrate to zero over the
+full ranges.
+
+On the real $k_x$ axis the integrand has $1/k_y$ singularities at the light-line crossings
+$k_x = -2\pi m/P \pm q$, $q = (k^2n^2 - \beta^2)^{1/2}$, where the cell field is made of
+grazing orders. A finite PML does not absorb them, so near every crossing the FEM integrand is
+wrong by far more than the discretisation error. On a homogeneous cell the real-axis scan gave
+$F_P = 0.979$ for a $y$ dipole and did not converge with more nodes. The $k_x$ integral
+therefore runs on a contour in the complex plane (`array_scan_rule`):
+
+- Around every crossing $c$ there is a bump $k_x = t - i s\,\delta w\cos^2(\pi(t - c)/2w)$.
+  It passes below ($s = +1$) the crossings $-2\pi m/P + q$ of the orders running along $+x$
+  and above ($s = -1$) the others; a small loss moves the branch points to these sides for
+  $e^{-i\omega t}$.
+- $w$ is half the distance to the neighbouring crossing, and $\delta = 0.5$ by default.
+- The height of a bump is at most 0.05 times its distance to the nearest complex branch point
+  $2\pi m/P \pm i\kappa$, $\kappa = (\beta^2 - k_0^2n^2)^{1/2}$, of a medium that is
+  evanescent at this $\beta$. The PML replaces that branch cut by a string of poles of the
+  truncated cell problem that runs down towards the real axis, and a deeper bump crossed it:
+  for a dipole above glass with a period of 0.8 µm, the slice at $\beta = 1.013k_0$ changed by
+  a factor of 0.6 to 5 with the depth.
+- Between the bumps the path stays on the real axis, with panels growing geometrically away from
+  each bump, so a narrow bump next to a close crossing stays accurate.
+- The cell problem depends on $k_x$ only through $e^{ik_xP}$, so the window is the period that
+  starts in the middle of the widest gap between crossings.
+- $\beta$ uses mapped Gauss points between the breaks $k_0n$, `nodes` per panel (default 6).
+  The pieces in $k_x$ get `kx_nodes` points each (default 4). The $\beta$ direction needs
+  more, because the factor $e^{2ik_yd}$ of a dipole at a distance $d$ from an interface
+  oscillates in $\beta$.
+
+For the integrand to be analytic, the Bloch elimination uses the test space with phases
+$1/\bar\lambda$ (above, "Complex Bloch vectors"). In addition, all samples share one PML
+profile, designed for 80°; `emit` instead designs the profile from the direction of
+$(\mathrm{Re}\,k_x, \beta)$, which would make the integrand depend on $\mathrm{Re}\,k_x$
+alone.
+
+The channels are quadratic in the field and not analytic, so they are not integrated on the
+contour. The power radiated into the cover and into a lossless substrate comes from the
+reciprocity vectors of Stage C instead, integrated over each half-space: Gauss points in
+$\theta$, split at the critical angles of the half-space and crowded towards them, where the
+forbidden light makes a square-root kink; the trapezoidal rule in $\varphi$, reduced by the
+mirror symmetries. The result is $P_{up} = \mathrm{Re}\,p^H R_{up}\,p$ with
+$R = \sum w\,n k_0^2 Z_0/(32\pi^2)\,\bar m\,m^T$. This also suits the grazing directions,
+because there the plane-wave problems carry the grazing wave in the analytic background, and
+the PML only has to absorb the field scattered by the structure. The remainder
+$P_{em} - P_{up} - P_{down}$ is the absorbed power of a lossy structure and the guided power of
+a lossless one. Guided-mode poles on the real axis (ADR-0013 §4) are not treated yet.
+
+Verified by `python/tests/test_dipole_emission.py`:
+
+- The rule on the analytic closed form of a homogeneous cell: $3\cdot10^{-3}$ at 4 points per
+  panel and $10^{-5}$ at 6, the same on the real axis and on the contour.
+- The sides of the bumps.
+- One $\beta$ slice of FEM cell problems on the contour against the closed form on the real
+  axis, for two depths.
+- The interface on a small problem.
+
+The full scans are long local runs (`benchmarks/m17_dipole_scan.py`, record in
+`benchmarks/results/`):
+
+| case | result |
+|---|---|
+| homogeneous cell, p = 3, 4 points per panel | $F_P$ = 1.0014 / 1.0007 / 0.9970 for $x$ / $y$ / $z$ (the rule's error), up = down = 0.5 |
+| dipole in air 400 nm above glass, period 1 µm, against the Sommerfeld integral of Chance, Prock and Silbey (8 / 4 points) | $F_P$ to $8\cdot10^{-5}$ (1.04532 / 0.97660 / 1.04530 against 1.04531 / 0.97668 / 1.04531), up and down to $10^{-5}$, the non-radiated rest below $10^{-4}$ |
+| the same with a period of 0.8 µm | $F_P$ to $1\cdot10^{-3}$, up and down to $10^{-5}$: the single dipole does not depend on the period of the cell |
+
+For the glass case, the Gaussian factor $e^{-(nk\sigma)^2}$ cancels in the normalisation to
+the bulk power, because every plane wave of the spectrum carries it.
