@@ -640,6 +640,22 @@ def _deps_domega(model, omega: complex, relative_step: float = 1e-6) -> complex:
     return (_eps_at(model, omega + h) - _eps_at(model, omega - h)) / (2 * h)
 
 
+def _completed_material_map(mesh, materials, stack, omega: float) -> hpfem.MaterialMap:
+    """``materials`` as a ``MaterialMap`` (as given if it is one); for a dict, cells whose tag
+    has no material take the stack material at their centroid. The overrides go by cell index,
+    so the map also holds for the cell mirrored by :func:`_mirrored_cell` (same cells, same
+    order), where the background of a dict map would be the other medium."""
+    material_map = _material_map(materials, stack, float(omega))
+    if not isinstance(materials, hpfem.MaterialMap):
+        for c in range(mesh.num_cells):
+            if not material_map.has(int(mesh.cell_tag(c))):
+                centroid = np.mean([mesh.vertex(int(v)) for v in mesh.cell_vertices(c)], axis=0)
+                material_map.set_cell(
+                    c, stack.material_at([float(centroid[0]), float(centroid[1])])
+                )
+    return material_map
+
+
 def _material_map_at(materials, stack, omega: complex):
     """The ``MaterialMap`` with the dispersive models of ``materials`` at ``omega``."""
     if isinstance(materials, hpfem.MaterialMap):
@@ -1746,6 +1762,56 @@ def _gauss_hermite_points(position, sigma: float, points: int):
     return nodes, (wx * wy).ravel() / np.pi
 
 
+def _reciprocity_means(mesh, materials, stack, position, sigma: float, omega: float, directions,
+                       pol, quadrature_points: int, order, pml, solve_kwargs,
+                       progress=None, cancel=None, who="emission_pattern"):  # fmt: skip
+    """The reciprocity vectors of ADR-0013 §6: per direction ``(theta, phi, side)`` and
+    polarisation the total field of the unit plane wave incident from that direction, averaged
+    over the dipole's Gaussian (in-plane by Gauss–Hermite, along z the factor exp(−σ²β²/2)), in
+    the frame of the given cell, shape (num_directions, num_pol, 3); and the index of the medium
+    of every direction. dP/dΩ of a moment p is n k0² Z0 |p · mean|² / (32π²)."""
+    materials = _completed_material_map(mesh, materials, stack, omega)
+    frames = {"up": (mesh, stack, pml, position)}
+    if any(side == "down" for _t, _f, side in directions):
+        if solve_kwargs.get("bottom", "pml") != "pml":
+            raise GratingError(f"{who}: directions into the substrate need bottom='pml'")
+        if pml is not None and not isinstance(pml, Mapping):
+            raise GratingError(f"{who}: give the PML as None or {{'top', 'bottom'}}")
+        mirrored_pml = None if pml is None else {"top": pml.get("bottom", 0.0),
+                                                 "bottom": pml.get("top", 0.0)}  # fmt: skip
+        frames["down"] = (_mirrored_cell(mesh), _mirrored_stack(stack), mirrored_pml,
+                          position * np.array([1.0, -1.0]))  # fmt: skip
+    flip = {"up": np.ones(3), "down": np.array([1.0, -1.0, 1.0])}
+    means = np.zeros((len(directions), len(pol), 3), dtype=complex)
+    n_dir = np.zeros(len(directions))
+    nodes_cache = {}
+    count = 0
+    for i, (theta, phi, side) in enumerate(directions):
+        cell_mesh, cell_stack, cell_pml, x0 = frames[side]
+        n_medium = complex(cell_stack.incidence_medium.refractive_index)
+        if abs(n_medium.imag) > 1e-12:
+            raise GratingError(f"{who}: the medium of the {side} directions is lossy")
+        n_dir[i] = n_medium.real
+        if side not in nodes_cache:
+            nodes_cache[side] = _gauss_hermite_points(x0, sigma, quadrature_points)
+        nodes, weights = nodes_cache[side]
+        for j, polarisation in enumerate(pol):
+            if cancel is not None and cancel():
+                raise hpfem.Cancelled(f"{who} cancelled")
+            if progress is not None:
+                progress(count, len(directions) * len(pol))
+            count += 1
+            result = solve(cell_mesh, materials, cell_stack, polarisation, theta, phi + np.pi,
+                           omega, order, pml=cell_pml, **solve_kwargs)  # fmt: skip
+            values = np.asarray(result.field(nodes, quantity="E"), dtype=complex)
+            if not np.all(np.isfinite(values)):
+                raise GratingError(f"{who}: the dipole's Gaussian leaves the mesh")
+            smear = math.exp(-0.5 * (sigma * float(result.wave.beta)) ** 2)
+            # the in-plane Gaussian average of (E_x, E_y, E_z), back in the frame of the cell
+            means[i, j] = smear * (weights @ values) * flip[side]
+    return means, n_dir
+
+
 def emission_pattern(
     mesh,
     materials,
@@ -1821,40 +1887,11 @@ def emission_pattern(
         * n_host.real
         * math.exp(-((n_host.real * k0 * sigma) ** 2))
     )
-    # the problems: as given for "up", mirrored at y = 0 for "down"
-    frames = {"up": (mesh, stack, pml, position, moment)}
-    if any(side == "down" for _t, _f, side in directions):
-        if solve_kwargs.get("bottom", "pml") != "pml":
-            raise GratingError("emission_pattern: directions into the substrate need bottom='pml'")
-        if pml is not None and not isinstance(pml, Mapping):
-            raise GratingError("emission_pattern: give the PML as None or {'top', 'bottom'}")
-        mirrored_pml = None if pml is None else {"top": pml.get("bottom", 0.0),
-                                                 "bottom": pml.get("top", 0.0)}  # fmt: skip
-        frames["down"] = (_mirrored_cell(mesh), _mirrored_stack(stack), mirrored_pml,
-                          position * np.array([1.0, -1.0]),
-                          moment * np.array([1.0, -1.0, 1.0]))  # fmt: skip
+    means, n_dir = _reciprocity_means(mesh, materials, stack, position, sigma, omega,
+                                      directions, pol, quadrature_points, order, pml,
+                                      solve_kwargs)  # fmt: skip
+    amplitude = means @ moment
     z0 = hpfem.constants.Z0
-    amplitude = np.zeros((len(directions), len(pol)), dtype=complex)
-    n_dir = np.zeros(len(directions))
-    nodes_cache = {}
-    for i, (theta, phi, side) in enumerate(directions):
-        cell_mesh, cell_stack, cell_pml, x0, p = frames[side]
-        n_medium = complex(cell_stack.incidence_medium.refractive_index)
-        if abs(n_medium.imag) > 1e-12:
-            raise GratingError(f"emission_pattern: the medium of the {side} directions is lossy")
-        n_dir[i] = n_medium.real
-        if side not in nodes_cache:
-            nodes_cache[side] = _gauss_hermite_points(x0, sigma, quadrature_points)
-        nodes, weights = nodes_cache[side]
-        for j, polarisation in enumerate(pol):
-            result = solve(cell_mesh, materials, cell_stack, polarisation, theta, phi + np.pi,
-                           omega, order, pml=cell_pml, **solve_kwargs)  # fmt: skip
-            values = np.asarray(result.field(nodes, quantity="E"), dtype=complex)
-            if not np.all(np.isfinite(values)):
-                raise GratingError("emission_pattern: the dipole's Gaussian leaves the mesh")
-            mean = weights @ values  # the in-plane Gaussian average of (E_x, E_y, E_z)
-            smear = math.exp(-0.5 * (sigma * float(result.wave.beta)) ** 2)
-            amplitude[i, j] = smear * complex(p @ mean)
     scale = n_dir[:, None] * k0**2 * z0 / (32 * np.pi**2)
     d_p = scale * np.abs(amplitude) ** 2
     if normalized:
@@ -1863,7 +1900,513 @@ def emission_pattern(
                            {"total": time.perf_counter() - t0})  # fmt: skip
 
 
+# --- M17 S3: array scanning (Stage B, ADR-0013 §3 and §3a) -------------------------------------
+
+
+@dataclass
+class ScanRule:
+    """Nodes and weights of the array scanning of a single dipole (ADR-0013 §3, §3a):
+    ``P_em ≈ Re sum_i weight[i] * pᴴ A(kx[i], beta[i]) p`` approximates
+    (P/2π) ∫_BZ dkx (1/π) ∫_0^∞ dβ P_cell for an integrand even in β (a moment along x, y or
+    z), with the power matrix A of ``hpfem.conical_dipole_power_matrix``. With ``depth`` > 0
+    the kx nodes lie on the complex contour of §3a — a bump kx = t − i s δ w cos²(π(t − c)/2w)
+    around every light-line crossing c, below (s = +1) the crossings −2πm/P + q, above
+    (s = −1) the crossings −2πm/P − q, q = (k0²n² − β²)^{1/2} — and the weights carry dkx/dt;
+    with ``depth`` = 0 they are real, mapped Gauss points on panels between the crossings.
+    ``panels`` counts the (β, kx) panels."""
+
+    kx: np.ndarray
+    beta: np.ndarray
+    weight: np.ndarray
+    panels: int
+    depth: float = 0.0
+
+
+def _mapped_gauss(a: float, b: float, nodes: int) -> tuple[np.ndarray, np.ndarray]:
+    """Gauss–Legendre on [a, b] after the map x = a + (b - a)(1 - cos t)/2, t in [0, π]: the
+    square-root singularities of the integrand at the light lines (1/k_y) sit at the panel ends
+    and become smooth in t."""
+    t, w = np.polynomial.legendre.leggauss(int(nodes))
+    theta = 0.5 * math.pi * (t + 1.0)
+    x = a + 0.5 * (b - a) * (1.0 - np.cos(theta))
+    jac = 0.5 * (b - a) * np.sin(theta) * 0.5 * math.pi
+    return x, w * jac
+
+
+def _breaks(lo: float, hi: float, points) -> list[float]:
+    inner = sorted(
+        {float(p) for p in points if lo + 1e-12 * (hi - lo) < p < hi - 1e-12 * (hi - lo)}
+    )
+    return [lo, *inner, hi]
+
+
+def _light_line_crossings(period: float, k0: float, indices, beta: float):
+    """The light-line crossings (c, s) of one β, folded into one period of kx: c = q (s = +1,
+    the orders travelling along +x) and c = −q (s = −1) modulo 2π/P for every index."""
+    g = 2 * math.pi / period
+    out = []
+    for n in indices:
+        q2 = (k0 * n) ** 2 - beta**2
+        if q2 > 0:
+            q = math.sqrt(q2)
+            out += [
+                (q - g * math.floor(q / g + 0.5), 1.0),
+                (-q - g * math.floor(-q / g + 0.5), -1.0),
+            ]
+    return out
+
+
+def _kx_contour(
+    lo: float, hi: float, crossings, nodes: int, depth: float, branch_points=(), cap: float = 0.05
+):
+    """kx nodes and weights on [lo, hi] for the crossings (c, s) inside: with ``depth`` > 0 a
+    cos² bump of half-width w (half the distance to the neighbouring crossing or the distance to
+    the end) and height depth·w around every crossing, Gauss–Legendre on the two halves, and on
+    the real stretches between the bumps panels growing geometrically (w, 2w, 4w, ...) away from
+    each bump, so that a narrow bump next to a close crossing costs a few panels, not accuracy;
+    with ``depth`` = 0 mapped Gauss points on the real panels between the crossings.
+
+    The height of a bump is at most ``cap`` times its distance to the nearest of the complex
+    ``branch_points`` (2πm/P ± iκ of a medium evanescent at this β, κ = (β² − k0²n²)^{1/2}):
+    the PML replaces the branch cut from there by a string of poles of the truncated cell
+    problem that runs down to the real axis on the side of the bumps above it, and a bump that
+    crosses it changes the integral (a dipole above glass with a period of 0.8 µm at
+    β = 1.013 k0: the slice moved by a factor 0.6 to 5 with the depth; with the cap 0.05 it
+    agrees with the Fresnel spectrum)."""
+    pts = sorted(crossings)
+    if depth <= 0:
+        kx, wt = [], []
+        edges = _breaks(lo, hi, [c for c, _s in pts])
+        for a, b in zip(edges[:-1], edges[1:], strict=True):
+            x, w = _mapped_gauss(a, b, nodes)
+            kx.append(x.astype(complex))
+            wt.append(w.astype(complex))
+        return np.concatenate(kx), np.concatenate(wt), len(edges) - 1
+    bumps = []
+    for i, (c, s) in enumerate(pts):
+        left = 0.5 * (pts[i - 1][0] + c) if i > 0 else lo
+        right = 0.5 * (c + pts[i + 1][0]) if i + 1 < len(pts) else hi
+        width = min(c - left, right - c)
+        height = depth * width
+        if len(branch_points):
+            height = min(height, cap * min(abs(c - b) for b in branch_points))
+        if width > 1e-9 * (hi - lo):
+            bumps.append((c, s, width, height))
+    edges = {lo, hi}
+    for c, _s, w, _h in bumps:
+        edges |= {c - w, c, c + w}
+    # geometric grading of the real stretches towards the bumps (and the ends next to them)
+    ends = sorted(edges)
+    for a, b in zip(ends[:-1], ends[1:], strict=True):
+        if any(abs(a - (c - w)) < 1e-12 * (hi - lo) and abs(b - c) < 1e-12 * (hi - lo)
+               or abs(a - c) < 1e-12 * (hi - lo) and abs(b - (c + w)) < 1e-12 * (hi - lo)
+               for c, _s, w, _h in bumps):  # fmt: skip
+            continue  # a half bump
+        left_w = [w for c, _s, w, _h in bumps if abs(a - (c + w)) < 1e-12 * (hi - lo)]
+        right_w = [w for c, _s, w, _h in bumps if abs(b - (c - w)) < 1e-12 * (hi - lo)]
+        mid = 0.5 * (a + b)
+        if left_w:
+            step = left_w[0]
+            while a + step < mid:
+                edges.add(a + step)
+                step *= 2
+        if right_w:
+            step = right_w[0]
+            while b - step > mid:
+                edges.add(b - step)
+                step *= 2
+    edges = sorted(edges)
+    t_gl, w_gl = np.polynomial.legendre.leggauss(int(nodes))
+    kx, wt = [], []
+    for a, b in zip(edges[:-1], edges[1:], strict=True):
+        t = a + 0.5 * (b - a) * (t_gl + 1.0)
+        w = 0.5 * (b - a) * w_gl
+        h = np.zeros_like(t)
+        dh = np.zeros_like(t)
+        for c, s, width, height in bumps:
+            u = (t - c) / width
+            inside = np.abs(u) < 1.0
+            h[inside] += s * height * np.cos(0.5 * np.pi * u[inside]) ** 2
+            dh[inside] -= s * height / width * 0.5 * np.pi * np.sin(np.pi * u[inside])
+        kx.append(t - 1j * h)
+        wt.append(w * (1.0 - 1j * dh))
+    return np.concatenate(kx), np.concatenate(wt), len(edges) - 1
+
+
+def array_scan_rule(period: float, k0: float, indices, *, beta_max: float, nodes: int = 8,
+                    symmetric: bool = False, beta_breaks=(), depth: float = 0.5,
+                    kx_nodes: int | None = None) -> ScanRule:  # fmt: skip
+    """Quadrature of the array scanning over one period of kx (``symmetric``: [0, π/P]
+    doubled, for a cell mirror-symmetric about the dipole) and β in [0, ``beta_max``],
+    ``nodes`` points per β panel and ``kx_nodes`` (default ``nodes``) per kx piece. β is split
+    at k0·n for the real ``indices`` of the semi-infinite media and at ``beta_breaks`` (mapped
+    Gauss). For every β node the kx integral runs on the
+    contour of ADR-0013 §3a with bumps of relative ``depth`` around the light-line crossings
+    (``depth`` = 0: the real axis with mapped Gauss panels between the crossings). Without
+    symmetry the kx window is the period starting in the middle of the widest gap between
+    crossings (the cell problem depends on kx only through e^{i kx P})."""
+    g = 2 * math.pi / period
+    factor = (period / (2 * math.pi)) * (1 / math.pi) * (2.0 if symmetric else 1.0)
+    indices = sorted({round(float(n), 12) for n in indices if n > 0})
+    b_points = [k0 * n for n in indices] + [float(b) for b in beta_breaks]
+    kx_all, beta_all, w_all, panels = [], [], [], 0
+    b_edges = _breaks(0.0, beta_max, b_points)
+    for b0, b1 in zip(b_edges[:-1], b_edges[1:], strict=True):
+        betas, wb = _mapped_gauss(b0, b1, nodes)
+        for beta, w_beta in zip(betas, wb, strict=True):
+            crossings = _light_line_crossings(period, k0, indices, float(beta))
+            if symmetric:
+                lo, hi = 0.0, 0.5 * g
+                inside = [(c, s) for c, s in crossings if 1e-12 * g < c < hi - 1e-12 * g]
+            elif crossings:
+                cs = sorted(c for c, _s in crossings)
+                gaps = [((cs[(i + 1) % len(cs)] - cs[i]) % g) or g for i in range(len(cs))]
+                i_max = int(np.argmax(gaps))
+                lo = cs[i_max] + 0.5 * gaps[i_max]
+                hi = lo + g
+                inside = [(lo + (c - lo) % g, s) for c, s in crossings]
+            else:
+                lo, hi, inside = -0.5 * g, 0.5 * g, []
+            branch = []
+            for n in indices:
+                if beta > k0 * n:
+                    kappa = math.sqrt(beta**2 - (k0 * n) ** 2)
+                    for m in range(math.floor(lo / g) - 1, math.ceil(hi / g) + 2):
+                        branch += [complex(g * m, kappa), complex(g * m, -kappa)]
+            kxs, wk, n_panels = _kx_contour(lo, hi, inside, kx_nodes or nodes, depth, branch)
+            kx_all.append(kxs)
+            beta_all.append(np.full(len(kxs), beta))
+            w_all.append(factor * w_beta * wk)
+            panels += n_panels
+    return ScanRule(np.concatenate(kx_all), np.concatenate(beta_all), np.concatenate(w_all),
+                    panels, float(depth))  # fmt: skip
+
+
+def dipole_bulk_power(moment, omega: float, n: float, sigma: float) -> float:
+    """Power of the Gaussian dipole in a homogeneous lossless medium of index ``n``:
+    Z0 k0² |p|² n e^{-(n k0 σ)²} / (12π) (the M11 convention, ADR-0013 §1)."""
+    k0 = float(units.vacuum_wavenumber(omega))
+    p2 = float(np.vdot(np.asarray(moment, dtype=complex), np.asarray(moment, dtype=complex)).real)
+    return hpfem.constants.Z0 * k0**2 * p2 * n * math.exp(-((n * k0 * sigma) ** 2)) / (12 * math.pi)
+
+
+@dataclass
+class _DipoleCell:
+    """The cell of the array scanning, prepared once for every sample."""
+
+    pr: _Prepared
+    material_map: object
+    nd: object
+    h1: object
+    position: np.ndarray
+    sigma: float
+    n_host: float
+    lossy: bool
+    omega: float
+    extra_quadrature_order: int
+    solver: object
+
+
+def _dipole_cell(mesh, materials, stack, position, sigma: float, omega: float, order, *, pml,
+                 bottom, snap_tolerance, pml_target, pml_wavelengths, extra_quadrature_order,
+                 solver) -> _DipoleCell:  # fmt: skip
+    """Mesh, materials and PML of the array scanning: one PML profile for every sample,
+    designed for the 80° cap (ADR-0013 §3a: a profile that follows Re kx would make the
+    integrand non-analytic in kx), the cells without a material from the stack, the checks of
+    :func:`emit` on the dipole."""
+    pr = _prepare(
+        mesh, materials, stack, "s", 80 * units.deg, 0.0, omega, pml=pml, bottom=bottom,
+        orders_max=0, snap_tolerance=snap_tolerance, pml_target=pml_target,
+        pml_wavelengths=pml_wavelengths, cover_line=None, substrate_line=None,
+    )  # fmt: skip
+    material_map = _completed_material_map(mesh, materials, stack, omega)
+    x0, y0 = float(position[0]), float(position[1])
+    if not (pr.x_min + 6 * sigma <= x0 <= pr.x_min + pr.period - 6 * sigma):
+        raise GratingError("dipole: the Gaussian must lie 6 sigma inside the cell along x")
+    if not (pr.y_min + pr.t_bottom + 6 * sigma <= y0 <= pr.y_max - pr.t_top - 6 * sigma):
+        raise GratingError("dipole: the Gaussian must lie 6 sigma outside the PML layers")
+    located = hpfem.PointLocator2D(mesh).locate([x0, y0])
+    if located is None:
+        raise GratingError("dipole: the position lies outside the mesh")
+    host = material_map.of_cell(mesh, int(located.cell))
+    if abs(complex(host.eps_r).imag) > 1e-12:
+        raise GratingError("dipole: the emitter must lie in a lossless medium (ADR-0013)")
+    lossy = abs(pr.n_sub.imag) > 1e-12 or any(
+        abs(complex(material_map.of_cell(mesh, c).eps_r).imag) > 1e-12
+        for c in range(mesh.num_cells)
+    )
+    orders = [int(order)] * mesh.num_cells if np.isscalar(order) else [int(p) for p in order]
+    return _DipoleCell(pr, material_map, hpfem.NedelecDofMap2D(mesh, orders),
+                       hpfem.DofMap2D(mesh, orders), np.array([x0, y0]), float(sigma),
+                       complex(host.refractive_index).real, bool(lossy), float(omega),
+                       int(extra_quadrature_order), solver)  # fmt: skip
+
+
+def _dipole_power_matrix(cell: _DipoleCell, kx: complex, beta: float) -> np.ndarray:
+    """The power matrix A(kx, β) of the cell problem with the Bloch phase e^{i kx P} for a
+    complex kx (the analytic elimination of ADR-0013 §3a in ``ConicalScattering``)."""
+    setup = hpfem.ConicalScatteringSetup()
+    setup.omega = cell.omega
+    setup.beta = float(beta)
+    setup.materials = cell.material_map
+    setup.current = hpfem.conical_gaussian_dipole(
+        cell.position, (1.0, 0.0, 0.0), cell.sigma, cell.omega, float(beta)
+    )
+    setup.pml = cell.pr.box
+    setup.pec_tags = [hpfem.box_tag.Y_MIN, hpfem.box_tag.Y_MAX]
+    setup.periodic = [
+        hpfem.PeriodicPair2D(hpfem.box_tag.X_MIN, hpfem.box_tag.X_MAX, [cell.pr.period, 0.0],
+                             complex(np.exp(1j * complex(kx) * cell.pr.period)))
+    ]  # fmt: skip
+    setup.extra_quadrature_order = cell.extra_quadrature_order
+    setup.keep_factorisation = True
+    if cell.solver is not None:
+        setup.solver = cell.solver
+    problem = hpfem.ConicalScattering(cell.nd, cell.h1, setup)
+    solution = problem.solve()
+    responses = hpfem.conical_dipole_responses(problem, solution, cell.position, cell.sigma,
+                                               np.eye(3, dtype=complex))  # fmt: skip
+    return np.asarray(hpfem.conical_dipole_power_matrix(problem, responses, cell.position,
+                                                        cell.sigma))  # fmt: skip
+
+
+def _hemisphere_directions(nodes_theta: int, nodes_phi: int, symmetric: bool, mirror_z: bool,
+                           theta_breaks=()):  # fmt: skip
+    """Directions (θ, φ) and solid-angle weights of one half-space: Gauss points in θ on the
+    panels of [0, π/2] between ``theta_breaks`` (the critical angles, where the pattern of the
+    half-space has a square-root kink: beyond them it is the evanescent coupling, the
+    "forbidden light"), ``nodes_theta`` per panel, crowded towards the breaks, with the weight
+    sin θ; the trapezoidal rule
+    in φ (``nodes_phi`` points on the full circle, a multiple of 4), reduced by the mirror
+    symmetries z → −z (φ → −φ, ``mirror_z``) and x → 2x0 − x (φ → π − φ, ``symmetric``)."""
+    if nodes_phi % 4:
+        raise GratingError("dipole_emission: angle_nodes[1] must be a multiple of 4")
+    theta, w_theta = [], []
+    edges = _breaks(0.0, 0.5 * math.pi, theta_breaks)
+    gl_t, gl_w = np.polynomial.legendre.leggauss(int(nodes_theta))
+    u = 0.25 * math.pi * (gl_t + 1.0)  # in [0, π/2]
+    for i, (a, b) in enumerate(zip(edges[:-1], edges[1:], strict=True)):
+        # points crowd towards the critical angles only (x = c ± (b − a)(1 − cos u)): the
+        # square-root kink there becomes smooth, the ends 0 and π/2 are smooth already
+        left, right = i > 0, i < len(edges) - 2
+        if left and right:
+            t, w = _mapped_gauss(a, b, nodes_theta)
+        elif left:
+            t = a + (b - a) * (1.0 - np.cos(u))
+            w = 0.25 * math.pi * gl_w * (b - a) * np.sin(u)
+        elif right:
+            t = b - (b - a) * (1.0 - np.cos(u))
+            w = 0.25 * math.pi * gl_w * (b - a) * np.sin(u)
+        else:
+            t = a + 0.5 * (b - a) * (gl_t + 1.0)
+            w = 0.5 * (b - a) * gl_w
+        theta.append(t)
+        w_theta.append(w * np.sin(t))
+    theta, w_theta = np.concatenate(theta), np.concatenate(w_theta)
+    phis = 2 * math.pi * np.arange(nodes_phi) / nodes_phi
+    weight = np.full(nodes_phi, 2 * math.pi / nodes_phi)
+    keep = np.ones(nodes_phi, dtype=bool)
+    for j in range(nodes_phi):
+        if not keep[j]:
+            continue
+        images = {j}
+        if mirror_z:
+            images.add((-j) % nodes_phi)
+        if symmetric:
+            images |= {(nodes_phi // 2 - i) % nodes_phi for i in list(images)}
+        for i in images - {j}:
+            keep[i] = False
+        weight[j] *= len(images)
+    return [
+        (float(th), float(phis[j]), float(wt * weight[j]))
+        for th, wt in zip(theta, w_theta, strict=True)
+        for j in range(nodes_phi)
+        if keep[j]
+    ]
+
+
+@dataclass
+class DipoleEmission:
+    """Result of :func:`dipole_emission` (single dipole by array scanning, ADR-0013 §3, §3a).
+    Per orientation key — ``"x"``, ``"y"``, ``"z"`` (unit moments along the solver axes),
+    ``"isotropic"`` (their mean) and ``"moment"`` (the dipole's own moment, if given) —
+    ``P_em`` [W] (power of the dipole, from the contour integral), ``purcell`` = P_em / P_bulk,
+    the radiated channels ``up`` / ``down`` (into the cover / a lossless substrate, by
+    reciprocity integrated over the half-spaces; ``None`` without ``channels``) and
+    ``nonradiated`` = P_em − up − down [W]: the absorbed power of a lossy structure
+    (``lossy``), the guided power of a lossless one. ``P_bulk`` [W] is the power of the unit
+    moment in the homogeneous host (the M11 convention, scaled by |p|² for ``"moment"``),
+    ``n_host`` its index, ``rule`` the quadrature, ``samples`` the cell problems solved,
+    ``contributions`` per sample (kx, beta, weight and the diagonal of A; complex),
+    ``directions`` the plane-wave solves of the channels, ``power_matrix`` the integrated power
+    matrix I (P_em of a moment p is Re pᴴIp; the entries odd under the mirror symmetries are
+    zero) and ``radiation_matrix`` the same for ``"up"`` and ``"down"``, and ``timing``."""
+
+    P_em: dict[str, float]
+    purcell: dict[str, float]
+    up: dict[str, float] | None
+    down: dict[str, float] | None
+    nonradiated: dict[str, float] | None
+    lossy: bool
+    P_bulk: float
+    n_host: float
+    rule: ScanRule
+    samples: int
+    contributions: np.ndarray
+    directions: int = 0
+    power_matrix: np.ndarray | None = None
+    radiation_matrix: dict[str, np.ndarray] | None = None
+    timing: dict[str, float] = field(default_factory=dict)
+
+
+def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int = 6,
+                    kx_nodes: int = 4, depth: float = 0.5, beta_max: float | None = None,
+                    symmetric: bool = False,
+                    order=4, channels: bool = True, angle_nodes=(8, 16),
+                    quadrature_points: int = 6, pml=None, bottom: str = "pml",
+                    snap_tolerance: float = 1e-9, pml_target: float = 1e-6,
+                    pml_wavelengths: float = 0.5, extra_quadrature_order: int = 4, solver=None,
+                    progress=None, cancel=None, **solve_kwargs) -> DipoleEmission:  # fmt: skip
+    """Emission of a single Gaussian dipole in a structure periodic in x and invariant in z by
+    array scanning of the cell problem (M17 Stage B, ADR-0013 §3, §3a):
+    P_em = (P/2π) ∫ dkx (1/π) ∫_0^βmax dβ P_cell, the kx integral on the complex contour of
+    §3a around the light-line crossings (:func:`array_scan_rule` with ``nodes`` points per
+    β panel, ``kx_nodes`` per kx piece and the bump ``depth``; the β direction needs more:
+    the factor e^{2ik_y d} of a dipole at the distance d from an interface oscillates in β —
+    for a dipole 400 nm above glass at 1 µm the rule integrates the Sommerfeld integrand to
+    5e-4 with 6/4 and 2e-4 with 8/4; ``symmetric`` integrates half the zone, for a cell
+    mirror-symmetric about the dipole). Every sample is one factorisation of the cell problem
+    with the complex Bloch phase e^{i kx P} (one PML profile for all samples, designed for
+    80°); its power matrix A gives pᴴAp for the three unit moments and ``dipole["moment"]``.
+
+    ``channels``: the power radiated into the cover and into a lossless substrate by
+    reciprocity (§6, :func:`emission_pattern`), integrated over each half-space on
+    ``angle_nodes`` = (θ points, φ points on the circle) — one plane-wave :func:`solve` per
+    direction and polarisation, shared by all moments; the rest, ``nonradiated``, is absorbed
+    (lossy structure) or guided (lossless structure).
+
+    ``dipole`` as for :func:`emit` (``moment`` optional). ``beta_max`` defaults to k0 times the
+    larger index of the cover and the substrate. **Limits:** guided modes of a lossless
+    structure are poles on the real kx axis and are not treated yet (ADR-0013 §4, the next
+    stage); the evanescent range β > k0 n_max, where near-field absorption by nearby metals
+    lives, needs an explicit ``beta_max``; lossy hosts are excluded. ``progress(i, n)`` is
+    called per solve, ``cancel()`` checked between solves (``hpfem.Cancelled``). ``pml``,
+    ``bottom``, ``snap_tolerance``, ``pml_target``, ``pml_wavelengths``,
+    ``extra_quadrature_order`` and ``solver`` as for :func:`emit`; further keyword arguments
+    go to the plane-wave solves of the channels."""
+    t0 = time.perf_counter()
+    k0 = float(units.vacuum_wavenumber(omega))
+    position = np.asarray(dipole["position"], dtype=float)
+    sigma = float(dipole["sigma"])
+    if position.shape != (2,) or not sigma > 0:
+        raise GratingError("dipole: position (x0, y0) and sigma > 0 needed")
+    own = dipole.get("moment")
+    cell = _dipole_cell(mesh, materials, stack, position, sigma, omega, order, pml=pml,
+                        bottom=bottom, snap_tolerance=snap_tolerance, pml_target=pml_target,
+                        pml_wavelengths=pml_wavelengths,
+                        extra_quadrature_order=extra_quadrature_order, solver=solver)  # fmt: skip
+    n_cover = cell.pr.n_cover.real
+    down_side = cell.pr.transmitted
+    indices = [n_cover] + ([cell.pr.n_sub.real] if down_side else [])
+    beta_max = k0 * max(indices) if beta_max is None else float(beta_max)
+    rule = array_scan_rule(cell.pr.period, k0, indices, beta_max=beta_max, nodes=nodes,
+                           symmetric=symmetric, depth=depth, kx_nodes=kx_nodes)  # fmt: skip
+    moments = np.eye(3, dtype=complex)
+    keys = ["x", "y", "z"]
+    if own is not None:
+        moments = np.vstack([moments, np.asarray(own, dtype=complex)[None, :]])
+        keys.append("moment")
+    directions = []
+    if channels:
+        for side, n_side in (("up", n_cover), ("down", cell.pr.n_sub.real)):
+            if side == "down" and not down_side:
+                continue
+            critical = [math.asin(n / n_side) for n in indices if n < n_side - 1e-12]
+            directions += [(th, ph, side, w) for th, ph, w in _hemisphere_directions(
+                angle_nodes[0], angle_nodes[1], symmetric, True, critical)]  # fmt: skip
+    total = len(rule.weight) + 2 * len(directions)
+    # the rule and the direction sets use the mirror symmetries (β → −β always, kx → −kx for a
+    # symmetric cell); the matrix entries odd under them integrate to zero over the full ranges
+    odd = np.zeros((3, 3), dtype=bool)
+    odd[0, 2] = odd[2, 0] = odd[1, 2] = odd[2, 1] = True
+    if symmetric:
+        odd[0, 1] = odd[1, 0] = True
+
+    def quadratic(matrix, p) -> float:
+        return float(np.real(np.conj(p) @ matrix @ p))
+
+    # the channels first: plane-wave solves, cheaper than the scan and quick to fail
+    t1 = time.perf_counter()
+    up = down = nonradiated = None
+    if channels:
+
+        def report(i, _n):
+            if progress is not None:
+                progress(i, total)
+
+        means, n_dir = _reciprocity_means(
+            mesh, materials, stack, position, sigma, omega,
+            [(th, ph, side) for th, ph, side, _w in directions], ("s", "p"), quadrature_points,
+            order, pml,
+            dict(bottom=bottom, snap_tolerance=snap_tolerance, pml_target=pml_target,
+                 pml_wavelengths=pml_wavelengths, extra_quadrature_order=extra_quadrature_order,
+                 solver=solver, **solve_kwargs),
+            report, cancel, "dipole_emission",
+        )  # fmt: skip
+        # radiation matrices R with dP = pᴴ R p per half-space: Σ w n k0² Z0/(32π²) conj(m) mᵀ
+        scale = np.array([w for *_rest, w in directions]) * n_dir * k0**2 * hpfem.constants.Z0
+        scale /= 32 * np.pi**2
+        sides = np.array([side for _t, _p, side, _w in directions])
+        radiation = {}
+        for side in ("up", "down"):
+            pick = sides == side
+            r = np.einsum("d,dpi,dpj->ij", scale[pick], np.conj(means[pick]), means[pick])
+            r[odd] = 0.0
+            radiation[side] = r
+        up = {key: quadratic(radiation["up"], moments[j]) for j, key in enumerate(keys)}
+        down = {key: quadratic(radiation["down"], moments[j]) for j, key in enumerate(keys)}
+    n_channel = 2 * len(directions)
+    t2 = time.perf_counter()
+    integrated = np.zeros((3, 3), dtype=complex)
+    contributions = np.zeros((len(rule.weight), 6), dtype=complex)
+    for i, (kx, beta, w) in enumerate(zip(rule.kx, rule.beta, rule.weight, strict=True)):
+        if cancel is not None and cancel():
+            raise hpfem.Cancelled("dipole_emission cancelled")
+        if progress is not None:
+            progress(n_channel + i, total)
+        a = _dipole_power_matrix(cell, complex(kx), float(beta))
+        integrated += w * a
+        contributions[i] = (kx, beta, w, a[0, 0], a[1, 1], a[2, 2])
+    integrated[odd] = 0.0
+    t3 = time.perf_counter()
+    p_em = {key: quadratic(integrated, moments[j]) for j, key in enumerate(keys)}
+    p_bulk = dipole_bulk_power((1.0, 0.0, 0.0), omega, cell.n_host, sigma)
+    scale_of = {key: p_bulk for key in keys}
+    if own is not None:
+        scale_of["moment"] = dipole_bulk_power(moments[3], omega, cell.n_host, sigma)
+    p_em["isotropic"] = (p_em["x"] + p_em["y"] + p_em["z"]) / 3
+    scale_of["isotropic"] = p_bulk
+    if channels:
+        up["isotropic"] = (up["x"] + up["y"] + up["z"]) / 3
+        down["isotropic"] = (down["x"] + down["y"] + down["z"]) / 3
+        nonradiated = {key: p_em[key] - up[key] - down[key] for key in p_em}
+    out = DipoleEmission(
+        P_em=p_em, purcell={key: p_em[key] / scale_of[key] for key in p_em}, up=up, down=down,
+        nonradiated=nonradiated, lossy=cell.lossy, P_bulk=p_bulk, n_host=cell.n_host,
+        rule=rule, samples=len(rule.weight), contributions=contributions,
+        directions=2 * len(directions), power_matrix=integrated,
+        radiation_matrix=radiation if channels else None,
+    )  # fmt: skip
+    out.timing.update(channels=t2 - t1, scan=t3 - t2, total=time.perf_counter() - t0)
+    return out
+
+
 __all__ = [
+    "DipoleEmission",
+    "dipole_emission",
+    "ScanRule",
+    "array_scan_rule",
+    "dipole_bulk_power",
     "EmissionOrder",
     "EmissionPattern",
     "EmissionResult",
