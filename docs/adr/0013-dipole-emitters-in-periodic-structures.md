@@ -1,6 +1,6 @@
 # 0013 — Dipole emitters in periodic structures by array scanning of the conical cell problem
 
-**Status:** accepted; §3a amendment accepted (2026-10-10)
+**Status:** accepted; §3a amendment accepted (2026-10-10); §4a amendment proposed (2026-10-11)
 **Date:** 2026-10-09
 
 ## Context
@@ -185,6 +185,59 @@ check:** a small artificial loss ε'' → 0 with Richardson extrapolation over t
 used in the tests to cross-check the subtraction. **Deferred:** contour deformation into complex
 β (needs complex β in the conical forms, a PML design and `layered_conical_wave` for complex β;
 a separate decision once the assembly supports it).
+
+#### 4a. Amendment (2026-10-11, proposed): guided-mode poles by bumps of the kx contour
+
+With the complex kx contour of §3a there is a simpler route than the subtraction above. For a
+lossless structure a guided mode is a simple pole of the analytic integrand pᴴ A(kx, β) p on
+(or, in the PML-truncated cell problem, numerically next to) the real kx axis. It is treated
+like a light-line crossing: the contour passes it in a cos² bump on the causal side.
+
+**Finding the poles.** The kx samples of a β node (first pass, the contour of §3a) are fitted
+by a rational AAA approximation of the trace of A. Its poles near the real axis are the
+candidates:
+
+- a guided pole has |Im kx| below 10⁻³ of the window and a residue that is not negligible
+  against the largest one;
+- the branch points of the light lines also show up as AAA poles, but further from the axis
+  and with small residues.
+
+The β nodes with poles are sampled again on the contour with the extra bumps (second pass).
+
+**The side.** For a simple pole with residue R, the paths below and above it differ by
+2πi R. The guided power that the mode carries away is positive, which fixes the side: below
+when Im R < 0 (a mode running along +x, whose pole moves to Im kx > 0 under a small loss),
+above otherwise. No band structure or group velocity is needed.
+
+**Guided power per mode.** The same residue gives it directly:
+P_g = w_β (P/2π)(1/π) π |Im pᴴ R p| per pole, summed over the β nodes. The mode's share needs
+no normalisation of a mode field.
+
+**β direction.** Guided modes live up to β = k0·n_eff ≤ k0·n_max of the structure, so for a
+lossless structure β_max defaults to k0 times the largest index of all materials. Where a pair
+of poles merges at kx = 0 or π/P (the top of a mode's circle, a band edge), the β integrand has
+a square-root singularity. These β values are found as the poles of A(kx, β) along β at kx = 0
+and π/P (AAA on a real β line) and become breaks of the β rule.
+
+**Scope.** This replaces the subtraction of §4 for the total power and the guided power per
+mode. The artificial-loss extrapolation stays as a cross-check. Not covered:
+
+- leaky modes, whose poles are off the axis, are integrated as they are; the bumps only make
+  their peaks smoother;
+- a degenerate pair, or two poles closer than the bump widths, gets one bump per pole with the
+  widths limited by each other, as for close crossings;
+- a structure whose loss is so small that its poles are close to the axis but not on it is
+  treated like a lossless one. This is correct as long as the bump stays on the causal side.
+
+**Feasibility** (air / Si₃N₄ 250 nm, n = 2.0 / glass 1.45 at 1 µm; dipole in air 250 nm above
+the slab; period 1 µm; one β slice at 0.3 k0; p = 3):
+
+- AAA finds the TE and TM poles at kx = 2.00988 and 3.02851 µm⁻¹. The analytic values of the
+  slab are 2.0085 and 3.0284.
+- Both get the bump above, as their folded images run along −x.
+- The FEM slice integral agrees with the Fresnel (Airy) spectrum on the same contour to 4e-5,
+  1.5e-4 and 3e-5 for x, y and z.
+- With the bumps on the wrong side it is 0.7–3.3 % off, which is the guided contribution.
 
 ### 5. Cost and execution
 
