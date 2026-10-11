@@ -3,6 +3,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- M18 3D cross-checks and full spectra (`docs/validation.md` J, written by the helper agent
+  `opt-jobs`): the axisymmetric solver on a layer stack agrees with `Scattering3D` on the same
+  stack to 0.03 % in absorption, 0.15 % in scattering and its up / down / lateral channels and
+  0.6 % in the near field of a 5 nm gap (gold sphere on SiO2 / Si3N4 / glass), and to 0.2–2.5 %
+  in the transmission and absorption change of a nanohole in a gold film; full spectra of
+  `examples/particle_on_substrate` recorded; CI regression against the stored record.
 - A single dipole in a periodic structure by array scanning (M17 S3, ADR-0013 §3 and §3a):
   `hpfem.grating.dipole_emission` gives the Purcell factor of the three orientations (and of a
   given moment) and the power radiated into the cover and a lossless substrate, the rest being
