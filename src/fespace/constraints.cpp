@@ -44,6 +44,36 @@ void Constraints::add(Index slave, std::vector<Term> terms) {
   terms_[as_size(slave)] = std::move(terms);
   ++num_constrained_;
   resolved_ = false;
+  test_.clear();
+}
+
+void Constraints::set_test(const Constraints& test) {
+  if (test.num_dofs_ != num_dofs_) {
+    throw InvalidArgument(
+        fmt::format("Constraints::set_test: {} DoFs cannot take a test space of {}", num_dofs_,
+                    test.num_dofs_));
+  }
+  resolve();
+  test.resolve();
+  std::vector<std::vector<Complex>> coefficients(as_size(num_dofs_));
+  for (Index i = 0; i < num_dofs_; ++i) {
+    const auto& mine = terms_[as_size(i)];
+    const auto& theirs = test.terms_[as_size(i)];
+    bool same = mine.size() == theirs.size();
+    for (std::size_t k = 0; same && k < mine.size(); ++k) {
+      same = mine[k].master == theirs[k].master;
+    }
+    if (!same) {
+      throw InvalidArgument(
+          fmt::format("Constraints::set_test: DoF {} has other masters in the test space", i));
+    }
+    for (const auto& t : theirs) coefficients[as_size(i)].push_back(t.coefficient);
+  }
+  test_ = std::move(coefficients);
+}
+
+Complex Constraints::test_coefficient(Index i, std::size_t k) const {
+  return test_.empty() ? terms_[as_size(i)][k].coefficient : test_[as_size(i)][k];
 }
 
 void Constraints::append(const Constraints& other) {
@@ -126,6 +156,25 @@ SparseMatrix Constraints::prolongation() const {
   return p;
 }
 
+SparseMatrix Constraints::test_prolongation() const {
+  if (test_.empty()) return prolongation();
+  std::vector<Eigen::Triplet<Complex, Index>> triplets;
+  triplets.reserve(as_size(num_dofs_) + as_size(num_constrained_));
+  for (Index i = 0; i < num_dofs_; ++i) {
+    const auto& list = terms_[as_size(i)];
+    if (list.empty()) {
+      triplets.emplace_back(i, reduced_[as_size(i)], Complex{1.0, 0.0});
+    } else {
+      for (std::size_t k = 0; k < list.size(); ++k) {
+        triplets.emplace_back(i, reduced_[as_size(list[k].master)], test_[as_size(i)][k]);
+      }
+    }
+  }
+  SparseMatrix q(num_dofs_, num_free());
+  q.setFromTriplets(triplets.begin(), triplets.end());
+  return q;
+}
+
 Vector Constraints::expand(const Vector& reduced) const {
   resolve();
   if (reduced.size() != num_free()) {
@@ -150,7 +199,7 @@ Vector Constraints::reduce_rhs(const Vector& rhs) const {
   if (rhs.size() != num_dofs_) {
     throw InvalidArgument("Constraints::reduce_rhs: size does not match the constraints");
   }
-  return Vector(SparseMatrix(prolongation().adjoint()) * rhs);
+  return Vector(SparseMatrix(test_prolongation().adjoint()) * rhs);
 }
 
 std::pair<SparseMatrix, Vector> Constraints::reduce(const SparseMatrix& matrix,
@@ -163,9 +212,11 @@ std::pair<SparseMatrix, Vector> Constraints::reduce(const SparseMatrix& matrix,
   // (reduced_[master], coefficient) for the resolved masters of a slave, so every entry
   // A(i, j) scatters to the products of the two rows' terms. One pass over the nonzeros
   // instead of two sparse products (which cost more than the factorisation on large
-  // Bloch-periodic systems).
+  // Bloch-periodic systems). The test rows (Q) differ from the trial rows (P) only with a
+  // test space.
   const Index n_free = num_free();
   std::vector<std::vector<Term>> rows(as_size(num_dofs_));
+  std::vector<std::vector<Term>> test_rows(test_.empty() ? 0 : as_size(num_dofs_));
   for (Index i = 0; i < num_dofs_; ++i) {
     const auto& list = terms_[as_size(i)];
     auto& row = rows[as_size(i)];
@@ -174,11 +225,18 @@ std::pair<SparseMatrix, Vector> Constraints::reduce(const SparseMatrix& matrix,
     } else {
       for (const auto& t : list) row.push_back({reduced_[as_size(t.master)], t.coefficient});
     }
+    if (!test_.empty()) {
+      test_rows[as_size(i)] = row;
+      for (std::size_t k = 0; k < list.size(); ++k) {
+        test_rows[as_size(i)][k].coefficient = test_coefficient(i, k);
+      }
+    }
   }
+  const auto& left_rows = test_.empty() ? rows : test_rows;
   std::vector<Eigen::Triplet<Complex, Index>> triplets;
   triplets.reserve(as_size(matrix.nonZeros()));
   for (Index i = 0; i < matrix.outerSize(); ++i) {
-    const auto& ri = rows[as_size(i)];
+    const auto& ri = left_rows[as_size(i)];
     for (SparseMatrix::InnerIterator it(matrix, i); it; ++it) {
       const auto& rj = rows[as_size(it.col())];
       for (const auto& a_term : ri) {
@@ -194,7 +252,7 @@ std::pair<SparseMatrix, Vector> Constraints::reduce(const SparseMatrix& matrix,
   reduced.makeCompressed();
   Vector reduced_rhs = Vector::Zero(n_free);
   for (Index i = 0; i < num_dofs_; ++i) {
-    for (const auto& t : rows[as_size(i)]) {
+    for (const auto& t : left_rows[as_size(i)]) {
       reduced_rhs(t.master) += std::conj(t.coefficient) * rhs(i);
     }
   }

@@ -208,6 +208,24 @@ ConicalScattering::ConicalScattering(const fespace::NedelecDofMap<2>& transverse
     h1_constraints_ = assembly::restrict_constraints(h1_c, free_h1);
     constraints_ = assembly::block_constraints(assembly::restrict_constraints(nd_c, free_nd),
                                                *h1_constraints_);
+    // a complex Bloch wavenumber (|phase| != 1, the array-scanning contour of ADR-0013): the
+    // test functions take the phases 1/conj(phase), so that the reduced system is analytic in
+    // k_x (for |phase| = 1 they are the trial phases and Q = P)
+    const bool off_circle =
+        std::any_of(setup_.periodic.begin(), setup_.periodic.end(),
+                    [](const auto& pair) { return std::abs(std::abs(pair.phase) - 1.0) > 1e-13; });
+    if (off_circle) {
+      auto test_pairs = setup_.periodic;
+      for (auto& pair : test_pairs) pair.phase = 1.0 / std::conj(pair.phase);
+      fespace::Constraints nd_t = assembly::hanging_constraints(transverse);
+      fespace::Constraints h1_t = assembly::hanging_constraints(longitudinal);
+      nd_t.append(assembly::bloch_constraints<2>(transverse, test_pairs));
+      h1_t.append(assembly::bloch_constraints<2>(longitudinal, test_pairs));
+      const fespace::Constraints h1_test = assembly::restrict_constraints(h1_t, free_h1);
+      h1_constraints_->set_test(h1_test);
+      constraints_->set_test(
+          assembly::block_constraints(assembly::restrict_constraints(nd_t, free_nd), h1_test));
+    }
   }
   log().info(
       "ConicalScattering: k0 = {:.6g}, beta = {:.6g}, {} free of {} block DoFs, {} "

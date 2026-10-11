@@ -464,9 +464,15 @@ radiated power into cover and substrate per direction, guided and absorbed power
 - [x] S2: `grating.emission_pattern` by reciprocity (angle-resolved emission: one solve per
   direction and polarisation, cover and substrate, normalised to P_bulk; checked against the
   homogeneous and the Fresnel closed forms and against Stage A; written by `opt-jobs`)
-- [ ] S3: `grating.dipole_emission` (array scanning, guided-mode poles, parallel samples on
+- [ ] S3 (ongoing): `grating.dipole_emission` (array scanning, guided-mode poles, parallel samples on
   ConicalSweep, cost estimate before the run); tests: mirror, planar multilayer (Sommerfeld),
-  period independence, plasmonic film, reciprocity against S2
+  period independence, plasmonic film, reciprocity against S2. Done: the kx integral on the
+  complex contour of ADR-0013 §3a with the analytic Bloch elimination
+  (`Constraints::set_test`), the power matrix on a kept factorisation, the radiated channels by
+  reciprocity over the half-spaces; a dipole above glass against the Sommerfeld integral
+  (8e-5 at a period of 1 µm, 1e-3 at 0.8 µm: period independence), the homogeneous cell,
+  `benchmarks/m17_dipole_scan.py`. Open: the guided-mode poles of lossless structures (§4),
+  the mirror and the plasmonic film, parallel samples, the cost estimate
 - [ ] S4: job-runner task `emitter` (schema 2), events, cost estimate; docs (maxwell.md "Dipole
   emitters in periodic structures", python.md), example `examples/grating_emitter` (quantum dot
   on a dielectric grating, LED extraction)
