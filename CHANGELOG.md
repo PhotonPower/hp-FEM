@@ -223,6 +223,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   side-wall angle tolerances of a silicon grating propagated to its reflectance spectrum.
 
 ### Fixed
+- The radiated channels of `grating.dipole_emission`, `emission_pattern` and `emission_cone`
+  average the plane-wave field over the dipole's Gaussian by a quadrature of the cells
+  (`conical_gaussian_average`, with sub-triangles for cells wider than σ/2) instead of a
+  Gauss–Hermite rule. The rule missed the jump of the normal field where a material interface
+  cuts the Gaussian: 9 % of the radiated power of a y dipole 1.7σ above a glass ridge, the main
+  part of the 1.7–3.5 % remainder found on `examples/grating_emitter`. On diffracting structures
+  the angle rule defaults to 16 × 32 points (the Rayleigh anomalies leave 2 % at 8 × 16), and
+  the β rule of `array_scan_rule` breaks at the Wood anomalies q = jπ/P (`pinch_breaks`), where
+  F_P otherwise oscillated by 1 %. On the grating the channels now close to ≤ 3e-3.
 - `grating.emission_pattern` completes the material map cell by cell (stack material at the
   centroid for tags without a material) before mirroring the problem for the substrate side,
   where the background of a dict map would otherwise be the wrong medium.

@@ -749,7 +749,7 @@ def _run_emitter(job, spec, wavelengths, mesh, material_specs, unit, order, pml,
     scan = dict(_get(spec, "scan", {}, where="emitter"))
     scan_kwargs = dict(nodes=int(scan.get("nodes", 6)), kx_nodes=int(scan.get("kx_nodes", 4)),
                        depth=float(scan.get("depth", 0.5)),
-                       angle_nodes=tuple(int(v) for v in scan.get("angle_nodes", (8, 16))),
+                       angle_nodes=tuple(int(v) for v in scan.get("angle_nodes", (16, 32))),
                        symmetric=bool(scan.get("symmetric", False)))  # fmt: skip
     beta_max_over_k0 = scan.get("beta_max_over_k0")
     apertures = [float(v) for v in _listed(_get(spec, "aperture", [], where="emitter"))]

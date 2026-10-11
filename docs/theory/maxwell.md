@@ -1479,7 +1479,7 @@ $$
 \qquad \langle E_{pw}\rangle_g = e^{-\sigma^2\beta^2/2}\int g_2\,E_{pw}\,dA ,
 $$
 
-the field averaged over the dipole's Gaussian: in-plane by a tensor Gauss–Hermite rule on the
+the field averaged over the dipole's Gaussian: in-plane by the quadrature of the cells on the
 solved field, along $z$ by the Fourier factor of the direction's β. In a homogeneous medium
 $E_{pw} = \hat e\,e^{ik\cdot x}$, the sum over s and p gives
 $n k_0^2 Z_0 |p_\perp|^2 e^{-(nk_0\sigma)^2}/(32\pi^2)$, and its integral over the sphere is
@@ -1546,6 +1546,12 @@ therefore runs on a contour in the complex plane (`array_scan_rule`):
   The pieces in $k_x$ get `kx_nodes` points each (default 4). The $\beta$ direction needs
   more, because the factor $e^{2ik_yd}$ of a dipole at a distance $d$ from an interface
   oscillates in $\beta$.
+- The $\beta$ rule also breaks where a $+q$ and a $-q$ crossing meet at $k_x = 0$ or
+  $\pi/P$, i.e. at $q = j\pi/P$: these are the Wood anomalies of the cell. There the $k_x$
+  integrand pinches, and on a diffracting structure the $\beta$ integrand has a square-root
+  point. On a glass grating (period 500 nm at 650 nm) $F_P$ oscillated by 1 % between 6 and 8
+  points per panel without these breaks. With them it is stable to $10^{-4}$, at about three
+  times the number of samples.
 
 For the integrand to be analytic, the Bloch elimination uses the test space with phases
 $1/\bar\lambda$ (above, "Complex Bloch vectors"). In addition, all samples share one PML
@@ -1558,7 +1564,14 @@ contour. The power radiated into the cover and into a lossless substrate comes f
 reciprocity vectors of Stage C instead, integrated over each half-space: Gauss points in
 $\theta$, split at the critical angles of the half-space and crowded towards them, where the
 forbidden light makes a square-root kink; the trapezoidal rule in $\varphi$, reduced by the
-mirror symmetries. The result is $P_{up} = \mathrm{Re}\,p^H R_{up}\,p$ with
+mirror symmetries; 16 × 32 points by default. The average over the Gaussian is a quadrature
+over the cells, `conical_gaussian_average`. Cells wider than $\sigma/2$ are integrated on
+sub-triangles. This quadrature is exact where a material interface cuts the Gaussian and the
+normal component of $E$ jumps; the earlier Gauss–Hermite rule was not. On the glass grating,
+with a $y$ dipole 1.7σ above a ridge, it missed 9 % of the radiated power. The pattern of a
+diffracting structure also has kinks along the Rayleigh anomalies, which the product rule cannot
+split. There the $y$ channels closed to 2 %, 0.9 % and 0.02 % with 8 × 16, 12 × 24 and
+16 × 32 points, while a flat stack is exact to $10^{-5}$ with 8 × 16. The result is $P_{up} = \mathrm{Re}\,p^H R_{up}\,p$ with
 $R = \sum w\,n k_0^2 Z_0/(32\pi^2)\,\bar m\,m^T$. This also suits the grazing directions,
 because there the plane-wave problems carry the grazing wave in the analytic background, and
 the PML only has to absorb the field scattered by the structure. The remainder

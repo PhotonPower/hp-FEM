@@ -164,4 +164,72 @@ Eigen::Matrix3cd conical_dipole_power_matrix(const ConicalScattering& problem,
   return a;
 }
 
+namespace {
+
+/// The rule `base` on each of the m² congruent sub-triangles of the reference triangle (a
+/// composite rule for an integrand narrower than the cell, the Gaussian of a small σ).
+assembly::QuadratureRule<2> subdivided_rule(const assembly::QuadratureRule<2>& base, int m) {
+  assembly::QuadratureRule<2> out;
+  out.order = base.order;
+  const Real step = 1.0 / m;
+  const Real scale = step * step;  // area ratio of a sub-triangle
+  const auto add = [&](const Point<2>& a, const Point<2>& b, const Point<2>& c) {
+    for (std::size_t q = 0; q < base.size(); ++q) {
+      out.points.push_back(a + base.points[q](0) * (b - a) + base.points[q](1) * (c - a));
+      out.weights.push_back(scale * base.weights[q]);
+    }
+  };
+  for (int i = 0; i < m; ++i) {
+    for (int j = 0; i + j < m; ++j) {
+      const Point<2> p00(i * step, j * step);
+      const Point<2> p10((i + 1) * step, j * step);
+      const Point<2> p01(i * step, (j + 1) * step);
+      add(p00, p10, p01);
+      if (i + j < m - 1) add(p10, Point<2>((i + 1) * step, (j + 1) * step), p01);
+    }
+  }
+  return out;
+}
+
+}  // namespace
+
+ConicalVector conical_gaussian_average(const ConicalScattering& problem,
+                                       const ConicalSolution& solution, const Point<2>& position,
+                                       Real sigma, int extra_order) {
+  if (!(sigma > 0)) throw InvalidArgument("conical_gaussian_average: sigma must be positive");
+  const auto& nd = problem.transverse_dofs();
+  const auto& h1 = problem.longitudinal_dofs();
+  if (solution.transverse.size() != nd.num_dofs() ||
+      solution.longitudinal.size() != h1.num_dofs()) {
+    throw InvalidArgument("conical_gaussian_average: the solution does not match the maps");
+  }
+  const auto& mesh = nd.mesh();
+  const Real beta = problem.setup().beta;
+  const Real damp =
+      std::exp(-0.5 * sigma * sigma * beta * beta) / (2.0 * constants::pi * sigma * sigma);
+  const Real inv2s2 = 1.0 / (2.0 * sigma * sigma);
+  // cells larger than σ/2 are integrated on sub-triangles of about σ/2: the Gaussian varies on
+  // the scale σ, the field on the scale of the cell
+  std::map<std::pair<int, int>, assembly::QuadratureRule<2>> rules;
+  ConicalVector mean = ConicalVector::Zero();
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    const auto map = mesh::affine_map(mesh, c);
+    if ((map.centroid() - position).norm() > 7.0 * sigma + map.h) continue;
+    const int order = 2 * std::max(nd.cell_order(c), h1.cell_order(c)) + extra_order;
+    const int pieces = std::max(1, static_cast<int>(std::ceil(2.0 * map.h / sigma)));
+    auto& rule = rules[{order, pieces}];
+    if (rule.size() == 0) {
+      rule = subdivided_rule(assembly::simplex_quadrature<2>(order), pieces);
+    }
+    const auto geometry = mesh::cell_geometry(mesh, c);
+    for (std::size_t q = 0; q < rule.size(); ++q) {
+      const auto g = geometry->evaluate(rule.points[q]);
+      const Real weight = damp * std::exp(-(g.x - position).squaredNorm() * inv2s2) *
+                          rule.weights[q] * std::abs(g.det);
+      mean += weight * problem.total_field(solution, c, rule.points[q]);
+    }
+  }
+  return mean;
+}
+
 }  // namespace hpfem::physics

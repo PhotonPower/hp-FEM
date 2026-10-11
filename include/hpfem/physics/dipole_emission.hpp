@@ -68,4 +68,15 @@ namespace hpfem::physics {
     const ConicalScattering& problem, const std::vector<ConicalSolution>& unit_responses,
     const Point<2>& position, Real sigma, int extra_order = 4);
 
+/// The field of a solution averaged over the Gaussian of `conical_gaussian_dipole`,
+/// @f$ e^{-\sigma^2\beta^2/2}\int g_2\,E\,dA @f$ with the total physical field E (the incident
+/// field added for a scattered-field solution): by the quadrature of the cells within 7σ of the
+/// position, exact across material interfaces inside the Gaussian, where the normal component
+/// of E jumps. The reciprocity amplitude of a distant dipole is p · this average (ADR-0013 §6).
+/// @throws InvalidArgument for σ ≤ 0 or a solution that does not match the DoF maps.
+[[nodiscard]] ConicalVector conical_gaussian_average(const ConicalScattering& problem,
+                                                     const ConicalSolution& solution,
+                                                     const Point<2>& position, Real sigma,
+                                                     int extra_order = 4);
+
 }  // namespace hpfem::physics

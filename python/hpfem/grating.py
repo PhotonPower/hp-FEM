@@ -1753,23 +1753,16 @@ def _mirrored_stack(stack):
     return hpfem.LayerStack2D(stack.substrate, layers, stack.incidence_medium, -float(stack.bottom))
 
 
-def _gauss_hermite_points(position, sigma: float, points: int):
-    """Tensor Gauss–Hermite nodes and weights of the in-plane Gaussian g2 around ``position``."""
-    xi, w = np.polynomial.hermite.hermgauss(int(points))
-    gx, gy = np.meshgrid(xi, xi, indexing="ij")
-    wx, wy = np.meshgrid(w, w, indexing="ij")
-    nodes = np.column_stack([gx.ravel(), gy.ravel()]) * (np.sqrt(2.0) * sigma) + position
-    return nodes, (wx * wy).ravel() / np.pi
-
-
 def _reciprocity_means(mesh, materials, stack, position, sigma: float, omega: float, directions,
                        pol, quadrature_points: int, order, pml, solve_kwargs,
                        progress=None, cancel=None, who="emission_pattern"):  # fmt: skip
     """The reciprocity vectors of ADR-0013 §6: per direction ``(theta, phi, side)`` and
     polarisation the total field of the unit plane wave incident from that direction, averaged
-    over the dipole's Gaussian (in-plane by Gauss–Hermite, along z the factor exp(−σ²β²/2)), in
-    the frame of the given cell, shape (num_directions, num_pol, 3); and the index of the medium
-    of every direction. dP/dΩ of a moment p is n k0² Z0 |p · mean|² / (32π²)."""
+    over the dipole's Gaussian (``hpfem.conical_gaussian_average``: in-plane by the quadrature of
+    the cells, exact where a material interface cuts the Gaussian and the normal component
+    jumps; along z the factor exp(−σ²β²/2)), in the frame of the given cell, shape
+    (num_directions, num_pol, 3); and the index of the medium of every direction. dP/dΩ of a
+    moment p is n k0² Z0 |p · mean|² / (32π²)."""
     materials = _completed_material_map(mesh, materials, stack, omega)
     frames = {"up": (mesh, stack, pml, position)}
     if any(side == "down" for _t, _f, side in directions):
@@ -1793,8 +1786,9 @@ def _reciprocity_means(mesh, materials, stack, position, sigma: float, omega: fl
             raise GratingError(f"{who}: the medium of the {side} directions is lossy")
         n_dir[i] = n_medium.real
         if side not in nodes_cache:
-            nodes_cache[side] = _gauss_hermite_points(x0, sigma, quadrature_points)
-        nodes, weights = nodes_cache[side]
+            if hpfem.PointLocator2D(cell_mesh).locate([float(x0[0]), float(x0[1])]) is None:
+                raise GratingError(f"{who}: the dipole lies outside the mesh")
+            nodes_cache[side] = True
         for j, polarisation in enumerate(pol):
             if cancel is not None and cancel():
                 raise hpfem.Cancelled(f"{who} cancelled")
@@ -1803,12 +1797,11 @@ def _reciprocity_means(mesh, materials, stack, position, sigma: float, omega: fl
             count += 1
             result = solve(cell_mesh, materials, cell_stack, polarisation, theta, phi + np.pi,
                            omega, order, pml=cell_pml, **solve_kwargs)  # fmt: skip
-            values = np.asarray(result.field(nodes, quantity="E"), dtype=complex)
-            if not np.all(np.isfinite(values)):
-                raise GratingError(f"{who}: the dipole's Gaussian leaves the mesh")
-            smear = math.exp(-0.5 * (sigma * float(result.wave.beta)) ** 2)
-            # the in-plane Gaussian average of (E_x, E_y, E_z), back in the frame of the cell
-            means[i, j] = smear * (weights @ values) * flip[side]
+            mean = hpfem.conical_gaussian_average(
+                result.problem, result.solution, [float(x0[0]), float(x0[1])], sigma
+            )
+            # the Gaussian average of (E_x, E_y, E_z), back in the frame of the cell
+            means[i, j] = np.asarray(mean, dtype=complex) * flip[side]
     return means, n_dir
 
 
@@ -1845,8 +1838,10 @@ def emission_pattern(
     plane wave incident from r̂ (travelling along −r̂, polarisation s or p of that plane of
     incidence: :func:`solve` at (θ, φ + π); directions into the substrate on the problem
     mirrored at y = 0), averaged over the dipole's Gaussian: the in-plane g2 by a
-    ``quadrature_points``² Gauss–Hermite rule on the solved field, the z-smearing as the factor
-    exp(−σ²β²/2) of the direction's β. For a homogeneous medium the sum over s and p is
+    quadrature of the cells (``hpfem.conical_gaussian_average``; ``quadrature_points`` is no
+    longer used: a Gauss–Hermite rule missed the jump of the normal field where an interface
+    cuts the Gaussian, by 11 % for a dipole 1.7σ above a glass ridge), the z-smearing as the
+    factor exp(−σ²β²/2) of the direction's β. For a homogeneous medium the sum over s and p is
     n k0² Z0 |p⊥|² e^{−(n k0 σ)²}/(32π²), whose integral over the sphere is
     ``P_bulk = dipole_vacuum_power(|p|) · n · e^{−(n k0 σ)²}``. One solve per direction and
     polarisation, no singularities; it gives the radiated part only (not the guided or the
@@ -2054,7 +2049,8 @@ def _kx_contour(
 
 def array_scan_rule(period: float, k0: float, indices, *, beta_max: float, nodes: int = 8,
                     symmetric: bool = False, beta_breaks=(), depth: float = 0.5,
-                    kx_nodes: int | None = None) -> ScanRule:  # fmt: skip
+                    kx_nodes: int | None = None,
+                    pinch_breaks: bool = True) -> ScanRule:  # fmt: skip
     """Quadrature of the array scanning over one period of kx (``symmetric``: [0, π/P]
     doubled, for a cell mirror-symmetric about the dipole) and β in [0, ``beta_max``],
     ``nodes`` points per β panel and ``kx_nodes`` (default ``nodes``) per kx piece. β is split
@@ -2068,6 +2064,14 @@ def array_scan_rule(period: float, k0: float, indices, *, beta_max: float, nodes
     factor = (period / (2 * math.pi)) * (1 / math.pi) * (2.0 if symmetric else 1.0)
     indices = sorted({round(float(n), 12) for n in indices if n > 0})
     b_points = [k0 * n for n in indices] + [float(b) for b in beta_breaks]
+    if pinch_breaks:
+        # where a +q and a −q crossing meet at kx = 0 or π/P (q = j·π/P, a Wood anomaly of the
+        # cell): the kx integrand pinches there and the β integrand has a square-root point
+        for n in indices:
+            j = 1
+            while j * 0.5 * g < k0 * n:
+                b_points.append(math.sqrt((k0 * n) ** 2 - (j * 0.5 * g) ** 2))
+                j += 1
     kx_all, beta_all, w_all, panels = [], [], [], 0
     b_edges = _breaks(0.0, beta_max, b_points)
     for b0, b1 in zip(b_edges[:-1], b_edges[1:], strict=True):
@@ -2338,7 +2342,7 @@ class EmissionCost:
 def emission_cost(mesh, materials, stack, dipole, omega: float, *, nodes: int = 6,
                   kx_nodes: int = 4, depth: float = 0.5, beta_max: float | None = None,
                   symmetric: bool = False, order=4, channels: bool = True,
-                  angle_nodes=(8, 16), pml=None, bottom: str = "pml",
+                  angle_nodes=(16, 32), pml=None, bottom: str = "pml",
                   snap_tolerance: float = 1e-9, pml_target: float = 1e-6,
                   pml_wavelengths: float = 0.5, extra_quadrature_order: int = 4, solver=None,
                   calibrate: bool = False, **solve_kwargs) -> EmissionCost:  # fmt: skip
@@ -2401,7 +2405,7 @@ class EmissionCone:
 
 
 def emission_cone(mesh, materials, stack, dipole, omega: float, aperture: float, *,
-                  side: str = "up", angle_nodes=(8, 16), symmetric: bool = False,
+                  side: str = "up", angle_nodes=(16, 32), symmetric: bool = False,
                   quadrature_points: int = 6, order=4, pml=None, progress=None, cancel=None,
                   **solve_kwargs) -> EmissionCone:  # fmt: skip
     """Power of a single Gaussian dipole radiated into a collection cone of numerical aperture
@@ -2462,7 +2466,7 @@ def emission_cone(mesh, materials, stack, dipole, omega: float, aperture: float,
 def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int = 6,
                     kx_nodes: int = 4, depth: float = 0.5, beta_max: float | None = None,
                     symmetric: bool = False,
-                    order=4, channels: bool = True, angle_nodes=(8, 16),
+                    order=4, channels: bool = True, angle_nodes=(16, 32),
                     quadrature_points: int = 6, pml=None, bottom: str = "pml",
                     snap_tolerance: float = 1e-9, pml_target: float = 1e-6,
                     pml_wavelengths: float = 0.5, extra_quadrature_order: int = 4, solver=None,
@@ -2483,7 +2487,11 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     reciprocity (§6, :func:`emission_pattern`), integrated over each half-space on
     ``angle_nodes`` = (θ points, φ points on the circle) — one plane-wave :func:`solve` per
     direction and polarisation, shared by all moments; the rest, ``nonradiated``, is absorbed
-    (lossy structure) or guided (lossless structure).
+    (lossy structure) or guided (lossless structure). On a diffracting structure the pattern
+    has kinks along the Rayleigh anomalies, which the product rule cannot split: on a glass
+    grating (period 500 nm at 650 nm) the y channels closed to 11 % / 2 % / 0.9 % / 0.02 % with
+    6×6 Gauss–Hermite and then the cell average at 8×16, 12×24 and 16×32 points (the default);
+    a flat stack is exact to 1e-5 with 8×16.
 
     ``dipole`` as for :func:`emit` (``moment`` optional). ``beta_max`` defaults to k0 times the
     larger index of the cover and the substrate. **Limits:** guided modes of a lossless
