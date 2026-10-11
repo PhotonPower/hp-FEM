@@ -3,6 +3,16 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Guided modes in the single-dipole scan (M17 S3b, ADR-0013 §4a): `grating.dipole_emission`
+  with `guided="auto"` (on when a material of the cell has a larger index than cover and
+  substrate) finds the bound-mode poles of a lossless cell on the kx axis by an AAA fit on a
+  denser detection pass and passes each on its causal side, the one where the guided power is
+  positive. A β pre-pass adds the breaks where pole pairs meet. The result gains `guided` (per
+  orientation) and `guided_modes` (per pole, from the residues). β now runs up to k0 times the
+  largest index of the cell. A dipole above a Si₃N₄ slab on glass matches the layered Sommerfeld
+  integral to 4e-4 (before: up to 2.4 % low). The guided power agrees with the non-radiated rest
+  to 3e-4. The scan then costs about 4.5 times the samples; `emission_cost` counts the pre-pass
+  and the detection and estimates the second passes.
 - Job-runner task `emitter` (schema 2, M17 S4, written by the helper agent `opt-jobs`): a single
   Gaussian dipole over a wavelength sweep in stage A (Bloch array), B (array scanning: Purcell
   factor, fractions up / down / non-radiated, extraction into numerical apertures) or C (dP/dΩ

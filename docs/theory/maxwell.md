@@ -1576,7 +1576,35 @@ $R = \sum w\,n k_0^2 Z_0/(32\pi^2)\,\bar m\,m^T$. This also suits the grazing di
 because there the plane-wave problems carry the grazing wave in the analytic background, and
 the PML only has to absorb the field scattered by the structure. The remainder
 $P_{em} - P_{up} - P_{down}$ is the absorbed power of a lossy structure and the guided power of
-a lossless one. Guided-mode poles on the real axis (ADR-0013 §4) are not treated yet.
+a lossless one.
+
+**Guided modes** (ADR-0013 §4a, `guided="auto"`). A lossless layer or ridge with a larger index
+than the cover and the substrate carries bound modes. They are poles of the cell problem on the
+real $k_x$ axis, on a flat slab at $k_x = -2\pi m/P \pm q_g$ with
+$q_g = (\beta_g^2 - \beta^2)^{1/2}$. The contour has to pass each pole on its causal side, like
+a light-line crossing. Here the scan:
+
+- Finds the poles of each $\beta$ node by an AAA fit (Nakatsukasa, Sète and Trefethen, SIAM J.
+  Sci. Comput. 40, 2018) of the trace of $A$. The fit runs on a detection contour with twice the
+  $k_x$ points of the rule and at least 24 samples. The integration rule alone has only 4
+  samples at a $\beta$ node where no order radiates, and the fit on it missed a third of the
+  poles of the slab below.
+- Keeps the poles within $3\cdot10^{-3}$ of the window from the real axis and not within
+  $2\cdot10^{-3}$ of it from a light-line crossing, where the fit approximates the branch cut by
+  poles.
+- Takes the side of each bump from the residue matrix $R$ of the pole: below ($s = +1$) if
+  $\mathrm{Im}\,\mathrm{tr}\,R < 0$, so that the guided power $\mathrm{Re}\,p^H(s\,i\pi R)\,p$
+  is positive. In the folded window a pole can belong to an order that radiates at other $k_x$,
+  so the side cannot come from the nearest order.
+- Passes a second time over the $\beta$ nodes with poles, with a bump around each. Without poles
+  the detection samples are the integration rule.
+- Breaks the $\beta$ rule where a pair of poles meets at $k_x = 0$ or $\pi/P$, a square-root
+  point of the $\beta$ integrand. A pre-pass fits the trace along $\beta$ at these two $k_x$ (40
+  points each) and takes the near-real poles of the fit as breaks.
+
+$\beta$ runs up to $k_0 n_{max}$ of the cell. `guided` is the sum of the shares
+$s\,i\pi\,w_\beta R$ over the poles, and `guided_modes` lists them per pole. On the slab below,
+these steps make the run about 4.5 times as expensive as the plain scan.
 
 A collection aperture of numerical aperture NA above the sample is the same integral restricted
 to $\theta \le \arcsin(\mathrm{NA}/n)$ (`emission_cone`): $P_{NA} = \mathrm{Re}\,p^H R_{NA}\,p$,
@@ -1593,6 +1621,8 @@ Verified by `python/tests/test_dipole_emission.py`:
 - One $\beta$ slice of FEM cell problems on the contour against the closed form on the real
   axis, for two depths.
 - The interface on a small problem.
+- The AAA fit on a rational function with known poles and residues, and the choice of the
+  guided-pole sides on a synthetic power matrix.
 
 The full scans are long local runs (`benchmarks/m17_dipole_scan.py`, record in
 `benchmarks/results/`):
@@ -1602,6 +1632,7 @@ The full scans are long local runs (`benchmarks/m17_dipole_scan.py`, record in
 | homogeneous cell, p = 3, 8 / 4 points (244 cell problems) | $F_P$ = 0.99989 / 0.99969 / 0.99977 for $x$ / $y$ / $z$, up = down = 0.5 (with 4 / 4 points 1.0014 / 1.0007 / 0.9970, the error of the rule) |
 | dipole in air 400 nm above glass, period 1 µm, against the Sommerfeld integral of Chance, Prock and Silbey (8 / 4 points) | $F_P$ to $8\cdot10^{-5}$ (1.04532 / 0.97660 / 1.04530 against 1.04531 / 0.97668 / 1.04531), up and down to $10^{-5}$, the non-radiated rest below $10^{-4}$ |
 | the same with a period of 0.8 µm | $F_P$ to $1\cdot10^{-3}$, up and down to $10^{-5}$: the single dipole does not depend on the period of the cell |
+| dipole in air 250 nm above a lossless Si₃N₄ slab (n = 2.0, 250 nm) on glass, period 1 µm, against the layered Sommerfeld integral (6 / 4 points, guided modes) | $F_P$ to $4\cdot10^{-4}$ (1.04819 / 1.09635 / 1.04859 against 1.04861 / 1.09611 / 1.04861), up to $10^{-6}$; the guided power from the residues (0.0160 / 0.0334 / 0.0163) matches the non-radiated rest to $3\cdot10^{-4}$; 192 poles, 9276 cell problems, 2.8 h on the loaded machine. Without the detection pass, a third of the poles was missed and $F_P$ was up to 2.4 % low |
 
 For the glass case, the Gaussian factor $e^{-(nk\sigma)^2}$ cancels in the normalisation to
 the bulk power, because every plane wave of the spectrum carries it.

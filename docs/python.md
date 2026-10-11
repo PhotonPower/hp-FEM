@@ -691,20 +691,28 @@ power and the Purcell factor need Stage B.
 
 **Single dipole by array scanning (M17 S3).** `grating.dipole_emission(mesh, materials, stack,
 dipole, omega, nodes=6, kx_nodes=4, depth=0.5, beta_max=None, symmetric=False, order=4,
-channels=True, angle_nodes=(16, 32), pml=..., progress=None, cancel=None, ...)` integrates the
+channels=True, angle_nodes=(16, 32), guided="auto", pml=..., progress=None, cancel=None, ...)`
+integrates the
 cell problem over kx (one period, on the complex contour around the light lines) and β
 (`grating.array_scan_rule`, docs/theory/maxwell.md "Stage B"). The `DipoleEmission` holds, per
 orientation key `"x"`, `"y"`, `"z"`, `"isotropic"` and `"moment"` (the dipole's own, if
 given), the emitted power `P_em`, the Purcell factor `purcell` = P_em / P_bulk, the radiated
 channels `up` / `down` (by reciprocity over the half-spaces, `angle_nodes` = θ points, φ points;
 16 × 32 by default for diffracting structures, 8 × 16 is enough on a flat stack)
-and `nonradiated` = P_em − up − down (absorbed in a lossy structure, guided in a lossless one;
-guided-mode poles are not treated yet, so use structures without lossless waveguide layers),
+and `nonradiated` = P_em − up − down (absorbed in a lossy structure, guided in a lossless one),
 with `samples`, `directions`, the power and radiation matrices and the timing; `symmetric`
-halves the scan for a cell mirror-symmetric about the dipole. `grating.emission_cost(...)` with
-the same arguments counts the cell problems and plane-wave solves without running them, gives
-the memory of one factorisation and, with `calibrate=True`, times one of each and extrapolates
-the wall time (`EmissionCost`). `grating.emission_cone(mesh, materials, stack, dipole, omega,
+halves the scan for a cell mirror-symmetric about the dipole. `guided="auto"` (on when a
+material of the cell has a larger index than cover and substrate, `True` / `False` to force it)
+treats the bound modes of lossless waveguide layers (ADR-0013 §4a): it finds their poles in kx
+by AAA and passes each on its causal side; `guided` holds their power per orientation key and
+`guided_modes` the share per pole (`beta`, `kx`, `side`, `matrix`, `power`). On the slab of
+the validation this costs 4.5 times the samples of the plain scan (a β pre-pass, a denser
+detection pass and a second pass per β node with poles); β runs up to k0 times the largest
+index of the cell. `grating.emission_cost(...)` with the same arguments counts the cell
+problems and plane-wave solves without running them (with `guided` an estimate of the second
+passes), gives the memory of one factorisation and, with `calibrate=True`, times one of each
+and extrapolates the wall time (`EmissionCost`).
+`grating.emission_cone(mesh, materials, stack, dipole, omega,
 aperture, side="up", angle_nodes=(16, 32), symmetric=False, ...)` is the power radiated into a
 collection cone θ ≤ asin(NA / n) per orientation key (`EmissionCone.power`); divided by
 `P_em` it is the extraction efficiency into the aperture of an objective.

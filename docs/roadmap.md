@@ -471,8 +471,11 @@ radiated power into cover and substrate per direction, guided and absorbed power
   (`Constraints::set_test`), the power matrix on a kept factorisation, the radiated channels by
   reciprocity over the half-spaces; a dipole above glass against the Sommerfeld integral
   (8e-5 at a period of 1 µm, 1e-3 at 0.8 µm: period independence), the homogeneous cell,
-  `benchmarks/m17_dipole_scan.py`. Open: the guided-mode poles of lossless structures (§4),
-  the mirror and the plasmonic film, parallel samples, the cost estimate
+  `benchmarks/m17_dipole_scan.py`; the guided-mode poles of lossless structures (ADR-0013 §4a:
+  AAA on a detection pass, bumps on the side of positive guided power, β breaks from a pre-pass;
+  a dipole above a Si₃N₄ slab on glass against the layered Sommerfeld integral to 4e-4, the
+  guided power from the residues equal to the non-radiated rest to 3e-4) with its cost in
+  `emission_cost`. Open: the mirror and the plasmonic film, parallel samples
 - [x] S4: job-runner task `emitter` (schema 2) with events, cancellation and the cost estimate
   before the run (`grating.emission_cost`, `dry_run`), extraction into a numerical aperture
   (`grating.emission_cone`); docs (maxwell.md "Stage B", python.md), example

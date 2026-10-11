@@ -239,6 +239,25 @@ the slab; period 1 µm; one β slice at 0.3 k0; p = 3):
   1.5e-4 and 3e-5 for x, y and z.
 - With the bumps on the wrong side it is 0.7–3.3 % off, which is the guided contribution.
 
+**Implementation findings** (M17 S3b, full scan of the same slab against the layered Sommerfeld
+integral):
+
+- **Detection samples.** The first pass on the integration rule missed a third of the poles,
+  and F_P was up to 2.4 % low. Where no order radiates, a β node has a single kx piece of 4
+  points. The poles are therefore found on a separate detection contour, with twice the kx points
+  and at least 24 samples. Where it finds no pole, these samples serve as the integration rule.
+- **Tolerances.** The fitted poles lie up to 10⁻³ of the window off the axis, and a mode may be
+  5·10⁻³ of the window from a crossing. The filters are |Im kx| < 3·10⁻³ and a distance of at
+  least 2·10⁻³ from the crossings. The residue criterion is not needed.
+- **Folded window.** A guided pole can belong to an order that radiates at other kx. A filter
+  that kept only poles where the nearest order is evanescent dropped most of them. The side
+  therefore comes from the residue alone.
+- **β breaks.** The pre-pass (40 points per kx) finds most of the breaks but not all. With exact
+  poles the scan reaches 5·10⁻⁵ with these breaks, so the missing ones are not critical.
+- **Result.** F_P is right to 4·10⁻⁴ for the three orientations, with 192 poles. The guided
+  power from the residues equals the non-radiated rest to 3·10⁻⁴. The run takes 9276 cell
+  problems, about 4.5 times the plain scan.
+
 ### 5. Cost and execution
 
 - One factorisation per (kx, β) sample; the three orientations are three right-hand sides of it

@@ -166,3 +166,37 @@ def test_dipole_emission_interface():
     with pytest.raises(hpfem.Cancelled):
         grating.dipole_emission(mesh, {}, stack, dipole, OMEGA, nodes=2, kx_nodes=2, order=2,
                                 pml={"top": UM, "bottom": UM}, cancel=lambda: True)  # fmt: skip
+
+
+def test_aaa_finds_the_poles_and_residues_of_a_rational_function():
+    # two poles next to the real sampling interval and one far off, plus a smooth part
+    poles = [0.31 + 2e-5j, -0.52 - 3e-5j, 3.0 + 1.0j]
+    residues = [0.7 - 0.2j, -1.1j, 2.0]
+
+    def f(z):
+        return sum(r / (z - p) for p, r in zip(poles, residues, strict=True)) + np.cos(z)
+
+    z = np.linspace(-1.0, 1.0, 201)
+    found, res = grating._aaa(z, f(z))
+    for p, r in zip(poles[:2], residues[:2], strict=True):
+        k = int(np.argmin(np.abs(found - p)))
+        assert abs(found[k] - p) < 1e-9
+        assert abs(res[k] - r) < 1e-7
+
+
+def test_guided_poles_take_the_side_of_positive_power():
+    # a synthetic power matrix with one pole on each side of the axis: a bound mode of a lossless
+    # cell gives Im R < 0 for its causal pole (positive power, bump below, side +1)
+    sl = grating._ScanSlice(beta=0.5, weight=1.0, lo=-math.pi, hi=math.pi,
+                            crossings=[(1.2, 1.0)], branch=[])  # fmt: skip
+    kx = np.linspace(sl.lo, sl.hi, 161)
+    r1 = np.diag([-0.4j, -0.1j, 0.0])
+    r2 = np.diag([0.0, 0.3j, 0.2j])
+    a = np.array([r1 / (k - 0.5) + r2 / (k + 2.0) + np.eye(3) * (1 + 0.1 * k) for k in kx])
+    # a pole right at the light-line crossing is a branch point, not a guided mode
+    a += np.array([np.eye(3) * 0.05j / (k - 1.2) for k in kx])
+    found = sorted(grating._guided_poles(kx, a, sl), key=lambda m: m[0])
+    assert [round(m[0], 9) for m in found] == [-2.0, 0.5]
+    assert [m[1] for m in found] == [-1.0, 1.0]
+    assert np.allclose(found[0][2], r2, atol=1e-8)
+    assert np.allclose(found[1][2], r1, atol=1e-8)
