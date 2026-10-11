@@ -11,8 +11,8 @@ Cases (symmetry-reduced, see benchmarks/m18_validation_3d.py):
 
 - ``sphere_on_stack``: gold sphere (radius 40 nm, 5 nm air gap) on air / SiO2 20 nm / Si3N4
   60 nm / glass, p-polarised at 45 degrees in the x-z plane: half domain y >= 0 (the plane of
-  incidence is a mirror plane, PMC on y = 0); a measurement box around the sphere crossing the
-  layers.
+  incidence is a mirror plane, PMC on y = 0); a measurement cylinder around the sphere crossing
+  the layers.
 - ``nanohole``: hole of radius 100 nm through a 100 nm gold film on glass at normal incidence,
   x-polarised: quarter domain x, y >= 0 (PEC on x = 0, PMC on y = 0); the disc r <= 300 nm at
   z = -200 nm and the cylinder r <= 250 nm in the film embedded.
@@ -110,7 +110,7 @@ def _box_field(size_in, size_out, lower, upper):
     return f
 
 
-def sphere_on_stack(out: Path, size: float = 1.0) -> dict:
+def sphere_on_stack(out: Path, size: float = 1.0, pml_size: float = 0.0) -> dict:
     g = dict(SPHERE)
     a, gap = g["radius"], g["gap"]
     t1, t2 = (t for _n, t in g["layers"])
@@ -122,7 +122,8 @@ def sphere_on_stack(out: Path, size: float = 1.0) -> dict:
     box = g["box"]
     b_lo, b_hi = -(t1 + t2) - box["below"], zc + a + box["above"]
     g.update(zc=zc, z_in=[z_lo_in, z_hi_in], z_domain=[z_min, z_max], x_total=x_tot,
-             interfaces=[0.0, -t1, -(t1 + t2)], box_z=[b_lo, b_hi], size=size)  # fmt: skip
+             interfaces=[0.0, -t1, -(t1 + t2)], box_z=[b_lo, b_hi], size=size,
+             pml_size=pml_size)  # fmt: skip
     gmsh.initialize(interruptible=False)
     try:
         gmsh.option.setNumber("General.Terminal", 0)
@@ -134,9 +135,9 @@ def sphere_on_stack(out: Path, size: float = 1.0) -> dict:
             occ.addBox(-x_tot, 0, -t1, width, x_tot, t1),
             occ.addBox(-x_tot, 0, -(t1 + t2), width, x_tot, t2),
             occ.addBox(-g["x_in"], 0, z_lo_in, 2 * g["x_in"], g["x_in"], z_hi_in - z_lo_in),
-            occ.addBox(
-                -box["half_width"], 0, b_lo, 2 * box["half_width"], box["half_width"], b_hi - b_lo
-            ),  # fmt: skip
+            # the measurement cylinder r <= half_width (the surface of revolution of the 2.5D
+            # solver: the split up / down / lateral depends on where the side walls stand)
+            occ.addCylinder(0, 0, b_lo, 0, 0, b_hi - b_lo, box["half_width"]),
             occ.addSphere(0, 0, zc, a),
         ]
         occ.fragment([(3, domain)], [(3, t) for t in tools])
@@ -172,6 +173,15 @@ def sphere_on_stack(out: Path, size: float = 1.0) -> dict:
                 [g["fine_radius"], g["fine_radius"], 0.0],
             ),  # fmt: skip
         ]
+        if pml_size > 0:  # the PML resolved: size_far inside, pml_size in the absorbing layers
+            fields.append(
+                _box_field(
+                    g["size_far"] * size,
+                    pml_size,
+                    [-g["x_in"], 0, z_lo_in],
+                    [g["x_in"], g["x_in"], z_hi_in],
+                )
+            )
         path = out / "sphere_on_stack.msh"
         _finish(path, fields)
     finally:
@@ -179,14 +189,20 @@ def sphere_on_stack(out: Path, size: float = 1.0) -> dict:
     return g
 
 
-def nanohole(out: Path, size: float = 1.0) -> dict:
+def nanohole(out: Path, size: float = 1.0, pml_size: float = 0.0) -> dict:
     g = dict(NANOHOLE)
     a, t = g["hole_radius"], g["film"]
     x_tot = g["x_in"] + g["pml"]
     z_hi_in, z_lo_in = g["height"], -t - g["depth"]
     z_max, z_min = z_hi_in + g["pml"], z_lo_in - g["pml"]
     z_disc, r_disc = g["disc"]["z"], g["disc"]["radius"]
-    g.update(z_in=[z_lo_in, z_hi_in], z_domain=[z_min, z_max], x_total=x_tot, size=size)
+    g.update(
+        z_in=[z_lo_in, z_hi_in],
+        z_domain=[z_min, z_max],
+        x_total=x_tot,
+        size=size,
+        pml_size=pml_size,
+    )
     gmsh.initialize(interruptible=False)
     try:
         gmsh.option.setNumber("General.Terminal", 0)
@@ -239,6 +255,12 @@ def nanohole(out: Path, size: float = 1.0) -> dict:
                 g["size_film_far"] * size, g["size_far"] * size, [0, 0, -t], [x_tot, x_tot, 0.0]
             ),  # fmt: skip
         ]
+        if pml_size > 0:
+            fields.append(
+                _box_field(
+                    g["size_far"] * size, pml_size, [0, 0, z_lo_in], [g["x_in"], g["x_in"], z_hi_in]
+                )
+            )
         path = out / "nanohole.msh"
         _finish(path, fields)
     finally:
@@ -257,11 +279,15 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--case", choices=("sphere_on_stack", "nanohole"), action="append")
     parser.add_argument("--size", type=float, default=1.0, help="factor on every mesh size")
+    parser.add_argument(
+        "--pml-size", type=float, default=0.0, help="mesh size in the PML [nm] (0: the far size)"
+    )
     parser.add_argument("--out", type=Path, default=default_out())
     args = parser.parse_args(argv)
     args.out.mkdir(parents=True, exist_ok=True)
     for case in args.case or ("sphere_on_stack", "nanohole"):
-        geometry = (sphere_on_stack if case == "sphere_on_stack" else nanohole)(args.out, args.size)
+        build = sphere_on_stack if case == "sphere_on_stack" else nanohole
+        geometry = build(args.out, args.size, args.pml_size)
         (args.out / f"{case}.json").write_text(json.dumps(geometry, indent=1), encoding="utf-8")
         size = (args.out / f"{case}.msh").stat().st_size
         print(f"{case}: {args.out / (case + '.msh')} ({size / 1e6:.1f} MB)")

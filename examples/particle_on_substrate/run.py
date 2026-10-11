@@ -160,7 +160,8 @@ def particle_mesh(radius, cells_per_radius, interfaces, cfg):
     )
     growth = cfg["growth"]
     r_nodes = merged(np.arange(n + 2) * fine,
-                     march(h, r_in + pml, lambda x: min(coarse, fine + growth * (x - h)), [r_in]),
+                     march(h, r_in + pml, lambda x: min(coarse, fine + growth * (x - h)),
+                           [r_in, *cfg.get("r_breaks", [])]),
                      tolerance=1e-6 * fine)  # fmt: skip
     z_bottom = min(interfaces) - depth
     z_inner = np.arange(-(n + 1), n + 2) * fine + zc
@@ -172,12 +173,13 @@ def particle_mesh(radius, cells_per_radius, interfaces, cfg):
             s = min(s, layer_cell)
         return max(s, 0.25 * fine)
 
-    below = march(0.0, z_bottom - pml, size_below, list(interfaces) + [z_bottom])
+    z_breaks = [z for z in cfg.get("z_breaks", []) if z < 0]
+    below = march(0.0, z_bottom - pml, size_below, list(interfaces) + [z_bottom, *z_breaks])
     above = march(
         zc + h,
         zc + h + height + pml,
         lambda z: min(coarse, fine + growth * (z - zc - h)),
-        [zc + h + height],
+        [zc + h + height, *(z for z in cfg.get("z_breaks", []) if z > zc + h)],
     )
     z_nodes = merged(below, z_inner, above, tolerance=1e-6 * fine)
 

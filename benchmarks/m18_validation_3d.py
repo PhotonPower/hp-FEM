@@ -224,8 +224,8 @@ def sphere_3d(mesh, g, p, wavelength, backend):
     half = box["half_width"] * NM
     eps = 1e-6 * half
 
-    def inside(x):
-        return abs(x[0]) < half and x[1] < half and b_lo < x[2] < b_hi
+    def inside(x):  # the measurement cylinder of the mesh (the 2.5D surface of revolution)
+        return math.hypot(x[0], x[1]) < half and b_lo < x[2] < b_hi
 
     surface = surface_of(mesh, inside, drop=lambda x: abs(x[1]) < eps)
     t1, t2 = (t * NM for _n, t in g["layers"])
@@ -260,6 +260,9 @@ def sphere_reference(example, g, wavelengths, p=4, cells_per_radius=None):
         "coarse": 30 * NM,
         "growth": 0.35,
         "layer_cell": 10 * NM,
+        # mesh lines on the measurement cylinder: both solvers integrate over the same surface
+        "r_breaks": [g["box"]["half_width"] * NM],
+        "z_breaks": [z * NM for z in g["box_z"]],
     }
     mesh, geometry = example.particle_mesh(radius, n, interfaces, cfg)
     # the example's tags for three interfaces: SPACER = first layer, FILM = second layer

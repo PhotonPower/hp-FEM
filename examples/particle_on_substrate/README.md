@@ -74,12 +74,26 @@ layer, the flux of the scattered field alone through that part (`lateral`, sligh
 the mirror) is not a power carried away by guided modes; the interference with the stack field
 is absorbed in the film (the absorption change). The balance of the total field holds regardless.
 
-The full run (p = 3, finer meshes, the gaps of 2.5 nm and 1 nm, 10 nm wavelength steps over
-450–700, 480–900 and 600–1000 nm, all orders) is a long local run; its results and the 3D
-cross-checks with `Scattering<3>` + `LayerStack<3>` (sphere on a stack, the hole in the film,
-milestone M18 S2) are recorded in `benchmarks/results/` once run.
+The full run (p = 3, the gaps of 2.5 nm and 1 nm + 1 nm, 10 nm wavelength steps over 450–700,
+480–900 and 600–1000 nm, all orders until a pair carries less than 10⁻⁴; record
+`benchmarks/results/2026-10-11-particle-on-substrate.json`) gives
 
-**Runtime.** Quick: about 30 s (MinGW GCC, 6 threads). Full: several hours.
+| study | result |
+|---|---|
+| dark field (7040 cells, \|m\| ≤ 3) | absorption maximum 8494 nm² at 520 nm, scattering maximum 3252 nm² at 530 nm (up 1965, down 1287), collected by NA 0.5: 107 nm² at 530 nm |
+| NPoM (14042 cells, \|m\| ≤ 2) | scattering maximum 10284 nm² at 610 nm (absorption maximum 9430 nm² at 600 nm), against 469 nm² at 520 nm for the sphere in air: red-shifted by 90 nm and 22 times stronger |
+| nanohole (4920 cells) | T / T_geom 0.64 at 600 nm, maximum 0.80 at 660 nm, 0.50 at 800 nm, 0.15 at 1000 nm; absorption change 0.18 → 0.065 of the power on the hole area |
+
+with the power balance of the total field closed to 6·10⁻³ (dark field), 2·10⁻³ (NPoM) and
+2·10⁻³ (hole). Where they share a wavelength, the quick configuration is within 6 % of the dark
+field (with a 5 nm instead of a 2.5 nm gap) and within 2 % of the hole; the quick NPoM (a 3 nm
+instead of a 2 nm gap) reproduces only the red shift, its scattering at 600 nm is 30 % below the
+full run's. The same geometries against `Scattering<3>` + `LayerStack<3>` (a sphere on a
+two-layer stack, the hole) are in `docs/validation.md` J: 0.03–0.15 % for the sphere, 0.2–2.5 %
+for the hole at p = 3.
+
+**Runtime.** Quick: about 30 s (MinGW GCC, 6 threads). Full: 60 min with MUMPS and 8 threads
+(15 min dark field, 40 min NPoM with the sphere in air, 5 min hole).
 
 ```bash
 python examples/particle_on_substrate/run.py --quick                 # all three, quick
