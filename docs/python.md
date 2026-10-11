@@ -710,7 +710,8 @@ and grades the β rule towards the β where a lossy pair meets; `guided` holds t
 the validation this costs 4.5 times the samples of the plain scan (a β pre-pass, a denser
 detection pass and a second pass per β node with poles); β runs up to k0 times the largest
 index of the cell. Quenching near a metal lives in the near field: give `beta_max` (about
-1/d times a few, d the distance to the metal; 12 k0 at 80 nm above silver at 633 nm). `grating.emission_cost(...)` with the same arguments counts the cell
+10/d, d the distance to the metal; 12 k0 at 80 nm above silver at 633 nm).
+`grating.emission_cost(...)` with the same arguments counts the cell
 problems and plane-wave solves without running them (with `guided` an estimate of the second
 passes), gives the memory of one factorisation and, with `calibrate=True`, times one of each
 and extrapolates the wall time (`EmissionCost`).
