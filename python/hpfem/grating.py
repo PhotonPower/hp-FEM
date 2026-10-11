@@ -318,7 +318,12 @@ def _prepare(
     moved = _snap_interfaces(mesh, stack, snap_tolerance * period)
     _check_interfaces(mesh, stack, period, snap_tolerance * period)
     wave = hpfem.layered_conical_wave(stack, k0, float(theta), float(phi), pol)
-    n_ref = min(n_cover.real, n_sub.real)
+    # the PML profile is designed for the slowest propagating wave it has to absorb: the substrate
+    # counts only with a bottom PML and when waves propagate in it (a metal or a near-perfect
+    # conductor with Re n ≈ 0 would make the top PML useless)
+    n_ref = n_cover.real
+    if bottom == "pml" and n_sub.real > n_sub.imag:
+        n_ref = min(n_ref, n_sub.real)
     theta_max = max(
         _max_order_angle(wave.kx, k0, n_cover.real, period, orders_max),
         _max_order_angle(wave.kx, k0, n_sub.real, period, orders_max)

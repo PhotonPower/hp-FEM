@@ -475,7 +475,9 @@ radiated power into cover and substrate per direction, guided and absorbed power
   AAA on a detection pass, bumps on the side of positive guided power, β breaks from a pre-pass;
   a dipole above a Si₃N₄ slab on glass against the layered Sommerfeld integral to 4e-4, the
   guided power from the residues equal to the non-radiated rest to 3e-4) with its cost in
-  `emission_cost`. Open: the mirror and the plasmonic film, parallel samples
+  `emission_cost`; a dipole above a perfect mirror against the image dipole (F_P to 6e-4, all
+  power up). Open: the plasmonic film (lossy surface-plasmon poles next to the light line and
+  their β pinch need adaptive β panels), parallel samples
 - [x] S4: job-runner task `emitter` (schema 2) with events, cancellation and the cost estimate
   before the run (`grating.emission_cost`, `dry_run`), extraction into a numerical aperture
   (`grating.emission_cone`); docs (maxwell.md "Stage B", python.md), example

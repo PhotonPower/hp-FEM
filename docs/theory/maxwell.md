@@ -1623,6 +1623,8 @@ Verified by `python/tests/test_dipole_emission.py`:
 - The interface on a small problem.
 - The AAA fit on a rational function with known poles and residues, and the choice of the
   guided-pole sides on a synthetic power matrix.
+- One $\beta$ slice above a perfect mirror, as the ratio to the free array, against the
+  image-dipole spectrum ($r_s = -1$, $r_p = +1$) to $10^{-4}$.
 
 The full scans are long local runs (`benchmarks/m17_dipole_scan.py`, record in
 `benchmarks/results/`):
@@ -1633,6 +1635,7 @@ The full scans are long local runs (`benchmarks/m17_dipole_scan.py`, record in
 | dipole in air 400 nm above glass, period 1 µm, against the Sommerfeld integral of Chance, Prock and Silbey (8 / 4 points) | $F_P$ to $8\cdot10^{-5}$ (1.04532 / 0.97660 / 1.04530 against 1.04531 / 0.97668 / 1.04531), up and down to $10^{-5}$, the non-radiated rest below $10^{-4}$ |
 | the same with a period of 0.8 µm | $F_P$ to $1\cdot10^{-3}$, up and down to $10^{-5}$: the single dipole does not depend on the period of the cell |
 | dipole in air 250 nm above a lossless Si₃N₄ slab (n = 2.0, 250 nm) on glass, period 1 µm, against the layered Sommerfeld integral (6 / 4 points, guided modes) | $F_P$ to $4\cdot10^{-4}$ (1.04819 / 1.09635 / 1.04859 against 1.04861 / 1.09611 / 1.04861), up to $10^{-6}$; the guided power from the residues (0.0160 / 0.0334 / 0.0163) matches the non-radiated rest to $3\cdot10^{-4}$; 192 poles, 9276 cell problems, 2.8 h on the loaded machine. Without the detection pass, a third of the poles was missed and $F_P$ was up to 2.4 % low |
+| dipole in air 150, 300 and 600 nm above a perfect mirror against the image dipole (8 / 4 points) | $F_P$ = 0.58664 / 1.68638, 1.30281 / 1.13741 and 0.80608 / 0.98976 ($x$ / $y$) against 0.58664 / 1.68693, 1.30280 / 1.13786 and 0.80597 / 0.99035: $x$ and $z$ to $1.4\cdot10^{-4}$, $y$ to $6\cdot10^{-4}$; all the power goes up, to $3\cdot10^{-5}$. The cell problems end on a PEC wall; the plane waves of the channels see the mirror as the substrate of the stack, a conductor with $\varepsilon = -10^{10}$ |
 
 For the glass case, the Gaussian factor $e^{-(nk\sigma)^2}$ cancels in the normalisation to
 the bulk power, because every plane wave of the spectrum carries it.
