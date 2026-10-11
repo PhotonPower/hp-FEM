@@ -246,6 +246,8 @@ def run(name, order, nodes, kx_nodes):
     )  # fmt: skip
     print()
     ref = reference(name)
+    # down_ref is F_ref − up_ref: what is not radiated upwards, i.e. down plus guided on the slab,
+    # whose reference does not split them (compare down + nonradiated there)
     out = {"samples": r.samples, "directions": r.directions, "seconds": time.perf_counter() - t0}
     for k in "xyz":
         out[k] = {
