@@ -2065,13 +2065,30 @@ class _ScanSlice:
     branch: list
 
 
+_GRADE_TOP = 0.25  # graded β panels around a lossy pinch reach k0 times this
+_GRADE_NODES = 4  # β points per graded panel (None: as the other panels)
+
+
 def _scan_slices(period: float, k0: float, indices, beta_max: float, nodes: int,
                  symmetric: bool, beta_breaks=(), pinch_breaks: bool = True) -> list:  # fmt: skip
     """The β nodes of :func:`array_scan_rule` with their kx windows (see there)."""
     g = 2 * math.pi / period
     factor = (period / (2 * math.pi)) * (1 / math.pi) * (2.0 if symmetric else 1.0)
     indices = sorted({round(float(n), 12) for n in indices if n > 0})
-    b_points = [k0 * n for n in indices] + [float(b) for b in beta_breaks]
+    b_points = [k0 * n for n in indices] + [complex(b).real for b in beta_breaks]
+    # a lossy pinch β_r + iδ (the pole pair of a lossy mode meeting at kx = 0 or π/P) makes a
+    # peak of width δ: panels graded geometrically towards β_r, δ, 2δ, 4δ, ... up to
+    # _GRADE_TOP k0, with _GRADE_NODES points each
+    graded = set()
+    for b in beta_breaks:
+        b = complex(b)
+        delta = abs(b.imag)
+        if delta > 1e-6 * k0:
+            step = delta
+            while step < _GRADE_TOP * k0:
+                graded |= {b.real - step, b.real + step}
+                step *= 2
+    b_points = [b for b in b_points + sorted(graded) if 0.0 < b < beta_max]
     if pinch_breaks:
         # where a +q and a −q crossing meet at kx = 0 or π/P (q = j·π/P, a Wood anomaly of the
         # cell): the kx integrand pinches there and the β integrand has a square-root point
@@ -2080,10 +2097,19 @@ def _scan_slices(period: float, k0: float, indices, beta_max: float, nodes: int,
             while j * 0.5 * g < k0 * n:
                 b_points.append(math.sqrt((k0 * n) ** 2 - (j * 0.5 * g) ** 2))
                 j += 1
+    # beyond the last break every medium is evanescent and the integrand decays like
+    # exp(−2βd) with the distance d of the dipole from the nearest interface: panels of width
+    # k0·max(n), so that an explicit beta_max for the near field of a metal is resolved
+    if indices:
+        start, step = max(b_points), k0 * max(indices)
+        while start + step < beta_max * (1 - 1e-9):
+            start += step
+            b_points.append(start)
     out = []
     b_edges = _breaks(0.0, beta_max, b_points)
     for b0, b1 in zip(b_edges[:-1], b_edges[1:], strict=True):
-        betas, wb = _mapped_gauss(b0, b1, nodes)
+        n_panel = _GRADE_NODES or nodes if b0 in graded or b1 in graded else nodes
+        betas, wb = _mapped_gauss(b0, b1, n_panel)
         for beta, w_beta in zip(betas, wb, strict=True):
             crossings = _light_line_crossings(period, k0, indices, float(beta))
             if symmetric:
@@ -2153,7 +2179,15 @@ def _aaa(z, f, tol: float = 1e-12, max_terms: int = 60):
     return poles, residues
 
 
-def _guided_poles(kx, a, sl: _ScanSlice, axis: float = 3e-3, near: float = 2e-3):
+def _guided_poles(
+    kx,
+    a,
+    sl: _ScanSlice,
+    axis: float = 5e-2,
+    near: float = 2e-3,
+    real: float = 2e-3,
+    strong: float = 1e-2,
+):
     """The guided-mode poles of one β node (ADR-0013 §4a): the poles of the AAA fit of the trace
     of the power matrix on the kx samples (:func:`_detection_contour`) that lie next to the real
     axis (|Im| below ``axis`` times the window) and not at a light-line crossing (the AAA
@@ -2165,14 +2199,25 @@ def _guided_poles(kx, a, sl: _ScanSlice, axis: float = 3e-3, near: float = 2e-3)
     1e-3 of the window off the axis, and a mode 5e-3 of the window from a crossing must get
     its own bump."""
     width = sl.hi - sl.lo
-    poles, residues = _aaa(kx, a[:, 0, 0] + a[:, 1, 1] + a[:, 2, 2])
+    trace = a[:, 0, 0] + a[:, 1, 1] + a[:, 2, 2]
+    poles, residues = _aaa(kx, trace)
+    scale = width * float(np.median(np.abs(trace)))
     out = []
     for p, r in zip(poles, residues, strict=True):
         if not (np.isfinite(r) and sl.lo < p.real < sl.hi and abs(p.imag) < axis * width):
             continue
         if any(abs(p.real - c) < near * width for c, _s in sl.crossings):
             continue
-        out.append([float(p.real), 1.0 if r.imag < 0 else -1.0, p])
+        if abs(p.imag) > real * width:
+            # a lossy pole: the bump turns away from it. The fit also approximates the branch
+            # cuts of the crossings by poles off the axis, with residues below 1e-3 of the
+            # slice, against several 1e-2 for the surface plasmon of silver
+            if abs(r) < strong * scale:
+                continue
+            side = 1.0 if p.imag > 0 else -1.0
+        else:
+            side = 1.0 if r.imag < 0 else -1.0  # on the axis: the side of positive power
+        out.append([float(p.real), side, p])
     for mode in out:
         matrix = np.zeros((3, 3), dtype=complex)
         for i in range(3):
@@ -2235,6 +2280,7 @@ class _DipoleCell:
     lossy: bool
     omega: float
     n_max: float  # the largest real index of the cell's materials (guided modes up to k0 n_max)
+    metal: bool  # a material with Re ε < 0 (surface plasmons: poles next to the real kx axis)
     extra_quadrature_order: int
     solver: object
 
@@ -2267,13 +2313,15 @@ def _dipole_cell(mesh, materials, stack, position, sigma: float, omega: float, o
         abs(complex(material_map.of_cell(mesh, c).eps_r).imag) > 1e-12
         for c in range(mesh.num_cells)
     )
-    n_max = max(np.sqrt(complex(material_map.of_cell(mesh, c).eps_r)).real
-                for c in range(mesh.num_cells))  # fmt: skip
+    eps = [complex(material_map.of_cell(mesh, c).eps_r) for c in range(mesh.num_cells)]
+    n_max = max(np.sqrt(e).real for e in eps)
+    metal = any(e.real < 0 for e in eps)
     orders = [int(order)] * mesh.num_cells if np.isscalar(order) else [int(p) for p in order]
     return _DipoleCell(pr, material_map, hpfem.NedelecDofMap2D(mesh, orders),
                        hpfem.DofMap2D(mesh, orders), np.array([x0, y0]), float(sigma),
                        complex(host.refractive_index).real, bool(lossy), float(omega),
-                       float(n_max), int(extra_quadrature_order), solver)  # fmt: skip
+                       float(n_max), bool(metal), int(extra_quadrature_order),
+                       solver)  # fmt: skip
 
 
 def _dipole_power_matrix(cell: _DipoleCell, kx: complex, beta: float) -> np.ndarray:
@@ -2401,11 +2449,13 @@ class DipoleEmission:
 
 def _guided_wanted(cell: _DipoleCell, guided) -> bool:
     """Whether :func:`dipole_emission` treats guided-mode poles: ``"auto"`` when a material of the
-    cell has a larger index than the semi-infinite media (only then can bound modes exist)."""
+    cell has a larger index than the semi-infinite media (only then can bound modes exist) or is
+    a metal (surface plasmons, poles next to the real axis by their small loss)."""
     if guided not in ("auto", True, False):
         raise GratingError(f"guided={guided!r}: use 'auto', True or False")
     n_semi = max([cell.pr.n_cover.real] + ([cell.pr.n_sub.real] if cell.pr.transmitted else []))
-    return guided is True or (guided == "auto" and cell.n_max > n_semi * (1 + 1e-9))
+    bound = cell.n_max > n_semi * (1 + 1e-9) or cell.metal
+    return guided is True or (guided == "auto" and bound)
 
 
 def _detection_contour(sl: _ScanSlice, kx_nodes: int, depth: float, min_points: int = 24):
@@ -2426,28 +2476,65 @@ _GUIDED_BREAK_POINTS = 40  # β samples of the guided pre-pass at each of kx = 0
 
 
 def _guided_breaks(cell: _DipoleCell, k0: float, beta_max: float, progress, cancel,
-                   points: int = _GUIDED_BREAK_POINTS):  # fmt: skip
+                   points: int = _GUIDED_BREAK_POINTS, refine: int = 12):  # fmt: skip
     """β breaks of the guided modes (ADR-0013 §4a): where a pair of guided poles meets at
-    kx = 0 or π/P, the β integrand has a square-root point. These β are the near-real poles of
-    the AAA fit of the trace of A(kx, β) along β at kx = 0 and π/P (``points`` samples each,
-    crowded towards the ends). Returns the breaks and the number of cell problems solved."""
-    t = np.polynomial.legendre.leggauss(int(points))[0]
-    betas = 0.5 * beta_max * (1.0 - np.cos(0.5 * np.pi * (t + 1.0)))
-    breaks, count = [], 0
-    for kx in (0.0, math.pi / cell.pr.period):
-        trace = []
+    kx = 0 or π/P, the β integrand has a square-root point. These β are the poles of the AAA fit
+    of the trace of A(kx, β) along β at kx = 0 and π/P (``points`` samples each, crowded towards
+    the ends) that lie next to the real axis, on [0, 3 k0 n] (n the largest index of the cell
+    and the semi-infinite media: surface plasmons can lie beyond k0 n_max, the near field of an
+    explicit beta_max holds no modes). Each is refitted on ``refine`` samples around it. A lossy
+    mode meets off the axis, at β_r + iδ: it is returned complex, and the β rule grades its
+    panels towards β_r (:func:`_scan_slices`); a pole within 2e-4 k0 of the axis is real.
+    Returns the breaks and the number of cell problems solved."""
+    n_top = max([cell.pr.n_cover.real, cell.n_max]
+                + ([cell.pr.n_sub.real] if cell.pr.transmitted else []))  # fmt: skip
+    top = min(float(beta_max), 3.0 * k0 * n_top)
+    count = 0
+    total = 2 * int(points)
+
+    def trace_at(kx, betas):
+        nonlocal count
+        out = []
         for beta in betas:
             if cancel is not None and cancel():
                 raise hpfem.Cancelled("dipole_emission cancelled")
             if progress is not None:
-                progress(count, 2 * len(betas))
+                progress(count, max(total, count + 1))
             a = _dipole_power_matrix(cell, complex(kx), float(beta))
-            trace.append(a[0, 0] + a[1, 1] + a[2, 2])
+            out.append(a[0, 0] + a[1, 1] + a[2, 2])
             count += 1
-        poles, _residues = _aaa(betas, trace)
-        breaks += [float(p.real) for p in poles
-                   if 0.0 < p.real < beta_max and abs(p.imag) < 1e-3 * beta_max]  # fmt: skip
-    return sorted(breaks), count
+        return np.array(out)
+
+    t = np.polynomial.legendre.leggauss(int(points))[0]
+    betas = 0.5 * top * (1.0 - np.cos(0.5 * np.pi * (t + 1.0)))
+    t_local = np.polynomial.legendre.leggauss(int(refine))[0]
+    breaks = []
+    for kx in (0.0, math.pi / cell.pr.period):
+        trace = trace_at(kx, betas)
+        poles, residues = _aaa(betas, trace)
+        scale = top * float(np.median(np.abs(trace)))
+        candidates = []
+        for p, r in zip(poles, residues, strict=True):
+            if not (0.0 < p.real < top and np.isfinite(r)):
+                continue
+            # a guided pole on the axis as before; a lossy one off it only with a residue that
+            # matters (the fit also puts weak poles along the branch cuts of the light lines)
+            if abs(p.imag) < 1e-3 * top or (abs(p.imag) < 2e-2 * top and abs(r) > 3e-3 * scale):
+                candidates.append(p)
+        for p in candidates:
+            half = max(10.0 * abs(p.imag), 0.02 * k0)
+            lo, hi = max(0.0, p.real - half), min(top, p.real + half)
+            local = lo + 0.5 * (hi - lo) * (t_local + 1.0)
+            total += len(local)
+            fine, _r = _aaa(local, trace_at(kx, local))
+            if len(fine):
+                q = fine[int(np.argmin(np.abs(fine - p)))]
+                if abs(q - p) < half:
+                    p = q
+            breaks.append(
+                float(p.real) if abs(p.imag) < 2e-4 * k0 else complex(p.real, abs(p.imag))
+            )
+    return sorted(breaks, key=lambda b: complex(b).real), count
 
 
 def _emission_plan(cell: _DipoleCell, k0: float, *, nodes: int, kx_nodes: int, depth: float,
@@ -2679,13 +2766,14 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     ``dipole`` as for :func:`emit` (``moment`` optional). ``beta_max`` defaults to k0 times the
     largest index of the cell's materials (guided modes live up to k0·n_eff). ``guided``
     (``"auto"``: when a material has a larger index than the semi-infinite media, so that bound
-    modes can exist; ``True`` / ``False``) treats the guided-mode poles of ADR-0013 §4a: a
-    pre-pass along β at kx = 0 and π/P (2 × 40 cell problems) finds the β where pole pairs meet
-    (breaks of the β rule); per β node an AAA fit of the trace of A on the kx samples finds the
-    poles next to the real axis where every order is evanescent in the semi-infinite media, and
-    a second pass puts a bump around each on the side that makes its guided power positive;
-    ``guided`` and ``guided_modes`` of the result hold the power per mode (from the residue, ±iπ
-    R). **Limits:** the evanescent range β > k0 n_max, where near-field absorption by nearby
+    modes can exist, or is a metal, whose surface plasmons are poles next to the real axis;
+    ``True`` / ``False``) treats the guided-mode poles of ADR-0013 §4a: a pre-pass along β at
+    kx = 0 and π/P (2 × 40 cell problems) finds the β where pole pairs meet (breaks of the β
+    rule); per β node an AAA fit of the trace of A on a denser detection contour finds the poles
+    next to the real axis, and a second pass puts a bump around each on the side that makes its
+    power positive; ``guided`` and ``guided_modes`` of the result hold the power per mode (from
+    the residue, ±iπ R; for a plasmon the power it is launched with, absorbed later in the
+    metal). **Limits:** the evanescent range β > k0 n_max, where near-field absorption by nearby
     metals lives, needs an explicit ``beta_max``; lossy hosts are excluded. ``progress(i, n)`` is
     called per solve, ``cancel()`` checked between solves (``hpfem.Cancelled``). ``pml``,
     ``bottom``, ``snap_tolerance``, ``pml_target``, ``pml_wavelengths``,

@@ -254,3 +254,60 @@ def test_cell_power_above_a_mirror_matches_the_image_spectrum():
                      for k, wi in zip(kx, w, strict=True)).real for m in (True, False)]  # fmt: skip
         ratio = a_mirror[i, i].real / a_free[i, i].real
         assert abs(ratio / (exact[0] / exact[1]) - 1.0) < 1e-3, (i, ratio, exact)  # 1e-4
+
+
+def test_beta_rule_grades_towards_a_lossy_pinch():
+    # a lossy pinch β_r + iδ makes a peak of width δ in β: the rule grades its panels towards
+    # β_r (δ, 2δ, 4δ, ...) and integrates the Lorentzian δ/((β − β_r)² + δ²) exactly enough;
+    # with the break at β_r alone (as for a lossless mode) it misses the peak
+    beta_r, delta, beta_max = 1.3 * K, 3e-3 * K, 2.0 * K
+
+    def lorentz(b):
+        return delta / ((b - beta_r) ** 2 + delta**2)
+
+    exact = math.atan((beta_max - beta_r) / delta) + math.atan(beta_r / delta)
+    factor = (PERIOD / (2 * math.pi)) / math.pi * 2.0
+    errors = {}
+    for name, breaks in (("graded", [complex(beta_r, delta)]), ("real", [beta_r])):
+        slices = grating._scan_slices(PERIOD, K0, [N], beta_max, 6, True, breaks)
+        value = sum(sl.weight / factor * lorentz(sl.beta) for sl in slices)
+        errors[name] = abs(value / exact - 1.0)
+    assert errors["graded"] < 1e-4, errors  # 3.6e-5
+    assert errors["real"] > 1e-3, errors
+
+
+def test_lossy_poles_get_a_bump_away_from_them():
+    # off the axis (a lossy mode) the bump turns away from the pole, whatever its residue; a
+    # weak pole off the axis (the fit along a branch cut) is no mode
+    sl = grating._ScanSlice(beta=0.5, weight=1.0, lo=0.0, hi=math.pi, crossings=[], branch=[])
+    kx = np.linspace(sl.lo, sl.hi, 161)
+    width = sl.hi - sl.lo
+    p_up, p_down, p_weak = 0.8 + 0.02j * width, 2.1 - 0.03j * width, 1.5 + 0.01j * width
+    a = np.array([np.eye(3) * (0.3 / (k - p_up) + 0.2j / (k - p_down) + 1e-5 / (k - p_weak) + 1.0)
+                  for k in kx])  # fmt: skip
+    found = sorted(grating._guided_poles(kx, a, sl), key=lambda m: m[0])
+    assert [round(m[0], 6) for m in found] == [0.8, 2.1]
+    assert [m[1] for m in found] == [1.0, -1.0]  # below a pole above the axis, and vice versa
+
+
+def test_guided_breaks_find_a_lossy_pinch(monkeypatch):
+    # the β pre-pass fits the trace along β at kx = 0 and π/P and refines every candidate on
+    # samples around it: a lossy pinch comes back complex, to 1e-6 of k0
+    pinch = complex(1.21 * K0, 4e-3 * K0)
+
+    class Prepared:
+        period, n_cover, n_sub, transmitted = PERIOD, complex(1.0), complex(1.5), True
+
+    class Cell:
+        pr, n_max = Prepared, 1.5
+
+    def power_matrix(_cell, kx, beta):
+        # at fixed kx a mode is a simple pole in β
+        value = K0 / (beta - pinch) + 0.3 * beta / K0 if kx == 0 else 1.0 + 0.0j
+        return np.eye(3) * value
+
+    monkeypatch.setattr(grating, "_dipole_power_matrix", power_matrix)
+    breaks, count = grating._guided_breaks(Cell, K0, 2.0 * K0, None, None)
+    assert count >= 2 * grating._GUIDED_BREAK_POINTS
+    lossy = [b for b in breaks if isinstance(b, complex)]
+    assert len(lossy) == 1 and abs(lossy[0] - pinch) < 1e-6 * K0, breaks

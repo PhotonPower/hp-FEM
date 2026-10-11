@@ -18,6 +18,11 @@ Cases (λ = 1 µm, σ = 60 nm, period 1 µm unless stated, PML 1 µm above and b
   problems end on a PEC wall at the mirror; the plane waves of the channels see it as the
   substrate of the stack, a conductor with ε = −10¹⁰ (r_s = −1, r_p = +1 to 10⁻⁵). All power
   goes up.
+- ``silver``: a dipole in a dielectric (n = 1.5) 80 nm above silver (Johnson and Christy at
+  633 nm, ε = −18.3 + 0.48i; σ = 15 nm, period 500 nm, β up to 12 k0, p = 4), against the
+  Sommerfeld integral: quenching by the lossy surface waves and the surface plasmon, a lossy
+  pole next to the real kx axis (ADR-0013 §4a, the lossy pinches of the β rule). The cell ends
+  on a PEC wall 400 nm deep in the silver.
 
 Every case runs for ``--nodes`` β points per panel (default 6 and 8) with ``--kx-nodes``
 (default 4) at ``--order`` (default 3). The record
@@ -138,7 +143,7 @@ def sommerfeld_layered(n1, layers, n3, k0, h, depth=0.02, points=4000):
     causal side: s runs on t − i·depth·sin(πt/S) up to S beyond the largest index (exp(−iωt):
     a small loss moves the poles above the real axis), then along the real axis."""
     k1 = n1 * k0
-    s_top = max(n for n, _d in layers) / n1 + 0.3
+    s_top = max(abs(n) for n in [n3] + [n for n, _d in layers]) / n1 + 0.3
     t, w = np.polynomial.legendre.leggauss(points)
     t = 0.5 * s_top * (t + 1.0)
     w = 0.5 * s_top * w
@@ -233,6 +238,29 @@ def mirror_cell(period=1.0 * UM, h=0.1 * UM):
     return mesh, {}, stack
 
 
+SILVER = {"lambda": 0.633 * UM, "n1": 1.5, "height": 0.08 * UM, "sigma": 0.015 * UM,
+          "period": 0.5 * UM, "beta_max": 12.0}  # fmt: skip
+
+
+def silver_eps(omega):
+    from hpfem import materials
+
+    return complex(materials.get("Ag").eps_r(omega))
+
+
+def silver_cell(omega):
+    from hpfem import meshing
+
+    period = SILVER["period"]
+    cell = meshing.UnitCell(period, -0.4 * UM, 0.8 * UM, slabs=[meshing.Slab(2, -0.4 * UM, 0.0)],
+                            background_tag=1)  # fmt: skip
+    rows = [(-0.4 * UM, -0.1 * UM, 3), (-0.1 * UM, 0.0, 10), (0.0, 0.16 * UM, 8),
+            (0.16 * UM, 0.4 * UM, 6), (0.4 * UM, 0.8 * UM, 4)]  # fmt: skip
+    mesh = meshing.structured_unit_cell(cell, 25, rows)
+    cover, silver = hpfem.Material.dielectric(SILVER["n1"]), hpfem.Material(silver_eps(omega))
+    return mesh, {1: cover, 2: silver}, hpfem.LayerStack2D(cover, [], silver, 0.0)
+
+
 CASES = {
     # name: (period, cover index, substrate index, dipole height)
     "homogeneous": (1.0 * UM, 1.5, 1.5, 0.1 * UM),
@@ -240,6 +268,7 @@ CASES = {
     "glass_period": (0.8 * UM, 1.0, 1.5, 0.4 * UM),
     "slab": None,  # SLAB: a lossless waveguide, guided modes (ADR-0013 §4a)
     **{name: None for name in MIRROR},  # a perfect mirror, the image-dipole closed form
+    "silver": None,  # SILVER: plasmonic quenching, lossy poles
 }
 
 
@@ -248,6 +277,13 @@ def reference(name):
     if name == "slab":
         f_perp, f_par, up_perp, up_par = sommerfeld_layered(
             SLAB["n1"], SLAB["layers"], SLAB["n3"], k0, SLAB["height"]
+        )
+        return {"x": (f_par, up_par), "y": (f_perp, up_perp), "z": (f_par, up_par)}
+    if name == "silver":
+        k0 = 2 * math.pi / SILVER["lambda"]
+        n_ag = cmath.sqrt(silver_eps(units.angular_frequency(wavelength=SILVER["lambda"])))
+        f_perp, f_par, up_perp, up_par = sommerfeld_layered(
+            SILVER["n1"], [], n_ag, k0, SILVER["height"]
         )
         return {"x": (f_par, up_par), "y": (f_perp, up_perp), "z": (f_par, up_par)}
     if name in MIRROR:
@@ -260,7 +296,16 @@ def reference(name):
 
 def run(name, order, nodes, kx_nodes):
     bottom, pml = "pml", {"top": UM, "bottom": UM}
-    if name == "slab":
+    omega = units.angular_frequency(wavelength=LAMBDA)
+    extra = {}
+    if name == "silver":
+        omega = units.angular_frequency(wavelength=SILVER["lambda"])
+        mesh, materials, stack = silver_cell(omega)
+        height, sigma = SILVER["height"], SILVER["sigma"]
+        bottom, pml = "pec", {"top": 0.4 * UM}
+        k0 = 2 * math.pi / SILVER["lambda"]
+        extra = {"beta_max": SILVER["beta_max"] * k0}
+    elif name == "slab":
         mesh, materials, stack = slab_cell()
         height, sigma = SLAB["height"], SLAB["sigma"]
     elif name in MIRROR:
@@ -272,12 +317,11 @@ def run(name, order, nodes, kx_nodes):
         period, n1, n2, height = CASES[name]
         mesh, materials, stack = cell(period, n2, n1)
         sigma = SIGMA
-    omega = units.angular_frequency(wavelength=LAMBDA)
     t0 = time.perf_counter()
     r = grating.dipole_emission(
         mesh, materials, stack, {"position": (0.0, height), "sigma": sigma}, omega,
         nodes=nodes, kx_nodes=kx_nodes, order=order, symmetric=True, angle_nodes=(8, 16),
-        pml=pml, bottom=bottom,
+        pml=pml, bottom=bottom, **extra,
         progress=lambda i, n: print(f"\r  {name} p={order} nodes={nodes}: {i + 1}/{n}", end="",
                                     flush=True),
     )  # fmt: skip
