@@ -242,6 +242,31 @@ Events: `evaluation` per evaluation (also in `results["points"]`), `remesh`, `ca
 in the module docstring; `python/tests/test_run_study.py` runs all three tasks, the replay,
 cancellation and the version-1 compatibility.
 
+**Emitter task (schema version 2, M17 S4).** `"task": "emitter"` computes the emission of a
+single Gaussian dipole in the cell over a wavelength sweep. The `"emitter"` block holds
+`position` (x, y in the cell), `sigma`, `moment` (`"isotropic"` — the mean of the three
+orientations —, `"x"`, `"y"`, `"z"` or `[px, py, pz]`), `wavelength` (a value, a list or
+`{"start", "stop", "count"}`) and `stage`:
+
+- `"A"`: the Bloch array at `kx_over_k0`, `beta_over_k0` (`grating.emit`): `P_cell`, `up`,
+  `down`, `absorbed`, `guided`, the order powers.
+- `"B"`: the single dipole (`grating.dipole_emission` with `scan` = `nodes`, `kx_nodes`,
+  `depth`, `angle_nodes`, `symmetric`, `beta_max_over_k0`): `purcell`, the `fractions` up / down
+  / nonradiated of the emitted power and, per numerical `aperture`, the collected power and
+  fraction (`grating.emission_cone`, `aperture_side`).
+- `"C"`: dP/dΩ on the grid `directions` = `{"theta_deg", "phi_deg", "sides"}`
+  (`grating.emission_pattern`) per side and polarisation, with the power into each `aperture`
+  integrated from the grid.
+
+Before the solves the event `emission_cost` (and `results["cost"]`) gives the solves per
+wavelength and in total, the memory of one factorisation and, with `calibrate` (one cell sample
+and one plane-wave solve), the predicted wall time; `"dry_run": true` stops there. Further
+events: `progress` per solve (`phase` `"scan"`, `"aperture …"`, `"pattern"` or `"emit"`), one
+`point` per wavelength, `cancelled` (checked between the solves) and `done`. The full schema is
+in the module docstring; `python/tests/test_run_emitter.py` runs the three stages, the dry run,
+cancellation and an isotropic dipole in a homogeneous medium against the closed form, and
+`examples/grating_emitter` uses the task for a quantum dot above a glass grating.
+
 ## Diagnostics (`hpfem.diagnostics`)
 
 `hpfem.grating.validate(...)` (the arguments of `solve`) and
@@ -659,8 +684,29 @@ C"); directions into the substrate are solved on the problem mirrored at y = 0 (
 `pml` as `None` or a `{"top", "bottom"}` dict). The `EmissionPattern` holds `dP_dOmega`
 (directions × polarisations, [W/sr], divided by `P_bulk` with `normalized=True`), `total` (summed
 over the polarisations), `P_bulk` (the dipole in its homogeneous host medium), the reciprocity
-`amplitude` and the index `n` of each direction's medium. It is the radiated part only; the
-guided and absorbed power and the Purcell factor need Stage B.
+`amplitude` and the index `n` of each direction's medium. `moment` may also be `"x"`, `"y"`,
+`"z"` or `"isotropic"` (the mean of dP/dΩ over the three unit moments, `amplitude` NaN);
+`progress` / `cancel` act per solve. It is the radiated part only; the guided and absorbed
+power and the Purcell factor need Stage B.
+
+**Single dipole by array scanning (M17 S3).** `grating.dipole_emission(mesh, materials, stack,
+dipole, omega, nodes=6, kx_nodes=4, depth=0.5, beta_max=None, symmetric=False, order=4,
+channels=True, angle_nodes=(8, 16), pml=..., progress=None, cancel=None, ...)` integrates the
+cell problem over kx (one period, on the complex contour around the light lines) and β
+(`grating.array_scan_rule`, docs/theory/maxwell.md "Stage B"). The `DipoleEmission` holds, per
+orientation key `"x"`, `"y"`, `"z"`, `"isotropic"` and `"moment"` (the dipole's own, if
+given), the emitted power `P_em`, the Purcell factor `purcell` = P_em / P_bulk, the radiated
+channels `up` / `down` (by reciprocity over the half-spaces, `angle_nodes` = θ points, φ points)
+and `nonradiated` = P_em − up − down (absorbed in a lossy structure, guided in a lossless one;
+guided-mode poles are not treated yet, so use structures without lossless waveguide layers),
+with `samples`, `directions`, the power and radiation matrices and the timing; `symmetric`
+halves the scan for a cell mirror-symmetric about the dipole. `grating.emission_cost(...)` with
+the same arguments counts the cell problems and plane-wave solves without running them, gives
+the memory of one factorisation and, with `calibrate=True`, times one of each and extrapolates
+the wall time (`EmissionCost`). `grating.emission_cone(mesh, materials, stack, dipole, omega,
+aperture, side="up", angle_nodes=(8, 16), symmetric=False, ...)` is the power radiated into a
+collection cone θ ≤ asin(NA / n) per orientation key (`EmissionCone.power`); divided by
+`P_em` it is the extraction efficiency into the aperture of an objective.
 
 **Scalar E_z path.** For the s polarisation at `phi = 0` (`scalar="auto"`, the default)
 `grating.solve` lets `ConicalScattering` factorise only the H1 block (`setup.scalar_ez`), about
