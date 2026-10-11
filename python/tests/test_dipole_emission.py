@@ -200,3 +200,57 @@ def test_guided_poles_take_the_side_of_positive_power():
     assert [m[1] for m in found] == [-1.0, 1.0]
     assert np.allclose(found[0][2], r2, atol=1e-8)
     assert np.allclose(found[1][2], r1, atol=1e-8)
+
+
+def mirror_spectrum(kx, beta, i, h, mirror):
+    """Diagonal entry i of the power-matrix spectrum of the phased array in the medium N at the
+    height h above a perfect mirror (r_s = −1, r_p = +1; without it the free array), up to a
+    common factor: per order (k_t/k)² (1 + r_p e)/s_z for i = y, the s and p parts of the
+    in-plane moments with e = exp(2ikh s_z)."""
+    total = 0.0
+    for m in range(-8, 9):
+        km = kx + 2 * math.pi * m / PERIOD
+        kt2 = km * km + beta * beta
+        sz = cmath.sqrt(1 - kt2 / K**2)
+        if sz.real + sz.imag < 0:
+            sz = -sz
+        rs, rp = (-1.0, 1.0) if mirror else (0.0, 0.0)
+        e = cmath.exp(2j * K * h * sz)
+        if i == 1:
+            total += (kt2 / K**2) * (1 + rp * e) / sz
+        else:
+            a, b = (beta, km) if i == 0 else (km, beta)
+            total += (a * a / kt2 * (1 + rs * e) + b * b / kt2 * sz * sz * (1 - rp * e)) / sz
+    return total
+
+
+def test_cell_power_above_a_mirror_matches_the_image_spectrum():
+    # a PEC wall below the cell and a conductor (ε = −1e10) as the substrate of the stack: the
+    # mirror for the cell problems and for the plane waves of the channels. The substrate must
+    # not enter the design of the top PML (its Re n ≈ 0 made the slice wrong by a factor). One β
+    # slice, x and y dipoles, as the ratio to the free array (the normalisation cancels).
+    h, beta = 0.4 * UM, 0.245 * K
+    mirror_mesh = hpfem.rectangle(8, 24, [-PERIOD / 2, 0.0], [PERIOD / 2, 3.0 * UM])
+    conductor = hpfem.Material(complex(-1e10, 1.0))
+    mirror_stack = hpfem.LayerStack2D(hpfem.Material.dielectric(N), [], conductor, 0.0)
+    free_mesh, free_stack = homogeneous_cell()
+    options = dict(snap_tolerance=1e-9, pml_target=1e-6, pml_wavelengths=0.5,
+                   extra_quadrature_order=4, solver=None)  # fmt: skip
+    mirror = grating._dipole_cell(mirror_mesh, {}, mirror_stack, np.array([0.0, h]), SIGMA,
+                                  OMEGA, 3, pml={"top": UM}, bottom="pec", **options)  # fmt: skip
+    free = grating._dipole_cell(free_mesh, {}, free_stack, np.array([0.0, h]), SIGMA, OMEGA, 3,
+                                pml={"top": UM, "bottom": UM}, bottom="pml", **options)  # fmt: skip
+    crossings = grating._light_line_crossings(PERIOD, K0, [N], beta)
+    lo, hi = 0.0, math.pi / PERIOD
+    inside = [(c, s) for c, s in crossings if lo < c < hi]
+    kx, w, _ = grating._kx_contour(lo, hi, inside, 4, 0.5)
+    a_mirror = sum(wi * grating._dipole_power_matrix(mirror, complex(k), beta)
+                   for k, wi in zip(kx, w, strict=True))  # fmt: skip
+    a_free = sum(wi * grating._dipole_power_matrix(free, complex(k), beta)
+                 for k, wi in zip(kx, w, strict=True))  # fmt: skip
+    for i in (0, 1):
+        # the powers are the real parts of the slice integrals
+        exact = [sum(wi * mirror_spectrum(k, beta, i, h, m)
+                     for k, wi in zip(kx, w, strict=True)).real for m in (True, False)]  # fmt: skip
+        ratio = a_mirror[i, i].real / a_free[i, i].real
+        assert abs(ratio / (exact[0] / exact[1]) - 1.0) < 1e-3, (i, ratio, exact)  # 1e-4

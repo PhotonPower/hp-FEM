@@ -3,6 +3,10 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- A dipole above a perfect mirror in the single-dipole scan (M17 S3): benchmark cases at 150,
+  300 and 600 nm against the image dipole. F_P is right to 1.4e-4 for x and z and to 6e-4 for
+  y, and all the power goes up, to 3e-5. The cell problems end on a PEC wall; the channels see
+  the mirror as a conductor (ε = −1e10) in the substrate of the stack. A slice test covers it.
 - Guided modes in the single-dipole scan (M17 S3b, ADR-0013 §4a): `grating.dipole_emission`
   with `guided="auto"` (on when a material of the cell has a larger index than cover and
   substrate) finds the bound-mode poles of a lossless cell on the kx axis by an AAA fit on a
@@ -233,6 +237,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   side-wall angle tolerances of a silicon grating propagated to its reflectance spectrum.
 
 ### Fixed
+- The PML of `grating` was designed with the smaller of the cover and substrate indices, even
+  with `bottom="pec"`, where there is no bottom PML, and even for a metal substrate with
+  Re n ≈ 0. Now the substrate counts only with a bottom PML and when waves propagate in it
+  (Re n > Im n). With a conductor as the substrate, the top PML was useless and a dipole's cell
+  problems were wrong by 60 %. The silver grating with a PEC bottom changes by 1e-5.
 - The radiated channels of `grating.dipole_emission`, `emission_pattern` and `emission_cone`
   average the plane-wave field over the dipole's Gaussian by a quadrature of the cells
   (`conical_gaussian_average`, with sub-triangles for cells wider than σ/2) instead of a

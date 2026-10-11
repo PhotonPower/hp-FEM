@@ -11,6 +11,13 @@ Cases (λ = 1 µm, σ = 60 nm, period 1 µm unless stated, PML 1 µm above and b
   because every plane wave of the spectrum carries it).
 - ``glass_period``: the same with a period of 0.8 µm. The single dipole does not depend on the
   period of the computational cell.
+- ``slab``: a dipole in air 250 nm above a lossless Si₃N₄ slab (n = 2.0, 250 nm) on glass
+  (σ = 40 nm), against the layered Sommerfeld integral; guided-mode poles (ADR-0013 §4a).
+- ``mirror_150``, ``mirror_300``, ``mirror_600``: a dipole in air 150, 300 and 600 nm above a
+  perfect mirror (σ = 40 nm, 20 nm at 150 nm), against the image-dipole closed form. The cell
+  problems end on a PEC wall at the mirror; the plane waves of the channels see it as the
+  substrate of the stack, a conductor with ε = −10¹⁰ (r_s = −1, r_p = +1 to 10⁻⁵). All power
+  goes up.
 
 Every case runs for ``--nodes`` β points per panel (default 6 and 8) with ``--kx-nodes``
 (default 4) at ``--order`` (default 3). The record
@@ -206,12 +213,33 @@ def cell(period, substrate_index, cover_index, h=0.1 * UM):
     return mesh, {2: substrate}, stack
 
 
+def image_dipole(k0, h):
+    """Purcell factors (perpendicular, parallel) of a point dipole at height h above a perfect
+    mirror (x = 2kh): F_⊥ = 1 + 3(sin x/x³ − cos x/x²), F_∥ = 1 − (3/2)(sin x/x + cos x/x² −
+    sin x/x³); all the power goes up."""
+    x = 2 * k0 * h
+    f_perp = 1 + 3 * (math.sin(x) / x**3 - math.cos(x) / x**2)
+    f_par = 1 - 1.5 * (math.sin(x) / x + math.cos(x) / x**2 - math.sin(x) / x**3)
+    return f_perp, f_par, f_perp, f_par
+
+
+MIRROR = {"mirror_150": 0.15 * UM, "mirror_300": 0.3 * UM, "mirror_600": 0.6 * UM}
+
+
+def mirror_cell(period=1.0 * UM, h=0.1 * UM):
+    mesh = hpfem.rectangle(round(period / h), 25, [-period / 2, 0.0], [period / 2, 2.5 * UM])
+    stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [],
+                               hpfem.Material(complex(-1e10, 1.0)), 0.0)  # fmt: skip
+    return mesh, {}, stack
+
+
 CASES = {
     # name: (period, cover index, substrate index, dipole height)
     "homogeneous": (1.0 * UM, 1.5, 1.5, 0.1 * UM),
     "glass": (1.0 * UM, 1.0, 1.5, 0.4 * UM),
     "glass_period": (0.8 * UM, 1.0, 1.5, 0.4 * UM),
     "slab": None,  # SLAB: a lossless waveguide, guided modes (ADR-0013 §4a)
+    **{name: None for name in MIRROR},  # a perfect mirror, the image-dipole closed form
 }
 
 
@@ -222,15 +250,24 @@ def reference(name):
             SLAB["n1"], SLAB["layers"], SLAB["n3"], k0, SLAB["height"]
         )
         return {"x": (f_par, up_par), "y": (f_perp, up_perp), "z": (f_par, up_par)}
+    if name in MIRROR:
+        f_perp, f_par, up_perp, up_par = image_dipole(k0, MIRROR[name])
+        return {"x": (f_par, up_par), "y": (f_perp, up_perp), "z": (f_par, up_par)}
     _period, n1, n2, height = CASES[name]
     f_perp, f_par, up_perp, up_par = sommerfeld(n1, n2, k0, height)
     return {"x": (f_par, up_par), "y": (f_perp, up_perp), "z": (f_par, up_par)}
 
 
 def run(name, order, nodes, kx_nodes):
+    bottom, pml = "pml", {"top": UM, "bottom": UM}
     if name == "slab":
         mesh, materials, stack = slab_cell()
         height, sigma = SLAB["height"], SLAB["sigma"]
+    elif name in MIRROR:
+        mesh, materials, stack = mirror_cell()
+        height = MIRROR[name]
+        sigma = min(0.04 * UM, height / 7)  # the Gaussian 6σ clear of the PEC wall
+        bottom, pml = "pec", {"top": UM}
     else:
         period, n1, n2, height = CASES[name]
         mesh, materials, stack = cell(period, n2, n1)
@@ -240,7 +277,7 @@ def run(name, order, nodes, kx_nodes):
     r = grating.dipole_emission(
         mesh, materials, stack, {"position": (0.0, height), "sigma": sigma}, omega,
         nodes=nodes, kx_nodes=kx_nodes, order=order, symmetric=True, angle_nodes=(8, 16),
-        pml={"top": UM, "bottom": UM},
+        pml=pml, bottom=bottom,
         progress=lambda i, n: print(f"\r  {name} p={order} nodes={nodes}: {i + 1}/{n}", end="",
                                     flush=True),
     )  # fmt: skip
