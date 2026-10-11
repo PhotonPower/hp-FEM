@@ -795,3 +795,83 @@ Not tested: the hypothesis in its full form, multi-fidelity BO with the DWR esti
 fidelity indicator against single-fidelity BO (`opt.multi_fidelity_optimize` needs BoTorch,
 which the local environment does not have); the study supports the indicator, not yet the
 multi-fidelity acquisition built on it. One problem, five seeds, one κ.
+
+## J. Bodies of revolution on layer stacks against the 3D solver (M18)
+
+**Problem.** The layered background of the axisymmetric solver (ADR-0014, M18 S1–S3) against
+`Scattering3D` with the same `LayerStack3D` background, as specified in
+`docs/axisymmetric-layered-features.md` (tests 5 and 7):
+
+- *sphere on a two-layer stack*: a gold sphere (radius 40 nm, Johnson & Christy) 5 nm above
+  air / SiO2 20 nm (n = 1.45) / Si3N4 60 nm (n = 2.0) / glass (n = 1.5), p-polarised at 45°, at
+  550 and 650 nm: absorption of the sphere, scattering through a measurement cylinder (r ≤ 120 nm,
+  −120 nm < z < 145 nm) split into up / down / lateral, and |E| of the total field at three points
+  of the plane of incidence (in the gap, beside the sphere, above it);
+- *nanohole*: a hole of 200 nm diameter through a 100 nm gold film on glass at normal incidence,
+  at 600 / 750 / 900 nm: T / T_geom (the power the hole adds through the disc r ≤ 300 nm 100 nm
+  below the film, over the power on the hole area) and the absorption change of the film in the
+  cylinder r ≤ 250 nm.
+
+The 3D meshes are second-order gmsh tetrahedra with every interface, the PML boundaries and the
+measurement surfaces embedded, symmetry-reduced (half domain with PMC on the plane of incidence for
+the sphere, quarter domain with PEC / PMC for the x-polarised hole, powers doubled / quadrupled),
+p = 2 and 3, solved with MUMPS. The 2.5D reference sums the orders m = 0, ±1, ±2 (p = 4 for the
+sphere on the mesher of `examples/particle_on_substrate` with its lines on the measurement
+cylinder; p = 3 for the hole, the example's full configuration). Driver
+`benchmarks/m18_validation_3d.py` (meshes by `benchmarks/m18_meshes_3d.py`), record
+`benchmarks/results/2026-10-10-validation-m18-3d.json`, quick CI regression against it
+`python/tests/test_m18_records.py`.
+
+| sphere, p = 3 (446 k DoFs) | 3D | 2.5D | deviation |
+|---|---|---|---|
+| 550 nm: σ_abs / σ_sca [nm²] | 6740.2 / 5391.1 | 6738.4 / 5394.2 | +0.03 % / −0.06 % |
+| 550 nm: up / down / lateral [nm²] | 3748.3 / 694.1 / 948.6 | 3750.0 / 694.8 / 949.4 | −0.04 / −0.09 / −0.08 % |
+| 550 nm: \|E\| gap / side / top | 7.447 / 2.341 / 2.722 | 7.452 / 2.354 / 2.720 | −0.07 / −0.57 / +0.04 % |
+| 650 nm: σ_abs / σ_sca [nm²] | 459.72 / 1544.9 | 459.70 / 1542.7 | +0.004 % / +0.14 % |
+| 650 nm: up / down / lateral [nm²] | 1134.0 / 162.1 / 248.8 | 1132.3 / 161.9 / 248.5 | +0.15 / +0.10 / +0.11 % |
+| 650 nm: \|E\| gap / side / top | 5.344 / 1.697 / 2.499 | 5.348 / 1.707 / 2.499 | −0.07 / −0.56 / +0.02 % |
+
+At p = 2 (155 k DoFs) the deviations are 0.03–0.4 % in absorption, up to 1 % in scattering and
+2 % in the channels.
+
+| nanohole | T / T_geom 3D p = 2 / p = 3 | 2.5D | ΔA / A_geom 3D p = 2 / p = 3 | 2.5D |
+|---|---|---|---|---|
+| 600 nm | 0.6312 / 0.6360 | 0.6441 | 0.1895 / 0.1848 | 0.1802 |
+| 750 nm | 0.6423 / 0.6371 | 0.6363 | 0.0936 / 0.0933 | 0.0922 |
+| 900 nm | 0.2740 / 0.2721 | 0.2716 | 0.0732 / 0.0730 | 0.0727 |
+
+(309 k / 889 k DoFs.) The stack's own flux through the 3D disc is T I πR² to 2·10⁻⁶ at every
+wavelength. Each 3D solve took 15 s / 80 s (sphere, p = 2 / 3) and 50–200 s / 170 s (hole) with
+8 threads next to other jobs, the factors 3–27 GB (`estimate_memory`); the 2.5D solves take
+seconds.
+
+**Full spectra of the example.** `examples/particle_on_substrate` at p = 3 (record
+`benchmarks/results/2026-10-11-particle-on-substrate.json`): the gold sphere on glass absorbs most
+at 520 nm and scatters most at 530 nm (dark-field signal for NA 0.5: 107 nm²); on a gold mirror
+with a 2 nm gap its scattering peak moves to 610 nm and is 22 times that of the sphere in air
+(520 nm); the 200 nm hole in 100 nm of gold transmits 0.80 of the light on its area at 660 nm,
+falling to 0.15 at 1000 nm. The power balance of the total field closes to 6·10⁻³ or better in
+every study. These are results, not references: the 3D cross-checks above validate the method on
+the same kinds of geometry.
+
+**A lesson on the channels.** The first sphere runs used a cuboid |x|, y < 120 nm as the 3D
+measurement surface against the 2.5D cylinder r < 117 nm (the nearest mesh line). Absorption, total
+scattering and near field agreed as above, but about 5 % of the upward power appeared as
+"down" in 3D (up −4.8 %, down +27 %), unchanged by p = 3 and by a PML of 35 nm cells instead of
+90 nm (the record keeps these runs under `diagnostics`). Light leaving the sphere obliquely
+downwards in the air leaves the cylinder through its side wall above the stack (up), while at the
+corners of the cuboid it first reaches the stack and passes into the glass (down). The split of the
+scattered power into up / down / lateral is a property of the surface where its side walls cross
+the layers, not of the scatterer alone; already 3 nm in the radius of the 2.5D cylinder (117 to
+120 nm) move 4 % of "down". With the same cylinder in both solvers the channels agree to 0.15 %.
+The physical split into the two half-spaces is the far field (`axisymmetric_layered_far_field`,
+M18 S3), which does not depend on the surface.
+
+**Assessment.** The axisymmetric solver on a layered background reproduces the 3D solver on the
+same stack: absorption to 0.03 % and better, scattering and its channels to 0.15 %, the near
+field in a 5 nm gap to 0.6 % at p = 3; the hole's transmission and absorption change converge
+from p = 2 to p = 3 towards the 2.5D values (−1.3 % / +2.5 % at 600 nm, below 0.2 % / 1.2 % at
+750 and 900 nm; the 2.5D reference is itself a p = 3 solution with a power balance of 10⁻³).
+The 3D runs need minutes and gigabytes where the orders need seconds, which is the reason
+for the layered background of the body-of-revolution solver.
+

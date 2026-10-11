@@ -1,6 +1,265 @@
 {
  "study": "M18 3D cross-checks (ADR-0014; docs/axisymmetric-layered-features.md tests 5 and 7)",
- "runs": {},
+ "runs": {
+  "sphere_on_stack/2.5D/550.0": {
+   "wavelength_nm": 550.0,
+   "max_order": 2,
+   "sigma_absorption_nm2": 6738.395237520917,
+   "sigma_up_nm2": 3749.986108351084,
+   "sigma_down_nm2": 694.7996318240366,
+   "sigma_lateral_nm2": 949.4133947896038,
+   "sigma_collected_nm2": 131.47809882650364,
+   "sigma_scattering_nm2": 5394.199134964724,
+   "sigma_extinction_nm2": 12132.594372485642,
+   "balance": -1.9155180253300013e-05,
+   "near_field_abs_E": [
+    7.451965807608059,
+    2.3540574770371907,
+    2.720471307777157
+   ],
+   "p": 4
+  },
+  "sphere_on_stack/2.5D/650.0": {
+   "wavelength_nm": 650.0,
+   "max_order": 2,
+   "sigma_absorption_nm2": 459.74311091118545,
+   "sigma_up_nm2": 1132.3449325690065,
+   "sigma_down_nm2": 161.90710863035173,
+   "sigma_lateral_nm2": 248.48427255651404,
+   "sigma_collected_nm2": 29.735649912616093,
+   "sigma_scattering_nm2": 1542.736313755872,
+   "sigma_extinction_nm2": 2002.4794246670574,
+   "balance": -4.940509743531265e-05,
+   "near_field_abs_E": [
+    5.348150420643908,
+    1.7069947034631046,
+    2.4988559043005236
+   ],
+   "p": 4
+  },
+  "sphere_on_stack/3D/p2/550.0": {
+   "wavelength_nm": 550.0,
+   "p": 2,
+   "dofs": 155158,
+   "sigma_absorption_nm2": 6764.972560657683,
+   "sigma_up_nm2": 3778.9538678883773,
+   "sigma_down_nm2": 708.2076874322585,
+   "sigma_lateral_nm2": 960.6576467172692,
+   "sigma_scattering_nm2": 5447.819202037906,
+   "near_field_abs_E": [
+    7.474825722739933,
+    2.345352751265481,
+    2.71881407574875
+   ],
+   "seconds": {
+    "setup": 0.015500299981795251,
+    "solve": 14.502418700023554,
+    "post": 0.15807280002627522
+   },
+   "mesh": {
+    "cells": 23148,
+    "size": 1.0
+   }
+  },
+  "sphere_on_stack/3D/p2/650.0": {
+   "wavelength_nm": 650.0,
+   "p": 2,
+   "dofs": 155158,
+   "sigma_absorption_nm2": 461.45670686391725,
+   "sigma_up_nm2": 1130.1354917565495,
+   "sigma_down_nm2": 163.27454159838067,
+   "sigma_lateral_nm2": 248.83025027703565,
+   "sigma_scattering_nm2": 1542.2402836319657,
+   "near_field_abs_E": [
+    5.3618407577218345,
+    1.6975837455593386,
+    2.500909079121958
+   ],
+   "seconds": {
+    "setup": 0.014321100083179772,
+    "solve": 14.576873899903148,
+    "post": 0.13368120009545237
+   },
+   "mesh": {
+    "cells": 23148,
+    "size": 1.0
+   }
+  },
+  "nanohole/2.5D/600.0": {
+   "wavelength_nm": 600.0,
+   "T_over_T_geom": 0.6441358117002921,
+   "film_transmittance": 0.0026480344628624364,
+   "absorption_change_over_geom": 0.18020689360272651,
+   "balance": 0.001256208114321813,
+   "p": 3
+  },
+  "nanohole/2.5D/750.0": {
+   "wavelength_nm": 750.0,
+   "T_over_T_geom": 0.636251424872609,
+   "film_transmittance": 0.000533177528608733,
+   "absorption_change_over_geom": 0.09217724181153272,
+   "balance": 0.0014188680452838574,
+   "p": 3
+  },
+  "nanohole/2.5D/900.0": {
+   "wavelength_nm": 900.0,
+   "T_over_T_geom": 0.27163780757092254,
+   "film_transmittance": 0.00021965593201785533,
+   "absorption_change_over_geom": 0.07268410938269756,
+   "balance": 0.0004024588907691884,
+   "p": 3
+  },
+  "nanohole/3D/p2/600.0": {
+   "wavelength_nm": 600.0,
+   "p": 2,
+   "dofs": 308754,
+   "T_over_T_geom": 0.6312262313279396,
+   "disc_stack_over_expected": 0.9999980685867583,
+   "absorption_change_over_geom": 0.1895456748911376,
+   "seconds": {
+    "setup": 0.018988600000739098,
+    "solve": 199.787577399984,
+    "post": 0.2973501000087708
+   },
+   "mesh": {
+    "cells": 46318,
+    "size": 1.0
+   }
+  },
+  "nanohole/3D/p2/750.0": {
+   "wavelength_nm": 750.0,
+   "p": 2,
+   "dofs": 308754,
+   "T_over_T_geom": 0.642265770409451,
+   "disc_stack_over_expected": 0.9999980685867587,
+   "absorption_change_over_geom": 0.09362442907709445,
+   "seconds": {
+    "setup": 0.018794700037688017,
+    "solve": 56.772854599985294,
+    "post": 0.27872150007169694
+   },
+   "mesh": {
+    "cells": 46318,
+    "size": 1.0
+   }
+  },
+  "nanohole/3D/p2/900.0": {
+   "wavelength_nm": 900.0,
+   "p": 2,
+   "dofs": 308754,
+   "T_over_T_geom": 0.2739584989194862,
+   "disc_stack_over_expected": 0.9999980685867571,
+   "absorption_change_over_geom": 0.07321062271954543,
+   "seconds": {
+    "setup": 0.024961099959909916,
+    "solve": 49.4131492000306,
+    "post": 1.0883814999833703
+   },
+   "mesh": {
+    "cells": 46318,
+    "size": 1.0
+   }
+  },
+  "sphere_on_stack/3D/p3/550.0": {
+   "wavelength_nm": 550.0,
+   "p": 3,
+   "dofs": 446136,
+   "sigma_absorption_nm2": 6740.236967753,
+   "sigma_up_nm2": 3748.341672169552,
+   "sigma_down_nm2": 694.146893416597,
+   "sigma_lateral_nm2": 948.6076190976224,
+   "sigma_scattering_nm2": 5391.096184683772,
+   "near_field_abs_E": [
+    7.44698207789059,
+    2.3406960382754614,
+    2.7215207946465143
+   ],
+   "seconds": {
+    "setup": 0.05720879998989403,
+    "solve": 77.80850970000029,
+    "post": 0.1286256000166759
+   },
+   "mesh": {
+    "cells": 23148,
+    "size": 1.0
+   }
+  },
+  "sphere_on_stack/3D/p3/650.0": {
+   "wavelength_nm": 650.0,
+   "p": 3,
+   "dofs": 446136,
+   "sigma_absorption_nm2": 459.72049266885693,
+   "sigma_up_nm2": 1134.0166076906048,
+   "sigma_down_nm2": 162.0751774200652,
+   "sigma_lateral_nm2": 248.76106494282544,
+   "sigma_scattering_nm2": 1544.8528500534953,
+   "near_field_abs_E": [
+    5.344215760475004,
+    1.6974701923926558,
+    2.4993402704448435
+   ],
+   "seconds": {
+    "setup": 0.018527999985963106,
+    "solve": 76.62244179996196,
+    "post": 0.14845179999247193
+   },
+   "mesh": {
+    "cells": 23148,
+    "size": 1.0
+   }
+  },
+  "nanohole/3D/p3/600.0": {
+   "wavelength_nm": 600.0,
+   "p": 3,
+   "dofs": 889119,
+   "T_over_T_geom": 0.636029098883949,
+   "disc_stack_over_expected": 0.9999980685867578,
+   "absorption_change_over_geom": 0.18475369878013753,
+   "seconds": {
+    "setup": 0.0390435999725014,
+    "solve": 178.6562490001088,
+    "post": 0.8907342999009416
+   },
+   "mesh": {
+    "cells": 46318,
+    "size": 1.0
+   }
+  },
+  "nanohole/3D/p3/750.0": {
+   "wavelength_nm": 750.0,
+   "p": 3,
+   "dofs": 889119,
+   "T_over_T_geom": 0.6371158899489131,
+   "disc_stack_over_expected": 0.9999980685867609,
+   "absorption_change_over_geom": 0.09331837570079621,
+   "seconds": {
+    "setup": 0.03145120001863688,
+    "solve": 168.69253110000864,
+    "post": 0.7671951999654993
+   },
+   "mesh": {
+    "cells": 46318,
+    "size": 1.0
+   }
+  },
+  "nanohole/3D/p3/900.0": {
+   "wavelength_nm": 900.0,
+   "p": 3,
+   "dofs": 889119,
+   "T_over_T_geom": 0.2721190528178603,
+   "disc_stack_over_expected": 0.9999980685867625,
+   "absorption_change_over_geom": 0.07296613008592737,
+   "seconds": {
+    "setup": 0.048160100006498396,
+    "solve": 162.93721519992687,
+    "post": 0.7228292000945657
+   },
+   "mesh": {
+    "cells": 46318,
+    "size": 1.0
+   }
+  }
+ },
  "estimates": {
   "sphere_on_stack/p2": {
    "cells": 23179,
@@ -44,7 +303,173 @@
   "python": "3.14.5",
   "platform": "Windows-11-10.0.26200-SP0",
   "backends": [
-   "DirectSolverBackend.SPARSE_LU"
+   "DirectSolverBackend.SPARSE_LU",
+   "DirectSolverBackend.MUMPS"
   ]
+ },
+ "diagnostics": {
+  "sphere_measurement_box": {
+   "note": "Measurement box of the first sphere runs: a cuboid |x|, y < 120 nm (corners at r = 170 nm) against the 2.5D cylinder r < 117 nm (nearest mesh line). Absorption, total scattering and near field agreed; the split moved about 5 % of the upward power into 'down' (oblique downward power leaving the cylinder through its side in air reaches the stack at the cuboid corners). A finer PML (35 nm cells) changed nothing. Replaced by the cylinder r <= 120 nm in both solvers.",
+   "cuboid_box": {
+    "sphere_on_stack/3D/p2/550.0": {
+     "wavelength_nm": 550.0,
+     "p": 2,
+     "dofs": 155344,
+     "sigma_absorption_nm2": 6759.658553332682,
+     "sigma_up_nm2": 3633.6466028899017,
+     "sigma_down_nm2": 860.9678078692348,
+     "sigma_lateral_nm2": 958.2787161611822,
+     "sigma_scattering_nm2": 5452.8931269203185,
+     "near_field_abs_E": [
+      7.468213054395952,
+      2.3438616289142957,
+      2.736300176516389
+     ],
+     "seconds": {
+      "setup": 0.014860299997963011,
+      "solve": 20.030103700002655,
+      "post": 0.11263510002754629
+     },
+     "mesh": {
+      "cells": 23179,
+      "size": 1.0
+     }
+    },
+    "sphere_on_stack/3D/p2/650.0": {
+     "wavelength_nm": 650.0,
+     "p": 2,
+     "dofs": 155344,
+     "sigma_absorption_nm2": 461.70568389703425,
+     "sigma_up_nm2": 1097.3984760398696,
+     "sigma_down_nm2": 201.76462185008714,
+     "sigma_lateral_nm2": 250.45207563517118,
+     "sigma_scattering_nm2": 1549.615173525128,
+     "near_field_abs_E": [
+      5.36293905252793,
+      1.6970032640145323,
+      2.5176429323106784
+     ],
+     "seconds": {
+      "setup": 0.012611099984496832,
+      "solve": 10.958654299960472,
+      "post": 0.11029990005772561
+     },
+     "mesh": {
+      "cells": 23179,
+      "size": 1.0
+     }
+    },
+    "sphere_on_stack/3D/p3/550.0": {
+     "wavelength_nm": 550.0,
+     "p": 3,
+     "dofs": 446697,
+     "sigma_absorption_nm2": 6738.560691963349,
+     "sigma_up_nm2": 3601.106637169153,
+     "sigma_down_nm2": 845.6072969287134,
+     "sigma_lateral_nm2": 942.6815756850896,
+     "sigma_scattering_nm2": 5389.395509782956,
+     "near_field_abs_E": [
+      7.445433766873658,
+      2.34048271409997,
+      2.7227328924096468
+     ],
+     "seconds": {
+      "setup": 0.014704099972732365,
+      "solve": 140.72017320001032,
+      "post": 0.2311854000436142
+     },
+     "mesh": {
+      "cells": 23179,
+      "size": 1.0
+     }
+    },
+    "sphere_on_stack/3D/p3/650.0": {
+     "wavelength_nm": 650.0,
+     "p": 3,
+     "dofs": 446697,
+     "sigma_absorption_nm2": 459.77807797351903,
+     "sigma_up_nm2": 1094.5234298046914,
+     "sigma_down_nm2": 199.9773308189121,
+     "sigma_lateral_nm2": 249.7656574919639,
+     "sigma_scattering_nm2": 1544.2664181155674,
+     "near_field_abs_E": [
+      5.344510124539566,
+      1.6975173172959046,
+      2.500712373615426
+     ],
+     "seconds": {
+      "setup": 0.020901299896650016,
+      "solve": 144.43183920008596,
+      "post": 0.2687924999045208
+     },
+     "mesh": {
+      "cells": 23179,
+      "size": 1.0
+     }
+    }
+   },
+   "cuboid_box_2p5d_cylinder_117nm": {
+    "sphere_on_stack/2.5D/550.0": {
+     "wavelength_nm": 550.0,
+     "max_order": 2,
+     "sigma_absorption_nm2": 6738.395228548995,
+     "sigma_up_nm2": 3781.4483192217645,
+     "sigma_down_nm2": 666.2996361045015,
+     "sigma_lateral_nm2": 946.4679172704915,
+     "sigma_collected_nm2": 131.47771492421472,
+     "sigma_scattering_nm2": 5394.215872596757,
+     "sigma_extinction_nm2": 12132.61110114575,
+     "balance": -1.7186836571589367e-05,
+     "near_field_abs_E": [
+      7.451965804751953,
+      2.3540574749473966,
+      2.720471308573459
+     ],
+     "p": 4
+    },
+    "sphere_on_stack/2.5D/650.0": {
+     "wavelength_nm": 650.0,
+     "max_order": 2,
+     "sigma_absorption_nm2": 459.74311087704655,
+     "sigma_up_nm2": 1140.6991708207527,
+     "sigma_down_nm2": 154.85831938010995,
+     "sigma_lateral_nm2": 247.18597016125955,
+     "sigma_collected_nm2": 29.735809015545044,
+     "sigma_scattering_nm2": 1542.7434603621223,
+     "sigma_extinction_nm2": 2002.4865712391688,
+     "balance": -7.03999231938852e-05,
+     "near_field_abs_E": [
+      5.348150420858848,
+      1.7069947023362055,
+      2.498855904838029
+     ],
+     "p": 4
+    }
+   },
+   "cuboid_box_finer_pml_35nm": {
+    "wavelength_nm": 550.0,
+    "p": 2,
+    "dofs": 590568,
+    "sigma_absorption_nm2": 6765.2387810100345,
+    "sigma_up_nm2": 3633.70202930196,
+    "sigma_down_nm2": 861.0848817350754,
+    "sigma_lateral_nm2": 955.453296596246,
+    "sigma_scattering_nm2": 5450.240207633281,
+    "near_field_abs_E": [
+     7.47070773486166,
+     2.3436322464665444,
+     2.726841829453564
+    ],
+    "seconds": {
+     "setup": 0.05666280002333224,
+     "solve": 113.64358289993834,
+     "post": 0.33394979999866337
+    },
+    "mesh": {
+     "cells": 88259,
+     "size": 1.0
+    }
+   }
+  }
  }
 }

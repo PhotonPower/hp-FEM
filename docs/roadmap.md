@@ -490,16 +490,15 @@ particles on substrates, nanoparticle-on-mirror, holes and grooves in films (neg
   centroid, checks (interfaces on mesh lines, no deviation in the PML), `layered_axisymmetric_wave`
   (top / bottom, s / p, value and curl) with the φ-transform reference, reciprocity / TIR and the
   homogeneous limit; Python bindings (written by the helper agent `opt-jobs`)
-- [ ] S2 (ongoing): axisymmetric absorbed power (new; orders orthogonal in φ) and its variant with the
-  stack field (absorption of the body, absorption change around holes), scattered power split into
-  up / down / lateral, `axisymmetric_disc_flux` (aperture transmission); tests: quasi-static sphere
-  on a substrate, power balance of a hole in an Au film; 3D cross-checks with `Scattering<3>` +
-  `LayerStack<3>` (sphere on a stack, the hole) as long local runs (`validation-long`) with stored
-  regression records. Done: axisymmetric absorbed power with the stack-field variant (body absorption, absorption
-  change), channels up / down / lateral, `axisymmetric_disc_flux`, the quasi-static sphere above
-  a substrate against the image dipole and the power balance of a hole in an absorbing film
-  (written by the helper agent `opt-jobs`). Open: the 3D cross-checks and the full spectra of
-  `examples/particle_on_substrate` as long local runs
+- [x] S2: axisymmetric absorbed power with the stack-field variant (body absorption, absorption
+  change around holes), scattered power split into up / down / lateral, `axisymmetric_disc_flux`
+  (aperture transmission); tests: quasi-static sphere above a substrate against the image dipole,
+  power balance of a hole in an absorbing film; 3D cross-checks with `Scattering<3>` +
+  `LayerStack<3>` as long local runs (`benchmarks/m18_validation_3d.py`, record in
+  `benchmarks/results/`, CI regression `python/tests/test_m18_records.py`): sphere on a two-layer
+  stack to 0.15 %, nanohole in a gold film to 2.5 % at p = 3; full spectra of
+  `examples/particle_on_substrate` (`docs/validation.md` J) (written by the helper agent
+  `opt-jobs`)
 - [x] S3: reciprocity-based far field in both half-spaces (`axisymmetric_layered_far_field`),
   collection over a numerical aperture (`power_between`); tests: homogeneous limit against the
   near-to-far transform, reciprocity with a dipole source above glass (amplitudes in both
