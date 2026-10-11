@@ -806,6 +806,10 @@ void bind_physics(py::module_& m) {
           py::arg("unit_responses"), py::arg("position"), py::arg("sigma"),
           py::arg("extra_order") = 4, Release(),
           "3 x 3 complex A with P_cell(p) = Re(p^H A p) from the responses to the unit moments");
+    m.def("conical_gaussian_average", &physics::conical_gaussian_average, py::arg("problem"),
+          py::arg("solution"), py::arg("position"), py::arg("sigma"), py::arg("extra_order") = 4,
+          Release(),
+          "exp(-sigma^2 beta^2/2) * integral g2 E dA of the total field, by cell quadrature");
     m.def("conical_source_power", &physics::conical_source_power, py::arg("problem"),
           py::arg("solution"), py::arg("extra_order") = 4, Release(),
           "-1/2 Re integral conj(J).E dA of the current of a total-field conical problem [W/m]");

@@ -477,9 +477,10 @@ radiated power into cover and substrate per direction, guided and absorbed power
   before the run (`grating.emission_cost`, `dry_run`), extraction into a numerical aperture
   (`grating.emission_cone`); docs (maxwell.md "Stage B", python.md), example
   `examples/grating_emitter` (quantum dot above a glass grating, LED extraction) with the quick
-  variant as regression test; open: a remainder of 1.7–3.5 % of the emitted power on a
-  diffracting grating (README "Accuracy", under investigation with S3) (written by the helper
-  agent `opt-jobs`)
+  variant as regression test (written by the helper agent `opt-jobs`); the remainder of
+  1.7–3.5 % on the diffracting grating came from the Gauss–Hermite average across the ridge
+  interface and the angle rule at the Rayleigh anomalies (fixed: cell quadrature, 16 × 32,
+  Wood breaks of the β rule); the example's record is to be recomputed
 
 ## M18 — Layered background for the axisymmetric solver (ADR-0014)
 Proposal of 10 October 2026 from the GUI work, reviewed the same day; channels, tests and the GUI

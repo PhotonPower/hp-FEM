@@ -5,6 +5,7 @@
 // delivered power.
 #include <cmath>
 #include <complex>
+#include <utility>
 #include <vector>
 
 #include <Eigen/Dense>
@@ -179,4 +180,37 @@ TEST_CASE("power matrix of a complex Bloch phase is analytic in kx", "[physics][
   INFO("Cauchy-Riemann defects " << defects[0] << ", " << defects[1]);
   REQUIRE(defects[1] < 1e-3);
   REQUIRE(defects[1] < 0.35 * defects[0]);  // O(h^2): a factor 4 per halving
+}
+
+TEST_CASE("Gaussian average of the total field of a plane wave", "[physics][dipole]") {
+  // no contrast: the scattered field vanishes and the total field is the plane wave E0 e^{ik.x},
+  // whose average over the Gaussian is E0 e^{ik.x0} e^{-sigma^2 |k|^2 / 2} (beta = k_z included);
+  // on a fine mesh and on cells ten times wider than sigma (sub-triangles)
+  const Point<3> k(3.0, -2.0, 1.5);
+  const ConicalVector e0 = hpfem::physics::conical_polarisation(k, Point<3>(1.0, 0.0, 0.0),
+                                                                hpfem::physics::Polarisation::kP);
+  const Point<2> x0(0.43, 0.56);
+  for (const auto& [cells, sigma] : {std::pair{20, 0.05}, std::pair{4, 0.02}}) {
+    const hpfem::mesh::Mesh<2> mesh = hpfem::mesh::rectangle(cells, cells);
+    const hpfem::fespace::NedelecDofMap<2> nd(mesh, 2);
+    const hpfem::fespace::DofMap<2> h1(mesh, 2);
+    hpfem::physics::ConicalScatteringSetup setup;
+    setup.omega = 2.0 * hpfem::constants::c0;
+    setup.beta = k(2);
+    setup.pec_tags = {hpfem::mesh::box_tag::kXMin, hpfem::mesh::box_tag::kXMax,
+                      hpfem::mesh::box_tag::kYMin, hpfem::mesh::box_tag::kYMax};
+    setup.incident = hpfem::physics::conical_plane_wave(e0, k);
+    const hpfem::physics::ConicalScattering problem(nd, h1, setup);
+    const auto solution = problem.solve();
+    REQUIRE(solution.scattered);
+    const ConicalVector mean =
+        hpfem::physics::conical_gaussian_average(problem, solution, x0, sigma, 10);
+    const Complex phase = std::exp(Complex{0.0, 1.0} * (k(0) * x0(0) + k(1) * x0(1)));
+    const ConicalVector expected = e0 * phase * std::exp(-0.5 * sigma * sigma * k.squaredNorm());
+    INFO(cells << " cells, sigma " << sigma << ": mean " << mean.transpose() << ", expected "
+               << expected.transpose());
+    REQUIRE((mean - expected).norm() < 1e-7 * expected.norm());
+    REQUIRE_THROWS_AS(hpfem::physics::conical_gaussian_average(problem, solution, x0, 0.0),
+                      hpfem::InvalidArgument);
+  }
 }
