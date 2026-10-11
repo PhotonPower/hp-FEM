@@ -1825,6 +1825,8 @@ def emission_pattern(
     quadrature_points: int = 6,
     order=4,
     pml=None,
+    progress=None,
+    cancel=None,
     **solve_kwargs,
 ) -> EmissionPattern:
     """Angle-resolved far-field emission of a single Gaussian dipole by reciprocity (M17
@@ -1850,16 +1852,29 @@ def emission_pattern(
     polarisation, no singularities; it gives the radiated part only (not the guided or the
     absorbed power, not the total Purcell factor).
 
-    ``dipole``: ``position`` (x0, y0), ``moment`` (p_x, p_y, p_z) [A m], ``sigma`` [m], as
-    :func:`emit`. ``mesh``, ``materials``, ``stack``, ``order``, ``pml`` (``None`` or a
-    ``{"top", "bottom"}`` dict for directions into the substrate) and ``solve_kwargs`` as
-    :func:`solve`. ``normalized`` divides by ``P_bulk``. Returns an :class:`EmissionPattern`.
+    ``dipole``: ``position`` (x0, y0), ``moment`` (p_x, p_y, p_z) [A m] or ``"x"``, ``"y"``,
+    ``"z"`` (unit moments) or ``"isotropic"`` (the mean of dP/dΩ over the three unit moments,
+    ``amplitude`` NaN, ``P_bulk`` of a unit moment), ``sigma`` [m], as :func:`emit`.
+    ``mesh``, ``materials``, ``stack``, ``order``, ``pml`` (``None`` or a ``{"top", "bottom"}``
+    dict for directions into the substrate) and ``solve_kwargs`` as :func:`solve`.
+    ``progress(i, n)`` is called per solve, ``cancel()`` checked between them
+    (``hpfem.Cancelled``). ``normalized`` divides by ``P_bulk``. Returns an
+    :class:`EmissionPattern`.
     Raises ``GratingError`` for a lossy medium of a direction, an invalid dipole or a curved
     mesh with directions into the substrate."""
     t0 = time.perf_counter()
     k0 = float(units.vacuum_wavenumber(omega))
     position = np.asarray(dipole["position"], dtype=float)
-    moment = np.asarray(dipole["moment"], dtype=complex)
+    spec = dipole["moment"]
+    isotropic = isinstance(spec, str) and spec == "isotropic"
+    if isinstance(spec, str) and not isotropic:
+        if spec not in ("x", "y", "z"):
+            raise GratingError(
+                f"dipole: moment {spec!r}, use a vector, 'x', 'y', 'z' or 'isotropic'"
+            )
+        spec = np.eye(3)["xyz".index(spec)]
+    # isotropic: the mean over the unit moments, P_bulk of a unit moment
+    moment = np.ones(3, dtype=complex) / math.sqrt(3) if isotropic else np.asarray(spec, complex)
     sigma = float(dipole["sigma"])
     if position.shape != (2,) or moment.shape != (3,) or not sigma > 0:
         raise GratingError("dipole: position (x0, y0), moment (px, py, pz) and sigma > 0 needed")
@@ -1889,11 +1904,15 @@ def emission_pattern(
     )
     means, n_dir = _reciprocity_means(mesh, materials, stack, position, sigma, omega,
                                       directions, pol, quadrature_points, order, pml,
-                                      solve_kwargs)  # fmt: skip
-    amplitude = means @ moment
+                                      solve_kwargs, progress, cancel)  # fmt: skip
     z0 = hpfem.constants.Z0
     scale = n_dir[:, None] * k0**2 * z0 / (32 * np.pi**2)
-    d_p = scale * np.abs(amplitude) ** 2
+    if isotropic:  # the mean over the three unit moments; no single amplitude
+        amplitude = np.full(means.shape[:2], np.nan + 0j)
+        d_p = scale * np.sum(np.abs(means) ** 2, axis=2) / 3
+    else:
+        amplitude = means @ moment
+        d_p = scale * np.abs(amplitude) ** 2
     if normalized:
         d_p = d_p / p_bulk
     return EmissionPattern(directions, pol, d_p, p_bulk, bool(normalized), amplitude, n_dir,
@@ -2171,18 +2190,19 @@ def _dipole_power_matrix(cell: _DipoleCell, kx: complex, beta: float) -> np.ndar
 
 
 def _hemisphere_directions(nodes_theta: int, nodes_phi: int, symmetric: bool, mirror_z: bool,
-                           theta_breaks=()):  # fmt: skip
+                           theta_breaks=(), theta_max: float = 0.5 * math.pi):  # fmt: skip
     """Directions (θ, φ) and solid-angle weights of one half-space: Gauss points in θ on the
     panels of [0, π/2] between ``theta_breaks`` (the critical angles, where the pattern of the
     half-space has a square-root kink: beyond them it is the evanescent coupling, the
     "forbidden light"), ``nodes_theta`` per panel, crowded towards the breaks, with the weight
     sin θ; the trapezoidal rule
     in φ (``nodes_phi`` points on the full circle, a multiple of 4), reduced by the mirror
-    symmetries z → −z (φ → −φ, ``mirror_z``) and x → 2x0 − x (φ → π − φ, ``symmetric``)."""
+    symmetries z → −z (φ → −φ, ``mirror_z``) and x → 2x0 − x (φ → π − φ, ``symmetric``);
+    ``theta_max`` < π/2 restricts θ to a cone around the normal (a collection aperture)."""
     if nodes_phi % 4:
         raise GratingError("dipole_emission: angle_nodes[1] must be a multiple of 4")
     theta, w_theta = [], []
-    edges = _breaks(0.0, 0.5 * math.pi, theta_breaks)
+    edges = _breaks(0.0, theta_max, [b for b in theta_breaks if 0.0 < b < theta_max])
     gl_t, gl_w = np.polynomial.legendre.leggauss(int(nodes_theta))
     u = 0.25 * math.pi * (gl_t + 1.0)  # in [0, π/2]
     for i, (a, b) in enumerate(zip(edges[:-1], edges[1:], strict=True)):
@@ -2259,6 +2279,186 @@ class DipoleEmission:
     timing: dict[str, float] = field(default_factory=dict)
 
 
+def _emission_plan(cell: _DipoleCell, k0: float, *, nodes: int, kx_nodes: int, depth: float,
+                   beta_max, symmetric: bool, channels: bool, angle_nodes):  # fmt: skip
+    """The samples of :func:`dipole_emission`: the scan rule, the plane-wave directions
+    ``(theta, phi, side, weight)`` of the channels (empty without ``channels``) and the real
+    indices of the semi-infinite media."""
+    n_cover = cell.pr.n_cover.real
+    down_side = cell.pr.transmitted
+    indices = [n_cover] + ([cell.pr.n_sub.real] if down_side else [])
+    beta_max = k0 * max(indices) if beta_max is None else float(beta_max)
+    rule = array_scan_rule(cell.pr.period, k0, indices, beta_max=beta_max, nodes=nodes,
+                           symmetric=symmetric, depth=depth, kx_nodes=kx_nodes)  # fmt: skip
+    directions = []
+    if channels:
+        for side, n_side in (("up", n_cover), ("down", cell.pr.n_sub.real)):
+            if side == "down" and not down_side:
+                continue
+            critical = [math.asin(n / n_side) for n in indices if n < n_side - 1e-12]
+            directions += [(th, ph, side, w) for th, ph, w in _hemisphere_directions(
+                angle_nodes[0], angle_nodes[1], symmetric, True, critical)]  # fmt: skip
+    return rule, directions, indices
+
+
+@dataclass
+class EmissionCost:
+    """Cost of :func:`dipole_emission` before it runs (:func:`emission_cost`): ``samples``
+    cell problems of the array scanning, ``plane_wave_solves`` of the channels (2 per
+    direction), their sum ``solves``; ``dofs``, ``total_bytes`` and ``memory`` (text) of one
+    cell factorisation (``estimate_memory`` of the conical system, the largest of the two
+    kinds); with calibration the measured ``seconds_per_sample`` and
+    ``seconds_per_plane_wave`` and their extrapolation ``seconds``."""
+
+    samples: int
+    plane_wave_solves: int
+    solves: int
+    dofs: int
+    total_bytes: int
+    memory: str
+    seconds_per_sample: float | None = None
+    seconds_per_plane_wave: float | None = None
+
+    @property
+    def seconds(self) -> float | None:
+        """Predicted wall time of the run [s] (calibrated only)."""
+        if self.seconds_per_sample is None:
+            return None
+        return (self.samples * self.seconds_per_sample
+                + self.plane_wave_solves * (self.seconds_per_plane_wave or 0.0))  # fmt: skip
+
+    def as_dict(self) -> dict:
+        return {"samples": self.samples, "plane_wave_solves": self.plane_wave_solves,
+                "solves": self.solves, "dofs": self.dofs, "total_bytes": self.total_bytes,
+                "memory": self.memory, "seconds_per_sample": self.seconds_per_sample,
+                "seconds_per_plane_wave": self.seconds_per_plane_wave,
+                "seconds": self.seconds}  # fmt: skip
+
+
+def emission_cost(mesh, materials, stack, dipole, omega: float, *, nodes: int = 6,
+                  kx_nodes: int = 4, depth: float = 0.5, beta_max: float | None = None,
+                  symmetric: bool = False, order=4, channels: bool = True,
+                  angle_nodes=(8, 16), pml=None, bottom: str = "pml",
+                  snap_tolerance: float = 1e-9, pml_target: float = 1e-6,
+                  pml_wavelengths: float = 0.5, extra_quadrature_order: int = 4, solver=None,
+                  calibrate: bool = False, **solve_kwargs) -> EmissionCost:  # fmt: skip
+    """The number of solves and the memory of :func:`dipole_emission` with the same arguments,
+    without running it: the scan rule and the channel directions are built as there, the memory
+    is ``estimate_memory`` of the cell problem. ``calibrate`` times one cell sample and one
+    plane-wave solve on this machine (two solves) and extrapolates the wall time."""
+    k0 = float(units.vacuum_wavenumber(omega))
+    position = np.asarray(dipole["position"], dtype=float)
+    sigma = float(dipole["sigma"])
+    if position.shape != (2,) or not sigma > 0:
+        raise GratingError("dipole: position (x0, y0) and sigma > 0 needed")
+    cell = _dipole_cell(mesh, materials, stack, position, sigma, omega, order, pml=pml,
+                        bottom=bottom, snap_tolerance=snap_tolerance, pml_target=pml_target,
+                        pml_wavelengths=pml_wavelengths,
+                        extra_quadrature_order=extra_quadrature_order, solver=solver)  # fmt: skip
+    rule, directions, _indices = _emission_plan(cell, k0, nodes=nodes, kx_nodes=kx_nodes,
+                                                depth=depth, beta_max=beta_max,
+                                                symmetric=symmetric, channels=channels,
+                                                angle_nodes=angle_nodes)  # fmt: skip
+    estimate = estimate_memory(mesh, order, solver)
+    cost = EmissionCost(samples=len(rule.weight), plane_wave_solves=2 * len(directions),
+                        solves=len(rule.weight) + 2 * len(directions), dofs=int(estimate.dofs),
+                        total_bytes=int(estimate.total_bytes),
+                        memory=estimate.describe())  # fmt: skip
+    if calibrate:
+        t0 = time.perf_counter()
+        _dipole_power_matrix(cell, complex(rule.kx[0]), float(rule.beta[0]))
+        cost.seconds_per_sample = time.perf_counter() - t0
+        if directions:
+            theta, phi, side, _w = directions[0]
+            t0 = time.perf_counter()
+            options = dict(bottom=bottom, snap_tolerance=snap_tolerance, pml_target=pml_target,
+                           pml_wavelengths=pml_wavelengths,
+                           extra_quadrature_order=extra_quadrature_order, solver=solver,
+                           **solve_kwargs)  # fmt: skip
+            _reciprocity_means(mesh, materials, stack, position, sigma, omega,
+                               [(theta, phi, side)], ("s",), 2, order, pml, options,
+                               who="emission_cost")  # fmt: skip
+            cost.seconds_per_plane_wave = time.perf_counter() - t0
+    return cost
+
+
+@dataclass
+class EmissionCone:
+    """Result of :func:`emission_cone`: the power radiated into the cone θ ≤ ``theta_max``
+    around the normal of the ``side`` (a collection aperture), ``power`` per orientation key
+    (``"x"``, ``"y"``, ``"z"``, ``"isotropic"`` and ``"moment"`` if the dipole has one) [W],
+    the index ``n`` of the medium, the ``radiation_matrix`` R (dP = pᴴRp), ``directions`` and
+    ``timing``."""
+
+    side: str
+    aperture: float
+    theta_max: float
+    n: float
+    power: dict[str, float]
+    radiation_matrix: np.ndarray
+    directions: int
+    timing: dict[str, float] = field(default_factory=dict)
+
+
+def emission_cone(mesh, materials, stack, dipole, omega: float, aperture: float, *,
+                  side: str = "up", angle_nodes=(8, 16), symmetric: bool = False,
+                  quadrature_points: int = 6, order=4, pml=None, progress=None, cancel=None,
+                  **solve_kwargs) -> EmissionCone:  # fmt: skip
+    """Power of a single Gaussian dipole radiated into a collection cone of numerical aperture
+    ``aperture`` around the normal of the cover (``side="up"``) or of a lossless substrate
+    (``"down"``): θ ≤ asin(NA / n), by reciprocity (§6) on ``angle_nodes`` = (θ points, φ points
+    on the circle, a multiple of 4) like the channels of :func:`dipole_emission`, for the three
+    unit moments, their mean and the dipole's own moment; ``symmetric`` for a cell
+    mirror-symmetric about the dipole. One plane-wave :func:`solve` per direction and
+    polarisation. The fraction of the emitted power is ``power[key] / P_em[key]`` of
+    :func:`dipole_emission`. ``progress(i, n)`` / ``cancel()`` per solve."""
+    t0 = time.perf_counter()
+    if side not in ("up", "down"):
+        raise GratingError(f"emission_cone: side {side!r}, use 'up' or 'down'")
+    k0 = float(units.vacuum_wavenumber(omega))
+    position = np.asarray(dipole["position"], dtype=float)
+    sigma = float(dipole["sigma"])
+    if position.shape != (2,) or not sigma > 0:
+        raise GratingError("dipole: position (x0, y0) and sigma > 0 needed")
+    medium = stack.incidence_medium if side == "up" else stack.substrate
+    n_side = complex(medium.refractive_index)
+    if abs(n_side.imag) > 1e-12:
+        raise GratingError(f"emission_cone: the medium of the {side} side is lossy")
+    n_side = n_side.real
+    if not 0.0 < float(aperture) <= n_side:
+        raise GratingError(f"emission_cone: aperture {aperture} must lie in (0, n = {n_side}]")
+    theta_max = math.asin(min(1.0, float(aperture) / n_side))
+    other = (stack.substrate if side == "up" else stack.incidence_medium).refractive_index
+    critical = [math.asin(complex(other).real / n_side)] if complex(other).real < n_side else []
+    if theta_max >= 0.5 * math.pi - 1e-9:
+        theta_max = 0.5 * math.pi
+    directions = [(th, ph, side, w) for th, ph, w in _hemisphere_directions(
+        angle_nodes[0], angle_nodes[1], symmetric, True, critical, theta_max)]  # fmt: skip
+    means, n_dir = _reciprocity_means(mesh, materials, stack, position, sigma, omega,
+                                      [(th, ph, sd) for th, ph, sd, _w in directions],
+                                      ("s", "p"), quadrature_points, order, pml, solve_kwargs,
+                                      progress, cancel, "emission_cone")  # fmt: skip
+    scale = np.array([w for *_r, w in directions]) * n_dir * k0**2 * hpfem.constants.Z0
+    scale /= 32 * np.pi**2
+    r = np.einsum("d,dpi,dpj->ij", scale, np.conj(means), means)
+    odd = np.zeros((3, 3), dtype=bool)
+    odd[0, 2] = odd[2, 0] = odd[1, 2] = odd[2, 1] = True
+    if symmetric:
+        odd[0, 1] = odd[1, 0] = True
+    r[odd] = 0.0
+
+    def quadratic(p) -> float:
+        return float(np.real(np.conj(p) @ r @ p))
+
+    power = {key: quadratic(np.eye(3, dtype=complex)[i]) for i, key in enumerate("xyz")}
+    power["isotropic"] = (power["x"] + power["y"] + power["z"]) / 3
+    own = dipole.get("moment")
+    if own is not None and not isinstance(own, str):
+        power["moment"] = quadratic(np.asarray(own, dtype=complex))
+    return EmissionCone(side, float(aperture), theta_max, n_side, power, r, 2 * len(directions),
+                        {"total": time.perf_counter() - t0})  # fmt: skip
+
+
 def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int = 6,
                     kx_nodes: int = 4, depth: float = 0.5, beta_max: float | None = None,
                     symmetric: bool = False,
@@ -2305,25 +2505,15 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
                         bottom=bottom, snap_tolerance=snap_tolerance, pml_target=pml_target,
                         pml_wavelengths=pml_wavelengths,
                         extra_quadrature_order=extra_quadrature_order, solver=solver)  # fmt: skip
-    n_cover = cell.pr.n_cover.real
-    down_side = cell.pr.transmitted
-    indices = [n_cover] + ([cell.pr.n_sub.real] if down_side else [])
-    beta_max = k0 * max(indices) if beta_max is None else float(beta_max)
-    rule = array_scan_rule(cell.pr.period, k0, indices, beta_max=beta_max, nodes=nodes,
-                           symmetric=symmetric, depth=depth, kx_nodes=kx_nodes)  # fmt: skip
+    rule, directions, indices = _emission_plan(cell, k0, nodes=nodes, kx_nodes=kx_nodes,
+                                               depth=depth, beta_max=beta_max,
+                                               symmetric=symmetric, channels=channels,
+                                               angle_nodes=angle_nodes)  # fmt: skip
     moments = np.eye(3, dtype=complex)
     keys = ["x", "y", "z"]
     if own is not None:
         moments = np.vstack([moments, np.asarray(own, dtype=complex)[None, :]])
         keys.append("moment")
-    directions = []
-    if channels:
-        for side, n_side in (("up", n_cover), ("down", cell.pr.n_sub.real)):
-            if side == "down" and not down_side:
-                continue
-            critical = [math.asin(n / n_side) for n in indices if n < n_side - 1e-12]
-            directions += [(th, ph, side, w) for th, ph, w in _hemisphere_directions(
-                angle_nodes[0], angle_nodes[1], symmetric, True, critical)]  # fmt: skip
     total = len(rule.weight) + 2 * len(directions)
     # the rule and the direction sets use the mirror symmetries (β → −β always, kx → −kx for a
     # symmetric cell); the matrix entries odd under them integrate to zero over the full ranges
@@ -2404,6 +2594,10 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
 __all__ = [
     "DipoleEmission",
     "dipole_emission",
+    "EmissionCone",
+    "EmissionCost",
+    "emission_cone",
+    "emission_cost",
     "ScanRule",
     "array_scan_rule",
     "dipole_bulk_power",

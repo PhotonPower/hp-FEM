@@ -263,3 +263,23 @@ def test_particle_on_substrate_channels_gap_mode_and_hole(tmp_path):
         assert 0.1 < row["T_over_T_geom"] < 1.5
         assert row["T_over_T_geom"] > 50 * row["film_transmittance"]
         assert abs(row["balance"]) < 5e-2
+
+
+def test_grating_emitter_extraction_and_purcell(tmp_path):
+    example = load_example("grating_emitter")
+    result = example.run(quick=True, out=str(tmp_path / "emitter.json"), verbose=False)
+    cost = result["cost"]["per_wavelength"]
+    assert cost["solves"] == cost["samples"] + cost["plane_wave_solves"] > 0
+    assert result["cost"]["seconds"] > 0  # calibrated
+    for name in ("grating", "flat"):
+        (row,) = result[name]
+        assert row["up"] + row["down"] + row["nonradiated"] == pytest.approx(1.0)
+        # no absorption and no guided modes: the remainder is numerical (quick rules; on the
+        # grating also the open few-percent remainder of the scan, README "Accuracy")
+        assert abs(row["nonradiated"]) < 0.06
+        assert 0.8 < row["purcell"] < 1.5
+        assert 0 < row["na_0p5"] < row["up"]
+    flat, grating = result["flat"][0], result["grating"][0]
+    assert 0.35 < flat["up"] < 0.6
+    # the glass ridge under the dot pulls the emission into the substrate
+    assert grating["up"] < flat["up"] - 0.1

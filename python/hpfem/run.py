@@ -95,11 +95,43 @@ linearisation otherwise). Events: ``start`` (``points`` null), ``mesh``, ``estim
 ``seconds``; also in ``results["points"]``), ``remesh``, ``cancelled`` and ``done``; the
 results carry ``task``, ``study``, ``parameters`` (scale to SI and reference value),
 ``observables`` and the block of the task.
+
+The task ``"emitter"`` (schema version 2, M17 S4, ADR-0013) computes the emission of a single
+Gaussian dipole in the cell (periodic in x, invariant in z) over a wavelength sweep:
+
+.. code-block:: json
+
+    {"version": 2, "task": "emitter", "model": {...}, "mesh": {...}, "materials": {...},
+     "stack": {...}, "solver": {"order": 3, "pml": {"top": 300, "bottom": 300}},
+     "emitter": {"position": [0, 160], "sigma": 8, "moment": "isotropic", "stage": "B",
+                 "wavelength": {"start": 600, "stop": 700, "count": 3},
+                 "scan": {"nodes": 6, "kx_nodes": 4, "depth": 0.5, "angle_nodes": [8, 16],
+                          "symmetric": false},
+                 "aperture": [0.5], "calibrate": true, "dry_run": false}}
+
+``moment``: ``"isotropic"`` (the mean of the three orientations), ``"x"``, ``"y"``, ``"z"``
+(unit moments along the axes: x along the period, y the stack normal, z along the lines) or
+``[px, py, pz]`` [A m]. ``stage``: ``"A"`` — the Bloch array at one ``kx_over_k0``,
+``beta_over_k0`` (:func:`hpfem.grating.emit`, one solve per orientation); ``"B"`` — the single
+dipole by array scanning (:func:`hpfem.grating.dipole_emission` with the ``scan`` options and
+``beta_max_over_k0``): F_P, the fractions up / down / nonradiated of the emitted power and,
+per numerical ``aperture``, the power collected above (:func:`hpfem.grating.emission_cone`,
+``aperture_side`` ``"up"`` or ``"down"``); ``"C"`` — dP/dΩ on the grid ``directions``
+(``theta_deg``, ``phi_deg``, ``sides``; :func:`hpfem.grating.emission_pattern`) with the power
+into each ``aperture`` from the grid (trapezoidal rule over the sampled θ ≤ asin(NA / n) and
+the φ samples as a uniform circle). Before the solves an ``emission_cost`` event (and
+``results["cost"]``) gives the number of solves per wavelength and in total, the memory of one
+factorisation and — with ``calibrate`` (one cell sample and one plane-wave solve) — the
+predicted wall time; ``dry_run`` stops there. Events: ``start``, ``mesh``, ``estimate``,
+``emission_cost``, ``progress`` (``i``, ``phase``, ``step``, ``num_steps``) per solve,
+``point`` per wavelength, ``cancelled`` (checked between the solves) and ``done``; the results
+carry ``task``, ``emitter`` (the specification in SI), ``cost`` and ``points``.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import os
 import platform
 import signal
@@ -314,9 +346,9 @@ def run_job(
         for t, m in dict(_get(job, "materials", required=True)).items()
     }
     task = str(_get(job, "task", "scattering"))
-    tasks = ("scattering", "resonances", "bands") + (STUDY_TASKS if version >= 2 else ())
+    tasks = ("scattering", "resonances", "bands") + (V2_TASKS if version >= 2 else ())
     if task not in tasks:
-        hint = " (the study tasks need version 2)" if task in STUDY_TASKS else ""
+        hint = " (this task needs version 2)" if task in V2_TASKS else ""
         raise JobError(f"task {task!r}: use {', '.join(repr(t) for t in tasks)}{hint}")
     incidence = _get(job, "incidence", required=task == "scattering") or {}
     polarisation = str(_get(incidence, "polarisation", "p"))
@@ -324,7 +356,12 @@ def run_job(
     phi = float(_get(incidence, "phi_deg", 0.0)) * units.deg
     sweep = _get(job, "sweep", {})
     resonance = _get(job, "resonance", required=task in ("resonances", "bands")) or {}
-    if task in STUDY_TASKS:
+    emitter_spec = _get(job, "emitter", required=task == "emitter") or {}
+    if task == "emitter":
+        wavelengths = _sweep_values(_get(emitter_spec, "wavelength", required=True,
+                                         where="emitter"), unit, "emitter.wavelength")  # fmt: skip
+        thetas = [0.0] * len(wavelengths)
+    elif task in STUDY_TASKS:
         configurations = _get(job, "configurations", required=True)
         if not configurations:
             raise JobError("configurations: at least one measurement configuration")
@@ -408,6 +445,10 @@ def run_job(
         "cancelled": False,
     }
     t_start = time.perf_counter()
+    if task == "emitter":
+        _run_emitter(job, emitter_spec, wavelengths, mesh, material_specs, unit, order, pml,
+                     options, emit, cancel, results)  # fmt: skip
+        return _finish(results, out, emit, t_start)
     if task in STUDY_TASKS:
         model = _study_model(job, cell, mesh, material_specs, unit, omega0)
         _run_study_task(job, task, model, out, emit, cancel, results)
@@ -657,9 +698,260 @@ def _run_modes(
                 emit({"event": "map", **entry})
 
 
+# --- the emitter task of schema version 2 (M17 S4) ------------------------------------------------
+
+
+def _listed(value) -> list:
+    """A list of the value, or the value as a one-element list."""
+    return list(value) if isinstance(value, (list, tuple)) else [value]
+
+
+def _emitter_moment(spec, where: str = "emitter.moment"):
+    """The orientation key and the moment vector (None for "isotropic") of a moment spec."""
+    if isinstance(spec, str):
+        if spec == "isotropic":
+            return "isotropic", None
+        if spec in ("x", "y", "z"):
+            return spec, np.eye(3, dtype=complex)["xyz".index(spec)]
+        raise JobError(f"{where}: {spec!r}, use 'isotropic', 'x', 'y', 'z' or [px, py, pz]")
+    vector = np.asarray([complex(*c) if isinstance(c, (list, tuple)) else complex(c)
+                         for c in spec], dtype=complex)  # fmt: skip
+    if vector.shape != (3,):
+        raise JobError(f"{where}: three components [px, py, pz] needed")
+    return "moment", vector
+
+
+def _aperture_from_grid(theta, phi, d_omega, na: float, n: float) -> float:
+    """Power into θ ≤ asin(NA / n) from dP/dΩ on a (θ, φ) grid: trapezoidal rule in θ over the
+    samples inside, φ samples as a uniform circle."""
+    theta_max = math.asin(min(1.0, na / n))
+    theta = np.asarray(theta)
+    ring = np.asarray(d_omega).mean(axis=1) * 2 * math.pi * np.sin(theta)  # ∫ dφ per θ
+    inside = theta <= theta_max + 1e-12
+    t, f = theta[inside], ring[inside]
+    return float(np.sum(0.5 * (f[1:] + f[:-1]) * np.diff(t))) if len(t) > 1 else 0.0
+
+
+def _run_emitter(job, spec, wavelengths, mesh, material_specs, unit, order, pml, options, emit,
+                 cancel, results) -> None:  # fmt: skip
+    """The emitter task: stage A, B or C per wavelength, the cost estimate first."""
+    stage = str(_get(spec, "stage", "B", where="emitter")).upper()
+    if stage not in ("A", "B", "C"):
+        raise JobError(f"emitter.stage {stage!r}: use 'A', 'B' or 'C'")
+    key, vector = _emitter_moment(_get(spec, "moment", "isotropic", where="emitter"))
+    position = [float(v) * unit for v in _get(spec, "position", required=True, where="emitter")]
+    if len(position) != 2:
+        raise JobError("emitter.position: (x, y) in the cell")
+    sigma = float(_get(spec, "sigma", required=True, where="emitter")) * unit
+    dipole = {"position": position, "sigma": sigma}
+    if vector is not None:
+        dipole["moment"] = vector
+    scan = dict(_get(spec, "scan", {}, where="emitter"))
+    scan_kwargs = dict(nodes=int(scan.get("nodes", 6)), kx_nodes=int(scan.get("kx_nodes", 4)),
+                       depth=float(scan.get("depth", 0.5)),
+                       angle_nodes=tuple(int(v) for v in scan.get("angle_nodes", (8, 16))),
+                       symmetric=bool(scan.get("symmetric", False)))  # fmt: skip
+    beta_max_over_k0 = scan.get("beta_max_over_k0")
+    apertures = [float(v) for v in _listed(_get(spec, "aperture", [], where="emitter"))]
+    aperture_side = str(_get(spec, "aperture_side", "up", where="emitter"))
+    directions_spec = _get(spec, "directions", required=stage == "C", where="emitter") or {}
+    thetas_deg = [float(v) for v in _listed(directions_spec.get("theta_deg", []))]
+    phis_deg = [float(v) for v in _listed(directions_spec.get("phi_deg", [0.0]))]
+    sides = [str(v) for v in _listed(directions_spec.get("sides", ["up"]))]
+    plane_options = {k: v for k, v in options.items() if k != "check"}
+    results["task"] = "emitter"
+    results["emitter"] = {"stage": stage, "moment": key, "position": position, "sigma": sigma,
+                          "wavelengths": list(wavelengths), "apertures": apertures,
+                          "aperture_side": aperture_side, "scan": {**scan_kwargs,
+                          "angle_nodes": list(scan_kwargs["angle_nodes"]),
+                          "beta_max_over_k0": beta_max_over_k0}}  # fmt: skip
+    moments = ["x", "y", "z"] if key == "isotropic" else [key]
+
+    def stack_at(omega):
+        return _stack(_get(job, "stack", required=True), omega, unit)
+
+    # --- the cost estimate -----------------------------------------------------------------------
+    omega0 = units.angular_frequency(wavelength=wavelengths[0])
+    k0 = float(units.vacuum_wavenumber(omega0))
+    estimate = grating.estimate_memory(mesh, order)
+    per_wavelength, calibration = {}, {}
+    if stage == "B":
+        cost = grating.emission_cost(
+            mesh, material_specs, stack_at(omega0), dipole, omega0, order=order, pml=pml,
+            beta_max=None if beta_max_over_k0 is None else float(beta_max_over_k0) * k0,
+            calibrate=bool(_get(spec, "calibrate", True, where="emitter")), **scan_kwargs,
+            **options,
+        )  # fmt: skip
+        n_theta, n_phi = scan_kwargs["angle_nodes"]
+        cone = len(apertures) * 2 * _cone_directions_count(n_theta, n_phi, scan_kwargs["symmetric"])
+        per_wavelength = {"samples": cost.samples, "plane_wave_solves": cost.plane_wave_solves
+                          + cone}  # fmt: skip
+        calibration = {"seconds_per_sample": cost.seconds_per_sample,
+                       "seconds_per_plane_wave": cost.seconds_per_plane_wave}  # fmt: skip
+    elif stage == "A":
+        per_wavelength = {"samples": len(moments), "plane_wave_solves": 0}
+    else:
+        per_wavelength = {
+            "samples": 0,
+            "plane_wave_solves": 2 * len(thetas_deg) * len(phis_deg) * len(sides),
+        }
+    solves = per_wavelength["samples"] + per_wavelength["plane_wave_solves"]
+    seconds = None
+    if calibration.get("seconds_per_sample") is not None:
+        seconds = len(wavelengths) * (
+            per_wavelength["samples"] * calibration["seconds_per_sample"]
+            + per_wavelength["plane_wave_solves"] * (calibration["seconds_per_plane_wave"] or 0.0)
+        )  # fmt: skip
+    results["cost"] = {"stage": stage, "per_wavelength": {**per_wavelength, "solves": solves},
+                       "wavelengths": len(wavelengths), "solves": solves * len(wavelengths),
+                       "dofs": int(estimate.dofs), "total_bytes": int(estimate.total_bytes),
+                       "memory": estimate.describe(), **calibration,
+                       "seconds": seconds}  # fmt: skip
+    emit({"event": "emission_cost", **results["cost"]})
+    if bool(_get(spec, "dry_run", False, where="emitter")):
+        results["dry_run"] = True
+        return
+
+    # --- the sweep -------------------------------------------------------------------------------
+    for i, wavelength in enumerate(wavelengths):
+        if cancel is not None and cancel():
+            results["cancelled"] = True
+            emit({"event": "cancelled", "i": i, "n": len(wavelengths)})
+            return
+        omega = units.angular_frequency(wavelength=wavelength)
+        k0 = float(units.vacuum_wavenumber(omega))
+        stack = stack_at(omega)
+        t0 = time.perf_counter()
+
+        def progress(step, num_steps, phase, i=i, t0=t0):
+            emit({"event": "progress", "i": i, "phase": phase, "step": int(step),
+                  "num_steps": int(num_steps), "seconds": time.perf_counter() - t0})  # fmt: skip
+
+        try:
+            if stage == "A":
+                point = _emitter_stage_a(mesh, material_specs, stack, dipole, moments, omega,
+                                         k0, spec, order, pml, plane_options, progress,
+                                         cancel)  # fmt: skip
+            elif stage == "B":
+                point = _emitter_stage_b(mesh, material_specs, stack, dipole, key, omega, k0,
+                                         scan_kwargs, beta_max_over_k0, apertures, aperture_side,
+                                         order, pml, options, progress, cancel)  # fmt: skip
+            else:
+                point = _emitter_stage_c(mesh, material_specs, stack, dipole, key, omega,
+                                         thetas_deg, phis_deg, sides, apertures, order, pml,
+                                         options, progress, cancel)  # fmt: skip
+        except hpfem.Cancelled:
+            results["cancelled"] = True
+            emit({"event": "cancelled", "i": i, "n": len(wavelengths)})
+            return
+        point = {"i": i, "wavelength": wavelength, **point, "seconds": time.perf_counter() - t0}
+        results["points"].append(point)
+        emit({"event": "point", "n": len(wavelengths), **point})
+
+
+def _cone_directions_count(n_theta: int, n_phi: int, symmetric: bool) -> int:
+    """Directions of :func:`hpfem.grating.emission_cone` (one θ panel; the φ reduction of the
+    mirror symmetries as there)."""
+    return len(grating._hemisphere_directions(n_theta, n_phi, symmetric, True, (), 0.5))
+
+
+def _emitter_stage_a(mesh, material_specs, stack, dipole, moments, omega, k0, spec, order, pml,
+                     options, progress, cancel) -> dict:  # fmt: skip
+    """The Bloch array at (kx, β), averaged over the orientations."""
+    kx = float(_get(spec, "kx_over_k0", 0.0, where="emitter")) * k0
+    beta = float(_get(spec, "beta_over_k0", 0.0, where="emitter")) * k0
+    fields = ("P_cell", "up", "down", "absorbed", "guided")
+    sums = dict.fromkeys(fields, 0.0)
+    orders_up, orders_down, leak = {}, {}, 0.0
+    for j, key in enumerate(moments):
+        if cancel is not None and cancel():
+            raise hpfem.Cancelled("emitter cancelled")
+        progress(j, len(moments), "emit")
+        moment = dipole.get("moment") if key == "moment" else np.eye(3)["xyz".index(key)]
+        r = grating.emit(mesh, material_specs, stack, {**dipole, "moment": moment}, omega, kx,
+                         beta, order, pml=pml, **options)  # fmt: skip
+        for f in fields:
+            sums[f] += getattr(r, f) / len(moments)
+        for o in r.orders_up:
+            orders_up[o.m] = orders_up.get(o.m, 0.0) + o.power / len(moments)
+        for o in r.orders_down:
+            orders_down[o.m] = orders_down.get(o.m, 0.0) + o.power / len(moments)
+        leak += (r.pml_leak or 0.0) / len(moments)
+    return {"stage": "A", "kx": kx, "beta": beta, **sums, "pml_leak": leak,
+            "orders_up": [[m, p] for m, p in sorted(orders_up.items())],
+            "orders_down": [[m, p] for m, p in sorted(orders_down.items())]}  # fmt: skip
+
+
+def _emitter_stage_b(mesh, material_specs, stack, dipole, key, omega, k0, scan_kwargs,
+                     beta_max_over_k0, apertures, aperture_side, order, pml, options, progress,
+                     cancel) -> dict:  # fmt: skip
+    """The single dipole by array scanning, its channels and the collection apertures."""
+    result = grating.dipole_emission(
+        mesh, material_specs, stack, dipole, omega, order=order, pml=pml,
+        beta_max=None if beta_max_over_k0 is None else float(beta_max_over_k0) * k0,
+        progress=lambda i, n: progress(i, n, "scan"), cancel=cancel, **scan_kwargs, **options,
+    )  # fmt: skip
+    p_em = result.P_em[key]
+    point = {"stage": "B", "purcell": result.purcell[key], "P_em": p_em,
+             "P_bulk": result.P_bulk if key != "moment" else p_em / result.purcell[key],
+             "n_host": result.n_host, "lossy": result.lossy, "samples": result.samples,
+             "plane_wave_solves": result.directions,
+             "purcell_by_orientation": dict(result.purcell),
+             "timing": dict(result.timing)}  # fmt: skip
+    if result.up is not None:
+        point["fractions"] = {"up": result.up[key] / p_em, "down": result.down[key] / p_em,
+                              "nonradiated": result.nonradiated[key] / p_em}  # fmt: skip
+    point["aperture"] = []
+    for na in apertures:
+        cone = grating.emission_cone(
+            mesh, material_specs, stack, dipole, omega, na, side=aperture_side,
+            angle_nodes=scan_kwargs["angle_nodes"], symmetric=scan_kwargs["symmetric"],
+            order=order, pml=pml, progress=lambda i, n, na=na: progress(i, n, f"aperture {na}"),
+            cancel=cancel, **options,
+        )  # fmt: skip
+        power = cone.power[key]
+        point["aperture"].append({"NA": na, "side": aperture_side, "theta_max_deg":
+                                  math.degrees(cone.theta_max), "power": power,
+                                  "fraction": power / p_em})  # fmt: skip
+    return point
+
+
+def _emitter_stage_c(mesh, material_specs, stack, dipole, key, omega, thetas_deg, phis_deg,
+                     sides, apertures, order, pml, options, progress, cancel) -> dict:  # fmt: skip
+    """dP/dΩ on the (θ, φ) grid of every side, and the apertures from the grid."""
+    spec = {**dipole, "moment": key if key != "moment" else dipole["moment"]}
+    directions = [(math.radians(t), math.radians(f), side)
+                  for side in sides for t in thetas_deg for f in phis_deg]  # fmt: skip
+    for side in sides:
+        if side not in ("up", "down"):
+            raise JobError(f"emitter.directions.sides: {side!r}, use 'up' or 'down'")
+    pattern = grating.emission_pattern(mesh, material_specs, stack, spec, omega, directions,
+                                       order=order, pml=pml,
+                                       progress=lambda i, n: progress(i, n, "pattern"),
+                                       cancel=cancel, **options)  # fmt: skip
+    shape = (len(thetas_deg), len(phis_deg))
+    grid, by_pol, n_side, apertures_out = {}, {}, {}, []
+    for s_index, side in enumerate(sides):
+        block = slice(s_index * shape[0] * shape[1], (s_index + 1) * shape[0] * shape[1])
+        total = pattern.total[block].reshape(shape)
+        grid[side] = total.tolist()
+        by_pol[side] = {pol: pattern.dP_dOmega[block, j].reshape(shape).tolist()
+                        for j, pol in enumerate(pattern.pol)}  # fmt: skip
+        n_side[side] = float(pattern.n[block][0]) if shape[0] * shape[1] else None
+        for na in apertures:
+            power = _aperture_from_grid(np.radians(thetas_deg), np.radians(phis_deg), total, na,
+                                        n_side[side])  # fmt: skip
+            apertures_out.append({"NA": na, "side": side, "power": power,
+                                  "per_P_bulk": power / pattern.P_bulk})  # fmt: skip
+    return {"stage": "C", "theta_deg": thetas_deg, "phi_deg": phis_deg, "sides": sides,
+            "dP_dOmega": grid, "dP_dOmega_by_pol": by_pol, "P_bulk": pattern.P_bulk,
+            "n": n_side, "aperture": apertures_out, "timing": dict(pattern.timing)}  # fmt: skip
+
+
 # --- the study tasks of schema version 2 -------------------------------------------------------
 
 STUDY_TASKS = ("optimize", "reconstruct", "uq")
+V2_TASKS = (*STUDY_TASKS, "emitter")
 
 
 def _to_list(value):
@@ -1054,7 +1346,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 __all__ = [
-    "JobError", "SCHEMA_VERSION", "STUDY_TASKS", "SUPPORTED_VERSIONS", "main", "run_job",
+    "JobError", "SCHEMA_VERSION", "STUDY_TASKS", "SUPPORTED_VERSIONS", "V2_TASKS", "main",
+    "run_job",
     "version_info",
 ]  # fmt: skip
 

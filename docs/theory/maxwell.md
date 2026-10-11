@@ -1565,6 +1565,13 @@ the PML only has to absorb the field scattered by the structure. The remainder
 $P_{em} - P_{up} - P_{down}$ is the absorbed power of a lossy structure and the guided power of
 a lossless one. Guided-mode poles on the real axis (ADR-0013 §4) are not treated yet.
 
+A collection aperture of numerical aperture NA above the sample is the same integral restricted
+to $\theta \le \arcsin(\mathrm{NA}/n)$ (`emission_cone`): $P_{NA} = \mathrm{Re}\,p^H R_{NA}\,p$,
+and $P_{NA}/P_{em}$ the extraction efficiency into it. The cost of a run is known before it
+starts: the rule fixes the number of cell problems, the angle nodes the number of plane-wave
+solves (two polarisations per direction), and one factorisation of each kind gives the time
+per solve (`emission_cost`; the job-runner task `emitter` reports it before the sweep).
+
 Verified by `python/tests/test_dipole_emission.py`:
 
 - The rule on the analytic closed form of a homogeneous cell: $3\cdot10^{-3}$ at 4 points per
