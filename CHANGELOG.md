@@ -3,6 +3,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Job-runner task `emitter` (schema 2, M17 S4, written by the helper agent `opt-jobs`): a single
+  Gaussian dipole over a wavelength sweep in stage A (Bloch array), B (array scanning: Purcell
+  factor, fractions up / down / non-radiated, extraction into numerical apertures) or C (dP/dΩ
+  on a θ-φ grid), with the cost estimate (solves, memory, calibrated time) before the run and
+  `dry_run`; `grating.emission_cost`, `grating.emission_cone` and orientation keys for
+  `emission_pattern`; example `examples/grating_emitter` (quantum dot above a glass grating
+  against flat glass).
 - M18 3D cross-checks and full spectra (`docs/validation.md` J, written by the helper agent
   `opt-jobs`): the axisymmetric solver on a layer stack agrees with `Scattering3D` on the same
   stack to 0.03 % in absorption, 0.15 % in scattering and its up / down / lateral channels and

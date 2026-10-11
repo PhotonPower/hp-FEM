@@ -473,9 +473,13 @@ radiated power into cover and substrate per direction, guided and absorbed power
   (8e-5 at a period of 1 µm, 1e-3 at 0.8 µm: period independence), the homogeneous cell,
   `benchmarks/m17_dipole_scan.py`. Open: the guided-mode poles of lossless structures (§4),
   the mirror and the plasmonic film, parallel samples, the cost estimate
-- [ ] S4: job-runner task `emitter` (schema 2), events, cost estimate; docs (maxwell.md "Dipole
-  emitters in periodic structures", python.md), example `examples/grating_emitter` (quantum dot
-  on a dielectric grating, LED extraction)
+- [x] S4: job-runner task `emitter` (schema 2) with events, cancellation and the cost estimate
+  before the run (`grating.emission_cost`, `dry_run`), extraction into a numerical aperture
+  (`grating.emission_cone`); docs (maxwell.md "Stage B", python.md), example
+  `examples/grating_emitter` (quantum dot above a glass grating, LED extraction) with the quick
+  variant as regression test; open: a remainder of 1.7–3.5 % of the emitted power on a
+  diffracting grating (README "Accuracy", under investigation with S3) (written by the helper
+  agent `opt-jobs`)
 
 ## M18 — Layered background for the axisymmetric solver (ADR-0014)
 Proposal of 10 October 2026 from the GUI work, reviewed the same day; channels, tests and the GUI
