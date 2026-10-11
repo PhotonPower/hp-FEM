@@ -702,13 +702,15 @@ channels `up` / `down` (by reciprocity over the half-spaces, `angle_nodes` = θ 
 and `nonradiated` = P_em − up − down (absorbed in a lossy structure, guided in a lossless one),
 with `samples`, `directions`, the power and radiation matrices and the timing; `symmetric`
 halves the scan for a cell mirror-symmetric about the dipole. `guided="auto"` (on when a
-material of the cell has a larger index than cover and substrate, `True` / `False` to force it)
-treats the bound modes of lossless waveguide layers (ADR-0013 §4a): it finds their poles in kx
-by AAA and passes each on its causal side; `guided` holds their power per orientation key and
+material of the cell has a larger index than cover and substrate or is a metal, `True` / `False`
+to force it) treats the bound modes of lossless waveguide layers and the surface plasmons of
+metals (ADR-0013 §4a): it finds their poles in kx by AAA and passes each on its causal side,
+and grades the β rule towards the β where a lossy pair meets; `guided` holds their power per orientation key and
 `guided_modes` the share per pole (`beta`, `kx`, `side`, `matrix`, `power`). On the slab of
 the validation this costs 4.5 times the samples of the plain scan (a β pre-pass, a denser
 detection pass and a second pass per β node with poles); β runs up to k0 times the largest
-index of the cell. `grating.emission_cost(...)` with the same arguments counts the cell
+index of the cell. Quenching near a metal lives in the near field: give `beta_max` (about
+1/d times a few, d the distance to the metal; 12 k0 at 80 nm above silver at 633 nm). `grating.emission_cost(...)` with the same arguments counts the cell
 problems and plane-wave solves without running them (with `guided` an estimate of the second
 passes), gives the memory of one factorisation and, with `calibrate=True`, times one of each
 and extrapolates the wall time (`EmissionCost`).

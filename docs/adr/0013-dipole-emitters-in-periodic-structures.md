@@ -257,6 +257,15 @@ integral):
 - **Result.** F_P is right to 4·10⁻⁴ for the three orientations, with 192 poles. The guided
   power from the residues equals the non-radiated rest to 3·10⁻⁴. The run takes 9276 cell
   problems, about 4.5 times the plain scan.
+- **Lossy poles** (M17 S3, plasmonic quenching). A surface plasmon is a pole off the axis by
+  its loss. The detection accepts poles up to 5·10⁻² of the window off the axis. Off the axis
+  (more than 2·10⁻³) the bump turns away from the pole, and only a pole with a residue of at
+  least 10⁻² of the slice scale counts; the fit puts weak poles along the branch cuts of the
+  light lines. Where the lossy pair meets at kx = 0 or π/P, the β integrand has a peak of width
+  δ = Im β_pinch. The pre-pass therefore refits each candidate locally and returns it complex,
+  and the β rule grades its panels towards Re β_pinch. On the analytic spectrum of a dipole
+  80 nm above silver, the scan matches the Sommerfeld integral to 1.4·10⁻⁴, against up to
+  2.8 % without these steps.
 
 ### 5. Cost and execution
 
