@@ -10,6 +10,15 @@
 #include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
 
+// GCC 16 at -O3 reports -Warray-bounds in the destructor of WaveData<3> inlined into the
+// shared_ptr control block ("WaveData<3>[0] partly outside array bounds of unsigned char[288]"):
+// a false positive (the same code is clean with GCC 16 at -O2, with GCC 13 and Clang 18 in CI,
+// and under the sanitizers). Silenced for this file and GCC >= 16 only.
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 16
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
+
 namespace hpfem::physics {
 
 namespace {
@@ -286,3 +295,7 @@ template class LayerStack<2>;
 template class LayerStack<3>;
 
 }  // namespace hpfem::physics
+
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 16
+#pragma GCC diagnostic pop
+#endif
