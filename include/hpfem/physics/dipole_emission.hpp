@@ -14,6 +14,10 @@
 /// @f$ P_{cell} = -\tfrac12\mathrm{Re}\int_{cell} \bar J_{k_x,\beta}\cdot E_{k_x,\beta}\,dA @f$
 /// [W/m per unit β]. Convention exp(-iωt). See docs/theory/maxwell.md#dipole-emitters.
 
+#include <vector>
+
+#include <Eigen/Dense>
+
 #include "hpfem/core/types.hpp"
 #include "hpfem/physics/conical_scattering.hpp"
 
@@ -42,5 +46,26 @@ namespace hpfem::physics {
 ///         vectors.
 [[nodiscard]] Real conical_source_power(const ConicalScattering& problem,
                                         const ConicalSolution& solution, int extra_order = 4);
+
+/// Responses of a cell problem to several Gaussian dipoles on the factorisation its solve kept
+/// (`ConicalScatteringSetup::keep_factorisation`, M16 S1): for each row of `moments` (k × 3,
+/// physical current moments [A m]) the solution of the same cell problem (kx, β, materials,
+/// PML) with the source `conical_gaussian_dipole(position, moment, sigma, ω, β)` — one load
+/// assembly on the cells within 7σ of the position and one solve each, no factorisation (the
+/// three orientations of an isotropic emitter share one; ADR-0013 §5).
+/// @throws InvalidArgument without a kept factorisation, for σ ≤ 0 or a moment row that is not
+///         a 3-vector.
+[[nodiscard]] std::vector<ConicalSolution> conical_dipole_responses(
+    const ConicalScattering& problem, const ConicalSolution& solution, const Point<2>& position,
+    Real sigma, const Matrix& moments);
+
+/// The power matrix of the Gaussian dipole in a cell problem: with the responses
+/// @f$ E_j @f$ to the unit moments @f$ \hat e_x, \hat e_y, \hat e_z @f$,
+/// @f$ A_{ij} = -\tfrac12\int g_2\,e^{-\sigma^2\beta^2/2}\,(E_j)_i\,dA @f$, so that the power
+/// delivered by any moment p is @f$ P_{cell}(p) = \mathrm{Re}(p^H A\,p) @f$ [W/m per unit β].
+/// @throws InvalidArgument unless `unit_responses` holds the three unit-moment responses.
+[[nodiscard]] Eigen::Matrix3cd conical_dipole_power_matrix(
+    const ConicalScattering& problem, const std::vector<ConicalSolution>& unit_responses,
+    const Point<2>& position, Real sigma, int extra_order = 4);
 
 }  // namespace hpfem::physics

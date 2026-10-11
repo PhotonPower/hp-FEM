@@ -83,7 +83,8 @@ class KeptFactorisation {
   std::unique_ptr<solvers::LinearSolver> solver_;
   Index num_dofs_;
   std::vector<Index> selection_;
-  std::optional<SparseMatrix> prolongation_;  ///< P of the constraints
+  std::optional<SparseMatrix> prolongation_;       ///< P of the constraints
+  std::optional<SparseMatrix> test_prolongation_;  ///< Q of the constraints (with a test space)
   std::vector<Index> dirichlet_;
   std::shared_ptr<const assembly::StaticCondensation> condensation_;
 };

@@ -28,6 +28,7 @@ KeptFactorisation::KeptFactorisation(Parts parts)
                                         parts.constraints->num_dofs(), selected));
     }
     prolongation_ = parts.constraints->prolongation();
+    if (parts.constraints->has_test()) test_prolongation_ = parts.constraints->test_prolongation();
   }
   const Index system = prolongation_ ? prolongation_->cols() : selected;
   if (system != solver_->size()) {
@@ -69,11 +70,13 @@ Matrix KeptFactorisation::to_system(const Matrix& full, bool transposed,
       selected.row(static_cast<Index>(i)) = condensed.row(selection_[i]);
     }
   }
-  // forward: P^H r (the test functions with conjugate coefficients); adjoint: P^T q
+  // forward: Q^H r (the test functions with conjugate coefficients, Q = P without a separate
+  // test space); adjoint: P^T q
   Matrix reduced;
   if (prolongation_) {
-    reduced = transposed ? Matrix(prolongation_->transpose() * selected)
-                         : Matrix(prolongation_->adjoint() * selected);
+    const SparseMatrix& q = test_prolongation_ ? *test_prolongation_ : *prolongation_;
+    reduced =
+        transposed ? Matrix(prolongation_->transpose() * selected) : Matrix(q.adjoint() * selected);
   } else {
     reduced = std::move(selected);
   }
@@ -84,11 +87,11 @@ Matrix KeptFactorisation::to_system(const Matrix& full, bool transposed,
 
 Matrix KeptFactorisation::from_system(const Matrix& reduced, const Matrix& full,
                                       bool transposed) const {
-  // forward: P x; adjoint: conj(P) y
+  // forward: P x; adjoint: conj(Q) y
   Matrix selected;
   if (prolongation_) {
-    selected = transposed ? Matrix(prolongation_->conjugate() * reduced)
-                          : Matrix(*prolongation_ * reduced);
+    const SparseMatrix& q = test_prolongation_ ? *test_prolongation_ : *prolongation_;
+    selected = transposed ? Matrix(q.conjugate() * reduced) : Matrix(*prolongation_ * reduced);
   } else {
     selected = reduced;
   }

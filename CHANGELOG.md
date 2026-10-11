@@ -3,6 +3,21 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- A single dipole in a periodic structure by array scanning (M17 S3, ADR-0013 §3 and §3a):
+  `hpfem.grating.dipole_emission` gives the Purcell factor of the three orientations (and of a
+  given moment) and the power radiated into the cover and a lossless substrate, the rest being
+  absorbed or guided. The kx integral runs on a complex contour around the light-line
+  crossings, where a PML cannot absorb the grazing orders of the cell problem; the β integral
+  stays on the real axis. The radiated channels come from the reciprocity pattern, integrated
+  over the half-spaces. `array_scan_rule`, `dipole_bulk_power` and `DipoleEmission` are public.
+  A dipole 400 nm above glass matches the Sommerfeld integral to 8e-5 (period 1 µm) and 1e-3
+  (0.8 µm); the long runs are in `benchmarks/m17_dipole_scan.py`.
+- Complex Bloch wave vectors in the constraints (ADR-0013 §3a): `fespace::Constraints::set_test`
+  takes a test space of the same structure, and the reduction becomes Qᴴ A P. `ConicalScattering`
+  builds it with the phases 1/conj(λ) for a phase off the unit circle, so that the cell problem
+  is analytic in a complex kx. Nothing changes for real wave vectors. Also new:
+  `conical_dipole_responses` (the dipole of several moments on a kept factorisation) and
+  `conical_dipole_power_matrix`.
 - Validation of the optimisation stack (M16 S8, `benchmarks/opt_validation.py`,
   `docs/validation.md` H and I): gradient-enhanced Bayesian optimisation reaches the noise
   level of a three-parameter grating reconstruction in 16–31 evaluations and ends 2–4× lower
@@ -195,6 +210,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   side-wall angle tolerances of a silicon grating propagated to its reflectance spectrum.
 
 ### Fixed
+- `grating.emission_pattern` completes the material map cell by cell (stack material at the
+  centroid for tags without a material) before mirroring the problem for the substrate side,
+  where the background of a dict map would otherwise be the wrong medium.
 - The PML of `hpfem.grating` (`solve`, `validate`, `resonances`, and on the M17 branches `emit`
   and `emission_pattern`) was designed for a normal-incidence profile at every angle: the largest
   propagating-order angle went into `PmlProfile.for_angle` in radians, but the binding takes
