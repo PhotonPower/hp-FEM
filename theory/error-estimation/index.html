@@ -1,0 +1,1565 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/theory/error-estimation/">
+      
+      
+        <link rel="prev" href="../hp-adaptivity/">
+      
+      
+        <link rel="next" href="../pml/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Error estimation - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#a-posteriori-error-estimation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Error estimation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#residual-estimator-for-the-curlcurl-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Residual estimator for the curl–curl problem
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Residual estimator for the curl–curl problem">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#implementation-adaptivityresidual_estimate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation (adaptivity::residual_estimate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bodies-of-revolution-adaptivityaxisymmetric_residual_estimate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bodies of revolution (adaptivity::axisymmetric_residual_estimate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conical-incidence-adaptivityconical_residual_estimate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conical incidence (adaptivity::conical_residual_estimate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goal-oriented-estimation-dual-weighted-residual" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goal-oriented estimation (dual-weighted residual)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goal-oriented estimation (dual-weighted residual)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#conical-solver-physicsconical_dwr_estimate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conical solver (physics::conical_dwr_estimate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implementation-physicsdwr_estimate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation (physics::dwr_estimate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dual-formulation-and-guaranteed-bounds-adaptivityhypercirclehpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dual formulation and guaranteed bounds (adaptivity/hypercircle.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Verification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#results-testsconvergenceestimator_effectivitycpp-testsunitadaptivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Results (tests/convergence/estimator_effectivity.cpp, tests/unit/adaptivity/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#residual-estimator-for-the-curlcurl-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Residual estimator for the curl–curl problem
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Residual estimator for the curl–curl problem">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#implementation-adaptivityresidual_estimate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation (adaptivity::residual_estimate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bodies-of-revolution-adaptivityaxisymmetric_residual_estimate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bodies of revolution (adaptivity::axisymmetric_residual_estimate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conical-incidence-adaptivityconical_residual_estimate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conical incidence (adaptivity::conical_residual_estimate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goal-oriented-estimation-dual-weighted-residual" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goal-oriented estimation (dual-weighted residual)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Goal-oriented estimation (dual-weighted residual)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#conical-solver-physicsconical_dwr_estimate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conical solver (physics::conical_dwr_estimate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implementation-physicsdwr_estimate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation (physics::dwr_estimate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dual-formulation-and-guaranteed-bounds-adaptivityhypercirclehpp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dual formulation and guaranteed bounds (adaptivity/hypercircle.hpp)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Verification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#results-testsconvergenceestimator_effectivitycpp-testsunitadaptivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Results (tests/convergence/estimator_effectivity.cpp, tests/unit/adaptivity/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="a-posteriori-error-estimation">A-posteriori error estimation</h1>
+<h2 id="residual-estimator-for-the-curlcurl-problem">Residual estimator for the curl–curl problem</h2>
+<p>For <span class="arithmatex">\(E_{hp}\)</span> solving the discrete problem with data <span class="arithmatex">\(f = i\omega J\)</span> (Beck, Hiptmair,
+Hoppe &amp; Wohlmuth 2000; Schöberl 2008 for the <span class="arithmatex">\(hp\)</span> setting), the element indicator is</p>
+<div class="arithmatex">\[
+\eta_K^2 = \frac{h_K^2}{p_K^2}\,\big\| f - \nabla\times(\mu^{-1}\nabla\times E_{hp}) + \omega^2\varepsilon E_{hp} \big\|^2_{L^2(K)}
++ \frac{h_K^2}{p_K^2}\,\ell^2\big\| \nabla\cdot(f + \omega^2\varepsilon E_{hp}) \big\|^2_{L^2(K)}
++ \sum_{F\subset\partial K}\frac{h_F}{2p_F}\Big( \big\| [\![\mathbf n\times\mu^{-1}\nabla\times E_{hp}]\!] \big\|^2_{L^2(F)}
++ \ell^2\big\| [\![\mathbf n\cdot(f+\omega^2\varepsilon E_{hp})]\!] \big\|^2_{L^2(F)} \Big).
+\]</div>
+<p>Terms: (1) element residual, (2) divergence residual (Gauss law, captures the gradient
+part of the error), (3) jump of the tangential magnetic field across faces, (4) jump of
+the normal displacement flux. The length scale <span class="arithmatex">\(\ell\)</span> of the Gauss-law terms is not in the
+cited papers, which work with lengths of order one: <span class="arithmatex">\(\nabla\cdot d\)</span> carries one inverse length
+more than the element residual, so in SI units (cells of nanometres, <span class="arithmatex">\(k \sim 10^7\)</span>/m) the
+unscaled terms (2) and (4) exceed (1) and (3) by <span class="arithmatex">\(1/(kh)^2 \sim 10^{15}\)</span> and <span class="arithmatex">\(\eta\)</span> measures only
+the Gauss-law residual of the smallest cells (observed on the silver grating of
+<a href="../../validation/#e-hp-adaptive-silver-grating-with-the-conical-solver-m15-f1">validation.md</a>).
+With <span class="arithmatex">\(\ell = 1/k\)</span> (the default, <code>EstimatorOptions::length_scale = 0</code>) the four terms are
+measured in the same units, the wavelength being the length scale of the <span class="arithmatex">\(H(\mathrm{curl})\)</span>
+norm; problems with <span class="arithmatex">\(k = 1\)</span> are unchanged. Pass <span class="arithmatex">\(\ell = c_0/\omega\)</span> when the mass coefficient is
+<span class="arithmatex">\(\omega^2\)</span> with SI tensors. The estimator is <strong>reliable</strong>
+<span class="arithmatex">\(\|E-E_{hp}\|_{H(\mathrm{curl})} \le C\,(\sum_K \eta_K^2)^{1/2}\)</span> up to data oscillation
+and higher-order terms (the Helmholtz-type problem is indefinite: reliability holds once
+the mesh resolves the wavelength). In <span class="arithmatex">\(hp\)</span> the constants depend on <span class="arithmatex">\(p\)</span>; this is accepted.</p>
+<p>Complex coefficients: all norms use <span class="arithmatex">\(|\cdot|^2 = (\cdot)\overline{(\cdot)}\)</span>; PML cells use
+the stretched <span class="arithmatex">\(\tilde\varepsilon, \tilde\mu\)</span> in the residual so the estimator is consistent
+with the equation actually solved there.</p>
+<h3 id="implementation-adaptivityresidual_estimate">Implementation (<code>adaptivity::residual_estimate</code>)</h3>
+<p>The estimator works on the same per-cell forms as the assembler
+(<code>assembly::MaxwellForm</code>: <span class="arithmatex">\(\mu^{-1}\)</span>, <span class="arithmatex">\(\varepsilon\)</span>, <span class="arithmatex">\(f\)</span>, <span class="arithmatex">\(g\)</span>) and the mass coefficient
+<span class="arithmatex">\(k^2\)</span> (<span class="arithmatex">\(k_0^2\)</span> for <code>physics::Scattering</code>, whose <code>estimate()</code> wraps the call). With the
+curl source <span class="arithmatex">\(g\)</span> of the scattered-field formulation the strong equation reads
+<span class="arithmatex">\(\nabla\times(\mu^{-1}\nabla\times E) - k^2\varepsilon E = f + \nabla\times g\)</span>, so the
+implementation uses</p>
+<div class="arithmatex">\[
+w = \mu^{-1}\nabla\times E_{hp} - g, \qquad d = f + k^2\varepsilon E_{hp}, \qquad
+R_K = d - \nabla\times w,
+\]</div>
+<p>and the jumps <span class="arithmatex">\([\![\mathbf n\times w]\!]\)</span>, <span class="arithmatex">\([\![\mathbf n\cdot d]\!]\)</span> (both <span class="arithmatex">\(w\)</span> and <span class="arithmatex">\(d\)</span> are
+continuous across interfaces for the exact solution, including the jump of <span class="arithmatex">\(g\)</span> and <span class="arithmatex">\(f\)</span> at
+the scatterer boundary).</p>
+<ul>
+<li><strong>Derivatives inside a cell.</strong> The Nédélec basis provides values and curls only. The
+  curl of <span class="arithmatex">\(w\)</span> and the divergence of <span class="arithmatex">\(d\)</span> are formed from central differences of <span class="arithmatex">\(w(\xi)\)</span>,
+  <span class="arithmatex">\(d(\xi)\)</span> in <em>reference</em> coordinates (step <code>difference_step</code>, default <span class="arithmatex">\(10^{-4}\)</span>) and the
+  chain rule <span class="arithmatex">\(\partial_{x_j} = \sum_k (J^{-T})_{jk}\,\partial_{\xi_k}\)</span> with <span class="arithmatex">\(J^{-T}\)</span> at the
+  quadrature point. On affine cells with constant coefficients both fields are polynomials
+  in <span class="arithmatex">\(\xi\)</span>, so the differences are exact up to rounding (<span class="arithmatex">\(\sim 10^{-12}\)</span> relative); on
+  curved or PML cells the <span class="arithmatex">\(O(\delta^2)\)</span> truncation error is far below the estimator's own
+  constants. The product rule for variable tensors (PML) is thereby included automatically.</li>
+<li><strong>Facets.</strong> Interior facets only. Each facet is parametrised from its first cell, the
+  physical quadrature point is pulled back into the second cell with the cell geometry
+  (<code>to_reference</code>, Newton on curved cells), and both sides are sampled with their own
+  forms. <span class="arithmatex">\(h_F\)</span> is the edge length (2D) or the longest edge of the face (3D),
+  <span class="arithmatex">\(p_F = \max(p_{K_0}, p_{K_1})\)</span>; each adjacent cell receives <span class="arithmatex">\(h_F/(2p_F)\)</span> times the jump
+  integral. In 2D the tangential jump of the scalar curl is <span class="arithmatex">\(|[\![w]\!]|\)</span>.</li>
+<li><strong>Hanging facets</strong> (locally refined meshes): the jump is integrated over each child
+  facet against the cell of the parent facet; the parent facet itself carries no term.</li>
+<li><strong>Boundary facets.</strong> PEC and prescribed tangential traces are imposed exactly and carry no
+  term; PMC (natural) facets are not accounted for. <strong>Bloch facets</strong> (<code>periodic</code> argument,
+  passed by <code>Scattering::estimate</code> and <code>ConicalScattering::estimate</code>): the jump
+  <span class="arithmatex">\([\![n\times w]\!] = w_\text{slave} - e^{ik\cdot a}\,w_\text{master}\)</span> (and the flux jump) is
+  integrated on each slave facet against the master cells under its shifted quadrature points
+  (<code>assembly::PeriodicLocator</code>, non-matching faces included) and credited to the slave cell and
+  to each master cell met, so cells at the periodic faces are marked like interior cells.</li>
+<li><strong>Quadrature</strong> degree $2p + $ <code>extra_order</code> (+2 on curved cells), or the cell's own
+  <code>quadrature_order</code> (PML cells); facet rules of the same degree.</li>
+<li>The Gauss-law terms can be switched off (<code>divergence_terms = false</code>), e.g. for
+  magnetostatic-like problems.</li>
+</ul>
+<p><code>Estimate</code> returns <span class="arithmatex">\(\eta_K\)</span> per cell and the four squared contributions (<code>parts</code>), the
+global <span class="arithmatex">\(\eta\)</span> (<code>total()</code>) and the worst cell (<code>argmax()</code>).</p>
+<h3 id="bodies-of-revolution-adaptivityaxisymmetric_residual_estimate">Bodies of revolution (<code>adaptivity::axisymmetric_residual_estimate</code>)</h3>
+<p>The same estimator for the equation of one azimuthal order on the meridian mesh, with the
+cylindrical curl and divergence and the weight <span class="arithmatex">\(r\)</span> in every integral; formulas and
+verification in <a href="../axisymmetric/#hp-adaptivity-on-the-meridian-plane">axisymmetric.md</a>.</p>
+<h3 id="conical-incidence-adaptivityconical_residual_estimate">Conical incidence (<code>adaptivity::conical_residual_estimate</code>)</h3>
+<p>The estimator of the 2.5D problem of <a href="../maxwell/#conical-incidence-and-the-e_z-polarisation">maxwell.md</a>,
+<span class="arithmatex">\(E(x, y)e^{i\beta z}\)</span> with the in-plane field on the Nédélec map and <span class="arithmatex">\(v = -iE_z\)</span> on the H1 map.
+It is the residual of the three-dimensional equation with <span class="arithmatex">\(\partial_z = i\beta\)</span>, in Cartesian
+components: <span class="arithmatex">\(w = \mu^{-1}\nabla\times E_{hp}\)</span> with
+<span class="arithmatex">\(\nabla\times E = \big(i(\partial_yv - \beta E_y),\ -i(\partial_xv - \beta E_x),\ \partial_xE_y - \partial_yE_x\big)\)</span>,
+<span class="arithmatex">\(d = f + k_0^2\varepsilon E_{hp}\)</span>, <span class="arithmatex">\(R_K = d - \nabla\times w\)</span> with
+<span class="arithmatex">\((\nabla\times w)_x = \partial_yw_z - i\beta w_y\)</span>, <span class="arithmatex">\((\nabla\times w)_y = i\beta w_x - \partial_xw_z\)</span>,
+<span class="arithmatex">\(\nabla\cdot d = \partial_xd_x + \partial_yd_y + i\beta d_z\)</span>, and on a facet with the in-plane normal
+<span class="arithmatex">\(n\)</span> the jumps <span class="arithmatex">\(|[n\times w]|^2 = |[w_z]|^2 + |[n_xw_y - n_yw_x]|^2\)</span> and <span class="arithmatex">\([n\cdot d]\)</span>. The
+<span class="arithmatex">\(z\)</span>-component of the tangential jump is the jump of the in-plane curl (the <span class="arithmatex">\(H_z\)</span> polarisation),
+the in-plane components contain <span class="arithmatex">\(\partial_n v\)</span> (the normal derivative of <span class="arithmatex">\(E_z\)</span>) and the
+<span class="arithmatex">\(\beta E_t\)</span> coupling; the normal-flux jump is that of <span class="arithmatex">\(\varepsilon E_t\)</span>. No <span class="arithmatex">\(r\)</span> weights, the same
+<span class="arithmatex">\(h/p\)</span> factors as <code>residual_estimate</code>, PEC and Bloch facets carry no term. At <span class="arithmatex">\(\beta = 0\)</span> the
+indicators are those of the in-plane and the <span class="arithmatex">\(E_z\)</span> block side by side, so the same marking and
+hp decision apply to all three polarisations. Verified in <code>tests/unit/adaptivity/test_conical_estimator.cpp</code>
+(zero for an exact gradient mode on conforming and one-irregular meshes, localisation) and by
+the convergence test <code>conical_hp_corner</code> (re-entrant PEC corner at <span class="arithmatex">\(\beta = 1.3\)</span>: effectivity
+3.3–5.2, error <span class="arithmatex">\(\sim \exp(-0.26\,N^{1/3})\)</span>, algebraic slope <span class="arithmatex">\(-2.0\)</span>, the corner h-refined);
+<code>physics::ConicalScattering::estimate</code> and <code>error</code> wrap it with the problem's forms.</p>
+<h2 id="goal-oriented-estimation-dual-weighted-residual">Goal-oriented estimation (dual-weighted residual)</h2>
+<p>Scatterometry and metasurface design need accuracy in a <em>functional</em> <span class="arithmatex">\(Q(E)\)</span> (a Fourier
+coefficient, a flux, a Purcell factor), not in the energy norm. The DWR method solves the
+adjoint problem <span class="arithmatex">\((S-\omega^2 M)^{\!*} z = Q'\)</span> and weights the primal residuals with the
+adjoint solution:</p>
+<div class="arithmatex">\[
+Q(E) - Q(E_{hp}) \approx \sum_K \big( R_K(E_{hp}), z - z_{hp} \big)_K + \ldots
+\]</div>
+<h3 id="conical-solver-physicsconical_dwr_estimate">Conical solver (<code>physics::conical_dwr_estimate</code>)</h3>
+<p>The same construction for the coupled system of
+<a href="../maxwell/#conical-incidence-and-the-e_z-polarisation">maxwell.md</a>: a functional is a pair
+<span class="arithmatex">\((q_e, q_v)\)</span> on the two DoF maps, <span class="arithmatex">\(Q(E_h) = q_e^\top e + q_v^\top v\)</span>, returned by a
+<code>ConicalFunctional</code> for any pair of maps of the mesh (<code>conical_point_functional</code> for
+<span class="arithmatex">\(E(x)\cdot w\)</span> of the physical field, <code>conical_order_functional</code> for the vector amplitude
+<span class="arithmatex">\(A_m\cdot e\)</span> of a diffraction order along a polarisation vector <span class="arithmatex">\(e\)</span>, the same Gauss–Legendre
+line rule as <code>conical_fourier_coefficients</code>; both carry the factor <span class="arithmatex">\(i\)</span> of <span class="arithmatex">\(E_z = iv\)</span> in <span class="arithmatex">\(q_v\)</span>).
+The adjoint of the enriched conical system (orders <span class="arithmatex">\(+1\)</span> on both maps, the PEC facets and the
+hanging / Bloch constraints of the primal problem, conjugated prolongation for the test space)
+gives the weight <span class="arithmatex">\(z - I_pz\)</span> block by block, and <code>adaptivity::conical_weighted_residual</code>
+pairs the Cartesian residual with the physical test vector <span class="arithmatex">\(W = (W_x, W_y, -i\,w)\)</span> of the
+scaled test function (the pairing of the conical forms, no conjugation):
+<span class="arithmatex">\(r_K(W) = \int_K R_K\cdot W + \tfrac12\sum_F\int_F (n\times[\![w_h]\!])\cdot W\)</span> with the in-plane
+normal, boundary facets contributing their one-sided term, so that
+<span class="arithmatex">\(\sum_K r_K(W) = \ell(W) - a(E_h, W)\)</span> for every tangentially continuous <span class="arithmatex">\(W\)</span> (checked to
+<span class="arithmatex">\(10^{-8}\)</span> in <code>test_conical_goal.cpp</code> on an enriched space with random coefficients). For the
+efficiency <span class="arithmatex">\(R_m = c\,|A_m|^2\)</span> of an order the linearised goal is <span class="arithmatex">\(Q(E) = A_m(E)\cdot
+\overline{A_{m,h}}/|A_{m,h}|\)</span>, so that <span class="arithmatex">\(\Delta R_m \approx 2R_m\,\mathrm{Re}(\Delta Q)/|A_{m,h}|\)</span>;
+the Python generator <code>hpfem.adaptive_solve</code> re-evaluates the direction every step. The
+convergence test <code>conical_goal_oriented</code> (point value of the singular gradient mode of the
+conical corner, h-refinement at <span class="arithmatex">\(p = 2\)</span>) finds effectivities 0.6–1.0 in the resolved regime
+(below 3 k DoFs the signed goal error crosses zero on some meshes) and a goal error 35 times
+smaller than the energy-driven loop at 8 k DoFs.</p>
+<h3 id="implementation-physicsdwr_estimate">Implementation (<code>physics::dwr_estimate</code>)</h3>
+<ul>
+<li><strong>Functionals</strong> are vectors <span class="arithmatex">\(q\)</span> on a DoF map with <span class="arithmatex">\(Q(E_h) = q^\top e_h\)</span> (no
+  conjugation, like the forms): <code>assembly::point_functional</code> builds them for point-sampled
+  functionals <span class="arithmatex">\(Q(E) = \sum_j E(x_j)\cdot w_j + (\nabla\times E)(x_j)\cdot v_j\)</span>, which
+  cover point values (<code>point_value_functional</code>), Fourier coefficients of diffraction orders
+  (<code>fourier_coefficient_functional</code>, Gauss–Legendre along the line) and far-field patterns.
+  A <code>physics::Functional</code> is a callable returning <span class="arithmatex">\(q\)</span> for any DoF map of the mesh, because
+  the adjoint lives on the enriched space.</li>
+<li><strong>Adjoint.</strong> The orders of all cells are raised by one (<code>NedelecDofMap</code> with <span class="arithmatex">\(p_K + 1\)</span>),
+  the same forms are assembled (<code>Scattering::form_of_cell</code>, so PML and materials carry
+  over), and the adjoint is solved in the <em>test</em> space of the constrained primal problem:
+  with the prolongation <span class="arithmatex">\(P\)</span> of the hanging-node and Bloch constraints the primal reduced
+  system is <span class="arithmatex">\(P^H A P\)</span>, its test functions are <span class="arithmatex">\(\bar P v_r\)</span>, and the adjoint reads
+  <span class="arithmatex">\((P^\top A \bar P)\, z_r = P^\top q\)</span>, <span class="arithmatex">\(z = \bar P z_r\)</span> (for real <span class="arithmatex">\(P\)</span> this is the
+  symmetric system <span class="arithmatex">\(P^\top A P\)</span>). Dirichlet facets of the primal problem (PEC and
+  prescribed traces) get homogeneous data on the free DoFs.</li>
+<li><strong>Weight and residual.</strong> <span class="arithmatex">\(w = z - I_p z\)</span> with the hierarchical interpolation <span class="arithmatex">\(I_p\)</span>
+  (<code>assembly::interpolate</code>, prolongated back to the enriched map), and the cell
+  contributions are the signed weighted residuals of <code>adaptivity::weighted_residual</code>,</li>
+</ul>
+<p>$$
+  r_K(w) = \int_K (d - \nabla\times W)\cdot w
+  + \tfrac12\sum_{F\subset\partial K\setminus\partial\Omega}\int_F \big(n\times[![W]!]\big)\cdot w
+  + \sum_{F\subset\partial K\cap\partial\Omega}\int_F (n\times W)\cdot w ,
+  $$</p>
+<p>with <span class="arithmatex">\(W = \mu^{-1}\nabla\times E_h - g\)</span>, <span class="arithmatex">\(d = f + k^2\varepsilon E_h\)</span> as in the
+  residual estimator (hanging child facets against the cell of their parent). The
+  boundary term is the residual of a natural condition; it vanishes where <span class="arithmatex">\(w\)</span> has no
+  tangential trace (Dirichlet facets). The identity <span class="arithmatex">\(\sum_K r_K(w) = \ell(w) - a(E_h, w)\)</span>
+  holds for every tangentially continuous <span class="arithmatex">\(w\)</span> and is unit-tested against the algebraic
+  residual <span class="arithmatex">\(w^\top(b_{p+1} - A_{p+1} P_{p\to p+1} e_h)\)</span> on hanging meshes in 2D and 3D.
+- <code>GoalEstimate</code> returns the signed estimate <span class="arithmatex">\(\sum_K r_K\)</span> of <span class="arithmatex">\(Q(E) - Q(E_h)\)</span>, the
+  contributions, the indicators <span class="arithmatex">\(|r_K|\)</span> for marking and <span class="arithmatex">\(Q(E_h)\)</span>.</p>
+<h2 id="dual-formulation-and-guaranteed-bounds-adaptivityhypercirclehpp">Dual formulation and guaranteed bounds (<code>adaptivity/hypercircle.hpp</code>)</h2>
+<p>The residual estimator above is reliable only up to an unknown constant. A bound <em>without</em>
+constants comes from the hypercircle (Prager–Synge) argument, which needs a second,
+<em>dual</em> approximation of the magnetic field. Write the primal problem as</p>
+<div class="arithmatex">\[
+\nabla\times(\mu^{-1}\nabla\times E) - k^2\varepsilon E = f + \nabla\times g
+\]</div>
+<p>and introduce the dual unknown <span class="arithmatex">\(\sigma = \mu^{-1}\nabla\times E - g\)</span> (the scaled magnetic
+field: <span class="arithmatex">\(\sigma = i\omega H\)</span> for <span class="arithmatex">\(g = 0\)</span>). It satisfies <span class="arithmatex">\(\nabla\times\sigma = f + k^2\varepsilon E\)</span>,
+so eliminating <span class="arithmatex">\(E = (k^2\varepsilon)^{-1}(\nabla\times\sigma - f)\)</span> gives the <strong>dual
+curl–curl problem</strong></p>
+<div class="arithmatex">\[
+\nabla\times\big((k^2\varepsilon)^{-1}\nabla\times\sigma\big) - \mu\,\sigma
+= \nabla\times\big((k^2\varepsilon)^{-1} f\big) + \mu\,g ,
+\]</div>
+<p>with the roles of the materials swapped and the boundary conditions exchanged: where <span class="arithmatex">\(E\)</span> is
+PEC (essential) the dual condition is natural, where <span class="arithmatex">\(E\)</span> is PMC the dual field has the
+essential condition <span class="arithmatex">\(n\times\sigma = 0\)</span>. In 3D <span class="arithmatex">\(\sigma\)</span> lives in the same Nédélec space as
+<span class="arithmatex">\(E\)</span>; in 2D the curl of a vector is a scalar, so <span class="arithmatex">\(\sigma \in H^1\)</span> with
+<span class="arithmatex">\(\nabla\times\sigma = (\partial_y\sigma, -\partial_x\sigma)\)</span> and the dual problem is a
+scalar reaction–diffusion problem with the rotated tensor <span class="arithmatex">\(R^T(k^2\varepsilon)^{-1}R\)</span>
+(<code>assembly::ScalarForm::diffusion_tensor</code>) and the source <span class="arithmatex">\((R^T(k^2\varepsilon)^{-1} f,
+\nabla\tau)\)</span> (<code>gradient_source</code>). <code>adaptivity::dual_form</code> performs this transformation per
+cell and <code>dual_solution</code> solves the dual Galerkin problem on a <code>DofMap</code> (2D) or a
+<code>NedelecDofMap</code> (3D).</p>
+<p>For <em>any</em> pair of fields <span class="arithmatex">\(E_h \in H(\mathrm{curl})\)</span> with the primal and <span class="arithmatex">\(\sigma_h\)</span> with the
+dual essential conditions, the <strong>constitutive-relation error</strong></p>
+<div class="arithmatex">\[
+\eta_K^2 = \big\|\sigma_h - (\mu^{-1}\nabla\times E_h - g)\big\|^2_{\mu,K}
++ \big\|(k^2\varepsilon)^{-1}(\nabla\times\sigma_h - f) - E_h\big\|^2_{-k^2\varepsilon,K}
+\]</div>
+<p>is computable without any constant (<code>adaptivity::hypercircle_estimate</code>, weighted norms
+<span class="arithmatex">\(|w^H T w|\)</span> with <span class="arithmatex">\(T = \mu\)</span> and <span class="arithmatex">\(T = -k^2\varepsilon\)</span>). For the <strong>coercive</strong> problem — real
+symmetric positive <span class="arithmatex">\(\mu\)</span>, <span class="arithmatex">\(\varepsilon\)</span> and <span class="arithmatex">\(k^2 &lt; 0\)</span>, i.e. <span class="arithmatex">\(\nabla\times\mu^{-1}\nabla\times E
++ \kappa^2\varepsilon E = f\)</span> — integration by parts of the error <span class="arithmatex">\(e = E - E_h\)</span> against the
+exact relations gives</p>
+<div class="arithmatex">\[
+\|e\|_a^2 = (\sigma_h - \mu^{-1}\nabla\times E_h + g,\ \nabla\times e)
++ (f - \nabla\times\sigma_h + k^2\varepsilon E_h,\ e)
+\le \Big(\sum_K \eta_K^2\Big)^{1/2} \|e\|_a ,
+\qquad
+\|e\|_a^2 = \|\mu^{-1/2}\nabla\times e\|^2 - k^2\|\varepsilon^{1/2} e\|^2 ,
+\]</div>
+<p>so <span class="arithmatex">\(\|E - E_h\|_a \le \eta\)</span> is a <strong>guaranteed upper bound</strong> of the energy error, for every
+mesh and every <span class="arithmatex">\(\sigma_h\)</span>; the Galerkin dual solution gives the sharpest one, with
+effectivity at most <span class="arithmatex">\(1 + \|\sigma - \sigma_h\|_b / \|E - E_h\|_a\)</span> in the dual energy norm.
+For the indefinite time-harmonic problem (<span class="arithmatex">\(k^2 = k_0^2 &gt; 0\)</span>, lossy or PML materials) the
+same quantity is the constitutive-relation estimator of Ladevèze type: it still vanishes for
+the exact pair and converges at the rate of the error, but the inequality holds only up to the
+inf-sup constant of the problem.</p>
+<p><strong>Verification</strong> (<code>tests/convergence/hypercircle_bound.cpp</code>,
+<code>tests/unit/adaptivity/test_hypercircle.cpp</code>): for <span class="arithmatex">\(\nabla\times\nabla\times E + E = f\)</span> on
+the unit square with PEC walls and <span class="arithmatex">\(E = (\sin\pi y, \sin\pi x)\)</span> the bound holds on every mesh
+for <span class="arithmatex">\(p = 1, 2, 3\)</span> and <span class="arithmatex">\(h = 1/4 \ldots 1/16\)</span>, <span class="arithmatex">\(\eta\)</span> converges with the rate <span class="arithmatex">\(p\)</span> of the energy
+error, and the effectivity index is <span class="arithmatex">\(4.5\)</span> / <span class="arithmatex">\(3.9\)</span> / <span class="arithmatex">\(4.4\)</span> with the dual space of the same
+order (here <span class="arithmatex">\(\sigma = \nabla\times E\)</span> is one derivative rougher than <span class="arithmatex">\(E\)</span>, so the dual error is
+about <span class="arithmatex">\(\pi\)</span> times the primal one) and <span class="arithmatex">\(1.00 \ldots 1.10\)</span> with the dual order <span class="arithmatex">\(p + 1\)</span>. On the
+cube with <span class="arithmatex">\(E = (\sin\pi y\sin\pi z, \sin\pi z\sin\pi x, \sin\pi x\sin\pi y)\)</span> the bound holds
+for <span class="arithmatex">\(p = 1, 2\)</span> on <span class="arithmatex">\(3^3\)</span> cells; a quadratic solution in <span class="arithmatex">\(\mathrm{ND}_3\)</span> with its dual in
+<span class="arithmatex">\(P_3\)</span> gives <span class="arithmatex">\(\eta &lt; 10^{-9}\)</span>.</p>
+<h2 id="verification">Verification</h2>
+<ul>
+<li>Effectivity index <span class="arithmatex">\(\theta = \eta / \|E - E_{hp}\|\)</span> on problems with analytic
+  solutions (cavity mode, Mie): must stay bounded (0.5…5) across refinement.</li>
+<li>The estimator must localise: on the L-shaped corner the largest <span class="arithmatex">\(\eta_K\)</span> must sit at
+  the corner for every step.</li>
+<li>The DWR estimate must track the true goal error (effectivity bounded) and goal-driven
+  refinement must beat energy-driven refinement for the goal.</li>
+<li>The hypercircle estimate must bound the energy error from above on every mesh of the
+  coercive test problem and converge at the rate of the error.</li>
+</ul>
+<h3 id="results-testsconvergenceestimator_effectivitycpp-testsunitadaptivity">Results (<code>tests/convergence/estimator_effectivity.cpp</code>, <code>tests/unit/adaptivity/</code>)</h3>
+<ul>
+<li>A quadratic field in <span class="arithmatex">\(\mathrm{ND}_3\)</span> (non-vanishing <span class="arithmatex">\(\nabla\times\nabla\times E\)</span>,
+  non-trivial <span class="arithmatex">\(f\)</span>) solved on <span class="arithmatex">\(\mathrm{ND}_3\)</span> is reproduced exactly; all four residual parts
+  vanish to rounding (<span class="arithmatex">\(\eta &lt; 10^{-7}\)</span> at <span class="arithmatex">\(\|f\| \sim k^2 \approx 9\)</span>) in 2D and 3D. A
+  perturbed edge DoF raises the indicator only in the cells of that edge (element terms)
+  and their facet neighbours (jump terms), with the maximum in a cell of the edge.</li>
+<li>Oblique plane wave on the unit square / cube with <span class="arithmatex">\(k_0 = 3\)</span> and the exact tangential
+  trace prescribed: <span class="arithmatex">\(\eta\)</span> converges with the same rate <span class="arithmatex">\(p\)</span> as the <span class="arithmatex">\(H(\mathrm{curl})\)</span> error
+  and the effectivity index settles between 6 and 14 (2D: 9.3 / 11.1 / 11.2 for
+  <span class="arithmatex">\(p = 1, 2, 3\)</span> on <span class="arithmatex">\(h = 1/16\)</span>; 3D: 13.5 / 11.5 for <span class="arithmatex">\(p = 1, 2\)</span> on <span class="arithmatex">\(h = 1/8\)</span>). The
+  constant is larger than the 0.5…5 of the H1 textbook case because the <span class="arithmatex">\(h/p\)</span> weights
+  carry no interpolation constants; it is stable, which is what adaptivity needs.</li>
+<li><strong>Goal-oriented</strong> (<code>tests/unit/physics/test_goal_oriented.cpp</code>,
+  <code>tests/convergence/goal_oriented.cpp</code>): for the point value of a plane-wave solution
+  the DWR estimate has effectivity 0.3…3 on <span class="arithmatex">\(4\times4\)</span> and <span class="arithmatex">\(8\times8\)</span> meshes with <span class="arithmatex">\(p = 1, 2\)</span>,
+  and the right sign beyond the coarsest mesh; on the L-shape with the goal
+  <span class="arithmatex">\(E_x(-0.55, 0.45)\)</span> the goal-driven h-adaptive loop (<span class="arithmatex">\(p = 2\)</span>, Dörfler 0.5 on <span class="arithmatex">\(|r_K|\)</span>)
+  reaches a goal error of <span class="arithmatex">\(1.5\cdot10^{-5}\)</span> at 6 800 DoFs with effectivity 0.5…0.9 in every
+  step, while the energy-driven loop sits at <span class="arithmatex">\(1.3\cdot10^{-3}\)</span> at 6 200 DoFs: the adjoint
+  weight concentrates the refinement between the corner and the evaluation point.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

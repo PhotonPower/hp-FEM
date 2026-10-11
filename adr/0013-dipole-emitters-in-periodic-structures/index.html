@@ -1,0 +1,1367 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/adr/0013-dipole-emitters-in-periodic-structures/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>0013 — Dipole emitters in periodic structures by array scanning of the conical cell problem - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#0013-dipole-emitters-in-periodic-structures-by-array-scanning-of-the-conical-cell-problem" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              0013 — Dipole emitters in periodic structures by array scanning of the conical cell problem
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-source-and-normalisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Source and normalisation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-power-of-a-sample" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Power of a sample
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-array-scanning-and-quadrature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Array scanning and quadrature
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Array scanning and quadrature">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#3a-amendment-2026-10-10-accepted-the-kx-integral-on-a-complex-contour" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3a. Amendment (2026-10-10, accepted): the kx integral on a complex contour
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-guided-mode-poles-subtraction-with-the-modes-from-the-bands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Guided-mode poles: subtraction with the modes from the bands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-cost-and-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Cost and execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-stage-c-reciprocity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Stage C: reciprocity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-interfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Interfaces
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternatives considered
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="0013-dipole-emitters-in-periodic-structures-by-array-scanning-of-the-conical-cell-problem">0013 — Dipole emitters in periodic structures by array scanning of the conical cell problem</h1>
+<p><strong>Status:</strong> accepted; §3a amendment accepted (2026-10-10)
+<strong>Date:</strong> 2026-10-09</p>
+<h2 id="context">Context</h2>
+<p>Milestone M17 (<code>docs/dipole-emitters-features.md</code>, items S0–S4) asks for a single point dipole
+in a structure that is periodic in x (period P) and invariant in z: Purcell factor, radiated
+power into cover and substrate per direction, guided and absorbed power. The conical solver
+(<code>physics::ConicalScattering</code>) solves the cell problem for one Bloch wavenumber kx (Bloch pairs)
+and one longitudinal wavenumber β (fields ∝ e^{iβz}), with PML, the layered background and a
+volume source <code>ConicalScatteringSetup::current</code> in the total-field formulation. A source in the
+cell is an infinite, phased array of line sources, not one emitter. Facts from the code (<code>main</code>
+after M16 S7):</p>
+<ul>
+<li><code>assembly/conical_forms.hpp</code> takes <code>Real beta</code>; complex β is not supported.</li>
+<li><code>ConicalResonance</code> and <code>grating.bands</code> give ω(kx, β); M16 S4 adds band derivatives and the group
+  velocity (<code>hpfem.group_velocity</code>). <code>PropagatingMode</code> gives β at fixed ω but without Bloch
+  constraints.</li>
+<li>The M11 emitter (<code>axisymmetric_gaussian_dipole</code>) is a dipole smeared over the normalised 3D
+  Gaussian <code>g = exp(−|x − x0|²/2σ²)/((2π)^{3/2}σ³)</code>, whose free-space power is
+  <code>dipole_vacuum_power · n · e^{−(n k0 σ)²}</code> exactly in a lossless medium.</li>
+<li>The matrix of the cell problem depends on (kx, β) only through the Bloch phase and β; the
+  symbolic analysis is reused by <code>LinearSolver::refactorize</code> (<code>ConicalSweep</code>, M15 F8); the kept
+  factorisation (M16 S1) solves several right-hand sides at once.</li>
+</ul>
+<h2 id="decision">Decision</h2>
+<h3 id="1-source-and-normalisation">1. Source and normalisation</h3>
+<p>The emitter is the <strong>3D Gaussian dipole of M11</strong>, J = p g(x − x0). Array scanning splits it into
+cell problems with the source</p>
+<div class="highlight"><pre><span></span><code>J_{kx,β}(x, y) = p g2(x − x0, y − y0) e^{−σ²β²/2},      g2 = exp(−ρ²/2σ²)/(2πσ²),
+</code></pre></div>
+<p>one per cell with the Bloch phase e^{i kx P} (<code>conical_gaussian_dipole(position, moment, sigma,
+omega, beta)</code> returns f = iωμ0 J in the scaled components (f_x, f_y, −i f_z)): the z-smearing is
+the Fourier factor e^{−σ²β²/2} of the β sample. The single dipole is then exactly the M11
+source, its bulk power <code>P_bulk = dipole_vacuum_power · n · e^{−(n k0 σ)²}</code> is known in closed
+form, F_P = P_em / P_bulk follows the M11 convention, and the factor bounds the β integrand
+independently of the structure. The Gaussian must lie inside the cell (6σ from the Bloch faces,
+checked) and in a lossless medium (as M11).</p>
+<h3 id="2-power-of-a-sample">2. Power of a sample</h3>
+<p>The primary quantity of a sample is the <strong>power delivered by the source</strong>,
+<code>P_cell(kx, β) = −½ Re ∫_cell J*_{kx,β} · E_{kx,β} dA</code> (a volume integral over the cells under the
+Gaussian; finite and discretely consistent thanks to the smearing; no tagged box needed). The
+decomposition of a sample uses the existing post-processing: the power per diffraction order
+through the cover and the substrate lines (<code>conical_diffraction_orders</code>), the absorbed power per
+tag (<code>absorbed_power_by_tag</code>), and the guided remainder <code>P_cell − up − down − absorbed</code>; their sum
+against <code>P_cell</code> (<code>flux_balance</code>) is the per-sample check. A closed Poynting surface around a
+tagged source box (<code>Surface2D.around_cells</code>) is an optional diagnostic, not required.</p>
+<h3 id="3-array-scanning-and-quadrature">3. Array scanning and quadrature</h3>
+<div class="highlight"><pre><span></span><code>P_em = (P / 2π) ∫_BZ dkx (1/π) ∫_0^∞ dβ P_cell(kx, β)
+</code></pre></div>
+<p>for a moment along x, y or z (the integrand is even in β; an isotropic emitter is the mean of
+the three orientations, whose cross terms vanish by the z-mirror symmetry). For a cell that is
+mirror-symmetric about x0 the kx integral runs over half the zone. Quadrature:</p>
+<ul>
+<li>β outer, kx inner. For fixed β the light-line crossings <code>kx = −2πm/P ± (k²n_c,s² − β²)^{1/2}</code>
+  are explicit and split the zone into panels; Gauss–Legendre panels of two levels give the error
+  estimate (the difference of the levels), refined where it exceeds the tolerance.</li>
+<li>β: panels split at k n_c, k n_s and the guided-mode positions (§4); cut-off where both the
+  Gaussian factor e^{−σ²β²} and the evanescent decay <code>exp(−2 d (β² − k²n²)^{1/2})</code> (d the distance
+  of x0 to the nearest interface with a higher index) fall below the tolerance. The cut-off grows
+  like 1/d and is reported in the cost estimate (§5).</li>
+</ul>
+<h4 id="3a-amendment-2026-10-10-accepted-the-kx-integral-on-a-complex-contour">3a. Amendment (2026-10-10, accepted): the kx integral on a complex contour</h4>
+<p>On the real kx axis the integrand has integrable 1/k_y singularities at the light-line crossings.
+There the field consists of grazing orders, which a PML of finite thickness does not absorb, so
+the FEM integrand near every crossing is wrong by far more than the discretisation error.
+Measured, homogeneous cell, y dipole:</p>
+<ul>
+<li>the β slice at 0.245 k: −0.64 % with the 80° PML of #156, −7 … −11 % before #156;</li>
+<li>the full scan: F_P (y) = 0.979, and more nodes do not make it converge.</li>
+</ul>
+<p><strong>Decision.</strong> The kx integral of the delivered power runs on a contour in the complex plane:</p>
+<ul>
+<li>It leaves the real axis around every light-line crossing. Each crossing gets a bump
+  <code>kx = t − i δ w cos²(πu/2)</code>, with u = (t − c)/w, w half the distance to the neighbouring
+  crossings, and δ ≈ 0.5.</li>
+<li>The bump passes below the crossings <code>c = −2πm/P + q</code> and above <code>c = −2πm/P − q</code>, where
+  q = (k²n² − β²)^{1/2} for the cover and for a lossless substrate. This is the side to which a
+  small loss moves the branch points for exp(−iωt).</li>
+<li>Between the crossings the contour is the real axis, and the panels and the β quadrature of §3
+  stay as they are.</li>
+<li>The integrand is pᴴ A(kx, β) p, with the power matrix
+  A_ij = −½ ∫ g₂ e^{−σ²β²/2} (E_j)_i dA. Neither the load nor A contains a conjugate, so A is
+  analytic in kx, and P_em is the real part of the contour integral.</li>
+</ul>
+<p><strong>This needs three things:</strong></p>
+<ol>
+<li><em>An analytic Bloch elimination.</em> With the reduction Pᴴ A P, the test functions carry the phase
+   conj(λ), λ = e^{i kx P}, and conj(λ) is not analytic once |λ| ≠ 1.</li>
+<li>The fix: a separate test space Q with the phases 1/conj(λ) (<code>fespace::Constraints::set_test</code>).
+     The reduction becomes Qᴴ A P, and Qᴴ then holds 1/λ.</li>
+<li>On the unit circle Q = P, so real kx is unchanged.</li>
+<li><code>ConicalScattering</code> builds Q when a phase lies off the unit circle. The kept factorisation
+     reduces with Qᴴ, and its adjoint expands with conj(Q).</li>
+<li><em>One PML profile per β for all kx samples.</em> <code>grating.emit</code> designs the profile from the
+   direction of (Re kx, β), which makes the integrand depend on Re kx alone, so it is not
+   analytic. The scan uses one profile, designed for the 80° cap.</li>
+<li><em>A complex Bloch phase in the cell problem.</em> <code>dipole_emission</code> sets up the cell problem
+   itself, with the phase e^{i kx P} for a complex kx. <code>emit</code>, whose order post-processing is
+   for real kx only, stays as it is.</li>
+</ol>
+<p><strong>Scope.</strong></p>
+<ul>
+<li>The contour gives the total delivered power and the Purcell factor.</li>
+<li>The channel powers (flux per order, absorption) are quadratic in the field and not analytic.
+  They are not integrated on the contour. Instead:</li>
+<li>up and down come from the reciprocity pattern (§6), integrated over each half-space. The
+    grazing directions are harmless there: the plane-wave problems carry the grazing wave in
+    the analytic background, and the PML only has to absorb the field scattered by the
+    structure;</li>
+<li>the non-radiated part P_em − up − down is the absorbed power in a lossy structure and the
+    guided power in a lossless one (§4).</li>
+<li>The real-axis rule (<code>depth = 0</code>) remains as a diagnostic.</li>
+<li>Guided-mode poles on the real axis (§4) are unaffected: the contour returns to the real axis
+  between the crossings.</li>
+</ul>
+<p><strong>Verification</strong> (homogeneous cell, y dipole, β = 0.245 k, p = 4, 6 nodes per panel):</p>
+<ul>
+<li>Cauchy–Riemann at a real and at a complex kx: the defect falls like h² (3.5e-3, 3.9e-4, 3.5e-5
+  for h = 3e-2, 1e-2, 3e-3 π/P).</li>
+<li>The slice integral against the closed form: −0.0750 % at δ = 0.5 and −0.0751 % at δ = 1.0.
+  The result does not depend on the path to 5e-7. The −0.075 % is the discretisation error.</li>
+<li>With the Pᴴ elimination the same detour gave +9.9 % and +19.4 %, which was the failure that
+  led to this amendment.</li>
+</ul>
+<p><strong>Found during the implementation (M17 S3).</strong> These refine the contour and the channels; the
+decision itself is unchanged.</p>
+<ul>
+<li><em>Bump height.</em> For β above k0·n a medium is evanescent, and its branch points are complex:
+  2πm/P ± iκ, with κ = (β² − k0²n²)^{1/2}. The PML replaces their cuts by strings of poles of
+  the truncated cell problem, and those strings run down towards the real axis.</li>
+<li>The failure case: a dipole 400 nm above glass, period 0.8 µm, β = 1.013 k0. The slice
+    changed by a factor of 0.6 to 5 with the depth, and F_P was 3–5 % off.</li>
+<li>The fix: the height of a bump is capped at 0.05 times its distance to the nearest complex
+    branch point.</li>
+<li><em>kx window and panels.</em> The cell problem depends on kx only through e^{i kx P}. Without
+  symmetry, the window is therefore the period that starts in the middle of the widest gap
+  between crossings. The real stretches between bumps get panels that grow geometrically away
+  from each bump.</li>
+<li><em>Node counts.</em> β needs more nodes than kx: the factor e^{2ik_y d} of a dipole at a distance d
+  from an interface oscillates in β. There are separate counts, <code>nodes</code> for β and <code>kx_nodes</code>
+  for kx. For a dipole 400 nm above glass at 1 µm, the rule integrates the Fresnel spectrum to
+  5e-4 with 6/4 and to 2e-4 with 8/4.</li>
+<li><em>Mirror symmetries.</em> The rule uses β ≥ 0 and, for a symmetric cell, half the zone. The matrix
+  entries that are odd under these symmetries are set to zero after the integration (xz and yz
+  always, xy for a symmetric cell). Otherwise a moment mixing the axes would double them instead
+  of cancelling them.</li>
+<li><em>Channels.</em> The θ quadrature of a half-space is split at its critical angles, with the points
+  crowded towards them, because the forbidden light makes a square-root kink there. The
+  material map is completed cell by cell before the substrate problem is mirrored.</li>
+<li><em>Validation</em> (<code>benchmarks/m17_dipole_scan.py</code>, p = 3, 8/4 points). The Purcell factors of a
+  dipole 400 nm above glass agree with the Sommerfeld integral to 8e-5 for a period of 1 µm and
+  to 1e-3 for 0.8 µm, and up and down to 1e-5.</li>
+</ul>
+<h3 id="4-guided-mode-poles-subtraction-with-the-modes-from-the-bands">4. Guided-mode poles: subtraction with the modes from the bands</h3>
+<p>For a lossless structure the integrand has poles on the real axes at the guided modes
+β_g(kx) (and their kx images). They are <strong>subtracted with the modes</strong>:</p>
+<ul>
+<li>β_g(kx) at the fixed ω0 by Newton on the bands, <code>β ← β − (ω(kx, β) − ω0) / v_g</code>, with ω and the
+  group velocity <code>v_g = ∂ω/∂β</code> of the conical eigenproblem (M16 S4), started from the peaks of a
+  coarse β scan of P_cell; the mode field at x0 from the eigenvector.</li>
+<li>The excitation amplitude of a mode by the dipole follows from Lorentz reciprocity with the
+  counter-propagating mode, normalised by the cross-section flux integral over the cell; the
+  guided power per mode and per kx is <code>P_g(kx) = |a_g|² P_mode</code>, without sampling the pole.</li>
+<li>The remainder (P_cell minus the pole terms of the modes found) is smooth and integrated on the
+  real axis; its panels avoid the pole by a symmetric (principal-value) split.</li>
+</ul>
+<p>The guided power per mode is an output (the β-factor into a waveguide mode). <strong>Fallback and
+check:</strong> a small artificial loss ε'' → 0 with Richardson extrapolation over three loss values,
+used in the tests to cross-check the subtraction. <strong>Deferred:</strong> contour deformation into complex
+β (needs complex β in the conical forms, a PML design and <code>layered_conical_wave</code> for complex β;
+a separate decision once the assembly supports it).</p>
+<h3 id="5-cost-and-execution">5. Cost and execution</h3>
+<ul>
+<li>One factorisation per (kx, β) sample; the three orientations are three right-hand sides of it
+  (<code>solve_many</code> on the kept factorisation), the symbolic analysis is reused across samples
+  (<code>refactorize</code>), samples are independent (<code>hpfem.sweep.solve_sweep</code> over processes, each with a
+  thread budget as ADR-0012 §7).</li>
+<li>Before the run, the front end reports the number of samples of the first quadrature level, the
+  memory per factorisation (<code>estimate_memory</code>) and the extrapolated time; <code>cancel</code> is polled
+  between samples, <code>progress</code> reports per sample.</li>
+<li>One mesh for all samples: PML designed for the largest angle of the sampled (kx, β)
+  (<code>PmlProfile.for_angle</code>), local refinement around x0 scaled with σ.</li>
+</ul>
+<h3 id="6-stage-c-reciprocity">6. Stage C: reciprocity</h3>
+<p><code>emission_pattern</code> computes dP/dΩ(θ, φ, pol) from the total field at x0 of the plane wave
+incident from (θ, φ) with polarisation pol, <code>dP/dΩ = C |p · E_pw(x0)|²</code> (one <code>grating.solve</code> per
+direction, Gaussian-weighted field at x0). The constant C (per medium of the direction) is fixed
+by reciprocity and checked by the homogeneous case, where the pattern must integrate to
+<code>P_bulk</code>. Stage C gives the radiated part only; Stage B's radiated part must agree with its
+integral over the hemispheres.</p>
+<h3 id="7-interfaces">7. Interfaces</h3>
+<p><code>conical_gaussian_dipole</code> (C++ and Python), <code>grating.emit</code> (Stage A, one sample),
+<code>grating.emission_pattern</code> (Stage C), <code>grating.dipole_emission</code> (Stage B) with the results of
+<code>docs/dipole-emitters-features.md</code> §3; the job-runner task <code>emitter</code> in schema version 2 (shared
+with the M16 S9 tasks).</p>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>The single dipole is the M11 emitter: Purcell factors of the periodic and the axisymmetric
+  front ends are directly comparable, and P_bulk needs no numerics.</li>
+<li>No C++ change for complex β now; the price is the mode subtraction, which needs the bands near
+  ω0 for every kx panel (a few eigen-solves per kx, small against the β samples).</li>
+<li>The mode amplitude via reciprocity needs the backward mode (−β): for a z-mirror-symmetric
+  structure it is the mirror image of the forward mode, no extra solve.</li>
+<li>Cost: N_kx × N_β factorisations per frequency; for a dipole close to an interface N_β grows
+  like 1/d. The cost estimate makes this visible before the run.</li>
+<li>Lossy hosts are excluded (as M11); emitters in lossy media need a definition of P_bulk first.</li>
+</ul>
+<h2 id="alternatives-considered">Alternatives considered</h2>
+<ul>
+<li><strong>Contour deformation into complex β</strong> — avoids the poles altogether and is standard in
+  Sommerfeld-integral codes, but needs complex β throughout the conical assembly, the PML design
+  and the layered background wave; deferred.</li>
+<li><strong>Artificial loss with extrapolation only</strong> — simple, but slow convergence near the poles and
+  no guided power per mode; kept as a check.</li>
+<li><strong>3D supercell with a finite emitter</strong> — no Bloch decomposition, but the cell must be large
+  against the decay length of the guided modes, and the PML in z breaks the invariance; far more
+  expensive.</li>
+<li><strong>Line source (β = 0 only)</strong> — the 2D emitter of <code>examples/quantum_dot_purcell</code>; not a point
+  dipole (it is the β = 0 slice of the integrand and serves as a limit test).</li>
+<li><strong>Point dipole without smearing</strong> — the delivered power needs the flux through a closed surface
+  and the self-field is singular on the mesh; the Gaussian keeps the M11 convention and the
+  volume integral consistent.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

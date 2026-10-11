@@ -1,0 +1,1621 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/gui-support-features/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>hp-FEM feature wishlist from the GUI work ("FEM model builder") - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#hp-fem-feature-wishlist-from-the-gui-work-fem-model-builder" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              hp-FEM feature wishlist from the GUI work ("FEM model builder")
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-context-what-the-gui-does-today-and-where-it-hurts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Context: what the GUI does today and where it hurts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Items
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Items">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#f0-document-and-test-the-conventions-of-the-conical-api-p1-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F0. Document and test the conventions of the conical API (P1, S)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f1-hp-adaptivity-for-conicalscattering-p1-l" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F1. hp-adaptivity for ConicalScattering (P1, L)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f2-one-call-periodic-scattering-api-p1-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F2. One-call periodic scattering API (P1, M)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f3-vectorised-field-sampling-and-triangulated-export-as-numpy-p1-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F3. Vectorised field sampling and triangulated export as NumPy (P1, M)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f4-exact-absorbed-power-per-material-tag-and-per-cell-p1-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F4. Exact absorbed power per material tag and per cell (P1, S)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f5-job-runner-cli-with-a-stable-json-schema-and-json-lines-events-p1-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F5. Job runner / CLI with a stable JSON schema and JSON-lines events (P1, M)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f6-mesh-module-p1-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F6. Mesh module (P1, M)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f7-structured-diagnostics-p1-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F7. Structured diagnostics (P1, S)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f8-sweep-acceleration-p2-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F8. Sweep acceleration (P2, M)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f9-progress-cancellation-timing-memory-estimate-p2-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F9. Progress, cancellation, timing, memory estimate (P2, S)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f10-conical-equivalents-of-the-in-plane-post-processing-p2-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F10. Conical equivalents of the in-plane post-processing (P2, M)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f11-isolated-scatterers-for-the-conical-solver-p2-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F11. Isolated scatterers for the conical solver (P2, M)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f12-h-field-and-poynting-vector-p2-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F12. H field and Poynting vector (P2, S)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f13-dispersive-materials-in-the-setup-p2-s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F13. Dispersive materials in the setup (P2, S)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f14-high-level-eigenproblems-p3-l" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F14. High-level eigenproblems (P3, L)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f15-distribution-p3-m" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F15. Distribution (P3, M)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f16-periodic-boundaries-without-identical-meshes-on-both-sides-p1-l" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F16. Periodic boundaries without identical meshes on both sides (P1, L)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-reference-data-for-acceptance-tests-all-computed-in-this-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Reference data for acceptance tests (all computed in this session)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-what-would-help-the-gui-most-in-this-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. What would help the GUI most, in this order
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="hp-fem-feature-wishlist-from-the-gui-work-fem-model-builder">hp-FEM feature wishlist from the GUI work ("FEM model builder")</h1>
+<p>Status: proposal of 6 October 2026, verified against <code>main</code> at fa8f6bf (merge of #97, conical incidence and E_z).
+Audience: the development agents. Tracked in <code>docs/roadmap.md</code> as milestone M15; the IDs F0 to F16 below are used there.</p>
+<p>The GUI sources this document refers to (<code>fem_app.py</code>, <code>fem_geometry.py</code>, <code>fem_worker.py</code>, <code>fem_post.py</code>, <code>fem_run.py</code>, <code>fem_materials.py</code>) and the conical RCWA reference
+(<code>rcwa_conical.py</code>, source of the numbers in section 3) are kept outside this repository by the maintainer; the descriptions of the workarounds are meant to be readable without them.</p>
+<h2 id="0-context-what-the-gui-does-today-and-where-it-hurts">0. Context: what the GUI does today and where it hurts</h2>
+<p>The GUI (Streamlit) lets a user enter a periodic unit cell (materials, layer stack, shapes, illumination, sweep), meshes it with Gmsh, runs hp-FEM and shows
+spectra, diffraction orders, field maps and absorption. Architecture: the app writes <code>job.json</code> + <code>mesh.msh</code> into a folder; a worker (<code>fem_worker.py</code>, runs in the
+Python that has <code>hpfem</code>) solves with <code>ConicalScattering</code> and writes <code>results.json</code> + <code>maps_&lt;i&gt;.npz</code>; the app plots. Files and what they work around:</p>
+<table>
+<thead>
+<tr>
+<th>file</th>
+<th>content</th>
+<th>lines of workaround</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fem_geometry.py</code></td>
+<td>model description, layer/shape geometry, Gmsh meshing (OCC fragments, periodic copies, material assignment, size fields, order 2), mesh statistics</td>
+<td>~560 (of which ~330 meshing)</td>
+</tr>
+<tr>
+<td><code>fem_worker.py</code></td>
+<td>stack + PML design + Bloch + orders on a line + maps by point loops</td>
+<td>~240</td>
+</tr>
+<tr>
+<td><code>fem_post.py</code></td>
+<td>absorbed power by raster integration, maps, plots</td>
+<td>~320</td>
+</tr>
+<tr>
+<td><code>fem_run.py</code></td>
+<td>background process, log parsing</td>
+<td>~95</td>
+</tr>
+</tbody>
+</table>
+<p>Everything in the table is logic that belongs next to the solver (testable, reusable by scripts, CI and other front-ends). Features below are ordered by what
+they buy: <strong>better</strong> (accuracy, robustness), <strong>faster</strong>, <strong>simpler</strong> (less glue, fewer ways to get it wrong). Where a feature exists partly, the item says which part.</p>
+<h2 id="1-overview">1. Overview</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Feature</th>
+<th style="text-align: center;">Better</th>
+<th style="text-align: center;">Faster</th>
+<th style="text-align: center;">Simpler</th>
+<th style="text-align: center;">Effort</th>
+<th style="text-align: center;">Prio</th>
+<th>Exists?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F0</td>
+<td>Document and test the conventions of the conical API</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">S</td>
+<td style="text-align: center;">P1</td>
+<td>no</td>
+</tr>
+<tr>
+<td>F1</td>
+<td>hp-adaptivity for <code>ConicalScattering</code> (TE, TM, conical) with goal-oriented estimator</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">L</td>
+<td style="text-align: center;">P1</td>
+<td>in-plane only (<code>Scattering::estimate</code>, <code>GoalEstimate</code>, <code>HpStep</code>); hanging-node constraints already in <code>ConicalScattering</code></td>
+</tr>
+<tr>
+<td>F2</td>
+<td>One-call periodic scattering API (<code>hpfem.grating.solve</code>)</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">M</td>
+<td style="text-align: center;">P1</td>
+<td>pieces: <code>PmlProfile.for_angle</code>, <code>conical_*orders</code></td>
+</tr>
+<tr>
+<td>F3</td>
+<td>Vectorised field sampling and triangulated field export as NumPy</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">M</td>
+<td style="text-align: center;">P1</td>
+<td><code>FieldExporter</code> writes .vtu only</td>
+</tr>
+<tr>
+<td>F4</td>
+<td>Exact absorbed power per material tag / per cell</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">S</td>
+<td style="text-align: center;">P1</td>
+<td>no (<code>conical_poynting_flux</code> only, with the E_z interface caveat)</td>
+</tr>
+<tr>
+<td>F5</td>
+<td>Job runner / CLI with a stable JSON schema and JSON-lines events</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">M</td>
+<td style="text-align: center;">P1</td>
+<td>no</td>
+</tr>
+<tr>
+<td>F6</td>
+<td>Mesh module: unit-cell mesher, mesh report, periodic check, <code>$Periodic</code> import</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">M</td>
+<td style="text-align: center;">P1</td>
+<td><code>read_gmsh</code> skips <code>$Periodic</code>, no quality report</td>
+</tr>
+<tr>
+<td>F7</td>
+<td>Structured diagnostics (<code>problem.validate()</code>)</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">S</td>
+<td style="text-align: center;">P1</td>
+<td>partly (<code>PmlBox.max_resolution</code>, <code>recommended_thickness</code>)</td>
+</tr>
+<tr>
+<td>F8</td>
+<td>Sweep acceleration: reuse symbolic factorisation, affine assembly, parallel sweeps</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">M</td>
+<td style="text-align: center;">P2</td>
+<td><code>LinearSolver</code> factorises once per matrix, <code>solve_many</code> for loads only</td>
+</tr>
+<tr>
+<td>F9</td>
+<td>Progress callback, cancellation, timing breakdown, memory estimate</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">S</td>
+<td style="text-align: center;">P2</td>
+<td><code>set_num_threads</code>, <code>available_backends</code></td>
+</tr>
+<tr>
+<td>F10</td>
+<td>Conical equivalents of <code>diffraction_orders</code> / <code>power_balance</code> (flux based)</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">M</td>
+<td style="text-align: center;">P2</td>
+<td>in-plane only</td>
+</tr>
+<tr>
+<td>F11</td>
+<td>Isolated scatterers (non-periodic) for the conical solver: cross sections, far field</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">M</td>
+<td style="text-align: center;">P2</td>
+<td>in-plane <code>cross_sections</code>, <code>pattern</code></td>
+</tr>
+<tr>
+<td>F12</td>
+<td>H field and Poynting vector of the conical solution</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">S</td>
+<td style="text-align: center;">P2</td>
+<td>no</td>
+</tr>
+<tr>
+<td>F13</td>
+<td>Dispersive materials directly in the setup, out-of-range policy</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">S</td>
+<td style="text-align: center;">P2</td>
+<td><code>Dispersive.at(omega)</code> per point</td>
+</tr>
+<tr>
+<td>F14</td>
+<td>High-level eigenproblems for the GUI (resonances, bands)</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">L</td>
+<td style="text-align: center;">P3</td>
+<td><code>Resonance</code>, <code>BandStructure</code> exist</td>
+</tr>
+<tr>
+<td>F15</td>
+<td>Distribution: pip wheels / installer for Windows, <code>hpfem-gui</code> entry point</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">M</td>
+<td style="text-align: center;">P3</td>
+<td>MSYS2 build only</td>
+</tr>
+<tr>
+<td>F16</td>
+<td>Periodic boundaries without identical meshes on both sides (non-matching Bloch coupling) and an estimator that includes the periodic facets</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">x</td>
+<td style="text-align: center;">L</td>
+<td style="text-align: center;">P1</td>
+<td>no: <code>bloch_constraints</code> pairs facets one to one; the residual estimator skips periodic facets</td>
+</tr>
+</tbody>
+</table>
+<h2 id="2-items">2. Items</h2>
+<h3 id="f0-document-and-test-the-conventions-of-the-conical-api-p1-s">F0. Document and test the conventions of the conical API (P1, S)</h3>
+<p>Found while writing <code>run_conical_stack.py</code> and the worker; the code cannot tell, so both normalise at run time.
+* The sign and phase of the s and p amplitude of <code>layered_conical_wave</code> (amplitude 1.0): is the s field <code>+(−sin φ, cos φ, 0)</code> or <code>−…</code> in the BEM frame (x periodic, y invariant, z normal), is the phase 1 at the top interface? The worker divides a global factor <code>g = vdot(e_ref, E_inc)</code> out; a documented, tested convention removes this.
+* <code>total_field</code> returns the physical <code>(E_x, E_y, E_z)</code> (the test subtracts <code>(i0, i1, 1j*i2)</code> from the scaled incident vector), <code>conical_plane_wave</code> takes physical amplitudes and stores <code>(E0x, E0y, −iE0z)</code>: state this in the docstrings.
+* Frames: solver x periodic, y normal, z invariant; BEM/RCWA literature: x periodic, y invariant, z normal. Provide <code>hpfem.frames.to_literature(E)</code> or at least a documented mapping.
+* <code>wave.ky</code> is the normal wavenumber (name clash with the literature's k_y = beta).
+Acceptance: unit test that the incident field of <code>layered_conical_wave</code> for s and p at several (theta, phi) equals the documented vectors to 1e-12.</p>
+<h3 id="f1-hp-adaptivity-for-conicalscattering-p1-l">F1. hp-adaptivity for <code>ConicalScattering</code> (P1, L)</h3>
+<p>Why: sharp metal corners under TM converge slowly on uniform meshes. Measured with the in-plane solver (Ag grating, TM, 50°, 405 nm, period 400 nm, ridge 200 nm, height 148 nm, layered background, PML R0 = 1e-16): uniform meshes stagnate at ΔR0 −3.4e-3 … −5.0e-3 and ΔR−1 +6.1e-3 … +8.7e-3 for 65–130 k DoFs; the hp-adaptive run (22 steps, <code>run_R3_adaptive.py</code>) reaches ΔR−1 +2.0e-5 at 66 k DoFs (ΔR0 +2.3e-4) with error ≈ exp(−0.4…−0.5 N^(1/3)). The new solver cannot do this: no <code>estimate</code>, no <code>error</code>, no AdaptiveMesh coupling in the bindings, although <code>ConicalScattering</code> already carries hanging-node constraints.
+Proposal:
+* <code>ConicalScattering::estimate(solution, options) -&gt; adaptivity::Estimate</code>: residual indicators for the coupled system (E_t Nédélec, v = −iE_z in H1), including the beta-dependent terms, PML tensors and the interface condition on E_z / epsilon E_z; element indicators comparable with <code>Estimate</code> of the in-plane solver (so <code>HpStep</code> and <code>SmoothnessOptions</code> apply unchanged).
+* Goal-oriented variant for diffraction orders: reuse <code>GoalEstimate</code> with <code>fourier_coefficient_functional</code>, extended to the vector amplitudes of the conical orders. The GUI wants "stop when |ΔR_m| &lt; tol".
+* Corner pre-refinement from geometry (defect D7): <code>adaptivity::refine_at_corners(mesh, tags, levels)</code> so the first steps do not refine smooth regions.
+* Periodic faces: see F16. Until F16 exists the marking must be symmetric across a Bloch pair (defect D4); our workaround is in <code>fem_worker.py</code> (<code>periodic_defects</code>, <code>symmetrise_periodic</code>).
+* Python: a generator <code>hpfem.adaptive_solve(problem_factory, goal, tol, max_dofs)</code> that yields per step (DoFs, estimator, observables R_m, T_m) so a GUI can stream convergence and stop on tolerance.
+Acceptance: (a) beta = 0, TM, reproduces the in-plane adaptive result (ΔR−1 ≤ 5e-5, ΔR0 ≤ 5e-4 at ≤ 100 k DoFs); (b) TE, Ag, 50° (reference below); (c) conical, φ = 40°, with the references of section 3; (d) exponential convergence rate in N^(1/3) on the Ag case.</p>
+<h3 id="f2-one-call-periodic-scattering-api-p1-m">F2. One-call periodic scattering API (P1, M)</h3>
+<p>The worker repeats this on every call: snap stack interfaces to mesh vertices (a mismatch of 1e-22 is rejected: defect D2), design the PML from the largest propagating order angle (<code>for_angle</code>, capped, with <code>n_ref = min(index above, index below)</code>), place the measurement lines in the cover and substrate, build <code>PeriodicPair2D</code> with the Bloch phase, extract R_m, T_m, energy balance.
+Proposal: <code>hpfem.grating.solve(mesh, materials, stack, polarisation, theta, phi, omega, order, *, pml=..., bottom="pml"|"pec", orders_max=3)</code> returning a <code>GratingResult</code> with <code>R_orders</code>, <code>T_orders</code> (efficiencies and complex vector amplitudes), <code>A</code>, <code>power_balance_residual</code>, <code>wave</code>, <code>solution</code>, <code>field(points)</code>, timing. Tolerance or automatic snapping of stack interfaces to mesh lines (default 1e-9 relative to the period). Tag convention as in F6.
+Acceptance: reproduces <code>fem_worker.py</code> on the six GUI presets; the worker then shrinks to JSON handling.</p>
+<h3 id="f3-vectorised-field-sampling-and-triangulated-export-as-numpy-p1-m">F3. Vectorised field sampling and triangulated export as NumPy (P1, M)</h3>
+<p>Today a map costs one Python call to <code>total_field(solution, locator, x)</code> per pixel (10⁴ to 7·10⁴ per map, each with point location). Not yet measured on the real solver; expected to dominate the post-processing time.
+Proposal (both for <code>Scattering</code> and <code>ConicalScattering</code>):
+* <code>solution.sample(points)</code> with <code>points</code> of shape (N, 2): returns (N, 3) complex E (and optionally H), cell search and evaluation in C++ with OpenMP, Bloch wrapping for points outside the cell, an option to treat points on an interface as belonging to the cell above.
+* <code>solution.triangulate(subdivisions=n)</code> returns <code>points</code>, <code>triangles</code>, <code>values</code> (complex, per component) of every element sampled on a regular sub-triangulation (curved cells included), plus <code>cell_tag</code> per triangle, ready for <code>matplotlib.tri</code>. <code>FieldExporter</code> (currently <code>.vtu</code> only) should reuse the same sampler.
+Acceptance: ≥ 50× faster than the Python loop for 10⁵ points, identical values to 1e-12.</p>
+<h3 id="f4-exact-absorbed-power-per-material-tag-and-per-cell-p1-s">F4. Exact absorbed power per material tag and per cell (P1, S)</h3>
+<p>The GUI integrates Q = ½ ω ε0 Im(ε) |E|² on the map raster; at sharp material boundaries this is wrong by about one pixel: measured against the energy balance (Si grating, converged RCWA field, so purely the quadrature error) the ratio field/balance is 1.08 on a 121 × 401 grid and 1.04 on 241 × 1201. The GUI shows a normalised column as a workaround.
+Proposal: <code>absorbed_power(solution, tags=None) -&gt; {tag: W/m}</code> and <code>absorption_density(solution) -&gt; per cell and quadrature point</code>, for <code>ConicalScattering</code> and <code>Scattering</code>, volumetric quadrature of the Joule heating on the mesh, optional normalisation by the incident power per period (<code>S_inc = ½ n cos θ / Z0</code> for |E0| = 1 V/m). This avoids the E_z flux caveat of <code>conical_poynting_flux</code>.
+Acceptance: Σ over tags = 1 − R − T to 1e-4 for a lossless substrate on the lamellar test (reference below); per-tag values equal the closed-form absorption of the flat stack for a layered background without structure.</p>
+<h3 id="f5-job-runner-cli-with-a-stable-json-schema-and-json-lines-events-p1-m">F5. Job runner / CLI with a stable JSON schema and JSON-lines events (P1, M)</h3>
+<p><code>python -m hpfem.run job.json</code> with the schema of our <code>job.json</code> (model, layout, incidence, sweep, solver, maps, pscan; version field, room for <code>dim</code>), progress and results as JSON lines on stdout (<code>{"event":"point","i":3,"n":11,"R":…}</code>), cooperative cancellation (SIGTERM or a cancel file), results as <code>results.json</code> and <code>maps_*.npz</code>. Also <code>hpfem.version_info()</code> (version, git hash, build flags, backends).
+Why: a GUI, batch scripts, CI and remote runs then share one entry point; <code>fem_worker.py</code> and the log parsing in <code>fem_run.py</code> disappear.
+Acceptance: our six presets run through the CLI with identical results to the worker.</p>
+<h3 id="f6-mesh-module-p1-m">F6. Mesh module (P1, M)</h3>
+<ul>
+<li><code>hpfem.meshing.PeriodicCell</code> (or <code>unit_cell_mesh(model_dict)</code>): the logic of <code>fem_geometry.build_mesh</code>: layers and substrate as slabs, shapes (rectangle, trapezoid, circle, ellipse, polygon) with periodic copies clipped to the cell, material by priority via the fragment map, physical groups (surfaces = material tags, curves = left/right/bottom/top), <code>setPeriodic</code>, sizes from wavelength per material (<code>N ≈ 12/p</code> elements per wavelength) and for metals from the field decay length 1/(k0 κ), interface refinement, order 2 for curved shapes. Must call <code>gmsh.initialize(interruptible=False)</code> (otherwise Gmsh fails in any non-main thread: found with Streamlit). Tests: material areas against a raster map to 1e-3 (our check), periodic node match, no sliver triangles for shapes touching an interface tangentially (we warn and embed 1–2 nm).</li>
+<li><code>mesh.report()</code>: cells, min/mean angle, aspect ratio, edge length statistics, curved-element Jacobian validity, untagged cells (<code>kNoTag</code>), tags without material, periodic match.</li>
+<li><code>mesh.check_periodic(left_tag, right_tag, shift) -&gt; max mismatch</code>, and <code>read_gmsh</code> reading the <code>$Periodic</code> section so that pairs and shift need not be passed by hand (with F16 the pairing needs no matching nodes at all).
+Acceptance: the six presets mesh to the same cell counts (±5 %) as <code>fem_geometry.py</code>; invalid curved elements are reported before assembly.</li>
+</ul>
+<h3 id="f7-structured-diagnostics-p1-s">F7. Structured diagnostics (P1, S)</h3>
+<p><code>problem.validate() -&gt; list[Diagnostic(code, severity, text, hint)]</code>, called by <code>solve</code>. Cases that cost us time: stack interface not on a mesh line (D2), untagged cells, tag without material, missing periodic partner, PML under-resolved (<code>PmlBox::max_resolution</code>) or thinner than <code>recommended_thickness</code>, too few elements per wavelength for the chosen p, tabulated material outside its range (today a late <code>ValueError</code>), lossy incidence medium, grazing orders that make the PML ineffective, bottom PEC wall at less than six decay lengths in a lossy substrate (the field reaches a wall 400 nm below Si at 405 nm with about 20 % of its surface amplitude, which falsifies R and A). The GUI maps codes to German text and shows them before the run.</p>
+<h3 id="f8-sweep-acceleration-p2-m">F8. Sweep acceleration (P2, M)</h3>
+<p>A 50-point spectrum at ~140 k DoFs is the common job. Proposals: (a) <code>LinearSolver.refactorize(matrix)</code> that reuses the symbolic analysis (MUMPS analysis phase) because the sparsity pattern does not change along a sweep; (b) affine assembly: element matrices per material tag assembled once (curl-curl S(beta), mass M_tag), combined per omega as S − k0² Σ ε_tag M_tag, PML part recomputed; (c) <code>solve_sweep(factory, values, processes=n)</code> with one thread per process, which usually beats threads in the direct solver; (d) angle sweeps at fixed omega: reuse the assembled operator when only the incident field and the Bloch phase change (the Bloch constraint changes the reduced matrix, so measure first).
+Acceptance: 50 points at 100 k DoFs at least 2× faster than the naive loop; results identical to 1e-10.</p>
+<h3 id="f9-progress-cancellation-timing-memory-estimate-p2-s">F9. Progress, cancellation, timing, memory estimate (P2, S)</h3>
+<p><code>solve(progress=callback)</code> with phases (assembly, analysis, factorisation, solve, post), a cancellation flag checked between phases, <code>solution.timing</code>, and <code>estimate_memory(mesh, p, backend)</code> so the GUI can warn before a run (we estimate DoFs ≈ 1.4·0.9·(p+1)(p+2)·cells: replace by the library's number).</p>
+<h3 id="f10-conical-equivalents-of-the-in-plane-post-processing-p2-m">F10. Conical equivalents of the in-plane post-processing (P2, M)</h3>
+<p><code>diffraction_orders</code>, <code>power_balance</code> (flux based, M14-C) exist for the in-plane solver. For <code>ConicalScattering</code>: orders on any line with complex vector amplitudes in the BEM frame, flux-based efficiencies (volumetric where possible), <code>PowerBalance</code> with the relative residual as the reference-free quality indicator. The GUI shows ΣR + ΣT + A − 1 per point.</p>
+<h3 id="f11-isolated-scatterers-for-the-conical-solver-p2-m">F11. Isolated scatterers for the conical solver (P2, M)</h3>
+<p>GUI phase two: nanowires and particles, not only periodic cells. Python API for a finite cross-section in a homogeneous or layered background with an automatic closed measurement contour built from a tagged region (<code>Surface2D.around_cells</code> does the pieces), σ_sca, σ_ext, σ_abs and efficiencies, far-field pattern (the in-plane <code>cross_sections</code> and <code>pattern</code> exist). Acceptance: Mie cylinder TE and TM (series) to 1e-4; wire on a substrate against a published value.</p>
+<h3 id="f12-h-field-and-poynting-vector-p2-s">F12. H field and Poynting vector (P2, S)</h3>
+<p><code>solution.h_field(points)</code> and <code>poynting(points)</code> for the conical solution (curl of E is available from the Nédélec part) for energy-flow maps and Poynting-based checks.</p>
+<h3 id="f13-dispersive-materials-in-the-setup-p2-s">F13. Dispersive materials in the setup (P2, S)</h3>
+<p><code>setup.materials.set(tag, hpfem.materials.get("Ag"))</code> and <code>setup.set_frequency(omega)</code>; today the user loops and calls <code>.at(omega)</code> per tag. Policy for out-of-range wavelengths as an explicit option (error, clamp with warning). A Drude–Lorentz fit helper for tabulated n, k (smooth in omega, useful for adaptive runs and eigenproblems). Anisotropic diagonal ε as a later extension.</p>
+<h3 id="f14-high-level-eigenproblems-p3-l">F14. High-level eigenproblems (P3, L)</h3>
+<p>Resonances (complex frequency, Q, mode maps) and band structures through the same job schema (Bloch + layered + PML), returning mode fields as in F3. <code>Resonance</code> and <code>BandStructure</code> exist; the missing part is the periodic-cell front end.</p>
+<h3 id="f15-distribution-p3-m">F15. Distribution (P3, M)</h3>
+<p>The MSYS2 build is the largest barrier for users. CI artefacts as wheels (<code>hpfem-&lt;ver&gt;-win_amd64.whl</code>, SparseLU build, MUMPS where licence and size allow), Linux wheels, <code>pip install hpfem[gui]</code> pulling Gmsh and Streamlit, and an <code>hpfem-gui</code> entry point that starts the app. The GUI can then drop the separate "Python with hpfem" setting.</p>
+<h3 id="f16-periodic-boundaries-without-identical-meshes-on-both-sides-p1-l">F16. Periodic boundaries without identical meshes on both sides (P1, L)</h3>
+<p>User wish (6 Oct 2026): the library should not insist on periodic meshes. Today <code>bloch_constraints</code> (<code>src/assembly/periodic.cpp</code>, <code>match_facets</code>) pairs every slave facet with the master facet at its shifted
+centroid and throws unless the counts agree and every position matches ("the two sides must be meshed identically").
+What goes wrong in practice: the first hp-adaptive run of the GUI on a Gmsh mesh stopped after step 6 with <code>bloch_constraints: 14 master facets (tag 101) but 16 slave facets (tag 102)</code>. The 1-irregularity rule of the
+refinement split a boundary cell next to a marked cell on one side only (cells at the faces are never marked themselves, but they are refined by closure); on an unstructured mesh the neighbourhoods of the two faces are
+not mirror images, so the refinement differs. The earlier structured-mesh run only worked because that mesh was symmetric.
+Our workaround (<code>fem_worker.py</code>: <code>periodic_defects</code>, <code>symmetrise_periodic</code>) compares the y-intervals of the facets of both sides after every <code>hp_refine</code> and refines the coarser side by extra <code>hp_refine</code> calls until they
+match. It needs <code>facets_with_tag</code>, <code>facet_vertices</code>, <code>facet_cells</code>; it refines cells the estimator never marked (wasted DoFs); and it can fail to converge (the worker then stops with the previous step). It does not
+touch the polynomial orders at the faces; whether <code>bloch_constraints</code> handles different orders on the two sides is not documented (we never create them: the cells at the faces keep the start order).
+Proposal, in two stages:
+* <strong>Stage 1 (small): symmetric refinement inside the library.</strong> <code>AdaptiveMesh2D.set_periodic(master_tag, slave_tag, shift)</code> (and 3D): <code>refine</code> / <code>hp_refine</code> mirror every refinement of a face cell onto its partner, including the
+  closure, so the two sides stay identical by construction. Removes the workaround; no change to the constraint code.
+* <strong>Stage 2 (the actual wish): non-matching periodic coupling.</strong> Replace the one-to-one facet pairing by a mortar-type constraint: the trace of E_slave on the slave face equals phase times the L2 (or dual-mortar)
+  projection of the master trace, assembled over the overlap of master and slave facets, for the tangential Nédélec trace and for the H1 trace of the conical solver, with different refinement levels and different
+  polynomial orders on the two sides. Benefits: independent refinement of both sides (half the wasted DoFs), Gmsh and other meshes without <code>setPeriodic</code>, meshes of rotated or sheared lattices, and in 3D crossed
+  gratings, where matching face meshes are much harder to produce. Needs a stable choice of the multiplier space (e.g. the coarser trace space, or a dual basis) so the discrete problem stays well posed; check
+  against the matching case.
+* <strong>Estimator on periodic facets.</strong> The residual estimator documents that natural and periodic facets are not accounted for (<code>residual_estimator.hpp</code>). With the phase, the jump of the tangential trace and of the
+  normal flux across a Bloch pair belongs into the indicators of both adjacent cells. Then the cells at the faces can be marked like any other and the GUI can drop the exclusion mask (cells at the faces are never refined
+  today: a singular corner within a few elements of the face, e.g. a ridge edge near x = 0, is refined only from the inside).
+Acceptance: (a) the lamellar test (Si and Ag, 400 nm period) solved with the two faces refined to different levels and with different p gives R_m, T_m equal to the matching-mesh result to 1e-8 (same space for the
+fine side) or within the discretisation error and converging with refinement; (b) a Gmsh mesh generated without <code>setPeriodic</code> works; (c) energy balance ΣR + ΣT + A − 1 unchanged; (d) hp-adaptive run on a Gmsh mesh with
+a ridge edge 25 nm from the face (not mirror symmetric) converges like the symmetric structured mesh (Ag, TM, 50°: ΔR−1 ≤ 5e-5 at ≤ 100 k DoFs); (e) Bloch phase with kx ≠ 0 and with β ≠ 0.</p>
+<h2 id="3-reference-data-for-acceptance-tests-all-computed-in-this-session">3. Reference data for acceptance tests (all computed in this session)</h2>
+<p>Geometry of the grating cases: period 400 nm, ridge 200 nm, height 148 nm, λ = 405 nm, substrate = ridge material, air above, ridges centred at x = 0.
+Reference solver: <code>rcwa_conical.py</code> (conical RCWA with Li factorisation; checked against Fresnel for flat surfaces at any azimuth to 1e-16, against the in-plane TM and TE RCWA at φ = 0 to 1e-11, energy conservation of lossless gratings to 1e-14; fields at φ = 0 to 4e-9). Values are 1/N extrapolated from 150 and 250 harmonics unless noted.</p>
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th>R0</th>
+<th>R−1</th>
+<th>note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TM, Si (ε = 29.6345 + 2.7721i), θ = 50°, φ = 0</td>
+<td>0.143381</td>
+<td>0.142382</td>
+<td>converged in N</td>
+</tr>
+<tr>
+<td>TE, Ag (ε = −4.6631 + 0.2160i), θ = 50°, φ = 0</td>
+<td>0.319215</td>
+<td>0.643575</td>
+<td>absorbed 0.03721</td>
+</tr>
+<tr>
+<td>TM, Si, θ = 50°, φ = 40°</td>
+<td>0.142373</td>
+<td>0.179169</td>
+<td>conical</td>
+</tr>
+<tr>
+<td>TE, Ag, θ = 50°, φ = 40°</td>
+<td>0.636653</td>
+<td>0.310883</td>
+<td>conical, slow 1/N convergence (nh = 60 gives R0 0.6349)</td>
+</tr>
+<tr>
+<td>TE, glass (ε = 2.25), θ = 40°, φ = 30° (nh = 60)</td>
+<td>0.039485</td>
+<td>0.011312</td>
+<td>lossless: ΣR + ΣT = 1 to 1e-14, also transmitted orders</td>
+</tr>
+<tr>
+<td>TM, glass, θ = 50°, φ = 30° (nh = 60)</td>
+<td>0.010957</td>
+<td>0.014330</td>
+<td>transmitted: m = 0 0.875831, −1 0.092560, −2 0.006322 (evanescent in air, propagating in glass: easy to miss in an energy balance)</td>
+</tr>
+<tr>
+<td>TM, Ag, θ = 50°, φ = 0 (in-plane reference)</td>
+<td>0.77960 ± 6e-5</td>
+<td>0.07795 ± 2e-5</td>
+<td>the hp case of F1</td>
+</tr>
+</tbody>
+</table>
+<p>Suggested tolerances: |ΔR_m| ≤ 5e-5 for Si and glass at ≤ 100 k DoFs (p = 5), ≤ 5e-4 for Ag cases (RCWA reference itself is only good to ~1e-4).</p>
+<h2 id="4-what-would-help-the-gui-most-in-this-order">4. What would help the GUI most, in this order</h2>
+<p>F1 (accuracy for metals and the "stop at tolerance" mode) together with F16 (without it F1 needs a workaround on every Gmsh mesh), F3 (maps), F2 + F5 + F6 (less glue, one supported path), F4 and F7 (trustworthy absorption and early, readable errors), then F8 and F9 (spectra), then F10–F13, F14, F15.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

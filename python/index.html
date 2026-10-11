@@ -1,0 +1,2127 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/python/">
+      
+      
+        <link rel="prev" href="../theory/axisymmetric/">
+      
+      
+        <link rel="next" href="../applications/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Python API - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#python-api" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Python API
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conventions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#units-and-materials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Units and materials
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-files-and-the-command-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project files and the command line
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notebooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notebooks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job-runner-python-m-hpfemrun" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job runner (python -m hpfem.run)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagnostics-hpfemdiagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostics (hpfem.diagnostics)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unit-cell-meshing-hpfemmeshing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unit-cell meshing (hpfem.meshing)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gratings-in-one-call-hpfemgratingsolve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gratings in one call (hpfem.grating.solve)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpu-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GPU backend
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conventions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#units-and-materials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Units and materials
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-files-and-the-command-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project files and the command line
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notebooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notebooks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job-runner-python-m-hpfemrun" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job runner (python -m hpfem.run)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagnostics-hpfemdiagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostics (hpfem.diagnostics)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unit-cell-meshing-hpfemmeshing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unit-cell meshing (hpfem.meshing)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gratings-in-one-call-hpfemgratingsolve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gratings in one call (hpfem.grating.solve)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpu-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GPU backend
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="python-api">Python API</h1>
+<p>The Python package <code>hpfem</code> wraps the C++ core with pybind11 (<code>python/bindings/</code>). It
+exposes the same pipeline as the C++ examples — mesh, DoF maps, materials and PML,
+problems, solvers, post-processing, adaptivity, export — with NumPy / SciPy types at the
+boundary. The C++ library stays the single implementation; the bindings add no numerics.</p>
+<h2 id="installation">Installation</h2>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev]"</span><span class="w">        </span><span class="c1"># builds the extension with scikit-build-core (CMake + Ninja)</span>
+pytest<span class="w"> </span>python/tests
+</code></pre></div>
+<p><strong>Wheels (M15 F15).</strong> The workflow <code>.github/workflows/wheels.yml</code> builds binary wheels of the
+SparseLU build (self-contained, no MUMPS / cuDSS) for CPython 3.10–3.13: <code>manylinux_2_28</code>
+x86_64 wheels with cibuildwheel and Windows <code>win_amd64</code> wheels for the python.org CPython,
+compiled with the MSYS2 UCRT64 GCC (static GCC runtime, <code>pyproject.toml</code>
+<code>[tool.cibuildwheel]</code>), plus the sdist. It runs on <code>workflow_dispatch</code>, on tags <code>v*</code> (the
+wheels are attached to the GitHub release) and, with one Python version, on pull requests
+that touch the packaging files; the artefacts are downloadable from the run. Install a wheel
+with <code>pip install hpfem-&lt;version&gt;-&lt;tag&gt;.whl</code>; <code>pip install "hpfem[gui]"</code> adds Streamlit, Gmsh,
+Matplotlib, meshio and PyYAML for the GUI, and <code>hpfem-gui [fem_app.py] [streamlit args]</code>
+starts the Streamlit front end with this interpreter (the app comes from the argument, the
+environment variable <code>HPFEM_GUI_APP</code> or an installed package <code>hpfem_gui</code>; <code>--dry-run</code> prints
+the command). The MSYS2 build of the "Installation" section stays the developer path.</p>
+<p>For development against an existing CMake build: <code>cmake --preset python</code>,
+<code>cmake --build --preset python</code>, then copy <code>build/python/python/_hpfem*.{so,pyd}</code> next to
+<code>python/hpfem/__init__.py</code> (git ignores it) and run <code>pytest</code> from <code>python/</code>. On Windows
+the extension must be built for the interpreter CMake found; with the MSYS2 toolchain that is
+<code>C:\msys64\ucrt64\bin\python3</code> (install <code>mingw-w64-ucrt-x86_64-python-numpy</code>, <code>-scipy</code>,
+<code>-pytest</code> with pacman).</p>
+<h2 id="conventions">Conventions</h2>
+<ul>
+<li><strong>Units are SI</strong> and the time dependence is <span class="arithmatex">\(e^{-i\omega t}\)</span> (CLAUDE.md §6): lengths in
+  metres, <code>omega</code> in rad/s, fields in V/m, lossy media have <code>Im eps_r &gt; 0</code>. <code>hpfem.units</code>
+  (next roadmap item) converts nm, µm, eV and THz at the boundary.</li>
+<li><strong>Dimension by name.</strong> Dimension-templated classes exist as <code>&lt;Name&gt;2D</code> / <code>&lt;Name&gt;3D</code>:
+  <code>Mesh2D</code>, <code>NedelecDofMap3D</code>, <code>Scattering2D</code>, <code>PmlBox3D</code>, <code>FieldExporter2D</code>, … Free
+  functions are overloaded on the argument type, so <code>refine_uniform(mesh)</code>,
+  <code>extract(mesh, cells)</code>, <code>hp_refine(adaptive, …)</code>, <code>interpolate(dofs, g)</code> work for either
+  dimension; <code>read_gmsh(file, scale, dim)</code> takes the dimension explicitly.</li>
+<li><strong>Arrays.</strong> Bulk data (vertices, cells, tags, DoF lists, indicators, coefficient vectors)
+  are NumPy arrays; sparse matrices are <code>scipy.sparse.csr_matrix</code> with complex entries;
+  per-entity queries return lists. Inputs accept lists or arrays.</li>
+<li><strong>Callbacks.</strong> Coefficients, sources and samplers are Python callables of the physical
+  point (<code>lambda x: ...</code> returning a scalar, a length-<code>dim</code> vector or a tensor). They are
+  called with the GIL held, also from the OpenMP loops of the assembly, so they are correct
+  but slow; prefer the analytic sources (<code>plane_wave</code>, <code>dipole_field</code>) and materials by tag
+  for anything in the hot path. A Python exception inside a callback propagates out of the
+  parallel loop as the original exception.</li>
+<li><strong>Lifetimes.</strong> Objects that reference others (DoF map → mesh, problem → DoF map,
+  locator → mesh, exporter → mesh) keep them alive. <code>AdaptiveMesh.mesh</code> returns a <em>copy</em> of
+  the current leaf mesh: take it once per step and build the DoF maps, locators and exporters
+  of that step on that object (the C++ pointer identity checks require it).</li>
+<li><strong>Errors.</strong> <code>hpfem::InvalidArgument</code> → <code>ValueError</code>, <code>hpfem::NotImplemented</code> →
+  <code>NotImplementedError</code>, other <code>hpfem::Error</code> → <code>RuntimeError</code>.</li>
+<li>Long-running calls release the GIL; <code>set_num_threads</code> / <code>num_threads</code> control the OpenMP
+  loops, <code>set_log_level("warn")</code> silences the per-solve logging.</li>
+</ul>
+<h2 id="units-and-materials">Units and materials</h2>
+<p><code>hpfem.units</code> holds the multipliers (<code>nm</code>, <code>um</code>, <code>eV</code>, <code>THz</code>, <code>deg</code>, …): multiply to go
+into SI, divide to come out, and converts between the spectral variables:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">hpfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">units</span><span class="p">,</span> <span class="n">materials</span>
+<span class="n">omega</span> <span class="o">=</span> <span class="n">units</span><span class="o">.</span><span class="n">angular_frequency</span><span class="p">(</span><span class="n">wavelength</span><span class="o">=</span><span class="mi">633</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">nm</span><span class="p">)</span>   <span class="c1"># or frequency=, energy=, wavenumber=</span>
+<span class="n">units</span><span class="o">.</span><span class="n">photon_energy</span><span class="p">(</span><span class="n">omega</span><span class="p">)</span> <span class="o">/</span> <span class="n">units</span><span class="o">.</span><span class="n">eV</span>                         <span class="c1"># 1.96</span>
+</code></pre></div>
+<p><code>hpfem.materials</code> provides dispersive materials — <code>Tabulated</code> n, k (linear interpolation in
+wavelength, no extrapolation), <code>Sellmeier</code>, <code>DrudeLorentz</code> / <code>Drude</code>, <code>Constant</code> — whose
+<code>at(omega)</code> returns the frequency-independent core <code>Material</code> for one solve, so a
+frequency sweep re-sets the material per frequency. The library (<code>materials.library</code>,
+<code>materials.get(name)</code>) carries its sources in <code>python/hpfem/data/*.csv</code> (refractiveindex.info
+database, CC0):</p>
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>source</th>
+<th>range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Si</code></td>
+<td>Green 2008, intrinsic c-Si at 300 K</td>
+<td>0.25 – 1.45 µm</td>
+</tr>
+<tr>
+<td><code>SiO2</code></td>
+<td>Malitson 1965 Sellmeier, fused silica</td>
+<td>0.21 – 6.7 µm</td>
+</tr>
+<tr>
+<td><code>Au</code>, <code>Ag</code></td>
+<td>Johnson &amp; Christy 1972</td>
+<td>0.188 – 1.94 µm</td>
+</tr>
+<tr>
+<td><code>Al</code></td>
+<td>Rakić 1995 (Kramers–Kronig consistent)</td>
+<td>0.000124 – 200 µm</td>
+</tr>
+<tr>
+<td><code>TiO2</code></td>
+<td>Devore 1951 Sellmeier, rutile, ordinary ray</td>
+<td>0.43 – 1.53 µm</td>
+</tr>
+<tr>
+<td><code>GaAs</code></td>
+<td>Aspnes et al. 1986</td>
+<td>0.207 – 0.827 µm</td>
+</tr>
+<tr>
+<td><code>MAPbI3</code></td>
+<td>Phillips et al. 2015, CH3NH3PbI3 perovskite film</td>
+<td>0.30 – 1.50 µm</td>
+</tr>
+<tr>
+<td><code>water</code></td>
+<td>Daimon &amp; Masumura 2007 Sellmeier</td>
+<td>0.2 – 2.0 µm</td>
+</tr>
+<tr>
+<td><code>vacuum</code>, <code>air</code></td>
+<td>constants</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><span class="n">setup</span><span class="o">.</span><span class="n">materials</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">materials</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Au"</span><span class="p">)</span><span class="o">.</span><span class="n">at</span><span class="p">(</span><span class="n">omega</span><span class="p">))</span>      <span class="c1"># eps_r = (n + ik)^2, Im &gt; 0</span>
+</code></pre></div>
+<p>Dispersive materials can also live in a <code>materials.DispersiveMap</code> (M15 F13):
+<code>dmap = DispersiveMap("air").set(2, "Ag").set(3, glass)</code> takes models, core materials, library
+names or numbers, <code>dmap.at(omega)</code> freezes them into a <code>MaterialMap</code>, and
+<code>dmap.apply(setup, omega)</code> sets <code>setup.omega</code> and <code>setup.materials</code> in one call, so a sweep is
+one line per frequency. Tabulated data outside its range raises by default; <code>out_of_range =
+"clamp"</code> (on the map or via <code>materials.with_policy(m, "clamp")</code>) uses the nearest sample and
+warns once. <code>materials.fit_drude_lorentz(m, (lam0, lam1, count), oscillators=n)</code> fits a
+passive Drude–Lorentz model to tabulated n, k over a wavelength range and returns the model
+with its maximal relative error of ε (silver over 350–800 nm with two poles: a few per cent);
+the fit is smooth in ω, for adaptive runs, resonances and sweeps beyond the samples.</p>
+<h2 id="project-files-and-the-command-line">Project files and the command line</h2>
+<p>A simulation can be described without Python in a JSON (or YAML) project file and run with
+<code>hpfem run project.json -o results.json</code> (also <code>python -m hpfem run …</code>); <code>hpfem validate</code>
+builds the mesh and the setups without solving, <code>hpfem info</code> and <code>hpfem materials</code> print
+the build and the material library. <code>examples/*/project.json</code> hold the four examples;
+the Mie cylinder reads:</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">"problem"</span><span class="p">:</span><span class="w"> </span><span class="s2">"scattering"</span><span class="p">,</span><span class="w"> </span><span class="nt">"dim"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"length_unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"m"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"mesh"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"square_with_disc"</span><span class="p">,</span><span class="w"> </span><span class="nt">"n"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">"radius"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.25</span><span class="p">,</span><span class="w"> </span><span class="nt">"half_width"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"outer"</span><span class="p">:</span><span class="w"> </span><span class="mf">2.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"inclusion_tag"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"order"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"wavelength"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"value"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0471975511965976</span><span class="p">,</span><span class="w"> </span><span class="nt">"unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"m"</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"materials"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"background"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vacuum"</span><span class="p">,</span><span class="w"> </span><span class="nt">"2"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"n"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.5</span><span class="p">}},</span>
+<span class="w">  </span><span class="nt">"formulation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"scattered_field"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"source"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"plane_wave"</span><span class="p">,</span><span class="w"> </span><span class="nt">"angle"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"angle_unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"deg"</span><span class="p">,</span><span class="w"> </span><span class="nt">"polarisation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TE"</span><span class="p">},</span>
+<span class="w">  </span><span class="nt">"pml"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"lower"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">-1</span><span class="p">,</span><span class="w"> </span><span class="mi">-1</span><span class="p">],</span><span class="w"> </span><span class="nt">"upper"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="nt">"thickness"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"profile"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"order"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"reflection"</span><span class="p">:</span><span class="w"> </span><span class="mf">1e-10</span><span class="p">}},</span>
+<span class="w">  </span><span class="nt">"boundaries"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"pec"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"x_min"</span><span class="p">,</span><span class="w"> </span><span class="s2">"x_max"</span><span class="p">,</span><span class="w"> </span><span class="s2">"y_min"</span><span class="p">,</span><span class="w"> </span><span class="s2">"y_max"</span><span class="p">]},</span>
+<span class="w">  </span><span class="nt">"outputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"cross_sections"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"around_tag"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">},</span><span class="w"> </span><span class="nt">"far_field"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"around_tag"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"directions"</span><span class="p">:</span><span class="w"> </span><span class="mi">36</span><span class="p">},</span>
+<span class="w">              </span><span class="nt">"points"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mf">0.5</span><span class="p">,</span><span class="w"> </span><span class="mf">0.1</span><span class="p">]],</span><span class="w"> </span><span class="nt">"vtk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"file"</span><span class="p">:</span><span class="w"> </span><span class="s2">"mie_cylinder.vtu"</span><span class="p">,</span><span class="w"> </span><span class="nt">"subdivisions"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">}}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Keys (see the docstring of <code>hpfem.project</code> for the full list): <code>problem</code> (<code>scattering</code>,
+<code>waveguide</code>, <code>cavity</code>), <code>mesh.type</code> (<code>rectangle</code>, <code>box</code>, <code>disc</code>, <code>ball</code>, <code>square_with_disc</code>,
+<code>gmsh</code> with <code>file</code>; <code>regions</code> re-tag cells whose centroid lies in a box), <code>wavelength</code> /
+<code>frequency</code> / <code>energy</code> with a <code>unit</code> (a list runs a sweep), <code>materials</code> by tag (library
+name, <code>{"n": 1.5}</code>, <code>{"eps_r": [re, im]}</code>), <code>source</code> (<code>plane_wave</code> with <code>angle</code> in 2D or
+<code>direction</code> + <code>polarisation</code> in 3D, <code>dipole</code>), <code>pml</code>, <code>boundaries.pec</code> / <code>incident</code> (side
+names <code>x_min</code> … <code>z_max</code> or tags), <code>periodic</code> (Bloch phase from the source), <code>solver</code>,
+<code>outputs</code> (<code>cross_sections</code>, <code>far_field</code>, <code>points</code>, <code>flux</code>, <code>diffraction</code>, <code>estimate</code>,
+<code>vtk</code>). <code>outputs.diffraction</code> takes, besides the <code>x_above</code> / <code>x_below</code> lines, a <code>line</code> of any
+orientation (<code>origin</code>, <code>tangent</code>, <code>normal</code>, optional <code>index</code> and <code>subtract_incident</code>) whose
+orders are those of the total field with the incident wave subtracted, and a <code>balance</code>
+(<code>axis</code>, <code>reflection</code> and optional <code>transmission</code> plane coordinates) that writes the
+flux-based energy balance with its relative residual (<code>hpfem.diffraction_orders</code>,
+<code>hpfem.power_balance</code>; on a layered background set <code>setup.incident_wave</code> to the stack's
+<code>incident_wave</code>). The results are JSON with one entry per spectral point; from Python,
+<code>hpfem.project.run(spec)</code> takes the same mapping.</p>
+<h2 id="notebooks">Notebooks</h2>
+<p><code>examples/notebooks/</code> holds Jupyter notebooks over this API (Mie cylinder, hp-adaptivity on
+the L-shape, gold nanowire spectrum with the material library and a project-file sweep).
+They are committed without outputs and executed by the test suite, so they double as
+living documentation.</p>
+<h2 id="pipeline">Pipeline</h2>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hpfem</span>
+
+<span class="c1"># mesh with a curved circular inclusion (tag 2), space of order 3</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">square_with_disc</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">half_width</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">outer</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">inclusion_tag</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">dofs</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">NedelecDofMap2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+<span class="c1"># scattering of a plane wave, scattered-field formulation, PML on all sides</span>
+<span class="n">k</span> <span class="o">=</span> <span class="mf">6.0</span>
+<span class="n">setup</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">ScatteringSetup2D</span><span class="p">()</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">omega</span> <span class="o">=</span> <span class="n">k</span> <span class="o">*</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">constants</span><span class="o">.</span><span class="n">c0</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">materials</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Material</span><span class="o">.</span><span class="n">dielectric</span><span class="p">(</span><span class="mf">1.5</span><span class="p">))</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">incident</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">plane_wave</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">formulation</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Formulation</span><span class="o">.</span><span class="n">SCATTERED_FIELD</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">pml</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">PmlBox2D</span><span class="o">.</span><span class="n">uniform</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">pec_tags</span> <span class="o">=</span> <span class="p">[</span><span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">X_MIN</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">X_MAX</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">Y_MIN</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">Y_MAX</span><span class="p">]</span>
+<span class="n">problem</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Scattering2D</span><span class="p">(</span><span class="n">dofs</span><span class="p">,</span> <span class="n">setup</span><span class="p">)</span>
+<span class="n">solution</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+
+<span class="c1"># post-processing: cross-sections, far field, field values, VTK export</span>
+<span class="n">surface</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Surface2D</span><span class="o">.</span><span class="n">around_cells</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">cs</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">cross_sections</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">solution</span><span class="p">,</span> <span class="n">surface</span><span class="p">,</span> <span class="n">incident_amplitude</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">scattering</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">mie_cylinder_scattering_width</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">))</span>
+<span class="n">far</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">FarField2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">surface</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">discrete_field</span><span class="p">(</span><span class="n">dofs</span><span class="p">,</span> <span class="n">solution</span><span class="o">.</span><span class="n">unknown</span><span class="p">),</span>
+                       <span class="n">setup</span><span class="o">.</span><span class="n">omega</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Material</span><span class="o">.</span><span class="n">vacuum</span><span class="p">(),</span> <span class="n">order</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">pattern</span> <span class="o">=</span> <span class="n">far</span><span class="o">.</span><span class="n">pattern</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+<span class="n">locator</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">PointLocator2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span>
+<span class="n">E</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">total_field</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">locator</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">])</span>      <span class="c1"># None outside the mesh</span>
+<span class="n">values</span><span class="p">,</span> <span class="n">cells</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">locator</span><span class="p">,</span> <span class="n">points</span><span class="p">)</span>   <span class="c1"># (n, 2) complex, (n,) cells; NaN / -1 outside</span>
+<span class="n">h_z</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">locator</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s2">"H"</span><span class="p">)</span>   <span class="c1"># "E" (default), "H" or "S" (Poynting)</span>
+<span class="n">tri</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">triangulate</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">subdivisions</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>         <span class="c1"># points, simplices, values, cell, tag</span>
+<span class="n">absorbed</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">absorbed_power_by_tag</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">solution</span><span class="p">)</span>   <span class="c1"># .total, .by_tag {tag: W/m}, .per_cell</span>
+<span class="n">sweep</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">ConicalSweep</span><span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="n">h1</span><span class="p">,</span> <span class="n">setup0</span><span class="p">)</span>                  <span class="c1"># affine operator: one analysis per sweep</span>
+<span class="n">solutions</span> <span class="o">=</span> <span class="p">[</span><span class="n">sweep</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">setup_at</span><span class="p">(</span><span class="n">w</span><span class="p">))</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">wavelengths</span><span class="p">]</span>  <span class="c1"># omega, beta, materials, incident may change</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">sweep</span><span class="o">.</span><span class="n">solve_sweep</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">wavelengths</span><span class="p">,</span> <span class="n">processes</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>   <span class="c1"># any task over worker processes</span>
+<span class="n">density</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">absorption_density</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">solution</span><span class="p">)</span>       <span class="c1"># Joule heating at the quadrature points</span>
+<span class="c1"># matplotlib.tri.Triangulation(tri.points[:, 0], tri.points[:, 1], tri.simplices)</span>
+<span class="n">hpfem</span><span class="o">.</span><span class="n">FieldExporter2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">hcurl</span><span class="p">(</span><span class="s2">"E"</span><span class="p">,</span> <span class="n">dofs</span><span class="p">,</span> <span class="n">solution</span><span class="o">.</span><span class="n">unknown</span><span class="p">)</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"mie.vtu"</span><span class="p">)</span>
+
+<span class="c1"># adaptivity: estimate, mark, refine (h or p), transfer</span>
+<span class="n">estimate</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">estimate</span><span class="p">(</span><span class="n">solution</span><span class="p">)</span>
+<span class="n">marked</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">dorfler_marking</span><span class="p">(</span><span class="n">estimate</span><span class="o">.</span><span class="n">indicators</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="job-runner-python-m-hpfemrun">Job runner (<code>python -m hpfem.run</code>)</h2>
+<p><code>python -m hpfem.run job.json [--out DIR] [--cancel-file F] [--threads N] [--quiet]</code> runs a
+grating job described by a JSON document (schema version 1: <code>model</code> as a <code>UnitCell</code>, <code>mesh</code>
+as <code>structured</code> / <code>gmsh</code> / <code>file</code>, <code>materials</code> by library name or <code>{"eps"}</code> / <code>{"n"}</code>,
+<code>stack</code>, <code>incidence</code>, <code>sweep</code> over wavelengths or angles, <code>solver</code>, <code>maps</code>; the full example
+is in the module docstring) and streams JSON-lines events on stdout: <code>start</code> (with
+<code>version_info()</code>), <code>mesh</code> (the report), <code>diagnostics</code> (when they change), one <code>point</code> per
+sweep point with R, T, A, the balance, the orders and the timing, <code>map</code> per field map
+(<code>maps_&lt;point&gt;_&lt;map&gt;.npz</code> with <code>x</code>, <code>y</code>, <code>values</code>), <code>cancelled</code>, <code>error</code> and <code>done</code>; since F9
+also <code>estimate</code> (the predicted sizes of a factorisation, after <code>mesh</code>) and <code>progress</code> (<code>i</code>,
+<code>phase</code>, <code>step</code>, <code>num_steps</code>, <code>seconds</code> at the start of every phase of a solve), the point's
+<code>timing</code>, and cancellation between the phases of a solve as well as between points. The
+results go to <code>results.json</code>. SIGTERM / SIGINT or the appearance of the cancel file stop the
+run after the current point (exit code 2; 1 on an error). From Python,
+<code>hpfem.run.run_job(job, out_dir, emit, cancel)</code> does the same with callbacks;
+<code>hpfem.version_info()</code> reports version, platform, OpenMP, threads, backends and whether gmsh
+is importable. <code>hpfem.meshing.structured_unit_cell(cell, nx, rows)</code> meshes a <code>UnitCell</code>
+without Gmsh (columns over the period, rows of cells stacked from the bottom, tags by
+priority), which the runner uses for <code>"mesh": {"structured": ...}</code>.</p>
+<p><strong>Study tasks (schema version 2, M16 S9).</strong> A document with <code>"version": 2</code> may also have
+<code>"task": "optimize"</code>, <code>"reconstruct"</code> or <code>"uq"</code> (version-1 documents run unchanged and still
+report version 1). Its <code>"parameters"</code> are geometry parameters of the model's shapes
+(<code>{"name", "shape", "trapezoid": "cd" | "height" | "angle"}</code> or <code>{"name", "shape", "field":
+"width"}</code>) and permittivities (<code>{"name", "material": tag, "part": "re" | "im"}</code>), each with
+<code>"bounds"</code>; <code>"configurations"</code> list the measured efficiencies (<code>wavelength</code>, <code>theta_deg</code>,
+<code>phi_deg</code>, <code>polarisation</code>, <code>orders</code>); <code>"morph"</code> sets the band of fixed nodes, the quality
+threshold and remeshing of a structured mesh. Values are in job units (lengths times <code>unit</code>,
+angles in degrees). The runner builds an <code>hpfem.opt.GratingEvaluator</code> on the morphed reference
+mesh and drives a study whose store <code>&lt;name&gt;.study.jsonl</code> lies next to <code>results.json</code>, so
+running the job again replays the evaluations and continues. <code>"optimize"</code> takes <code>objective</code>,
+<code>maximize</code>, <code>method</code> (<code>"L-BFGS-B"</code>, <code>"Nelder-Mead"</code>, <code>"differential-evolution"</code>,
+<code>"bayesian"</code>), <code>max_evaluations</code>, <code>x0</code>; <code>"reconstruct"</code> takes <code>measured</code> (or <code>synthetic</code>
+<code>{"params", "noise", "seed"}</code>), <code>sigma</code>, <code>x0</code> and optionally <code>posterior</code> (emcee, extra
+<code>opt-mcmc</code>); <code>"uq"</code> takes <code>inputs</code> (<code>{"normal": [mean, std]}</code> / <code>{"uniform": [lo, hi]}</code>),
+<code>propagation</code> (<code>"linear"</code> or <code>"surrogate"</code> with <code>points</code>, <code>active</code>, <code>samples</code>) and <code>sobol</code>.
+Events: <code>evaluation</code> per evaluation (also in <code>results["points"]</code>), <code>remesh</code>, <code>cancelled</code>,
+<code>done</code>; the results hold the task's block with the parameters in job units. The full schema is
+in the module docstring; <code>python/tests/test_run_study.py</code> runs all three tasks, the replay,
+cancellation and the version-1 compatibility.</p>
+<h2 id="diagnostics-hpfemdiagnostics">Diagnostics (<code>hpfem.diagnostics</code>)</h2>
+<p><code>hpfem.grating.validate(...)</code> (the arguments of <code>solve</code>) and
+<code>hpfem.diagnostics.validate_scattering(mesh, setup, orders, materials=None)</code> return a list of
+<code>Diagnostic(code, severity, text, hint)</code> with stable codes a GUI can translate:
+<code>mesh_invalid_cells</code>, <code>mesh_poor_angles</code>, <code>mesh_untagged_cells</code>, <code>tag_without_material</code>,
+<code>material_without_cells</code>, <code>interface_off_mesh</code>, <code>periodic_partner_missing</code>,
+<code>periodic_faces_differ</code>, <code>pml_under_resolved</code>, <code>pml_thin</code>, <code>pml_missing</code>,
+<code>too_few_elements_per_wavelength</code>, <code>material_out_of_range</code> (tabulated data outside its
+range, before anything is assembled), <code>lossy_incidence_medium</code>, <code>grazing_order</code> (an order
+propagating at more than 80° from the normal), <code>pec_wall_too_close</code> (a PEC wall closer than
+six field decay lengths in a lossy substrate, with the amplitude fraction reaching it) and
+<code>setup</code> (a failing set-up). <code>grating.solve</code> runs them first (<code>check=True</code>): errors raise
+<code>GratingError</code>, warnings and infos land in <code>result.diagnostics</code>;
+<code>diagnostics.raise_on_errors(found)</code> does the same for the generic validator. The individual
+checks (<code>validate_mesh</code>, <code>validate_interfaces</code>, <code>validate_periodic</code>, <code>validate_pml</code>,
+<code>validate_resolution</code>, <code>validate_materials</code>, <code>validate_stack</code>, <code>validate_orders</code>,
+<code>validate_bottom_wall</code>) are available on their own. <code>grating.solve</code> also accepts dispersive
+materials (<code>hpfem.materials.get("Ag")</code>) in its material dict and evaluates them at <code>omega</code>.</p>
+<h2 id="unit-cell-meshing-hpfemmeshing">Unit-cell meshing (<code>hpfem.meshing</code>)</h2>
+<p><code>hpfem.meshing</code> builds the unit cell of a grating or metasurface with the Gmsh Python API
+(<code>pip install gmsh</code>): a <code>UnitCell(period, y_bottom, y_top, slabs=[Slab(tag, y0, y1), ...],
+shapes=[Shape(kind, tag, params), ...], background_tag=...)</code> with slabs over the full period
+(substrate, films, cover; the PML space is part of <code>y_bottom</code> / <code>y_top</code>) and scatterers of
+kind <code>"rectangle"</code>, <code>"trapezoid"</code>, <code>"ellipse"</code> or <code>"polygon"</code> that are copied by ±period and
+clipped to the cell; a shape wins over a slab, a later shape over an earlier one
+(<code>cell.tag_at(x, y)</code>). <code>element_sizes(materials, omega, p)</code> gives the size per tag from
+<code>12 / p</code> elements per local wavelength and, in absorbing media, the field decay length
+<code>1 / (k0 Im n)</code>. <code>unit_cell_mesh(cell, sizes, interface_factor=0.5, periodic=True, order=None)</code>
+writes the MSH 4.1 file (physical groups: surfaces = material tags, curves = the four sides
+with the <code>box_tag</code> numbers, <code>$Periodic</code> for the x faces) and reads it back as
+<code>(mesh, periodic_links)</code>; curved cells (order 2) are used when a shape is an ellipse. The
+model is built in nanometres (OpenCASCADE's absolute tolerances) and read with the matching
+scale. <code>meshing.report(mesh, materials)</code> adds <code>tags_without_material</code> and
+<code>materials_without_cells</code> to <code>hpfem.mesh_report</code>, and <code>hpfem.check_periodic</code> checks a pair
+of faces.</p>
+<div class="highlight"><pre><span></span><code><span class="n">cell</span> <span class="o">=</span> <span class="n">meshing</span><span class="o">.</span><span class="n">UnitCell</span><span class="p">(</span><span class="n">period</span><span class="o">=</span><span class="mi">400</span> <span class="o">*</span> <span class="n">nm</span><span class="p">,</span> <span class="n">y_bottom</span><span class="o">=-</span><span class="mi">800</span> <span class="o">*</span> <span class="n">nm</span><span class="p">,</span> <span class="n">y_top</span><span class="o">=</span><span class="mi">950</span> <span class="o">*</span> <span class="n">nm</span><span class="p">,</span>
+                        <span class="n">slabs</span><span class="o">=</span><span class="p">[</span><span class="n">meshing</span><span class="o">.</span><span class="n">Slab</span><span class="p">(</span><span class="n">SUB</span><span class="p">,</span> <span class="o">-</span><span class="mi">800</span> <span class="o">*</span> <span class="n">nm</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)],</span>
+                        <span class="n">shapes</span><span class="o">=</span><span class="p">[</span><span class="n">meshing</span><span class="o">.</span><span class="n">Shape</span><span class="p">(</span><span class="s2">"rectangle"</span><span class="p">,</span> <span class="n">RIDGE</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="n">x</span><span class="o">=-</span><span class="mi">100</span> <span class="o">*</span> <span class="n">nm</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+                                                                          <span class="n">width</span><span class="o">=</span><span class="mi">200</span> <span class="o">*</span> <span class="n">nm</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">148</span> <span class="o">*</span> <span class="n">nm</span><span class="p">))],</span>
+                        <span class="n">background_tag</span><span class="o">=</span><span class="n">AIR</span><span class="p">)</span>
+<span class="n">sizes</span> <span class="o">=</span> <span class="n">meshing</span><span class="o">.</span><span class="n">element_sizes</span><span class="p">({</span><span class="n">AIR</span><span class="p">:</span> <span class="n">air</span><span class="p">,</span> <span class="n">SUB</span><span class="p">:</span> <span class="n">glass</span><span class="p">,</span> <span class="n">RIDGE</span><span class="p">:</span> <span class="n">glass</span><span class="p">},</span> <span class="n">omega</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">mesh</span><span class="p">,</span> <span class="n">links</span> <span class="o">=</span> <span class="n">meshing</span><span class="o">.</span><span class="n">unit_cell_mesh</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">sizes</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">grating</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="p">{</span><span class="n">AIR</span><span class="p">:</span> <span class="n">air</span><span class="p">,</span> <span class="n">SUB</span><span class="p">:</span> <span class="n">glass</span><span class="p">,</span> <span class="n">RIDGE</span><span class="p">:</span> <span class="n">glass</span><span class="p">},</span> <span class="n">stack</span><span class="p">,</span> <span class="s2">"p"</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span> <span class="n">omega</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="gratings-in-one-call-hpfemgratingsolve">Gratings in one call (<code>hpfem.grating.solve</code>)</h2>
+<p><code>hpfem.grating.solve(mesh, materials, stack, polarisation, theta, phi, omega, order=4, *,
+pml=None, bottom="pml", orders_max=3, ...)</code> runs the conical solver on a grating unit cell
+(period along x, stack normal along y, Bloch faces tagged <code>box_tag.X_MIN</code> / <code>X_MAX</code>, PML
+regions at the top and bottom of the mesh) and returns a <code>GratingResult</code>: <code>R_orders</code> and
+<code>T_orders</code> (per order: efficiency, complex vector amplitude, tangential and normal
+wavenumber, propagating flag), the sums <code>R</code>, <code>T</code>, the absorbed fraction <code>A</code> with <code>A_by_tag</code>,
+<code>power_balance_residual = R + T + A − 1</code>, the bare-stack <code>wave</code>, the <code>problem</code> and <code>solution</code>,
+<code>field(points)</code> (vectorised sampling of E, H or S) and a <code>timing</code> dict. It snaps mesh
+vertices onto the stack interfaces (<code>snap_tolerance</code> × period), designs the PML from the
+largest propagating-order angle in cover and substrate (<code>PmlProfile.for_angle</code>, reference
+index <code>min(n_cover, n_substrate)</code>, thickness half a local wavelength rounded to whole cells,
+or <code>pml={"top": t, "bottom": t}</code>), places the measurement lines between the structure and
+the PML, and raises <code>GratingError</code> with a hint for cells straddling an interface or bad
+options. <code>bottom="pec"</code> ends a thick lossy substrate on the PEC wall without a bottom PML
+(no transmitted orders).</p>
+<div class="highlight"><pre><span></span><code><span class="n">stack</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">LayerStack2D</span><span class="p">(</span><span class="n">hpfem</span><span class="o">.</span><span class="n">Material</span><span class="o">.</span><span class="n">dielectric</span><span class="p">(</span><span class="mf">1.0</span><span class="p">),</span> <span class="p">[],</span> <span class="n">glass</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>   <span class="c1"># air over glass</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">grating</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="p">{</span><span class="n">SUB</span><span class="p">:</span> <span class="n">glass</span><span class="p">,</span> <span class="n">RIDGE</span><span class="p">:</span> <span class="n">glass</span><span class="p">},</span> <span class="n">stack</span><span class="p">,</span> <span class="s2">"p"</span><span class="p">,</span>
+                             <span class="mi">50</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="mi">30</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">({</span><span class="n">o</span><span class="o">.</span><span class="n">m</span><span class="p">:</span> <span class="n">o</span><span class="o">.</span><span class="n">efficiency</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">R_orders</span> <span class="k">if</span> <span class="n">o</span><span class="o">.</span><span class="n">propagating</span><span class="p">},</span> <span class="n">result</span><span class="o">.</span><span class="n">power_balance_residual</span><span class="p">)</span>
+</code></pre></div>
+<p><code>result.flux_balance</code> is the flux-based balance through the PML boundaries
+(<code>conical_power_balance</code>; <code>None</code> on meshes whose PML boundaries are no mesh lines), the
+cross-check of the order-based <code>power_balance_residual</code>. For isolated scatterers in the
+conical solver, <code>conical_cross_sections(problem, solution, surface)</code> and
+<code>ConicalFarField(problem, solution, surface)</code> give σ_sca / σ_abs / σ_ext and the far-field
+pattern of the 2.5D field (F10 / F11); <code>conical_diffraction_orders</code> takes orders on any
+<code>OrderLine</code>, <code>to_literature_frame</code> converts the vector amplitudes to the x-period / y-invariant
+/ z-normal frame of the grating literature.</p>
+<p><strong>Shape sensitivities.</strong> <code>grating.shape_sensitivity(result, velocity, order=0, side="R")</code>
+returns the derivative of an efficiency with respect to a geometry parameter given by its
+mesh velocity, an array <code>(hpfem.num_geometry_nodes(mesh), 2)</code> of node displacements per unit
+of the parameter (<code>hpfem.region_normal_velocity(mesh, tag)</code> for the uniform normal growth of a
+region; <code>hpfem.move_nodes(mesh, velocity, t)</code> applies a step). The general functions
+<code>shape_gradient</code> / <code>shape_derivative</code> (<code>Scattering2D</code> / <code>3D</code>) and <code>conical_shape_gradient</code> /
+<code>conical_shape_derivative</code> take any <code>Functional</code> (ADR-0011, docs/theory/maxwell.md "Shape
+derivatives").</p>
+<p><strong>Material sensitivities.</strong> <code>grating.sensitivity(result, tag, order=0, side="R")</code> returns
+the derivatives of the efficiency of a reflected or transmitted order with respect to the
+real and the imaginary part of the permittivity of the cells tagged <code>tag</code>, from one adjoint
+solve on the problem of the result (<code>hpfem.conical_adjoint_solution</code>,
+<code>hpfem.conical_material_sensitivity</code>; <code>adjoint_solution</code> / <code>material_sensitivity</code> for
+<code>Scattering2D</code> / <code>3D</code> with any <code>Functional</code>; docs/theory/maxwell.md, "Sensitivities").</p>
+<p><strong>Jacobians (M16 S1).</strong> <code>grating.solve(..., keep_factorisation=True)</code> keeps the factorised
+system in <code>result.solution.factorisation</code>; <code>grating.sensitivity</code> and
+<code>grating.shape_sensitivity</code> then cost one transposed solve each, and
+<code>grating.jacobian(result, [("eps", tag), ("shape", velocity), ...], observables=None,
+mode="auto")</code> returns <code>(J, rows, columns)</code> with the derivatives of several efficiencies
+(default: every propagating R and T order) with respect to several parameters (two columns
+for the real and imaginary part of a permittivity, one per mesh velocity) from one
+multi-right-hand-side solve: <code>"direct"</code> solves once per parameter, <code>"adjoint"</code> once per
+observable, <code>"auto"</code> picks the cheaper. The building blocks are
+<code>conical_material_residual_derivative</code>, <code>conical_shape_residual_derivative</code> and
+<code>conical_functional_shape_derivative</code> (and their <code>Scattering2D</code> / <code>3D</code> counterparts) with
+<code>KeptFactorisation.solve_many</code> / <code>solve_adjoint_many</code> (ADR-0012, docs/theory/maxwell.md
+"Direct mode").
+The parameters <code>"theta"</code>, <code>"phi"</code> (per radian), <code>"omega"</code> (per rad/s) and <code>"wavelength"</code>
+(vacuum, per metre), also as <code>(name, step)</code>, are columns for the incidence and the frequency:
+they move the incident wave, the Bloch phases, β, k0 and the dispersive materials (models in
+the <code>materials</code> given to <code>solve</code> are evaluated at the new frequency) at a fixed PML box and
+fixed measurement lines, by the tangent with the derivative of the Bloch constraints plus the
+explicit dependence of the order post-processing (<code>hpfem.conical_parameter_tangent</code>,
+<code>conical_residual</code>, <code>conical_transported_solution</code>; docs/theory/maxwell.md "Frequency and
+angle derivatives"). They are always computed in the direct mode, cost two assemblies and two
+post-processings each and need no further factorisation; <code>"phi"</code> needs the vector path
+(<code>solve(..., scalar=False)</code>). <code>result.inputs</code> keeps what <code>solve</code> was called with for this.</p>
+<p><strong>Design parameters and mesh morphing (<code>hpfem.opt</code>, M16).</strong> <code>import hpfem.opt</code> (not imported
+by <code>import hpfem</code>). A <code>MaterialParameter(name, tag, part="re" | "im", lower, upper)</code> is a part
+of the permittivity of a tag (<code>get(materials)</code>, <code>apply(materials, value)</code>); a
+<code>GeometryParameter</code> is a scalar of one <code>Shape</code> of a <code>meshing.UnitCell</code>:
+<code>GeometryParameter.field(name, shape, "height")</code> for an entry of the shape's <code>params</code>, and
+<code>trapezoid_parameters(shape)</code> for the scatterometry triple mid-height width <code>cd</code>, <code>height</code>
+and side-wall <code>angle</code> (radians), each changed with the other two fixed.
+<code>shape_velocity(cell, mesh, parameter)</code> is the mesh velocity of a geometry parameter: the
+nodes on the shape's boundary (and on its copies shifted by a period) move exactly with it,
+the cell boundary and every other material interface stay fixed, the rest follows by the
+harmonic extension of the mesh graph; it raises if the shape touches the cell boundary.
+<code>Morph(cell, mesh, parameters, quality_threshold=0.3)</code> keeps the reference mesh:
+<code>mesh_at({name: value})</code> moves it: the nodes on the shapes' boundaries go to the same place on
+the changed shape (edge and fraction, ellipse angle: the exact geometry of <code>cell_at(values)</code>
+for any combination of values), the others by the same harmonic extension (same topology,
+tags and DoF numbering, so the objective is smooth and consistent with the shape
+derivatives). <code>velocity_at(values, name)</code> is the mesh velocity at that point (central
+differences of the node map) and goes into
+<code>grating.jacobian(result, [("shape", morph.velocity_at(values, name)), ...])</code>;
+<code>velocity(name)</code> is the one at the reference. (A linear morph <code>x_ref + Σ (p - p_ref) V_p</code>
+misses the cross terms — the wall moves with <code>h cot α</code> — and biased a reconstruction by 2.5
+standard errors; ADR-0012 §3 amendment.) <code>check(mesh)</code> compares
+the signed cell quality (<code>cell_quality</code>: inscribed over circumscribed radius, 1 for the
+equilateral triangle) with the reference and raises <code>MeshQualityError</code> (<code>ratio</code>,
+<code>inverted</code>) for inverted cells or a ratio below the threshold — the signal to remesh
+(ADR-0012 §3). <code>python/tests/test_opt_parameters.py</code> checks that the morphed boundary lies on
+the new trapezoid exactly for every parameter and for all of them together, <code>velocity_at</code>
+away from the reference against differences of the node map, and the derivatives along the
+velocities against finite differences of solves on morphed meshes (to 1e-6).
+<code>Morph(..., band=(y_low, y_high))</code> (and <code>shape_velocity(..., band=...)</code>) keeps every vertex on
+and beyond the band's edges fixed. Use it to keep the measurement lines and the PML out of
+the deformation: a measurement line that lies on mesh facets (the default line midway to the
+PML often does on structured cells) must not touch deforming cells, because the order
+amplitude sampled on facets is not differentiable along such a velocity (the normal Nédélec
+component jumps across facets, the located cell changes; the Jacobian was off by a factor of
+ten for the height of a p-polarised line). <code>grating.jacobian</code> and <code>grating.shape_sensitivity</code>
+refuse such velocities (<code>GratingError</code>); put the band at least one cell row inside the lines.</p>
+<p><strong>Studies (<code>hpfem.opt</code>, M16 S2).</strong> A <code>DesignSpace([...], constraints)</code> holds <code>Continuous(name,
+lower, upper, log=False, unit="", scale=None)</code>, <code>Integer(name, lower, upper)</code> and
+<code>Categorical(name, choices)</code> parameters (the S1 <code>MaterialParameter</code> / <code>GeometryParameter</code> count
+as continuous with their bounds and scale), <code>LinearConstraint({name: a}, lower, upper)</code> and
+<code>NonlinearConstraint(function, lower, upper)</code> on the SI values. It validates points
+(<code>validate</code>, <code>check</code> with the constraints, <code>feasible</code>), maps them to the unit cube and back
+(<code>encode</code> / <code>decode</code>, logarithmic for <code>log=True</code>) and to SI vectors (<code>to_vector</code> /
+<code>from_vector</code>, <code>bounds()</code>, <code>linear_constraints()</code> as <code>(A, lower, upper)</code>), and draws initial
+designs (<code>sample(n, "lhs" | "sobol" | "random", seed)</code>, infeasible points rejected). An
+evaluator follows ADR-0012 §2: it returns an <code>Evaluation</code> (<code>params</code>, real <code>values</code> (m,),
+<code>jacobian</code> (m, n) in parameter order, <code>error</code>, <code>cost</code> in seconds, <code>fidelity</code>, <code>mesh_id</code>,
+<code>status</code> <code>"ok"</code> / <code>"failed"</code> / <code>"cancelled"</code>, <code>meta</code>); <code>FunctionEvaluator(f, space,
+observables, settings=...)</code> wraps a function returning a number, an array, <code>(values,
+jacobian[, error])</code> or a dict, splits complex values into real and imaginary part
+(<code>split_complex</code>) and turns an exception into a failed evaluation with NaN values and the
+message in <code>meta["error"]</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">hpfem.opt</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">opt</span>
+
+<span class="n">space</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">DesignSpace</span><span class="p">([</span><span class="n">opt</span><span class="o">.</span><span class="n">Continuous</span><span class="p">(</span><span class="s2">"x"</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">opt</span><span class="o">.</span><span class="n">Continuous</span><span class="p">(</span><span class="s2">"y"</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span>
+                        <span class="p">[</span><span class="n">opt</span><span class="o">.</span><span class="n">LinearConstraint</span><span class="p">({</span><span class="s2">"x"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span> <span class="n">upper</span><span class="o">=</span><span class="mi">3</span><span class="p">)])</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">rosenbrock</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">jacobian</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s2">"x"</span><span class="p">],</span> <span class="n">p</span><span class="p">[</span><span class="s2">"y"</span><span class="p">]</span>
+    <span class="k">return</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">100</span><span class="o">*</span><span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">x</span><span class="o">*</span><span class="n">x</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="mi">400</span><span class="o">*</span><span class="n">x</span><span class="o">*</span><span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">x</span><span class="o">*</span><span class="n">x</span><span class="p">),</span> <span class="mi">200</span><span class="o">*</span><span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">x</span><span class="o">*</span><span class="n">x</span><span class="p">)]</span>
+<span class="n">study</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">Study</span><span class="p">(</span><span class="n">rosenbrock</span><span class="p">,</span> <span class="s2">"rosenbrock.study.jsonl"</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="n">emit</span><span class="o">=</span><span class="nb">print</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">study</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">space</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>                    <span class="c1"># propose and evaluate, sequentially</span>
+<span class="n">e</span> <span class="o">=</span> <span class="n">study</span><span class="o">.</span><span class="n">evaluate</span><span class="p">({</span><span class="s2">"x"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">},</span> <span class="n">jacobian</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">study</span><span class="o">.</span><span class="n">best</span><span class="p">(),</span> <span class="n">study</span><span class="o">.</span><span class="n">history</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">study</span><span class="o">.</span><span class="n">failed</span>
+</code></pre></div>
+<p><code>Study(evaluator, path, space)</code> evaluates sequentially (ADR-0012 §7), caches by a canonical key
+(values divided by their scale and rounded to 12 significant digits, plus the requested
+<code>fidelity</code> and the SHA-256 of the evaluator <code>settings</code>, so a changed setting never reuses old
+values) and appends every evaluation to the JSON-lines store of ADR-0012 §5: a header line
+(<code>schema</code> 1, version, design space, evaluator name / settings / hash / observables), then
+<code>evaluation</code>, <code>proposal</code>, <code>state</code> (<code>checkpoint(method, iteration, state)</code> for optimisers),
+<code>remesh</code> (from <code>meta["remesh"]</code> of an evaluation) and <code>note</code> lines; NaN as <code>null</code>, ±∞ as
+<code>"inf"</code>, complex values as <code>{"__complex__": [re, im]}</code>. Opening an existing store resumes it:
+the cache, the last <code>state</code> and the open proposals (<code>open_proposals()</code>, <code>evaluate_open()</code>)
+are rebuilt, nothing is evaluated again, a truncated last line is dropped; <code>Study.load(path)</code>
+opens it read-only. <code>emit(event)</code> receives JSON-ready events (<code>study</code>, <code>proposal</code>,
+<code>evaluation</code> with <code>i</code>, <code>n</code>, <code>cached</code>, <code>remesh</code>, <code>state</code>, <code>note</code>, <code>cancelled</code>); <code>cancel()</code> is
+polled before every evaluation and passed to the evaluator, a true value raises
+<code>hpfem.Cancelled</code> with the store consistent. Failed evaluations are recorded and cached and do
+not stop the study (<code>raise_errors=True</code> raises <code>EvaluationFailed</code> after recording,
+<code>retry_failed=True</code> evaluates them again). <code>python/tests/test_opt_study.py</code> covers the
+encodings, constraints, the cache key, the store round trip, resume after a cancellation,
+failures, events, an L-BFGS-B run on Rosenbrock replayed from the store and a grating
+evaluator with its Jacobian.</p>
+<p><strong>Optimisers and least squares (<code>hpfem.opt</code>, M16 S3).</strong> <code>minimize(study, objective, method=...)</code>
+runs SciPy's <code>"L-BFGS-B"</code> (gradient from the evaluator's Jacobian), <code>"Nelder-Mead"</code> or
+<code>"differential-evolution"</code> (seeded, <code>seed=</code>) on a <code>Study</code> — or on an evaluator / function with
+<code>space=</code> and <code>path=</code> — so every point is cached, stored and replayed. The objective is an
+observable (index or name) or a function of the value vector returning <code>F</code> or <code>(F, dF/dy)</code>
+(chain rule <code>dF/dp = (dF/dy)ᵀ J</code>); <code>maximize=True</code>, <code>fixed={name: value}</code> (integer and
+categorical parameters must be fixed), <code>fidelity</code>, <code>max_evaluations</code>, <code>options</code> for SciPy,
+<code>callback(info)</code>. The optimisers work on the unit-cube coordinates of the design space
+(logarithmic for <code>log=True</code>) with bounds <code>[0, 1]</code>; linear and nonlinear constraints go to
+differential evolution as constraints and act as an extreme barrier for the other two. A
+failed evaluation (ADR-0012 §2) gets a failure value above every value seen, so the step is
+rejected (line-search backtracking, simplex contraction); <code>max_failures</code> stops the run. A
+remesh (ADR-0012 §3) restarts L-BFGS-B with an empty memory from the remesh point. After every
+iteration a <code>state</code> checkpoint (current and best point, counts, the population of differential
+evolution) is stored; a cancelled run (<code>hpfem.Cancelled</code>) resumes by calling <code>minimize</code> again —
+with the same <code>x0</code> and <code>seed</code> it replays the stored points from the cache, with <code>x0=None</code> it
+restarts from the best stored point (differential evolution: from the stored population). The
+<code>OptimizeResult</code> has <code>params</code> (SI), <code>value</code>, <code>evaluation</code>, <code>success</code>, <code>message</code>, <code>iterations</code>,
+<code>evaluations</code> / <code>new_evaluations</code> / <code>cache_hits</code>, <code>failures</code>, <code>infeasible</code>, <code>restarts</code> and
+<code>history()</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">study</span><span class="p">,</span> <span class="s2">"R0"</span><span class="p">,</span> <span class="n">maximize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="p">{</span><span class="s2">"cd"</span><span class="p">:</span> <span class="mf">60e-9</span><span class="p">,</span> <span class="s2">"height"</span><span class="p">:</span> <span class="mf">80e-9</span><span class="p">})</span>
+<span class="n">rec</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">evaluator</span><span class="p">,</span> <span class="n">y_meas</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">x0</span><span class="o">=...</span><span class="p">,</span> <span class="n">fixed</span><span class="o">=</span><span class="p">{</span><span class="s2">"swa"</span><span class="p">:</span> <span class="mi">88</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">deg</span><span class="p">})</span>
+<span class="n">rec</span><span class="o">.</span><span class="n">params</span><span class="p">,</span> <span class="n">rec</span><span class="o">.</span><span class="n">std</span><span class="p">,</span> <span class="n">rec</span><span class="o">.</span><span class="n">correlation</span><span class="p">,</span> <span class="n">rec</span><span class="o">.</span><span class="n">chi2_red</span><span class="p">,</span> <span class="nb">print</span><span class="p">(</span><span class="n">rec</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+</code></pre></div>
+<p><code>fit(study_or_evaluator, y_meas, sigma=None, x0=..., observables=..., method="lm" | "gn")</code>
+reconstructs parameters by minimising <code>½‖W^{1/2}(y(p) − y_meas)‖²</code> with <code>W = diag(1/σ²)</code>
+(ADR-0012 §6; <code>sigma</code> a number, an array — observables of very different magnitudes — <code>None</code>
+for unweighted or <code>"relative"</code> for <code>σ = |y_meas|</code>): Levenberg–Marquardt with Moré scaling and
+Nielsen's damping update, or Gauss–Newton with step halving, on the unit-cube coordinates,
+each step a least-squares solve of the stacked system (no normal equations). Bounds by an active
+set and projection (a parameter at a bound with an outward gradient is held, the trial point is
+projected, the predicted decrease uses the projected step); constraint violations and failed
+evaluations are rejected steps; a remesh restarts the damping. It stops on the scaled gradient
+(<code>gtol</code>), the step (<code>xtol</code>) or the relative decrease (<code>ftol</code>) and checkpoints after every
+accepted step. The <code>FitResult</code> carries <code>params</code>, <code>x</code>, <code>std</code>, <code>covariance</code>, <code>correlation</code> (SI),
+<code>cost</code>, <code>chi2</code>, <code>chi2_red</code>, <code>dof</code>, <code>values</code>, <code>residual</code>, <code>jacobian</code>, <code>at_bounds</code>, the counts, the
+<code>study</code> and the <code>laplace</code> object. <code>laplace(jacobian, residual, sigma=None, names=...)</code> is the
+Laplace approximation on its own: <code>C = s² (JᵀWJ)⁻¹</code> from the SVD of the column-equilibrated
+weighted Jacobian, with <code>s² = χ²_red</code> when σ is unknown (<code>sigma=None</code> or <code>"relative"</code>, as the
+NIST certified standard deviations) and <code>s² = 1</code> when it is given; rank deficiency (relative
+singular values below <code>rcond = 1e-8</code>) or a condition number above <code>1e8</code> raise an
+<code>IdentifiabilityWarning</code>, non-identifiable parameters get an infinite standard error. Tests:
+<code>python/tests/test_opt_optimize.py</code> (Rosenbrock 2D/4D, Nelder–Mead, Branin, replay,
+cancellation and resume, failures, constraints, remesh) and <code>python/tests/test_opt_lsq.py</code>
+(an exact linear model, NIST StRD MGH17 from both starts — parameters and standard deviations
+to <code>1e-6</code> of the certified values —, weights, bounds, non-identifiability, study integration).</p>
+<p><strong>Bayesian optimisation (<code>hpfem.opt</code>, M16 S5).</strong> <code>bayesian_optimize(study, objective,
+acquisition="ei" | "lcb", use_gradients=False, constraints=(), max_evaluations=50, seed=0)</code>
+drives a <code>Study</code> like <code>minimize</code> (same objective forms, <code>fixed</code>, <code>maximize</code>, <code>fidelity</code>, unit-cube
+coordinates of the free parameters): an initial design of <code>n_initial = 2(d + 1)</code> points
+(<code>initial="lhs"</code> or <code>"sobol"</code> from <code>DesignSpace.sample</code>, seeded, plus <code>initial_points</code>), then one
+point per iteration, proposed by maximising the acquisition on a Gaussian-process surrogate of
+the objective fitted to every successful evaluation of the study with the same fixed values and
+fidelity. Acquisitions: expected improvement in a numerically stable log form (LogEI; <code>xi</code>) and
+the lower confidence bound <code>μ − κσ</code> (<code>kappa=2</code>), maximised from Sobol' and local candidates by
+multi-start L-BFGS-B with the analytic gradients of the GP prediction. Known constraints of the
+design space restrict the candidates and the local search (SLSQP); unknown, expensive ones are
+<code>OutcomeConstraint(observable_or_function, lower, upper)</code> on the observables, each with its own
+GP, entering as <code>log EI + Σ log P(feasible)</code>. <code>use_gradients=True</code> evaluates with the Jacobian
+and fits the gradient-enhanced GP (values and partial derivatives chain-ruled to the unit cube).
+Stopping: <code>max_evaluations</code> (initial design and cache hits included), <code>patience</code>, <code>tol</code> on the
+predicted gain, <code>max_failures</code>, <code>callback(info)</code>. Failed evaluations stay in the surrogate with
+the worst successful value and are never proposed again; remeshes are counted, the surrogate
+keeps every point (its learned noise absorbs the jump). <code>Evaluation.error</code> (the DWR estimate) is
+not used: it is not observation noise (ADR-0012 §6). A <code>state</code> checkpoint after every iteration
+(seed, counts, hyperparameters of the surrogates, incumbent) lets a cancelled run resume on the
+stored study exactly where it stopped: the open proposal is evaluated first and every random
+choice is seeded by <code>(seed, iteration)</code>, so the resumed run proposes the same points as an
+uninterrupted one. The <code>BOResult</code> extends <code>OptimizeResult</code> by <code>gp</code>, <code>constraint_gps</code>,
+<code>acquisition</code> (predicted gain per iteration), <code>remeshes</code> and <code>feasible</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">res</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">bayesian_optimize</span><span class="p">(</span><span class="n">study</span><span class="p">,</span> <span class="s2">"R0"</span><span class="p">,</span> <span class="n">maximize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">use_gradients</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="n">constraints</span><span class="o">=</span><span class="p">[</span><span class="n">opt</span><span class="o">.</span><span class="n">OutcomeConstraint</span><span class="p">(</span><span class="s2">"T0"</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)],</span>
+                            <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">mean</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">dmean</span><span class="p">,</span> <span class="n">dvar</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">gp</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># u: (q, d) unit-cube points</span>
+<span class="n">front</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">pareto_front</span><span class="p">(</span><span class="n">study</span><span class="p">,</span> <span class="p">[</span><span class="s2">"R0"</span><span class="p">,</span> <span class="s2">"A"</span><span class="p">],</span> <span class="n">maximize</span><span class="o">=</span><span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">])</span>
+</code></pre></div>
+<p>The surrogate is <code>GaussianProcess(kernel="matern52" | "matern32" | "se", mean="constant",
+noise="learn" | variance)</code> (NumPy/SciPy only, dense, up to a few hundred points; with
+derivatives <code>n(d + 1)</code> observations): ARD length scales, signal variance and noise from the log
+marginal likelihood with analytic gradients (multi-start L-BFGS-B in log space, weak log-normal
+priors, bounds for unit-cube inputs and standardised outputs), Cholesky with jitter escalation,
+<code>fit(x, y, dy=None)</code> with optional partial derivatives (NaN entries left out),
+<code>predict(x, grad=..., full_cov=...)</code>, <code>sample</code>, <code>log_marginal_likelihood(theta, gradient=True)</code>;
+<code>MultiOutputGP</code> fits one process per output. <code>pareto_front(study, objectives, maximize=...)</code> and
+<code>non_dominated(values)</code> give the non-dominated evaluations of any study. With the optional extra
+<code>opt-bo</code> (BoTorch, imported lazily, an <code>ImportError</code> names the extra), <code>pareto_optimize</code> runs
+multi-objective BO (qLogNEHVI) and <code>multi_fidelity_optimize(study, objective, fidelities=[...],
+costs=...)</code> cost-aware multi-fidelity BO (multi-fidelity knowledge gradient over discrete
+fidelity levels) on the same study. These two BoTorch drivers are <strong>experimental</strong>: BoTorch is
+not installed on the development machine nor in CI, so they have not been run yet (their
+tests skip without it). Tests: <code>python/tests/test_opt_gp.py</code> (interpolation, the
+likelihood and prediction gradients against finite differences, hyperparameter recovery, the
+gradient-enhanced process) and <code>python/tests/test_opt_bo.py</code> (EI/LCB/feasibility formulas,
+Branin to <code>1e-3</code> within 40 evaluations with EI and LCB, gradient-enhanced against plain BO on
+Hartmann-3, known and outcome constraints, cancellation and exact resume, failures, remeshes,
+the DWR estimate ignored, Pareto front; the BoTorch tests skip without BoTorch).</p>
+<p><strong>Scatterometry evaluator (<code>hpfem.opt</code>, M16 S3).</strong> <code>GratingEvaluator(morph, materials, stack,
+configurations, material_parameters=(), order=3, pml=None, mesher=None, solve_options=None)</code>
+is the evaluator of a grating measurement: the parameters are the geometry parameters of the
+<code>Morph</code> followed by <code>MaterialParameter</code>s, the observables the efficiencies of every
+<code>Configuration(wavelength, theta, phi=0, polarisation="s", orders=(("R", 0),))</code> (labels such
+as <code>"s 405nm 65deg: R0"</code>). Each evaluation morphs the reference mesh and runs one
+<code>grating.solve</code> per configuration with the kept factorisation and one <code>grating.jacobian</code>
+along the morph velocities and the permittivity columns. The PML boxes and the measurement
+lines are designed once on the reference mesh and kept, so nothing in the discretisation
+jumps with the parameters. <code>stack</code> may be a function of ω (dispersive substrates); a fidelity
+<code>{"order": p}</code> overrides the order. When the morph's quality guard trips, <code>mesher(cell) -&gt;
+mesh</code> builds a new reference mesh at the current geometry (the study records a <code>remesh</code>);
+without one the evaluation fails. The settings hash covers the order, the configurations,
+the materials, the stack, the mesh size and the frames. The constructor refuses a morph that
+deforms the cells at a measurement line on mesh facets (see the band above).
+<code>python/tests/test_opt_scatterometry.py</code> checks the values against a plain solve, the Jacobian
+(CD, height, side-wall angle, permittivity) against finite differences of the evaluator to
+<code>1e-5</code>, the store reuse and the remesh. <code>examples/grating_reconstruction</code> reconstructs CD,
+height and side-wall angle of a silicon line grating from synthetic spectroscopic data with
+<code>fit</code> and reports the Laplace uncertainties.</p>
+<p><strong>Posterior beyond Laplace (<code>hpfem.opt</code>, M16 S6).</strong> <code>sample(fit_result, surrogate=True,
+prior=None, walkers=None, steps=3000, burn=None, thin=1, seed=0)</code> samples the posterior of the
+free parameters of a <code>fit</code> — likelihood <code>exp(-½ Σ (y_i(p) - y_meas,i)² / (s σ_i)²)</code> with the
+noise scale <code>s² = χ²_red</code> when σ was unknown (the scaling of <code>laplace</code>), a uniform prior on
+the bounds times optional Gaussians <code>prior={name: (mean, std)}</code> — with the affine-invariant
+ensemble sampler of emcee (optional extra <code>opt-mcmc</code>, imported lazily; an <code>ImportError</code> names
+the extra). The walkers start from the Laplace Gaussian. With <code>surrogate=True</code> the model is
+replaced by <code>build_surrogate(fit_result, width=4, points=2n+2, validation=n+2)</code>: a
+Latin-hypercube design in <code>x̂ ± 4 std</code> (clipped to the bounds, the optimum included)
+evaluated <strong>with the Jacobian</strong> through the study, a gradient-enhanced <code>MultiOutputGP</code> per
+observable without noise, its variance added to the noise in the likelihood (the posterior
+widens where the surrogate is unsure), and <code>validation</code> extra evaluations measuring its error
+in noise standard deviations (<code>Surrogate.validation</code>, a <code>PosteriorWarning</code> above 0.3).
+<code>surrogate=False</code> calls the evaluator at every step without the study's cache and store
+(cheap models only). <code>PosteriorResult</code> holds the samples, mean, std, covariance, correlation,
+the 2.5/16/50/84/97.5 % quantiles, the acceptance fraction and the autocorrelation time
+(a <code>PosteriorWarning</code> when the chain is shorter than 50 of them or the acceptance below
+0.15); <code>compare()</code> lists per parameter the Laplace mode and error against the posterior mean
+and std (<code>shift</code> in Laplace errors, <code>ratio</code> of the stds), <code>summary()</code> prints it.
+<code>python/tests/test_opt_posterior.py</code>: on a linear Gaussian model the posterior (direct and on
+the surrogate) reproduces the Laplace mean, errors and correlations to 0.1 standard errors /
+10 %, with a Gaussian prior it matches the exact <code>(C⁻¹ + D)⁻¹</code>; on a skewed one-parameter
+model the 16/50/84 % quantiles match a brute-force grid posterior where the Laplace Gaussian
+does not (mean shifted by more than 0.15 errors); on a two-parameter exponential model the
+surrogate posterior equals the direct one. <code>examples/grating_reconstruction/run.py
+--posterior</code> samples the posterior of the silicon-grating reconstruction.</p>
+<p><strong>Uncertainty propagation and sensitivity (<code>hpfem.opt</code>, M16 S7).</strong> Uncertain inputs are
+independent <code>Normal(mean, std)</code> or <code>Uniform(lower, upper)</code> per parameter name (SI); the other
+parameters keep <code>fixed</code> (default: the centre of their bounds). <code>linear_propagation(study,
+inputs)</code> evaluates once with the Jacobian at the input means and returns the delta-method
+output covariance <code>J Σ Jᵀ</code>, the standard deviations and the share of every input in every
+output variance (<code>contributions</code>, rows sum to 1). <code>build_global_surrogate(study, inputs,
+points=4n+4, active=0, width=4, gradients=True)</code> evaluates a Latin hypercube in the input box
+(<code>mean ± 4 std</code>, the bounds of a uniform input; clipped to the design space) through the
+study, with the Jacobian, fits a gradient-enhanced <code>MultiOutputGP</code> without noise and adds
+<code>active</code> points one at a time where the predicted standard deviation relative to the spread
+of the training values is largest (<code>max_relative_std</code> reports it for the final model; it is
+set by the corners of the box and conservative). <code>monte_carlo(surrogate_or_function, inputs,
+samples=10000)</code> gives the output mean, std, quantiles and samples (normal samples outside the
+surrogate box are clipped and counted); <code>sobol_indices(surrogate_or_function, inputs,
+samples=4096, bootstrap=200)</code> the first-order (Saltelli 2010) and total (Jansen) Sobol'
+indices with bootstrap 95 % half-widths from scrambled Sobol' points, <code>N (n + 2)</code> model calls
+(free on the surrogate). SALib is not used: it does not install on the MSYS2 Python, and the
+own estimators are checked against the analytic indices instead.
+<code>python/tests/test_opt_uq.py</code>: the Ishigami indices directly (2¹⁴ points, 0.02) and through a
+surrogate of 40 + 30 actively learned points (0.02); on a linear model linearised propagation,
+Monte Carlo and Sobol' indices against the closed form; on a nonlinear model Monte Carlo on
+the surrogate against Monte Carlo on the function (1–2 %) and the linearised std as the
+small-tolerance limit. <code>examples/fabrication_tolerance</code> propagates CD, height and side-wall
+angle tolerances of the silicon grating to its reflectance spectrum.</p>
+<p><strong>Dipole emitters in the cell (M17 S1).</strong> <code>grating.emit(mesh, materials, stack, dipole,
+omega, kx=0, beta=0, order=4, pml=..., bottom="pml", orders_max=3, ...)</code> solves one cell problem
+of a dipole array — one Gaussian dipole per period with the phase <code>exp(i kx P)</code> from cell to cell
+and <code>exp(i beta z)</code> along the lines, the cell problem of the array scanning of a single dipole
+(ADR-0013). <code>dipole = {"position": (x0, y0), "moment": (px, py, pz), "sigma": s}</code> (SI, current
+moment [A m], solver frame: x along the period, y the stack normal, z along the lines); the
+Gaussian must lie 6σ inside the cell and outside the PML, in a lossless medium. Geometry, PML and
+measurement lines are those of <code>grating.solve</code>; cells whose tag is not in <code>materials</code> take the
+stack material at their centroid. The <code>EmissionResult</code> holds <code>P_cell</code> (the delivered power,
+<code>-½ Re ∫ conj(J)·E</code>, [W/m per unit β]), <code>orders_up</code> / <code>orders_down</code> (<code>EmissionOrder</code> with the
+radiated <code>power</code> per order), <code>up</code>, <code>down</code>, the PML-boundary fluxes <code>flux_up</code> / <code>flux_down</code>,
+<code>absorbed</code> and <code>A_by_tag</code>, the <code>guided</code> remainder and <code>field(points)</code>. The building blocks are
+<code>hpfem.conical_gaussian_dipole</code> and <code>hpfem.conical_source_power</code> (docs/theory/maxwell.md "Dipole
+emitters").</p>
+<p><strong>Emission pattern by reciprocity (M17 S2).</strong> <code>grating.emission_pattern(mesh, materials, stack,
+dipole, omega, directions=[(theta, phi, side), ...], pol=("s", "p"), normalized=False,
+quadrature_points=6, order=4, pml=..., **solve_kwargs)</code> gives the far-field power per unit
+solid angle of a single Gaussian dipole (the <code>dipole</code> dict of <code>emit</code>) in each direction and
+polarisation: <code>side="up"</code> is the direction (sinθ cosφ, cosθ, sinθ sinφ) into the cover,
+<code>"down"</code> (sinθ cosφ, −cosθ, sinθ sinφ) into a lossless substrate. Each value is one
+<code>grating.solve</code> with the plane wave incident from that direction, <code>dP/dΩ = n k0² Z0 |p·⟨E⟩|² /
+(32π²)</code> with the total field averaged over the dipole's Gaussian (docs/theory/maxwell.md "Stage
+C"); directions into the substrate are solved on the problem mirrored at y = 0 (straight meshes,
+<code>pml</code> as <code>None</code> or a <code>{"top", "bottom"}</code> dict). The <code>EmissionPattern</code> holds <code>dP_dOmega</code>
+(directions × polarisations, [W/sr], divided by <code>P_bulk</code> with <code>normalized=True</code>), <code>total</code> (summed
+over the polarisations), <code>P_bulk</code> (the dipole in its homogeneous host medium), the reciprocity
+<code>amplitude</code> and the index <code>n</code> of each direction's medium. It is the radiated part only; the
+guided and absorbed power and the Purcell factor need Stage B.</p>
+<p><strong>Scalar E_z path.</strong> For the s polarisation at <code>phi = 0</code> (<code>scalar="auto"</code>, the default)
+<code>grating.solve</code> lets <code>ConicalScattering</code> factorise only the H1 block (<code>setup.scalar_ez</code>), about
+a third of the unknowns with identical results; <code>result.scalar</code> says whether it was used,
+<code>scalar=False</code> forces the block solve.</p>
+<p><strong>Progress, cancellation, timing, memory (F9).</strong> <code>solve(..., progress=callback,
+cancel=flag)</code> calls <code>callback(event)</code> with an <code>hpfem.ProgressEvent</code> (<code>phase</code>, <code>step</code>,
+<code>num_steps</code>, <code>seconds</code>) at the start of every phase of the solve (assembly, constraints,
+factorisation, solve, post) and when it is done, and polls <code>cancel()</code> at the same moments;
+a true value raises <code>hpfem.Cancelled</code>. The same callback is <code>setup.progress</code> of
+<code>Scattering2D</code> / <code>Scattering3D</code> / <code>ConicalScattering</code>, whose solutions carry <code>timing</code> (seconds
+per phase and total); <code>result.timing</code> of <code>grating.solve</code> adds them as <code>solver.&lt;phase&gt;</code>.
+<code>grating.estimate_memory(mesh, order, solver)</code> (or <code>hpfem.estimate_memory(mesh, order,
+backend, conical)</code> and the map-based overloads) predicts DoFs, matrix nonzeros, factor entries
+and bytes of the factorisation before the run; <code>LinearSolver.factor_entries</code> is the measured
+number after <code>factorize</code> (docs/theory/solvers.md, "Memory estimate").</p>
+<p><strong>Resonances and bands of the cell (F14).</strong> <code>grating.resonances(mesh, materials, stack,
+omega_target, kx=0.0, beta=0.0, num_modes=4, order=4, pml=None, bottom="pml", ...)</code> solves
+the conical eigenproblem of the unit cell (<code>hpfem.ConicalResonance</code>: PEC top and bottom, PML
+designed at the target and the angle of the Bloch wavenumber <code>kx</code> [1/m], both polarisations
+at <code>beta = 0</code>) and returns a <code>ResonanceResult</code> with <code>modes</code> (<code>omega</code> complex with Im &lt; 0 for
+a decaying mode, <code>wavelength</code>, <code>Q</code>, <code>residual</code>, <code>beta</code>, <code>field(points, quantity)</code> with <code>"E"</code>,
+<code>"H"</code> or <code>"S"</code>), <code>omegas</code>, <code>dofs</code> and <code>timing</code>; <code>progress</code> / <code>cancel</code> as in <code>solve</code> (phases
+assembly, constraints, eigensolve, post). <code>grating.bands(mesh, materials, stack,
+omega_target, kx_values, **kwargs)</code> repeats this along a list of Bloch wavenumbers (the
+complex band structure of the open cell; closed photonic crystals stay with
+<code>hpfem.BandStructure2D</code>). In the job runner <code>"task": "resonances"</code> with a <code>"resonance"</code> block
+(<code>wavelength</code>, <code>num_modes</code>, <code>kx_over_g</code> or <code>theta_deg</code>, <code>beta</code>) and <code>"task": "bands"</code> with
+<code>"sweep": {"kx_over_g": ...}</code> emit <code>mode</code> and <code>point</code> events and write the maps per mode.
+<code>python/tests/test_grating_resonances.py</code> checks the Fabry–Pérot slab against the exact complex
+wavenumber through the front end and the runner.</p>
+<p><strong>Resonance derivatives and dispersive resonances (M16 S4).</strong>
+<code>grating.resonance_sensitivity(result, mode, [("eps", tag), ("shape", velocity), "beta",
+"kx"])</code> returns <code>{label: hpfem.ResonanceDerivative}</code> with <code>domega</code> (complex: the real part
+moves the resonance, the imaginary part its width), <code>dquality</code>, <code>dwavelength</code> and <code>dlambda</code>,
+from the left eigenvector of the Bloch-reduced pencil (<code>hpfem.conical_resonance_adjoint</code>) —
+no further eigensolve; <code>"eps"</code> gives the entries <code>eps[tag].re</code> and <code>eps[tag].im</code>. Dispersive
+models in <code>materials</code> are evaluated at the target by <code>resonances</code>;
+<code>grating.refine_resonance(result, mode)</code> solves for the self-consistent resonance (Newton on
+<code>λ̂(ω) = (ω/c0)²</code> with ε at the mode's own complex ω — the analytic continuation of
+<code>DrudeLorentz</code> and <code>Constant</code>, the real part of ω for tabulated data) and marks the result
+<code>self_consistent</code>; its derivatives then carry the <code>dε/dω</code> term. The building blocks
+(<code>resonance_adjoint</code>, <code>resonance_material_derivative</code>, <code>resonance_shape_derivative</code> for
+<code>Resonance2D</code> / <code>3D</code>; <code>conical_resonance_*_derivative</code>; <code>resonance_derivative_from</code>) are bound
+as well (docs/theory/maxwell.md, "Resonance derivatives"). <code>python/tests/test_resonance_sensitivity.py</code>
+checks them on the Fabry–Pérot slab against the exact derivatives and re-solved resonances.</p>
+<p><code>python/tests/test_grating_solve.py</code> checks the glass grating of the conical validation
+against the conical RCWA (s 40°/30°, p 50°/30°, reflected and transmitted orders to 2e-3 at
+p = 3), the silver grating with the PEC bottom and the absorbed power, and the snapping.</p>
+<p>The loop is also available as a generator, <code>hpfem.adaptive_solve</code>, which streams one
+<code>AdaptiveStep</code> per iteration (DoFs, <code>eta</code>, observables and their change, goal value and
+estimated goal error) and stops on a tolerance:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">factory</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">orders</span><span class="p">):</span>
+    <span class="n">nd</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">NedelecDofMap2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">orders</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+    <span class="n">h1</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">DofMap2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">orders</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+    <span class="n">problem</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">ConicalScattering</span><span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="n">h1</span><span class="p">,</span> <span class="n">setup</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">problem</span><span class="p">,</span> <span class="n">problem</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+
+<span class="n">goal</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">p</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">conical_dwr_estimate</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">functional</span><span class="p">)</span>   <span class="c1"># DWR of an order amplitude</span>
+<span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">adaptive_solve</span><span class="p">(</span><span class="n">adaptive</span><span class="p">,</span> <span class="n">factory</span><span class="p">,</span> <span class="n">observe</span><span class="o">=</span><span class="n">orders_of</span><span class="p">,</span> <span class="n">goal</span><span class="o">=</span><span class="n">goal</span><span class="p">,</span>
+                                 <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span> <span class="n">max_dofs</span><span class="o">=</span><span class="mi">100_000</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">step</span><span class="o">.</span><span class="n">dofs</span><span class="p">,</span> <span class="n">step</span><span class="o">.</span><span class="n">eta</span><span class="p">,</span> <span class="n">step</span><span class="o">.</span><span class="n">observables</span><span class="p">,</span> <span class="n">step</span><span class="o">.</span><span class="n">goal_error</span><span class="p">,</span> <span class="n">step</span><span class="o">.</span><span class="n">converged</span><span class="p">)</span>
+</code></pre></div>
+<p>(<code>hpfem.refine_at_points(adaptive, corners, levels)</code> pre-refines material corners before the
+loop; <code>functional = hpfem.conical_order_functional(origin, tangent, period, kx, m, points, e)</code>
+with <code>e = conj(A_m) / |A_m|</code> of the current amplitude linearises the efficiency of order m.)</p>
+<p>The hp loop (<code>tests/convergence/adaptive_hp_refinement.cpp</code>) reads the same in Python, and
+with <code>ConicalScattering</code> in place of <code>Scattering2D</code> (its <code>estimate</code> / <code>error</code> take the
+<code>ConicalSolution</code>, both DoF maps get the same <code>orders</code>; the Bloch faces may be refined
+independently, <code>AdaptiveMesh2D.set_periodic</code> keeps them mirrored if wanted):</p>
+<div class="highlight"><pre><span></span><code><span class="n">adaptive</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">AdaptiveMesh2D</span><span class="p">(</span><span class="n">root_mesh</span><span class="p">)</span>
+<span class="n">orders</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">adaptive</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">predicted</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">):</span>
+    <span class="n">mesh</span> <span class="o">=</span> <span class="n">adaptive</span><span class="o">.</span><span class="n">mesh</span>                        <span class="c1"># copy of the current leaf mesh</span>
+    <span class="n">dofs</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">NedelecDofMap2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">orders</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+    <span class="n">problem</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Scattering2D</span><span class="p">(</span><span class="n">dofs</span><span class="p">,</span> <span class="n">setup</span><span class="p">)</span>
+    <span class="n">solution</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+    <span class="n">estimate</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">estimate</span><span class="p">(</span><span class="n">solution</span><span class="p">)</span>
+    <span class="n">marked</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">dorfler_marking</span><span class="p">(</span><span class="n">estimate</span><span class="o">.</span><span class="n">indicators</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">decision</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">hp_decide_by_prediction</span><span class="p">(</span><span class="n">estimate</span><span class="o">.</span><span class="n">indicators</span><span class="p">,</span> <span class="n">predicted</span><span class="p">,</span> <span class="n">marked</span><span class="p">)</span>
+    <span class="n">hp</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">hp_refine</span><span class="p">(</span><span class="n">adaptive</span><span class="p">,</span> <span class="n">orders</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">decision</span><span class="o">.</span><span class="n">h_marked</span><span class="p">,</span> <span class="n">decision</span><span class="o">.</span><span class="n">p_marked</span><span class="p">)</span>
+    <span class="n">predicted</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">predict_indicators</span><span class="p">(</span><span class="n">estimate</span><span class="o">.</span><span class="n">indicators</span><span class="p">,</span> <span class="n">orders</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">hp</span><span class="p">)</span>
+    <span class="n">orders</span> <span class="o">=</span> <span class="n">hp</span><span class="o">.</span><span class="n">orders</span>
+</code></pre></div>
+<p>Other entry points follow the C++ headers one to one: <code>assemble_h1</code> / <code>assemble_maxwell</code>
+with <code>ScalarForm2D</code> / <code>MaxwellForm2D</code> callbacks and <code>solve_direct</code> or <code>make_direct_solver</code>
+(SparseLU / MUMPS / cuDSS), <code>dirichlet_values</code> / <code>apply_dirichlet</code>, <code>gauged_curl_curl_eigenpairs</code>
+for cavity modes, <code>complex_eigenpairs_near</code> / <code>complex_eigenpairs_near_gauged</code> for complex
+pencils (resonances; the Krylov basis lives on the GPU with the cuDSS backend), <code>RieszProjection2D/3D</code> /
+<code>AxisymmetricRieszProjection</code> for the modal expansion of a source problem around the resonances
+(<code>RieszSetup</code>, <code>spectrum</code>, <code>expand</code>), <code>PropagatingMode</code> for waveguide cross-sections, <code>BandStructure2D</code> for
+Floquet–Bloch bands of a unit cell, <code>ScatteringOperator2D</code> /
+<code>plane_wave_sweep</code> / <code>ReducedBasis</code> for sweeps, <code>bloch_constraints</code> / <code>PeriodicPair2D</code> /
+<code>fourier_coefficients</code> / <code>diffraction_efficiencies</code> for gratings, <code>PmlProfile.for_angle(theta_max_deg, target)</code> /
+<code>PmlBox2D.max_resolution</code> / <code>recommended_thickness(..., profile, p)</code> for the PML at oblique
+incidence (project files: <code>pml.profile.theta_max</code> and <code>target</code>), <code>dwr_estimate</code> with
+<code>point_value_functional</code> or a Python functional for goal-oriented estimation, <code>VtkWriter2D</code>
+for meshes with data arrays. <code>help(hpfem.&lt;name&gt;)</code> shows the bound signature and docstring.</p>
+<p>Bodies of revolution on substrates and in layer stacks (ADR-0014): set
+<code>AxisymmetricScatteringSetup.background</code> to a <code>LayerStack3D</code> normal to the axis (its z is the y of
+the meridian mesh, interfaces on mesh lines, the layer cells tagged with the stack's materials)
+and take the incident order from <code>layered_axisymmetric_wave(stack, k0, theta, pol, m,
+side="top")</code> (<code>pol</code> <code>"s"</code> / <code>"p"</code>, <code>side</code> <code>"top"</code> or <code>"bottom"</code> for a lossless substrate; the
+result has <code>value</code> and <code>curl</code> callables and R, T, A of the bare stack). The source then lives
+only where a cell deviates from the stack, particles and holes alike:</p>
+<div class="highlight"><pre><span></span><code><span class="n">stack</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">LayerStack3D</span><span class="p">(</span><span class="n">hpfem</span><span class="o">.</span><span class="n">Material</span><span class="o">.</span><span class="n">vacuum</span><span class="p">(),</span> <span class="p">[</span><span class="n">hpfem</span><span class="o">.</span><span class="n">Layer</span><span class="p">(</span><span class="n">gold</span><span class="p">,</span> <span class="mf">50e-9</span><span class="p">)],</span> <span class="n">glass</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">background</span> <span class="o">=</span> <span class="n">stack</span>
+<span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="n">m_max</span><span class="p">,</span> <span class="n">m_max</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+    <span class="n">setup</span><span class="o">.</span><span class="n">azimuthal_order</span> <span class="o">=</span> <span class="n">m</span>
+    <span class="n">setup</span><span class="o">.</span><span class="n">incident</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">layered_axisymmetric_wave</span><span class="p">(</span><span class="n">stack</span><span class="p">,</span> <span class="n">k0</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="s2">"p"</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+    <span class="n">fields</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">hpfem</span><span class="o">.</span><span class="n">AxisymmetricScattering</span><span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="n">h1</span><span class="p">,</span> <span class="n">setup</span><span class="p">)</span><span class="o">.</span><span class="n">solve</span><span class="p">())</span>
+</code></pre></div>
+<p>Per order, <code>problem.absorbed_power(field)</code> gives the absorption of the total field (per cell and
+tag; the body is <code>problem.scatterer_cells()</code>), <code>problem.incident_absorbed_power()</code> that of the bare
+stack in the same cells (their difference over a region around a hole is the absorption change),
+<code>axisymmetric_flux_channels(..., surface, stack)</code> the scattered power split into <code>up</code> / <code>down</code> /
+<code>lateral</code>, and <code>axisymmetric_disc_flux(..., z, radius, -1, wave.value, wave.curl)</code> the transmission
+through a disc with the stack's own part (<code>background</code>, <code>change()</code>); <code>axisymmetric_poynting_flux</code>
+takes the same <code>added_value</code> / <code>added_curl</code> for the flux of the total field. Sum every quantity over
+the orders.
+The far field in both half-spaces comes from <code>axisymmetric_layered_far_field(..., surface, stack,
+theta_up, theta_down)</code> (reciprocity with the stack's plane waves; <code>.up</code> / <code>.down</code> are
+<code>AxisymmetricFarField</code>s with <code>radiated_power()</code> and <code>power_between(theta_min, theta_max)</code> for a
+collection cone, e.g. <code>power_between(0, asin(NA / n))</code> for an objective above the sample).</p>
+<p><strong>Band derivatives and group velocity.</strong> With <code>setup.keep_modes = True</code> a
+<code>BandStructure2D/3D</code> keeps the eigenvectors in <code>Bands.modes</code>, and the bands can be
+differentiated without another eigensolve: <code>band_permittivity_derivative(problem, bands, tag)</code>
+and <code>band_permeability_derivative</code> for the material of a tag, <code>band_shape_derivative(problem,
+bands, velocity)</code> for a mesh velocity (e.g. <code>region_normal_velocity(mesh, tag)</code> for a rod
+radius; it must vanish on the periodic faces) and <code>band_wave_vector_derivative(problem, bands,
+direction)</code> along k. Each returns a <code>BandDerivative</code> with <code>eigenvalue</code> (d k0²/dp), <code>wavenumber</code>
+(d k0/dp, NaN at k0 = 0), <code>angular_frequency</code> (c0 d k0/dp) and <code>multiplicity</code>; degenerate bands
+(relative gap below <code>degeneracy_tolerance</code>, 1e-6) are resolved as a cluster.
+<code>group_velocity(problem, bands)</code> returns dω/dk in m/s as an array (num_bands, Dim):</p>
+<div class="highlight"><pre><span></span><code><span class="n">setup</span><span class="o">.</span><span class="n">keep_modes</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">crystal</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">BandStructure2D</span><span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="n">h1</span><span class="p">,</span> <span class="n">setup</span><span class="p">)</span>
+<span class="n">bands</span> <span class="o">=</span> <span class="n">crystal</span><span class="o">.</span><span class="n">bands</span><span class="p">([</span><span class="mf">1.3</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">])</span>
+<span class="n">v_g</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">group_velocity</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">bands</span><span class="p">)</span>                         <span class="c1"># (num_bands, 2) [m/s]</span>
+<span class="n">d_eps</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">band_permittivity_derivative</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">bands</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">wavenumber</span>
+<span class="n">d_r</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">band_shape_derivative</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">bands</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">region_normal_velocity</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+</code></pre></div>
+<p>See docs/theory/maxwell.md, "Band derivatives and group velocity".</p>
+<h2 id="gpu-backend">GPU backend</h2>
+<p>With the separately built GPU library (<code>gpu/README.md</code>, <code>HPFEM_ENABLE_CUDA</code>) the direct
+solvers can run on cuDSS: <code>hpfem.available(hpfem.DirectSolverBackend.CUDSS)</code> tells whether the
+library and a device are present, <code>hpfem.cudss_status()</code> why not, and
+<code>hpfem.gpu_min_unknowns()</code> the size from which <code>AUTO</code> prefers the GPU. Every problem class
+with a <code>solver</code> field accepts <code>DirectSolverBackend.CUDSS</code>; <code>TimeDomain2D/3D</code> then keep the
+whole Newmark loop on the device (identical results to the host loop, state downloaded only
+for observers and at the end). The building blocks are bound as well: <code>DeviceMatrix(csr)</code>
+with <code>apply</code> / <code>apply_many</code> keeps a sparse matrix on the GPU for repeated products, and
+<code>DeviceStepper(newmark, damping, stiffness, load, dt, beta, gamma)</code> with <code>set_state</code>, <code>step</code>
+and <code>get_state</code> runs the Newmark recursion on the device for a Newmark operator factorised
+by cuDSS; <code>solver.backend</code> names the backend <code>AUTO</code> chose, <code>solver.details</code> its factor
+statistics. <code>python/tests/test_gpu.py</code> compares all of this with the host and is skipped
+without the library.</p>
+<h2 id="tests">Tests</h2>
+<p><code>python/tests/</code> runs in CI (<code>pip install ".[dev]" &amp;&amp; pytest python/tests</code>, under a minute):
+mesh and DoF-map invariants, Poisson with manufactured solution (rate <span class="arithmatex">\(p+1\)</span>), PEC cavity
+eigenvalues (no spurious modes), the Mie cylinder cross-section against the series, the
+slab waveguide effective index, the lamellar grating's energy balance, the hp loop on the
+L-shape, the goal-oriented estimate, callbacks raising inside parallel loops, VTK export.
+Convergence is established by the C++ suite; the Python tests check that the bound pipeline
+reproduces those numbers.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

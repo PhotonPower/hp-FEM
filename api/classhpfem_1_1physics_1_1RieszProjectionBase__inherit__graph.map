@@ -1,0 +1,7 @@
+<map id="hpfem::physics::RieszProjectionBase" name="hpfem::physics::RieszProjectionBase">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,45,267,70"/>
+<area shape="rect" id="Node000002" href="$classhpfem_1_1physics_1_1AxisymmetricRieszProjection.html" title=" " alt="" coords="319,5,539,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="266,41,319,35,319,40,266,46"/>
+<area shape="rect" id="Node000003" href="$classhpfem_1_1physics_1_1RieszProjection.html" title="Riesz projection on the pencil of a Resonance problem (2D / 3D)." alt="" coords="315,69,544,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="266,69,315,74,314,79,266,74"/>
+</map>

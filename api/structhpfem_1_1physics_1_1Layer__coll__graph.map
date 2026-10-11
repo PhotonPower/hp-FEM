@@ -1,0 +1,5 @@
+<map id="hpfem::physics::Layer" name="hpfem::physics::Layer">
+<area shape="rect" id="Node000001" title="A homogeneous, non&#45;magnetic layer of finite thickness [m]." alt="" coords="21,93,186,119"/>
+<area shape="rect" id="Node000002" href="$structhpfem_1_1materials_1_1Material.html" title="Relative material parameters of an isotropic medium." alt="" coords="5,5,201,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="106,45,106,93,101,93,101,45"/>
+</map>

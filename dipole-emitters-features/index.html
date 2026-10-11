@@ -1,0 +1,1326 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/dipole-emitters-features/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Dipole emitters in periodic structures (milestone M17) - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#dipole-emitters-in-periodic-structures-milestone-m17" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Dipole emitters in periodic structures (milestone M17)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-the-gap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. The gap
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-physics-and-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Physics and conventions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-proposal-three-stages-each-useful-on-its-own" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Proposal (three stages, each useful on its own)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Proposal (three stages, each useful on its own)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-stage-a-bloch-periodic-emitter-array-cell-problem-with-a-dipole-source-s1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Stage A: Bloch-periodic emitter array (cell problem with a dipole source) — S1
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-stage-c-before-b-angle-resolved-emission-by-reciprocity-s2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Stage C before B: angle-resolved emission by reciprocity — S2
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-stage-b-single-dipole-by-array-scanning-s3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Stage B: single dipole by array scanning — S3
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-stage-c-angle-resolved-emission-by-reciprocity-roadmap-s2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Stage C: angle-resolved emission by reciprocity (roadmap S2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-tests-definition-of-done-claudemd-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Tests (Definition of Done, CLAUDE.md §7)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-what-the-gui-needs-fem-model-builder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. What the GUI needs (FEM model builder)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-out-of-scope-first-step" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Out of scope (first step)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-context-in-the-gui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Context in the GUI
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="dipole-emitters-in-periodic-structures-milestone-m17">Dipole emitters in periodic structures (milestone M17)</h1>
+<p>Status: proposal of 9 October 2026 from the GUI work (FEM model builder, mode "periodic
+structure"), reviewed by the coordinating dev agent the same day (review notes marked
+<strong>Review</strong>). Audience: the development agents. Tracked in <code>docs/roadmap.md</code> as milestone M17;
+the IDs S0 to S4 below are used there. Decision record: ADR-0013 (S0). Statements marked
+<em>hypothesis</em> are not verified; everything else was checked against <code>main</code>.</p>
+<h2 id="1-the-gap">1. The gap</h2>
+<ol>
+<li><code>docs/theory/maxwell.md</code> (end of the conical section) lists as <em>planned</em>: "Purcell factor
+   F_P = P_emitted / P_bulk for a point dipole". For bodies of revolution it exists (M11,
+   <code>examples/micropillar_qd</code>), for 2D non-periodic problems as a line current
+   (<code>examples/quantum_dot_purcell</code>); for periodic cells there is no front end.</li>
+<li><code>ConicalScatteringSetup.current</code> already accepts a volume source f = iωμ0 J in the scaled
+   components (f_x, f_y, −i f_z) (total-field formulation), with Bloch pairs, PML and the layered
+   background. A current in a Bloch-periodic cell is, however, physically <strong>an infinite array of
+   coherent line sources</strong> with the phase e^{i kx P n} from cell to cell and the dependence
+   e^{iβz} along the lines, not one emitter. Users who put a "dipole" into the cell get the
+   emission of that array.</li>
+<li>The quantities users ask for (LEDs, OLEDs, single-photon sources on gratings,
+   metasurface-enhanced emission, quantum dots in photonic-crystal waveguides, plasmonic
+   gratings) are those of a <strong>single</strong> emitter: total decay-rate enhancement (Purcell factor),
+   radiated fraction into the cover / substrate per direction or diffraction order, power into
+   guided modes of the layer stack / grating, absorbed power (quenching).</li>
+</ol>
+<h2 id="2-physics-and-conventions">2. Physics and conventions</h2>
+<p>Frame of the conical solver: x along the period P, y normal to the layers, z along the lines.
+Time dependence e^{−iωt}. A point dipole with current moment <strong>p</strong> (A·m) at <strong>x0</strong> = (x0, y0, 0):
+J = p δ(x − x0) δ(y − y0) δ(z).</p>
+<p><strong>Array scanning (Floquet–Bloch superposition).</strong> With E_{kx,β}(x, y) e^{iβz} the solution of the
+cell problem whose source is the Bloch-periodic array J_{kx,β} = p δ(x − x0) δ(y − y0) (one source
+per cell, phase e^{i kx P n}) and longitudinal wavenumber β,</p>
+<pre><code>E(x, y, z) = (P / 2π) ∫_{−π/P}^{π/P} dkx  (1 / 2π) ∫_{−∞}^{∞} dβ  E_{kx,β}(x, y) e^{iβz}
+</code></pre>
+<p>(the Poisson sum gives (P/2π) ∫_BZ Σ_n δ(x − x0 − nP) e^{i kx nP} dkx = δ(x − x0), and
+δ(z) = (1/2π) ∫ e^{iβz} dβ). The emitted power of the single dipole is P_em = −½ Re[p* · E(x0)],</p>
+<pre><code>P_em = (P / 2π) ∫_BZ dkx (1/2π) ∫ dβ  P_cell(kx, β),     P_cell = −½ Re[p* · E_{kx,β}(x0)],
+</code></pre>
+<p>and the Purcell factor F_P = P_em / P_bulk with P_bulk the power of the same (smeared) dipole in
+the homogeneous medium at x0 (<code>dipole_vacuum_power</code> × n × e^{−(n k0 σ)²} for the Gaussian
+smearing, as in M11). Equivalently, and better conditioned, P_cell is the Poynting flux of
+E_{kx,β} through a closed surface around the source cells, which avoids the self-field at x0.</p>
+<p><strong>Decomposition.</strong> For every (kx, β) the conical post-processing gives the power through the
+cover line and the substrate line per diffraction order (<code>conical_diffraction_orders</code>,
+<code>conical_power_balance</code>) and the absorbed power (<code>absorbed_power_by_tag</code>). Integrated over
+(kx, β) inside the light cones these are the radiated powers into the cover and the substrate,
+resolved by direction (kx + 2πm/P, β) ↔ (θ, φ); the rest of P_em is guided (poles on the real
+β / kx axes outside the light cones) or absorbed.</p>
+<p><strong>Singularities.</strong> For lossless guided modes of the grating / stack the integrand has poles on
+the real (kx, β) integration domain (for every kx a set of β_g(kx) &gt; k n_max-clad), and
+square-root branch points at the light lines β² + (kx + 2πm/P)² = (k n_c)², (k n_s)². This is the
+hard part of the milestone (Section 3.2).</p>
+<p><strong>Review — symmetries.</strong> For a dipole moment along x, y or z the integrand is even in β (the
+structure is invariant and mirror-symmetric in z, the power quadratic in p); for a cell that is
+mirror-symmetric about the dipole's x0 it is even in kx as well. The β integral therefore runs
+over [0, ∞) and, with a symmetric cell, the kx integral over half the zone. An isotropic emitter
+is the mean of the three orientations, whose cross terms vanish by the same symmetry.</p>
+<h2 id="3-proposal-three-stages-each-useful-on-its-own">3. Proposal (three stages, each useful on its own)</h2>
+<h3 id="31-stage-a-bloch-periodic-emitter-array-cell-problem-with-a-dipole-source-s1">3.1 Stage A: Bloch-periodic emitter array (cell problem with a dipole source) — S1</h3>
+<p>A front end for the cell problem that exists in principle today:</p>
+<div class="highlight"><pre><span></span><code><span class="n">hpfem</span><span class="o">.</span><span class="n">conical_gaussian_dipole</span><span class="p">(</span><span class="n">position</span><span class="p">,</span> <span class="n">moment</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+<span class="c1"># f = i omega mu0 J of a Gaussian-smeared dipole in the 2D cell, scaled components</span>
+<span class="c1"># (f_x, f_y, -i f_z), moment 3-vector [A m]</span>
+<span class="n">res</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">grating</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">materials</span><span class="p">,</span> <span class="n">stack</span><span class="p">,</span> <span class="n">dipole</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">),</span> <span class="n">moment</span><span class="o">=</span><span class="p">(</span><span class="n">px</span><span class="p">,</span> <span class="n">py</span><span class="p">,</span> <span class="n">pz</span><span class="p">),</span> <span class="n">sigma</span><span class="o">=...</span><span class="p">),</span>
+                         <span class="n">omega</span><span class="o">=...</span><span class="p">,</span> <span class="n">kx</span><span class="o">=...</span><span class="p">,</span> <span class="n">beta</span><span class="o">=...</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">pml</span><span class="o">=...</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="s2">"pml"</span><span class="p">,</span> <span class="n">orders_max</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                         <span class="n">progress</span><span class="o">=...</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=...</span><span class="p">,</span> <span class="n">keep_factorisation</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="c1"># EmissionResult: P_cell (power per cell and per unit beta, flux through the closed surface</span>
+<span class="c1">#   around the source), orders_up / orders_down: list of Order with power per order,</span>
+<span class="c1">#   A_by_tag (absorbed), flux_balance, guided = P_cell - up - down - absorbed,</span>
+<span class="c1">#   field(points, quantity), timing, diagnostics</span>
+</code></pre></div>
+<ul>
+<li>Source in the total-field formulation (<code>ConicalScatteringSetup.current</code>), background stack
+  only for the PML design and the measurement lines (no incident wave).</li>
+<li>The closed surface around the source: a tagged box of cells around x0 and the existing
+  <code>Surface2D.around_cells</code> (as the GUI does for bodies of revolution). <strong>Review:</strong> a helper
+  <code>around_point</code> does not exist; the tagged box is the route (a mesh generator option for the
+  box, σ-scaled, as for <code>axisymmetric_gaussian_dipole</code>).</li>
+<li><code>kx</code>, <code>beta</code> real in this stage. Stage A alone answers "emission of a phased emitter array"
+  and is the building block of B and C.</li>
+<li><strong>Review — three orientations, one factorisation.</strong> The matrix of the cell problem does not
+  depend on the moment: the three orientations are three right-hand sides of one factorised
+  system (<code>solve_many</code>, the kept factorisation of M16 S1). An isotropic emitter costs one
+  factorisation per (kx, β), not three.</li>
+</ul>
+<h3 id="32-stage-c-before-b-angle-resolved-emission-by-reciprocity-s2">3.2 Stage C before B: angle-resolved emission by reciprocity — S2</h3>
+<p><strong>Review — order.</strong> Stage C (Section 3.4 below) is cheap, free of singularities and gives what
+LED and OLED users mostly need (the far-field pattern and the extraction into an aperture). It
+comes right after A (roadmap S2), B follows (S3) and C then cross-checks B's radiated part.</p>
+<h3 id="33-stage-b-single-dipole-by-array-scanning-s3">3.3 Stage B: single dipole by array scanning — S3</h3>
+<div class="highlight"><pre><span></span><code><span class="n">res</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">grating</span><span class="o">.</span><span class="n">dipole_emission</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">materials</span><span class="p">,</span> <span class="n">stack</span><span class="p">,</span> <span class="n">dipole</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">kx_points</span><span class="o">=...</span><span class="p">,</span> <span class="n">beta_rule</span><span class="o">=...</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=...</span><span class="p">,</span>
+                                    <span class="n">order</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">processes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="c1"># DipoleResult: purcell, P_em, P_bulk, radiated_up, radiated_down, guided, absorbed (each also</span>
+<span class="c1">#   / P_bulk), angular emission dP/dOmega in cover and substrate on a (theta, phi) grid,</span>
+<span class="c1">#   contributions per (kx, beta) sample, convergence estimate (difference of two quadrature</span>
+<span class="c1">#   levels), number of cell solves, timing</span>
+</code></pre></div>
+<p>Requirements and design questions for ADR-0013:</p>
+<ol>
+<li><strong>kx integral</strong> over the Brillouin zone: smooth and periodic in kx except at guided-mode poles
+   and light-line branch points; Gauss–Legendre or trapezoid on sub-intervals between the
+   light-line crossings; the kx ↔ −kx symmetry of a mirror-symmetric cell halves the work.</li>
+<li><strong>β integral</strong> over [0, ∞) (even integrand): the integrand decays for |β| ≫ k n_max (evanescent
+   coupling only, decay length ~ distance d of the dipole to the nearest interface); the cut-off
+   must be chosen from d and the smearing σ. <strong>Review:</strong> the cut-off grows like 1/d, so a
+   dipole very close to an interface drives the number of solves; the cost estimate must show it.</li>
+<li><strong>Poles of lossless guided modes</strong> on the real axis. Options (decision in ADR-0013):
+   (a) <strong>contour deformation</strong> into complex β (and/or complex kx). <strong>Review:</strong> this needs complex
+       β in the conical forms (<code>assembly/conical_forms.hpp</code> takes <code>Real beta</code> today; the
+       <em>hypothesis</em> that the assembly is linear in β and β² is plausible) and a PML design and
+       <code>layered_conical_wave</code> for complex β — a C++ change with its own risks;
+   (b) <strong>singularity subtraction</strong> with the guided modes, the remainder integrated on the real
+       axis; gives the guided power per mode directly (the β-factor into a waveguide mode).
+       <strong>Review:</strong> the guided modes are needed as β_g(kx) at fixed ω, which neither
+       <code>ConicalResonance</code> nor <code>grating.bands</code> give directly (they give ω(kx, β));
+       <code>PropagatingMode</code> gives β at fixed ω but has no Bloch constraints. Two routes: Newton on
+       the bands, β ← β − (ω(kx, β) − ω0) / (∂ω/∂β) with the group velocity of M16 S4
+       (<code>hpfem.group_velocity</code>, band derivatives), or a Bloch-periodic propagating-mode
+       eigenproblem (new). The residue follows from the mode field at x0 and the group velocity;
+   (c) a small artificial loss with extrapolation to zero loss (simplest, least accurate, only as
+       a fallback and as a cross-check).
+   Recommendation: (b) by Newton on the bands for the guided part plus adaptive quadrature on the
+   real axis for the radiative part; (a) as a later option once the forms support complex β.</li>
+<li><strong>Cost.</strong> Every sample is one factorisation (three orientations as right-hand sides, see
+   3.1); the matrix depends on (kx, β) only through the Bloch phase and β, so the symbolic
+   analysis is reused (<code>ConicalSweep</code>, <code>LinearSolver::refactorize</code>, M15 F8) and samples are
+   independent (<code>hpfem.sweep.solve_sweep</code> over processes). The front end reports the number of
+   solves and the memory before running (<code>estimate_memory</code> × samples).</li>
+<li><strong>Mesh.</strong> A single mesh for all samples (the PML designed for the largest angle of the sampled
+   (kx, β), <code>PmlProfile.for_angle</code>); a dipole close to a metal needs local refinement around x0.</li>
+</ol>
+<h3 id="34-stage-c-angle-resolved-emission-by-reciprocity-roadmap-s2">3.4 Stage C: angle-resolved emission by reciprocity (roadmap S2)</h3>
+<p>For the far-field emission of a single dipole in a given direction (θ, φ) and polarisation,
+reciprocity gives</p>
+<pre><code>dP/dΩ (θ, φ, pol) ∝ |p · E_pw(x0; θ, φ, pol)|²,
+</code></pre>
+<p>with E_pw the total field at x0 of the plane wave incident from that direction (<code>grating.solve</code>,
+sampled with <code>problem.sample</code>). One solve per direction, no singularities, exact for the radiated
+part; it does not give the total Purcell factor, the guided or the absorbed power. Proposed helper:</p>
+<div class="highlight"><pre><span></span><code><span class="n">hpfem</span><span class="o">.</span><span class="n">grating</span><span class="o">.</span><span class="n">emission_pattern</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">materials</span><span class="p">,</span> <span class="n">stack</span><span class="p">,</span> <span class="n">dipole</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">directions</span><span class="o">=</span><span class="p">[(</span><span class="n">theta</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span> <span class="n">side</span><span class="p">),</span> <span class="o">...</span><span class="p">],</span>
+                               <span class="n">pol</span><span class="o">=</span><span class="p">(</span><span class="s2">"s"</span><span class="p">,</span> <span class="s2">"p"</span><span class="p">),</span> <span class="o">**</span><span class="n">solve_kwargs</span><span class="p">)</span>
+<span class="c1"># dP/dOmega per direction and polarisation, normalised to P_bulk (absolute normalisation from the</span>
+<span class="c1"># reciprocity constant)</span>
+</code></pre></div>
+<p>Stage C also cross-checks B: the radiated part of B integrated over the light cone must equal the
+integral of C over the hemispheres.</p>
+<h2 id="4-tests-definition-of-done-claudemd-7">4. Tests (Definition of Done, CLAUDE.md §7)</h2>
+<ol>
+<li><strong>Homogeneous cell</strong> (no structure, no stack interfaces): B gives F_P = 1 within the quadrature
+   tolerance for dipoles along x, y, z; A at β = 0 compared with the 2D Larmor power of the line
+   source.</li>
+<li><strong>Dipole above a perfect mirror / PEC</strong> (flat): image-dipole closed form for parallel and
+   perpendicular dipoles as a function of the distance (oscillating F_P).</li>
+<li><strong>Planar multilayer</strong> (stack only, the grating removed): Chance–Prock–Silbey /
+   Sommerfeld-integral reference (one-dimensional integral over the in-plane wavenumber,
+   independent code in the test with SciPy): Purcell factor, radiated up/down and guided power of
+   a dipole in a slab waveguide (guided-mode poles present, so this tests 3.3 (3)).</li>
+<li><strong>Period independence</strong>: a flat stack meshed with periods P and 2P gives the same single-dipole
+   result (array scanning removes the artificial periodicity).</li>
+<li><strong>Reciprocity</strong>: Stage C against the radiated far field of Stage B for a lamellar grating.</li>
+<li><strong>Line-source limit</strong>: the β integral replaced by β = 0 reproduces the 2D line-source result of
+   <code>Scattering&lt;2&gt;</code> with <code>gaussian_current</code> on the same structure.</li>
+<li><strong>Plasmonic quenching</strong>: dipole near a flat silver film, total vs radiated F_P against the
+   Sommerfeld reference (the loss moves the surface-plasmon pole off the real axis: a regular but
+   sharply peaked integrand, a test of the adaptive quadrature).</li>
+<li>Regression: a lamellar grating case with a stored reference (Purcell factor, up/down
+   fractions), quick variant in CI.</li>
+</ol>
+<h2 id="5-what-the-gui-needs-fem-model-builder">5. What the GUI needs (FEM model builder)</h2>
+<ul>
+<li>A job-runner task <code>emitter</code> (schema version 2, shared with the M16 S9 tasks) with the dipole
+  (position in the cell, moment as orientation or the three orientations averaged = isotropic
+  emitter), the wavelength sweep and the stage (A, B or C); events per (kx, β) sample with
+  <code>progress</code> and cancellation between samples; the cost estimate (number of solves × memory)
+  before the run.</li>
+<li>Results as plain numbers and arrays: F_P, the fractions up / down / guided / absorbed, dP/dΩ on
+  a (θ, φ) grid for cover and substrate (polar plots, extraction efficiency into a numerical
+  aperture), the guided power per mode with 3.3 (3b), a convergence measure, and the field of the
+  single dipole on the cell or on several periods (<code>field(points)</code> of the superposition).</li>
+<li>Same conventions as M11: σ-smeared dipole, P_bulk with the refractive index at the emitter, F_P
+  normalised to it; the emitter must lie in a lossless medium (or a documented definition for
+  lossy hosts).</li>
+</ul>
+<h2 id="6-out-of-scope-first-step">6. Out of scope (first step)</h2>
+<ul>
+<li>Two-dimensionally periodic structures (metasurfaces, photonic-crystal slabs) with the 3D solver:
+  the same array scanning over a 2D Brillouin zone (no β integral), as a later stage.</li>
+<li>Incoherent ensembles of emitters distributed over the cell (an average over positions of B; the
+  GUI can do the averaging).</li>
+<li>Non-local / quantum corrections for emitters closer than ~1 nm to metals.</li>
+<li>Time-domain or broadband excitation; the frequency sweep stays a loop over ω (with the sweep
+  acceleration of M15 F8).</li>
+</ul>
+<h2 id="7-context-in-the-gui">7. Context in the GUI</h2>
+<p>The GUI's mode "body of revolution" implements the analogous workflow on top of M11: emitter box
+tagged in the Gmsh mesh (tag offset), <code>Surface2D.around_cells</code> for the emitted power, Poynting flux
+through measurement planes for β, Purcell factor against the smeared bulk dipole (homogeneous
+check F_P = 1.00, micropillar of <code>examples/micropillar_qd</code> reproduced to 1 % at p = 3), modal
+decomposition with <code>AxisymmetricRieszProjection</code>. The same structure of inputs and outputs is
+wanted for the periodic case, so that both modes of the GUI present emitters alike.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
