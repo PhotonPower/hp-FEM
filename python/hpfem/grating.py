@@ -2047,19 +2047,22 @@ def _kx_contour(
     return np.concatenate(kx), np.concatenate(wt), len(edges) - 1
 
 
-def array_scan_rule(period: float, k0: float, indices, *, beta_max: float, nodes: int = 8,
-                    symmetric: bool = False, beta_breaks=(), depth: float = 0.5,
-                    kx_nodes: int | None = None,
-                    pinch_breaks: bool = True) -> ScanRule:  # fmt: skip
-    """Quadrature of the array scanning over one period of kx (``symmetric``: [0, π/P]
-    doubled, for a cell mirror-symmetric about the dipole) and β in [0, ``beta_max``],
-    ``nodes`` points per β panel and ``kx_nodes`` (default ``nodes``) per kx piece. β is split
-    at k0·n for the real ``indices`` of the semi-infinite media and at ``beta_breaks`` (mapped
-    Gauss). For every β node the kx integral runs on the
-    contour of ADR-0013 §3a with bumps of relative ``depth`` around the light-line crossings
-    (``depth`` = 0: the real axis with mapped Gauss panels between the crossings). Without
-    symmetry the kx window is the period starting in the middle of the widest gap between
-    crossings (the cell problem depends on kx only through e^{i kx P})."""
+@dataclass
+class _ScanSlice:
+    """One β node of the array scanning: its weight (with the scan factor), the kx window, the
+    light-line crossings inside it and the complex branch points of evanescent media."""
+
+    beta: float
+    weight: float
+    lo: float
+    hi: float
+    crossings: list
+    branch: list
+
+
+def _scan_slices(period: float, k0: float, indices, beta_max: float, nodes: int,
+                 symmetric: bool, beta_breaks=(), pinch_breaks: bool = True) -> list:  # fmt: skip
+    """The β nodes of :func:`array_scan_rule` with their kx windows (see there)."""
     g = 2 * math.pi / period
     factor = (period / (2 * math.pi)) * (1 / math.pi) * (2.0 if symmetric else 1.0)
     indices = sorted({round(float(n), 12) for n in indices if n > 0})
@@ -2072,7 +2075,7 @@ def array_scan_rule(period: float, k0: float, indices, *, beta_max: float, nodes
             while j * 0.5 * g < k0 * n:
                 b_points.append(math.sqrt((k0 * n) ** 2 - (j * 0.5 * g) ** 2))
                 j += 1
-    kx_all, beta_all, w_all, panels = [], [], [], 0
+    out = []
     b_edges = _breaks(0.0, beta_max, b_points)
     for b0, b1 in zip(b_edges[:-1], b_edges[1:], strict=True):
         betas, wb = _mapped_gauss(b0, b1, nodes)
@@ -2096,11 +2099,111 @@ def array_scan_rule(period: float, k0: float, indices, *, beta_max: float, nodes
                     kappa = math.sqrt(beta**2 - (k0 * n) ** 2)
                     for m in range(math.floor(lo / g) - 1, math.ceil(hi / g) + 2):
                         branch += [complex(g * m, kappa), complex(g * m, -kappa)]
-            kxs, wk, n_panels = _kx_contour(lo, hi, inside, kx_nodes or nodes, depth, branch)
-            kx_all.append(kxs)
-            beta_all.append(np.full(len(kxs), beta))
-            w_all.append(factor * w_beta * wk)
-            panels += n_panels
+            out.append(_ScanSlice(float(beta), factor * float(w_beta), lo, hi, inside, branch))
+    return out
+
+
+def _aaa(z, f, tol: float = 1e-12, max_terms: int = 60):
+    """Poles and residues of the AAA rational approximation (Nakatsukasa, Sète and Trefethen,
+    SIAM J. Sci. Comput. 40, 2018) of the samples ``f`` at the points ``z``: greedy support
+    points, barycentric weights from the smallest singular vector of the Loewner matrix, poles
+    from the generalised eigenproblem of the barycentric denominator."""
+    z = np.asarray(z, dtype=complex)
+    f = np.asarray(f, dtype=complex)
+    free = np.ones(len(z), dtype=bool)
+    r = np.full(len(z), f.mean())
+    scale = float(np.abs(f).max()) or 1.0
+    support, values, columns = [], [], []
+    w = np.zeros(0, dtype=complex)
+    for _ in range(min(max_terms, (len(z) - 1) // 2)):
+        j = int(np.argmax(np.where(free, np.abs(f - r), -1.0)))
+        support.append(z[j])
+        values.append(f[j])
+        free[j] = False
+        column = np.zeros(len(z), dtype=complex)
+        column[free] = 1.0 / (z[free] - z[j])
+        columns.append(column)
+        c = np.column_stack(columns)
+        fj = np.array(values)
+        loewner = (f[:, None] * c - c * fj[None, :])[free]
+        w = np.linalg.svd(loewner, full_matrices=False)[2][-1].conj()
+        r = f.copy()
+        r[free] = (c @ (w * fj))[free] / (c @ w)[free]
+        if np.abs(f - r).max() <= tol * scale:
+            break
+    zj, fj = np.array(support), np.array(values)
+    m = len(zj)
+    e = np.zeros((m + 1, m + 1), dtype=complex)
+    e[0, 1:] = w
+    e[1:, 0] = 1.0
+    e[1:, 1:] = np.diag(zj)
+    b = np.eye(m + 1)
+    b[0, 0] = 0.0
+    from scipy.linalg import eigvals
+
+    poles = eigvals(e, b)
+    poles = poles[np.isfinite(poles)]
+    d = poles[:, None] - zj[None, :]
+    residues = (w * fj / d).sum(axis=1) / -(w / d**2).sum(axis=1)
+    return poles, residues
+
+
+def _guided_poles(kx, a, sl: _ScanSlice, axis: float = 3e-3, near: float = 2e-3):
+    """The guided-mode poles of one β node (ADR-0013 §4a): the poles of the AAA fit of the trace
+    of the power matrix on the kx samples (:func:`_detection_contour`) that lie next to the real
+    axis (|Im| below ``axis`` times the window) and not at a light-line crossing (the AAA
+    approximates the branch cut there by poles; a mode closer than ``near`` times the window to a
+    crossing is left to that crossing's bump); per pole the side of its bump (+1 below for
+    Im R < 0: the guided power is positive) and the residue matrix (one AAA fit per entry, the
+    pole nearest to the trace's). In the folded window a pole belongs to any order, not to the
+    nearest one. The defaults are those of the slab validation: the fitted poles lie up to
+    1e-3 of the window off the axis, and a mode 5e-3 of the window from a crossing must get
+    its own bump."""
+    width = sl.hi - sl.lo
+    poles, residues = _aaa(kx, a[:, 0, 0] + a[:, 1, 1] + a[:, 2, 2])
+    out = []
+    for p, r in zip(poles, residues, strict=True):
+        if not (np.isfinite(r) and sl.lo < p.real < sl.hi and abs(p.imag) < axis * width):
+            continue
+        if any(abs(p.real - c) < near * width for c, _s in sl.crossings):
+            continue
+        out.append([float(p.real), 1.0 if r.imag < 0 else -1.0, p])
+    for mode in out:
+        matrix = np.zeros((3, 3), dtype=complex)
+        for i in range(3):
+            for j in range(3):
+                pe, re = _aaa(kx, a[:, i, j])
+                if len(pe):
+                    k = int(np.argmin(np.abs(pe - mode[2])))
+                    if abs(pe[k] - mode[2]) < axis * width and np.isfinite(re[k]):
+                        matrix[i, j] = re[k]
+        mode[2] = matrix
+    return out
+
+
+def array_scan_rule(period: float, k0: float, indices, *, beta_max: float, nodes: int = 8,
+                    symmetric: bool = False, beta_breaks=(), depth: float = 0.5,
+                    kx_nodes: int | None = None,
+                    pinch_breaks: bool = True) -> ScanRule:  # fmt: skip
+    """Quadrature of the array scanning over one period of kx (``symmetric``: [0, π/P]
+    doubled, for a cell mirror-symmetric about the dipole) and β in [0, ``beta_max``],
+    ``nodes`` points per β panel and ``kx_nodes`` (default ``nodes``) per kx piece. β is split
+    at k0·n for the real ``indices`` of the semi-infinite media and at ``beta_breaks`` (mapped
+    Gauss). For every β node the kx integral runs on the
+    contour of ADR-0013 §3a with bumps of relative ``depth`` around the light-line crossings
+    (``depth`` = 0: the real axis with mapped Gauss panels between the crossings). Without
+    symmetry the kx window is the period starting in the middle of the widest gap between
+    crossings (the cell problem depends on kx only through e^{i kx P})."""
+    slices = _scan_slices(period, k0, indices, beta_max, nodes, symmetric, beta_breaks,
+                          pinch_breaks)  # fmt: skip
+    kx_all, beta_all, w_all, panels = [], [], [], 0
+    for sl in slices:
+        kxs, wk, n_panels = _kx_contour(sl.lo, sl.hi, sl.crossings, kx_nodes or nodes, depth,
+                                        sl.branch)  # fmt: skip
+        kx_all.append(kxs)
+        beta_all.append(np.full(len(kxs), sl.beta))
+        w_all.append(sl.weight * wk)
+        panels += n_panels
     return ScanRule(np.concatenate(kx_all), np.concatenate(beta_all), np.concatenate(w_all),
                     panels, float(depth))  # fmt: skip
 
@@ -2126,6 +2229,7 @@ class _DipoleCell:
     n_host: float
     lossy: bool
     omega: float
+    n_max: float  # the largest real index of the cell's materials (guided modes up to k0 n_max)
     extra_quadrature_order: int
     solver: object
 
@@ -2158,11 +2262,13 @@ def _dipole_cell(mesh, materials, stack, position, sigma: float, omega: float, o
         abs(complex(material_map.of_cell(mesh, c).eps_r).imag) > 1e-12
         for c in range(mesh.num_cells)
     )
+    n_max = max(np.sqrt(complex(material_map.of_cell(mesh, c).eps_r)).real
+                for c in range(mesh.num_cells))  # fmt: skip
     orders = [int(order)] * mesh.num_cells if np.isscalar(order) else [int(p) for p in order]
     return _DipoleCell(pr, material_map, hpfem.NedelecDofMap2D(mesh, orders),
                        hpfem.DofMap2D(mesh, orders), np.array([x0, y0]), float(sigma),
                        complex(host.refractive_index).real, bool(lossy), float(omega),
-                       int(extra_quadrature_order), solver)  # fmt: skip
+                       float(n_max), int(extra_quadrature_order), solver)  # fmt: skip
 
 
 def _dipole_power_matrix(cell: _DipoleCell, kx: complex, beta: float) -> np.ndarray:
@@ -2264,7 +2370,10 @@ class DipoleEmission:
     ``contributions`` per sample (kx, beta, weight and the diagonal of A; complex),
     ``directions`` the plane-wave solves of the channels, ``power_matrix`` the integrated power
     matrix I (P_em of a moment p is Re pᴴIp; the entries odd under the mirror symmetries are
-    zero) and ``radiation_matrix`` the same for ``"up"`` and ``"down"``, and ``timing``."""
+    zero) and ``radiation_matrix`` the same for ``"up"`` and ``"down"``, ``guided`` (per
+    key, with ``guided="auto"`` / ``True``) the power carried away by bound modes, the sum over
+    ``guided_modes`` (dicts with ``beta``, ``kx`` of the pole, ``side`` of its bump, the share
+    ``matrix`` and its ``power`` per key), and ``timing``."""
 
     P_em: dict[str, float]
     purcell: dict[str, float]
@@ -2280,20 +2389,76 @@ class DipoleEmission:
     directions: int = 0
     power_matrix: np.ndarray | None = None
     radiation_matrix: dict[str, np.ndarray] | None = None
+    guided: dict[str, float] | None = None
+    guided_modes: list | None = None
     timing: dict[str, float] = field(default_factory=dict)
 
 
+def _guided_wanted(cell: _DipoleCell, guided) -> bool:
+    """Whether :func:`dipole_emission` treats guided-mode poles: ``"auto"`` when a material of the
+    cell has a larger index than the semi-infinite media (only then can bound modes exist)."""
+    if guided not in ("auto", True, False):
+        raise GratingError(f"guided={guided!r}: use 'auto', True or False")
+    n_semi = max([cell.pr.n_cover.real] + ([cell.pr.n_sub.real] if cell.pr.transmitted else []))
+    return guided is True or (guided == "auto" and cell.n_max > n_semi * (1 + 1e-9))
+
+
+def _detection_contour(sl: _ScanSlice, kx_nodes: int, depth: float, min_points: int = 24):
+    """The kx samples on which :func:`_guided_poles` looks for the poles of one β node: the
+    contour of the light-line crossings with twice ``kx_nodes`` per piece and at least
+    ``min_points`` samples. The AAA fit needs about two samples per pole besides those of the
+    smooth part; on the integration rule (4 points per piece, a single piece where no order
+    radiates) it missed a third of the guided poles of a slab (S3b validation)."""
+    n = 2 * kx_nodes
+    while True:
+        kxs, wk, _panels = _kx_contour(sl.lo, sl.hi, sl.crossings, n, depth, sl.branch)
+        if len(kxs) >= min_points:
+            return kxs, wk
+        n += 2
+
+
+_GUIDED_BREAK_POINTS = 40  # β samples of the guided pre-pass at each of kx = 0 and π/P
+
+
+def _guided_breaks(cell: _DipoleCell, k0: float, beta_max: float, progress, cancel,
+                   points: int = _GUIDED_BREAK_POINTS):  # fmt: skip
+    """β breaks of the guided modes (ADR-0013 §4a): where a pair of guided poles meets at
+    kx = 0 or π/P, the β integrand has a square-root point. These β are the near-real poles of
+    the AAA fit of the trace of A(kx, β) along β at kx = 0 and π/P (``points`` samples each,
+    crowded towards the ends). Returns the breaks and the number of cell problems solved."""
+    t = np.polynomial.legendre.leggauss(int(points))[0]
+    betas = 0.5 * beta_max * (1.0 - np.cos(0.5 * np.pi * (t + 1.0)))
+    breaks, count = [], 0
+    for kx in (0.0, math.pi / cell.pr.period):
+        trace = []
+        for beta in betas:
+            if cancel is not None and cancel():
+                raise hpfem.Cancelled("dipole_emission cancelled")
+            if progress is not None:
+                progress(count, 2 * len(betas))
+            a = _dipole_power_matrix(cell, complex(kx), float(beta))
+            trace.append(a[0, 0] + a[1, 1] + a[2, 2])
+            count += 1
+        poles, _residues = _aaa(betas, trace)
+        breaks += [float(p.real) for p in poles
+                   if 0.0 < p.real < beta_max and abs(p.imag) < 1e-3 * beta_max]  # fmt: skip
+    return sorted(breaks), count
+
+
 def _emission_plan(cell: _DipoleCell, k0: float, *, nodes: int, kx_nodes: int, depth: float,
-                   beta_max, symmetric: bool, channels: bool, angle_nodes):  # fmt: skip
+                   beta_max, symmetric: bool, channels: bool, angle_nodes,
+                   beta_breaks=()):  # fmt: skip
     """The samples of :func:`dipole_emission`: the scan rule, the plane-wave directions
     ``(theta, phi, side, weight)`` of the channels (empty without ``channels``) and the real
     indices of the semi-infinite media."""
     n_cover = cell.pr.n_cover.real
     down_side = cell.pr.transmitted
     indices = [n_cover] + ([cell.pr.n_sub.real] if down_side else [])
-    beta_max = k0 * max(indices) if beta_max is None else float(beta_max)
+    # guided modes live up to k0 times the largest index of the cell (ADR-0013 §4a)
+    beta_max = k0 * max(max(indices), cell.n_max) if beta_max is None else float(beta_max)
     rule = array_scan_rule(cell.pr.period, k0, indices, beta_max=beta_max, nodes=nodes,
-                           symmetric=symmetric, depth=depth, kx_nodes=kx_nodes)  # fmt: skip
+                           symmetric=symmetric, depth=depth, kx_nodes=kx_nodes,
+                           beta_breaks=beta_breaks)  # fmt: skip
     directions = []
     if channels:
         for side, n_side in (("up", n_cover), ("down", cell.pr.n_sub.real)):
@@ -2312,7 +2477,11 @@ class EmissionCost:
     direction), their sum ``solves``; ``dofs``, ``total_bytes`` and ``memory`` (text) of one
     cell factorisation (``estimate_memory`` of the conical system, the largest of the two
     kinds); with calibration the measured ``seconds_per_sample`` and
-    ``seconds_per_plane_wave`` and their extrapolation ``seconds``."""
+    ``seconds_per_plane_wave`` and their extrapolation ``seconds``. With ``guided`` the scan
+    first looks for guided-mode poles (the β pre-pass and the denser detection samples, both
+    counted exactly) and passes again, with a bump per pole, over the β nodes where it finds
+    some; ``samples`` then assumes a second pass as large as the detection at every node (on the
+    slab of the S3b validation, with poles at most nodes, 9664 against 9736 solved)."""
 
     samples: int
     plane_wave_solves: int
@@ -2322,6 +2491,7 @@ class EmissionCost:
     memory: str
     seconds_per_sample: float | None = None
     seconds_per_plane_wave: float | None = None
+    guided: bool = False
 
     @property
     def seconds(self) -> float | None:
@@ -2336,13 +2506,13 @@ class EmissionCost:
                 "solves": self.solves, "dofs": self.dofs, "total_bytes": self.total_bytes,
                 "memory": self.memory, "seconds_per_sample": self.seconds_per_sample,
                 "seconds_per_plane_wave": self.seconds_per_plane_wave,
-                "seconds": self.seconds}  # fmt: skip
+                "seconds": self.seconds, "guided": self.guided}  # fmt: skip
 
 
 def emission_cost(mesh, materials, stack, dipole, omega: float, *, nodes: int = 6,
                   kx_nodes: int = 4, depth: float = 0.5, beta_max: float | None = None,
                   symmetric: bool = False, order=4, channels: bool = True,
-                  angle_nodes=(16, 32), pml=None, bottom: str = "pml",
+                  angle_nodes=(16, 32), guided="auto", pml=None, bottom: str = "pml",
                   snap_tolerance: float = 1e-9, pml_target: float = 1e-6,
                   pml_wavelengths: float = 0.5, extra_quadrature_order: int = 4, solver=None,
                   calibrate: bool = False, **solve_kwargs) -> EmissionCost:  # fmt: skip
@@ -2364,10 +2534,18 @@ def emission_cost(mesh, materials, stack, dipole, omega: float, *, nodes: int = 
                                                 symmetric=symmetric, channels=channels,
                                                 angle_nodes=angle_nodes)  # fmt: skip
     estimate = estimate_memory(mesh, order, solver)
-    cost = EmissionCost(samples=len(rule.weight), plane_wave_solves=2 * len(directions),
-                        solves=len(rule.weight) + 2 * len(directions), dofs=int(estimate.dofs),
-                        total_bytes=int(estimate.total_bytes),
-                        memory=estimate.describe())  # fmt: skip
+    samples = len(rule.weight)
+    guided_on = _guided_wanted(cell, guided)
+    if guided_on:
+        # the β breaks of the pre-pass are not known yet: the slices without them
+        beta_top = k0 * max(max(_indices), cell.n_max) if beta_max is None else float(beta_max)
+        slices = _scan_slices(cell.pr.period, k0, _indices, beta_top, nodes, symmetric)
+        detection = sum(len(_detection_contour(sl, kx_nodes, depth)[0]) for sl in slices)
+        samples = 2 * _GUIDED_BREAK_POINTS + 2 * detection
+    cost = EmissionCost(samples=samples, plane_wave_solves=2 * len(directions),
+                        solves=samples + 2 * len(directions), dofs=int(estimate.dofs),
+                        total_bytes=int(estimate.total_bytes), memory=estimate.describe(),
+                        guided=guided_on)  # fmt: skip
     if calibrate:
         t0 = time.perf_counter()
         _dipole_power_matrix(cell, complex(rule.kx[0]), float(rule.beta[0]))
@@ -2466,7 +2644,7 @@ def emission_cone(mesh, materials, stack, dipole, omega: float, aperture: float,
 def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int = 6,
                     kx_nodes: int = 4, depth: float = 0.5, beta_max: float | None = None,
                     symmetric: bool = False,
-                    order=4, channels: bool = True, angle_nodes=(16, 32),
+                    order=4, channels: bool = True, angle_nodes=(16, 32), guided="auto",
                     quadrature_points: int = 6, pml=None, bottom: str = "pml",
                     snap_tolerance: float = 1e-9, pml_target: float = 1e-6,
                     pml_wavelengths: float = 0.5, extra_quadrature_order: int = 4, solver=None,
@@ -2494,10 +2672,16 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     a flat stack is exact to 1e-5 with 8×16.
 
     ``dipole`` as for :func:`emit` (``moment`` optional). ``beta_max`` defaults to k0 times the
-    larger index of the cover and the substrate. **Limits:** guided modes of a lossless
-    structure are poles on the real kx axis and are not treated yet (ADR-0013 §4, the next
-    stage); the evanescent range β > k0 n_max, where near-field absorption by nearby metals
-    lives, needs an explicit ``beta_max``; lossy hosts are excluded. ``progress(i, n)`` is
+    largest index of the cell's materials (guided modes live up to k0·n_eff). ``guided``
+    (``"auto"``: when a material has a larger index than the semi-infinite media, so that bound
+    modes can exist; ``True`` / ``False``) treats the guided-mode poles of ADR-0013 §4a: a
+    pre-pass along β at kx = 0 and π/P (2 × 40 cell problems) finds the β where pole pairs meet
+    (breaks of the β rule); per β node an AAA fit of the trace of A on the kx samples finds the
+    poles next to the real axis where every order is evanescent in the semi-infinite media, and
+    a second pass puts a bump around each on the side that makes its guided power positive;
+    ``guided`` and ``guided_modes`` of the result hold the power per mode (from the residue, ±iπ
+    R). **Limits:** the evanescent range β > k0 n_max, where near-field absorption by nearby
+    metals lives, needs an explicit ``beta_max``; lossy hosts are excluded. ``progress(i, n)`` is
     called per solve, ``cancel()`` checked between solves (``hpfem.Cancelled``). ``pml``,
     ``bottom``, ``snap_tolerance``, ``pml_target``, ``pml_wavelengths``,
     ``extra_quadrature_order`` and ``solver`` as for :func:`emit`; further keyword arguments
@@ -2513,16 +2697,27 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
                         bottom=bottom, snap_tolerance=snap_tolerance, pml_target=pml_target,
                         pml_wavelengths=pml_wavelengths,
                         extra_quadrature_order=extra_quadrature_order, solver=solver)  # fmt: skip
+    n_semi = max([cell.pr.n_cover.real] + ([cell.pr.n_sub.real] if cell.pr.transmitted else []))
+    guided_on = _guided_wanted(cell, guided)
+    beta_top = k0 * max(n_semi, cell.n_max) if beta_max is None else float(beta_max)
+    breaks, n_prepass = [], 0
+    if guided_on:
+        breaks, n_prepass = _guided_breaks(cell, k0, beta_top, progress, cancel)
     rule, directions, indices = _emission_plan(cell, k0, nodes=nodes, kx_nodes=kx_nodes,
-                                               depth=depth, beta_max=beta_max,
+                                               depth=depth, beta_max=beta_top,
                                                symmetric=symmetric, channels=channels,
-                                               angle_nodes=angle_nodes)  # fmt: skip
+                                               angle_nodes=angle_nodes,
+                                               beta_breaks=breaks)  # fmt: skip
+    slices = _scan_slices(cell.pr.period, k0, indices, beta_top, nodes, symmetric, breaks)
     moments = np.eye(3, dtype=complex)
     keys = ["x", "y", "z"]
     if own is not None:
         moments = np.vstack([moments, np.asarray(own, dtype=complex)[None, :]])
         keys.append("moment")
-    total = len(rule.weight) + 2 * len(directions)
+    first = len(rule.weight)
+    if guided_on:
+        first = sum(len(_detection_contour(sl, kx_nodes, depth)[0]) for sl in slices)
+    total = n_prepass + first + 2 * len(directions)
     # the rule and the direction sets use the mirror symmetries (β → −β always, kx → −kx for a
     # symmetric cell); the matrix entries odd under them integrate to zero over the full ranges
     odd = np.zeros((3, 3), dtype=bool)
@@ -2540,7 +2735,7 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
 
         def report(i, _n):
             if progress is not None:
-                progress(i, total)
+                progress(n_prepass + i, total)
 
         means, n_dir = _reciprocity_means(
             mesh, materials, stack, position, sigma, omega,
@@ -2566,16 +2761,53 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     n_channel = 2 * len(directions)
     t2 = time.perf_counter()
     integrated = np.zeros((3, 3), dtype=complex)
-    contributions = np.zeros((len(rule.weight), 6), dtype=complex)
-    for i, (kx, beta, w) in enumerate(zip(rule.kx, rule.beta, rule.weight, strict=True)):
-        if cancel is not None and cancel():
-            raise hpfem.Cancelled("dipole_emission cancelled")
-        if progress is not None:
-            progress(n_channel + i, total)
-        a = _dipole_power_matrix(cell, complex(kx), float(beta))
-        integrated += w * a
-        contributions[i] = (kx, beta, w, a[0, 0], a[1, 1], a[2, 2])
+    samples_kx, samples_beta, samples_w, rows = [], [], [], []
+    guided_modes = []
+    done = n_channel + n_prepass
+    planned = [total]
+
+    def matrices(kxs, beta):
+        nonlocal done
+        out = []
+        for kx in kxs:
+            if cancel is not None and cancel():
+                raise hpfem.Cancelled("dipole_emission cancelled")
+            if progress is not None:
+                progress(done, max(planned[0], done + 1))
+            out.append(_dipole_power_matrix(cell, complex(kx), beta))
+            done += 1
+        return np.array(out)
+
+    for sl in slices:
+        if guided_on:
+            # the detection samples; without poles they are the integration rule as well
+            kxs, wk = _detection_contour(sl, kx_nodes, depth)
+            a = matrices(kxs, sl.beta)
+            poles = _guided_poles(kxs, a, sl)
+            if poles:
+                # second pass: the bumps of the guided poles on their causal side
+                bumps = sl.crossings + [(c, s) for c, s, _r in poles]
+                kxs, wk, _ = _kx_contour(sl.lo, sl.hi, bumps, kx_nodes, depth, sl.branch)
+                planned[0] += len(kxs)
+                a = matrices(kxs, sl.beta)
+                for c, s, residue in poles:
+                    # the bump's share over the principal value: ±iπ R (below +, above −)
+                    share = s * 1j * np.pi * sl.weight * residue
+                    share[odd] = 0.0
+                    guided_modes.append({"beta": sl.beta, "kx": c, "side": s, "matrix": share})
+        else:
+            kxs, wk, _ = _kx_contour(sl.lo, sl.hi, sl.crossings, kx_nodes, depth, sl.branch)
+            a = matrices(kxs, sl.beta)
+        integrated += sl.weight * np.einsum("k,kij->ij", wk, a)
+        samples_kx.append(kxs)
+        samples_beta.append(np.full(len(kxs), sl.beta))
+        samples_w.append(sl.weight * wk)
+        rows.append(np.column_stack([kxs, np.full(len(kxs), sl.beta), sl.weight * wk,
+                                     a[:, 0, 0], a[:, 1, 1], a[:, 2, 2]]))  # fmt: skip
     integrated[odd] = 0.0
+    rule = ScanRule(np.concatenate(samples_kx), np.concatenate(samples_beta),
+                    np.concatenate(samples_w), len(slices), float(depth))  # fmt: skip
+    contributions = np.concatenate(rows)
     t3 = time.perf_counter()
     p_em = {key: quadratic(integrated, moments[j]) for j, key in enumerate(keys)}
     p_bulk = dipole_bulk_power((1.0, 0.0, 0.0), omega, cell.n_host, sigma)
@@ -2588,12 +2820,22 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
         up["isotropic"] = (up["x"] + up["y"] + up["z"]) / 3
         down["isotropic"] = (down["x"] + down["y"] + down["z"]) / 3
         nonradiated = {key: p_em[key] - up[key] - down[key] for key in p_em}
+    guided_power = None
+    if guided_on:
+        total_share = sum((m["matrix"] for m in guided_modes), np.zeros((3, 3), dtype=complex))
+        guided_power = {key: quadratic(total_share, moments[j]) for j, key in enumerate(keys)}
+        guided_power["isotropic"] = (guided_power["x"] + guided_power["y"] + guided_power["z"]) / 3
+        for mode in guided_modes:
+            mode["power"] = {key: quadratic(mode["matrix"], moments[j])
+                             for j, key in enumerate(keys)}  # fmt: skip
+            mode["power"]["isotropic"] = sum(mode["power"][k] for k in "xyz") / 3
     out = DipoleEmission(
         P_em=p_em, purcell={key: p_em[key] / scale_of[key] for key in p_em}, up=up, down=down,
         nonradiated=nonradiated, lossy=cell.lossy, P_bulk=p_bulk, n_host=cell.n_host,
         rule=rule, samples=len(rule.weight), contributions=contributions,
         directions=2 * len(directions), power_matrix=integrated,
-        radiation_matrix=radiation if channels else None,
+        radiation_matrix=radiation if channels else None, guided=guided_power,
+        guided_modes=guided_modes if guided_on else None,
     )  # fmt: skip
     out.timing.update(channels=t2 - t1, scan=t3 - t2, total=time.perf_counter() - t0)
     return out

@@ -94,6 +94,107 @@ def sommerfeld(n1, n2, k0, h):
     return 1 + 1.5 * integral(0), 1 + 0.75 * integral(1), up(0), up(1)
 
 
+def airy(s, n1, layers, n3):
+    """r_s, r_p seen from the cover n1 of the layers [(n, d), ...] on the substrate n3, at the
+    in-plane wavenumber s·n1·k0 (s complex on a deformed path; r_p = +1 for a perfect
+    conductor). Recursive Airy formula from the substrate up."""
+    k0 = 2 * math.pi / LAMBDA
+    kt2 = (s * n1) ** 2
+
+    def kz(n):
+        z = cmath.sqrt(n * n - kt2)
+        return -z if z.real + z.imag < 0 else z
+
+    media = [n1] + [n for n, _d in layers] + [n3]
+    out = []
+    for pol in ("s", "p"):
+        r = 0.0
+        for i in range(len(media) - 2, -1, -1):  # interface i between media i and i+1
+            na, nb = media[i], media[i + 1]
+            ka, kb = kz(na), kz(nb)
+            if pol == "s":
+                rab = (ka - kb) / (ka + kb)
+            else:
+                rab = (nb * nb * ka - na * na * kb) / (nb * nb * ka + na * na * kb)
+            if i == len(media) - 2:
+                r = rab
+            else:
+                ph = cmath.exp(2j * k0 * kb * layers[i][1])
+                r = (rab + r * ph) / (1 + rab * r * ph)
+        out.append(r)
+    return out
+
+
+def sommerfeld_layered(n1, layers, n3, k0, h, depth=0.02, points=4000):
+    """Purcell factors and upward fractions of a point dipole in n1 at height h above a layer
+    stack, as :func:`sommerfeld`, with the guided-mode poles of lossless layers passed on the
+    causal side: s runs on t − i·depth·sin(πt/S) up to S beyond the largest index (exp(−iωt):
+    a small loss moves the poles above the real axis), then along the real axis."""
+    k1 = n1 * k0
+    s_top = max(n for n, _d in layers) / n1 + 0.3
+    t, w = np.polynomial.legendre.leggauss(points)
+    t = 0.5 * s_top * (t + 1.0)
+    w = 0.5 * s_top * w
+    s = t - 1j * depth * np.sin(np.pi * t / s_top)
+    ds = 1.0 - 1j * depth * (np.pi / s_top) * np.cos(np.pi * t / s_top)
+    perp = par = 0.0
+    for si, dsi, wi in zip(s, ds, w, strict=True):
+        sz = cmath.sqrt(1 - si * si)
+        if sz.real + sz.imag < 0:
+            sz = -sz
+        rs, rp = airy(si, n1, layers, n3)
+        e = cmath.exp(2j * k1 * h * sz)
+        perp += wi * dsi * si**3 / sz * rp * e
+        par += wi * dsi * si / sz * (rs - sz * sz * rp) * e
+
+    def tail(which):
+        def f(u):
+            sv = s_top + u
+            sz = 1j * math.sqrt(sv * sv - 1)
+            rs, rp = airy(sv, n1, layers, n3)
+            e = cmath.exp(2j * k1 * h * sz)
+            v = sv**3 / sz * rp * e if which == 0 else sv / sz * (rs - sz * sz * rp) * e
+            return v.real
+
+        return quad(f, 0, 40 / (2 * k1 * h), limit=400)[0]
+
+    f_perp = 1 + 1.5 * (perp.real + tail(0))
+    f_par = 1 + 0.75 * (par.real + tail(1))
+
+    def up(which):
+        def f(tt):
+            si, sz = math.sin(tt), math.cos(tt)
+            rs, rp = airy(si, n1, layers, n3)
+            e = cmath.exp(2j * k1 * h * sz)
+            if which == 0:
+                return 0.75 * si**3 * abs(1 + rp * e) ** 2
+            return 0.375 * si * (abs(1 + rs * e) ** 2 + sz**2 * abs(1 - rp * e) ** 2)
+
+        return quad(f, 0, math.pi / 2, limit=400)[0]
+
+    return f_perp, f_par, up(0), up(1)
+
+
+SLAB = {"n1": 1.0, "layers": [(2.0, 0.25 * UM)], "n3": 1.45, "height": 0.25 * UM,
+        "sigma": 0.04 * UM, "period": 1.0 * UM}  # fmt: skip
+
+
+def slab_cell(h=0.125 * UM):
+    period, d = SLAB["period"], SLAB["layers"][0][1]
+    mesh = hpfem.rectangle(round(period / h), 32, [-period / 2, -2 * UM], [period / 2, 2 * UM])
+    for c in range(mesh.num_cells):
+        x = np.mean([mesh.vertex(int(v)) for v in mesh.cell_vertices(c)], axis=0)
+        if -d < x[1] < 0:
+            mesh.set_cell_tag(c, 2)
+        elif x[1] < -d:
+            mesh.set_cell_tag(c, 3)
+    core = hpfem.Material.dielectric(SLAB["layers"][0][0])
+    substrate = hpfem.Material.dielectric(SLAB["n3"])
+    stack = hpfem.LayerStack2D(hpfem.Material.dielectric(SLAB["n1"]), [hpfem.Layer(core, d)],
+                               substrate, 0.0)  # fmt: skip
+    return mesh, {2: core, 3: substrate}, stack
+
+
 def cell(period, substrate_index, cover_index, h=0.1 * UM):
     mesh = hpfem.rectangle(round(period / h), 40, [-period / 2, -2 * UM], [period / 2, 2 * UM])
     for c in range(mesh.num_cells):
@@ -110,23 +211,34 @@ CASES = {
     "homogeneous": (1.0 * UM, 1.5, 1.5, 0.1 * UM),
     "glass": (1.0 * UM, 1.0, 1.5, 0.4 * UM),
     "glass_period": (0.8 * UM, 1.0, 1.5, 0.4 * UM),
+    "slab": None,  # SLAB: a lossless waveguide, guided modes (ADR-0013 §4a)
 }
 
 
 def reference(name):
-    _period, n1, n2, height = CASES[name]
     k0 = 2 * math.pi / LAMBDA
+    if name == "slab":
+        f_perp, f_par, up_perp, up_par = sommerfeld_layered(
+            SLAB["n1"], SLAB["layers"], SLAB["n3"], k0, SLAB["height"]
+        )
+        return {"x": (f_par, up_par), "y": (f_perp, up_perp), "z": (f_par, up_par)}
+    _period, n1, n2, height = CASES[name]
     f_perp, f_par, up_perp, up_par = sommerfeld(n1, n2, k0, height)
     return {"x": (f_par, up_par), "y": (f_perp, up_perp), "z": (f_par, up_par)}
 
 
 def run(name, order, nodes, kx_nodes):
-    period, n1, n2, height = CASES[name]
-    mesh, materials, stack = cell(period, n2, n1)
+    if name == "slab":
+        mesh, materials, stack = slab_cell()
+        height, sigma = SLAB["height"], SLAB["sigma"]
+    else:
+        period, n1, n2, height = CASES[name]
+        mesh, materials, stack = cell(period, n2, n1)
+        sigma = SIGMA
     omega = units.angular_frequency(wavelength=LAMBDA)
     t0 = time.perf_counter()
     r = grating.dipole_emission(
-        mesh, materials, stack, {"position": (0.0, height), "sigma": SIGMA}, omega,
+        mesh, materials, stack, {"position": (0.0, height), "sigma": sigma}, omega,
         nodes=nodes, kx_nodes=kx_nodes, order=order, symmetric=True, angle_nodes=(8, 16),
         pml={"top": UM, "bottom": UM},
         progress=lambda i, n: print(f"\r  {name} p={order} nodes={nodes}: {i + 1}/{n}", end="",
@@ -142,6 +254,10 @@ def run(name, order, nodes, kx_nodes):
             "down": r.down[k] / r.P_bulk, "down_ref": ref[k][0] - ref[k][1],
             "nonradiated": r.nonradiated[k] / r.P_bulk,
         }  # fmt: skip
+        if r.guided is not None:
+            out[k]["guided"] = r.guided[k] / r.P_bulk
+    if r.guided_modes is not None:
+        out["guided_poles"] = len(r.guided_modes)
     return out
 
 
