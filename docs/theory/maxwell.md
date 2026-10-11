@@ -1579,7 +1579,7 @@ The full scans are long local runs (`benchmarks/m17_dipole_scan.py`, record in
 
 | case | result |
 |---|---|
-| homogeneous cell, p = 3, 4 points per panel | $F_P$ = 1.0014 / 1.0007 / 0.9970 for $x$ / $y$ / $z$ (the rule's error), up = down = 0.5 |
+| homogeneous cell, p = 3, 8 / 4 points (244 cell problems) | $F_P$ = 0.99989 / 0.99969 / 0.99977 for $x$ / $y$ / $z$, up = down = 0.5 (with 4 / 4 points 1.0014 / 1.0007 / 0.9970, the error of the rule) |
 | dipole in air 400 nm above glass, period 1 µm, against the Sommerfeld integral of Chance, Prock and Silbey (8 / 4 points) | $F_P$ to $8\cdot10^{-5}$ (1.04532 / 0.97660 / 1.04530 against 1.04531 / 0.97668 / 1.04531), up and down to $10^{-5}$, the non-radiated rest below $10^{-4}$ |
 | the same with a period of 0.8 µm | $F_P$ to $1\cdot10^{-3}$, up and down to $10^{-5}$: the single dipole does not depend on the period of the cell |
 
