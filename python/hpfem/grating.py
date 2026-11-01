@@ -14,6 +14,7 @@ it (``phi = 0``: the plane of incidence is the x–y plane, ``s`` is the ``E_z``
 from __future__ import annotations
 
 import math
+import threading
 import time
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -2291,11 +2292,14 @@ class _DipoleCell:
     metal: bool  # a material with Re ε < 0 (surface plasmons: poles next to the real kx axis)
     extra_quadrature_order: int
     solver: object
+    # one ConicalSweep per thread (the samples share the affine parts and the symbolic analysis);
+    # None: a ConicalScattering per sample
+    sweeps: threading.local | None = None
 
 
 def _dipole_cell(mesh, materials, stack, position, sigma: float, omega: float, order, *, pml,
                  bottom, snap_tolerance, pml_target, pml_wavelengths, extra_quadrature_order,
-                 solver) -> _DipoleCell:  # fmt: skip
+                 solver, sweep: bool = True) -> _DipoleCell:  # fmt: skip
     """Mesh, materials and PML of the array scanning: one PML profile for every sample,
     designed for the 80° cap (ADR-0013 §3a: a profile that follows Re kx would make the
     integrand non-analytic in kx), the cells without a material from the stack, the checks of
@@ -2329,12 +2333,15 @@ def _dipole_cell(mesh, materials, stack, position, sigma: float, omega: float, o
                        hpfem.DofMap2D(mesh, orders), np.array([x0, y0]), float(sigma),
                        complex(host.refractive_index).real, bool(lossy), float(omega),
                        float(n_max), bool(metal), int(extra_quadrature_order),
-                       solver)  # fmt: skip
+                       solver, threading.local() if sweep else None)  # fmt: skip
 
 
 def _dipole_power_matrix(cell: _DipoleCell, kx: complex, beta: float) -> np.ndarray:
     """The power matrix A(kx, β) of the cell problem with the Bloch phase e^{i kx P} for a
-    complex kx (the analytic elimination of ADR-0013 §3a in ``ConicalScattering``)."""
+    complex kx (the analytic elimination of ADR-0013 §3a in ``ConicalScattering``). With
+    ``cell.sweeps`` on the ``ConicalSweep`` of the calling thread, built at its first sample: the
+    affine parts outside the PML are assembled once, a sample assembles the PML cells and the
+    dipole loads near x0 and refactorises on the first symbolic analysis (ADR-0013 §5)."""
     setup = hpfem.ConicalScatteringSetup()
     setup.omega = cell.omega
     setup.beta = float(beta)
@@ -2349,9 +2356,15 @@ def _dipole_power_matrix(cell: _DipoleCell, kx: complex, beta: float) -> np.ndar
                              complex(np.exp(1j * complex(kx) * cell.pr.period)))
     ]  # fmt: skip
     setup.extra_quadrature_order = cell.extra_quadrature_order
-    setup.keep_factorisation = True
     if cell.solver is not None:
         setup.solver = cell.solver
+    if cell.sweeps is not None:
+        sweep = getattr(cell.sweeps, "sweep", None)
+        if sweep is None:
+            sweep = cell.sweeps.sweep = hpfem.ConicalSweep(cell.nd, cell.h1, setup)
+        return np.asarray(hpfem.conical_sweep_dipole_power_matrix(sweep, setup, cell.position,
+                                                                  cell.sigma))  # fmt: skip
+    setup.keep_factorisation = True
     problem = hpfem.ConicalScattering(cell.nd, cell.h1, setup)
     solution = problem.solve()
     responses = hpfem.conical_dipole_responses(problem, solution, cell.position, cell.sigma,
@@ -2678,13 +2691,14 @@ def emission_cost(mesh, materials, stack, dipole, omega: float, *, nodes: int = 
                   angle_nodes=(16, 32), guided="auto", pml=None, bottom: str = "pml",
                   snap_tolerance: float = 1e-9, pml_target: float = 1e-6,
                   pml_wavelengths: float = 0.5, extra_quadrature_order: int = 4, solver=None,
-                  workers: int = 1, calibrate: bool = False,
+                  workers: int = 1, sweep: bool = True, calibrate: bool = False,
                   **solve_kwargs) -> EmissionCost:  # fmt: skip
     """The number of solves and the memory of :func:`dipole_emission` with the same arguments,
     without running it: the scan rule and the channel directions are built as there, the memory
     is ``estimate_memory`` of the cell problem. ``calibrate`` times one cell sample and one
-    plane-wave solve on this machine (two solves) and extrapolates the wall time; ``workers``
-    as for :func:`dipole_emission` (the calibration sample runs alone, with all threads)."""
+    plane-wave solve on this machine (two solves, three with ``sweep``: the timed sample runs on
+    the cached path of the sweep) and extrapolates the wall time; ``workers`` and ``sweep`` as
+    for :func:`dipole_emission` (the calibration sample runs alone, with all threads)."""
     workers = _check_workers(workers)
     k0 = float(units.vacuum_wavenumber(omega))
     position = np.asarray(dipole["position"], dtype=float)
@@ -2694,7 +2708,8 @@ def emission_cost(mesh, materials, stack, dipole, omega: float, *, nodes: int = 
     cell = _dipole_cell(mesh, materials, stack, position, sigma, omega, order, pml=pml,
                         bottom=bottom, snap_tolerance=snap_tolerance, pml_target=pml_target,
                         pml_wavelengths=pml_wavelengths,
-                        extra_quadrature_order=extra_quadrature_order, solver=solver)  # fmt: skip
+                        extra_quadrature_order=extra_quadrature_order, solver=solver,
+                        sweep=sweep)  # fmt: skip
     rule, directions, _indices = _emission_plan(cell, k0, nodes=nodes, kx_nodes=kx_nodes,
                                                 depth=depth, beta_max=beta_max,
                                                 symmetric=symmetric, channels=channels,
@@ -2713,8 +2728,10 @@ def emission_cost(mesh, materials, stack, dipole, omega: float, *, nodes: int = 
                         total_bytes=int(estimate.total_bytes), memory=estimate.describe(),
                         guided=guided_on, workers=workers)  # fmt: skip
     if calibrate:
+        if sweep:  # the first sample builds the sweep; the rest run on its cached path
+            _dipole_power_matrix(cell, complex(rule.kx[0]), float(rule.beta[0]))
         t0 = time.perf_counter()
-        _dipole_power_matrix(cell, complex(rule.kx[0]), float(rule.beta[0]))
+        _dipole_power_matrix(cell, complex(rule.kx[-1]), float(rule.beta[-1]))
         cost.seconds_per_sample = time.perf_counter() - t0
         if directions:
             theta, phi, side, _w = directions[0]
@@ -2814,7 +2831,7 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
                     quadrature_points: int = 6, pml=None, bottom: str = "pml",
                     snap_tolerance: float = 1e-9, pml_target: float = 1e-6,
                     pml_wavelengths: float = 0.5, extra_quadrature_order: int = 4, solver=None,
-                    workers: int = 1, progress=None, cancel=None,
+                    workers: int = 1, sweep: bool = True, progress=None, cancel=None,
                     **solve_kwargs) -> DipoleEmission:  # fmt: skip
     """Emission of a single Gaussian dipole in a structure periodic in x and invariant in z by
     array scanning of the cell problem (M17 Stage B, ADR-0013 §3, §3a):
@@ -2856,8 +2873,12 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     the samples are independent, ADR-0013 §5), each with an equal share of the OpenMP threads;
     memory grows to ``workers`` factorisations at a time (:func:`emission_cost`). The result is
     the same as with one worker up to rounding. The plane-wave solves of the channels stay
-    serial. ``progress(i, n)`` is called per solve (in the calling thread), ``cancel()`` checked
-    between solves (``hpfem.Cancelled``). ``pml``,
+    serial. ``sweep`` (default) runs the samples of each thread on one ``ConicalSweep``: the
+    parts outside the PML are assembled once, a sample assembles the PML cells and the dipole
+    loads near the emitter and refactorises on the first symbolic analysis; ``sweep=False``
+    builds a ``ConicalScattering`` per sample (the same result to rounding). ``progress(i, n)``
+    is called per solve (in the calling thread), ``cancel()`` checked between solves
+    (``hpfem.Cancelled``). ``pml``,
     ``bottom``, ``snap_tolerance``, ``pml_target``, ``pml_wavelengths``,
     ``extra_quadrature_order`` and ``solver`` as for :func:`emit`; further keyword arguments
     go to the plane-wave solves of the channels."""
@@ -2872,7 +2893,8 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     cell = _dipole_cell(mesh, materials, stack, position, sigma, omega, order, pml=pml,
                         bottom=bottom, snap_tolerance=snap_tolerance, pml_target=pml_target,
                         pml_wavelengths=pml_wavelengths,
-                        extra_quadrature_order=extra_quadrature_order, solver=solver)  # fmt: skip
+                        extra_quadrature_order=extra_quadrature_order, solver=solver,
+                        sweep=sweep)  # fmt: skip
     n_semi = max([cell.pr.n_cover.real] + ([cell.pr.n_sub.real] if cell.pr.transmitted else []))
     guided_on = _guided_wanted(cell, guided)
     beta_top = k0 * max(n_semi, cell.n_max) if beta_max is None else float(beta_max)

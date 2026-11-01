@@ -1036,7 +1036,20 @@ void bind_physics(py::module_& m) {
         .def_property_readonly("num_source_cells", &physics::ConicalSweep::num_source_cells)
         .def_property_readonly("solver", &physics::ConicalSweep::solver,
                                py::return_value_policy::reference_internal,
-                               "the solver after the first point");
+                               "the solver after the first point")
+        .def("factorize", &physics::ConicalSweep::factorize, py::arg("setup"), Release(),
+             "factorises a point without its load, for solve_loads")
+        .def("solve_loads", &physics::ConicalSweep::solve_loads, py::arg("loads"), Release(),
+             "solutions (block DoFs x k) of the last point for full-size loads (one per column)")
+        .def_property_readonly("point", &physics::ConicalSweep::point,
+                               py::return_value_policy::reference_internal,
+                               "the ConicalScattering problem of the last point");
+    m.def("conical_sweep_dipole_power_matrix", &physics::conical_sweep_dipole_power_matrix,
+          py::arg("sweep"), py::arg("setup"), py::arg("position"), py::arg("sigma"),
+          py::arg("extra_order") = 4, Release(),
+          "3 x 3 power matrix A of the Gaussian dipole for the cell problem `setup` on the sweep "
+          "(factorize, the three unit-moment loads near the dipole, one multi-rhs solve); one "
+          "sweep per thread");
     py::class_<physics::ConicalError>(m, "ConicalError",
                                       "L2 norms of the field and conical-curl errors")
         .def_readonly("l2", &physics::ConicalError::l2)

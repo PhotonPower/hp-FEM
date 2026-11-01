@@ -277,8 +277,10 @@ integral):
   factorisation and the dipole responses release the GIL, and the cell (mesh, DoF maps,
   materials) need not be pickled. `dipole_emission(workers=n)` runs the β pre-pass, the first
   pass over all β nodes and the second pass of the guided bumps as one batch each, every thread
-  with `num_threads() / n` OpenMP threads. The symbolic analysis is not yet shared between
-  samples: the complex Bloch phase of §3a (`Constraints::set_test`) is not part of `ConicalSweep`.
+  with `num_threads() / n` OpenMP threads. Each thread runs its samples on one `ConicalSweep`
+  (`sweep=True`), which reduces with the test space of §3a, caches the bulk and (at fixed ω)
+  the PML parts and refactorises on the first symbolic analysis
+  (`conical_sweep_dipole_power_matrix`): 1.35–2.3 times faster per sample with SparseLU.
 - Before the run, the front end reports the number of samples of the first quadrature level, the
   memory per factorisation (`estimate_memory`) and the extrapolated time; `cancel` is polled
   between samples, `progress` reports per sample.
