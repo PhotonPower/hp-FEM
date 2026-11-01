@@ -3,6 +3,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- ADR-0015 (proposed) and roadmap milestone M19: optically anisotropic materials in substrates,
+  layers and structured parts (tensor `Material`, anisotropic layer stack with Jones / Mueller
+  output, conical solver with full tensors); documentation only, nothing implemented yet.
 - Parallel samples in the single-dipole scan (M17 S3, ADR-0013 §5): `grating.dipole_emission(...,
   workers=n)` solves the cell problems in `n` threads, each with `num_threads() / n` OpenMP
   threads. The bindings release the GIL, so mesh and materials need not be pickled. The β

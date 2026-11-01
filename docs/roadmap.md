@@ -520,6 +520,36 @@ particles on substrates, nanoparticle-on-mirror, holes and grooves in films (neg
   in a gold film, transmission) with README and a quick regression test (written by the helper
   agent `opt-jobs`)
 
+## M19 — Optically anisotropic materials (ADR-0015)
+Proposal of 1 November 2026: substrates, unstructured layers and structured parts of anisotropic
+crystals (uniaxial, biaxial, rotated optic axis) as used in semiconductor metrology; Jones and
+Mueller matrices. Status: proposed (ADR-0015), nothing implemented. Out of scope of the first
+step: gyrotropy / optical activity, anisotropic cover media, tilted axes in the axisymmetric
+solver; the anisotropic emitter scan comes last.
+- [ ] S0: ADR-0015 accepted (`docs/adr/0015-anisotropic-materials.md`), review of the open points
+  (conical re-derivation, degenerate modes of the stack)
+- [ ] S1: material model: optional 3×3 tensors in `materials::Material`, tensor accessors,
+  scalar access throws, diagnostic `anisotropic-unsupported` on every unmigrated path;
+  `hpfem.materials.Anisotropic` / `Uniaxial` with Euler angles, ordinary / extraordinary data;
+  regression test: ε·I reproduces all existing benchmarks to round-off
+- [ ] S2: volume solvers 2D / 3D: tensors in `form_of_cell`, PML `ε̃_ij = ε_ij s_x s_y s_z/(s_i s_j)`
+  with a backward-wave diagnostic, estimators (divergence, `n·εE` jump), per-cell tensor
+  overrides; tests: uniaxial slab in 3D, PML reflection with a full tensor, symmetry detection
+  (non-gyrotropic crystals take the LDLᵀ paths)
+- [ ] S3: conical solver: full tensors in `ConicalForm`, derivation in the conical section of `docs/theory/maxwell.md`,
+  estimators; tests: conical against 3D with the crystal and the grating rotated together,
+  form-birefringent grating against the effective-medium plate
+- [ ] S4: anisotropic `LayerStack`: 4×4 modes per layer, stable S-matrix recursion, Jones matrix,
+  analytic stack field for the scattered-field source, degenerate (uniaxial) cases; tests:
+  independent 4×4 transfer matrix (thin layers), closed forms at normal incidence, R+T+A=1
+- [ ] S5: post-processing: mode-resolved diffraction orders in anisotropic half-spaces,
+  absorption and Poynting flux with tensors, Jones / Mueller output; test: reciprocity of the
+  Jones matrix on a rotated crystal
+- [ ] S6: axisymmetric solver with diagonal (r, φ, z) tensors, rejection of tilted axes
+- [ ] S7: dipole emitters above anisotropic stacks (ADR-0013 amendment), after S4 / S5 are validated
+- [ ] S8: GUI material editor (isotropic / uniaxial / biaxial / full, axis angles, per part and
+  layer) and display of the Jones / Mueller elements (`GUI-hpFEM`)
+
 ## Backlog / ideas
 - [ ] the full ring resonator with ports in 3D (M12 stage B): needs an hp-mesh that is fine
   only across the cores and in the coupling region, p = 3 there for the resonance widths
