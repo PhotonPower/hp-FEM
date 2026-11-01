@@ -31,7 +31,7 @@ Vector absorbed_power_density(const fespace::NedelecDofMap<Dim>& dofs, const Vec
   const Real factor = 0.5 * omega * constants::eps0;
   return assembly::interpolate<Dim>(
       h1, [&](Index cell, const Point<Dim>& xi, const Point<Dim>&) -> Complex {
-        const Real loss = materials.of_cell(mesh, cell).eps_r.imag();
+        const Real loss = materials.of_cell(mesh, cell).eps_scalar().imag();
         if (loss == 0) return 0.0;
         const auto e = assembly::evaluate_hcurl<Dim>(dofs, e_h, cell, xi);
         return Complex{factor * loss * e.squaredNorm(), 0.0};
@@ -55,7 +55,7 @@ Vector absorbed_power_load(const fespace::NedelecDofMap<Dim>& dofs, const Vector
              h1,
              [&](Index cell) {
                assembly::ScalarForm<Dim> form;
-               const Real loss = materials.of_cell(mesh, cell).eps_r.imag();
+               const Real loss = materials.of_cell(mesh, cell).eps_scalar().imag();
                if (loss != 0) {
                  form.source_reference = [&dofs, &e_h, cell, scale = factor * loss](
                                              const Point<Dim>& xi, const Point<Dim>&) {

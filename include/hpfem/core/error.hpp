@@ -22,6 +22,13 @@ class NotImplemented : public Error {
   using Error::Error;
 };
 
+/// A feature that takes isotropic materials only was given an anisotropic one (ADR-0015 §1):
+/// thrown by the scalar accessors of `materials::Material` instead of a wrong scalar.
+class AnisotropicUnsupported : public NotImplemented {
+ public:
+  using NotImplemented::NotImplemented;
+};
+
 [[noreturn]] void assertion_failed(const char* expr, const char* file, int line,
                                    const std::string& msg);
 

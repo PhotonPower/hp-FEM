@@ -54,7 +54,7 @@ TEST_CASE("direct mode of the in-plane solver: material and shape against the ad
   hpfem::physics::ScatteringSetup<2> setup;
   setup.omega = kWavenumber * hpfem::constants::c0;
   hpfem::materials::Material disc;
-  disc.eps_r = Complex{2.25, 0.3};
+  disc.set_eps_scalar(Complex{2.25, 0.3});
   setup.materials.set(kDisc, disc);
   setup.incident =
       hpfem::physics::plane_wave<2>(ComplexVector<2>(0.0, 1.0), Point<2>(kWavenumber, 0.0));
@@ -136,7 +136,7 @@ TEST_CASE("direct mode of the conical solver: material and shape against the adj
   setup.omega = kWavenumber * hpfem::constants::c0;
   setup.beta = beta;
   hpfem::materials::Material disc;
-  disc.eps_r = Complex{2.0, 0.2};
+  disc.set_eps_scalar(Complex{2.0, 0.2});
   setup.materials.set(kDisc, disc);
   const Point<3> k(kt, 0.0, beta);
   setup.incident = hpfem::physics::conical_plane_wave(

@@ -128,7 +128,7 @@ class ScatteringCellField {
       if (!formulation_scattered && options.scattered) sign_ = -1.0;
     }
     if (quantity_ != SampledQuantity::kElectric) {
-      const Complex mu = problem.material(cell).mu_r;
+      const Complex mu = problem.material(cell).mu_scalar();
       inverse_i_omega_mu_ = 1.0 / (kI * problem.setup().omega * constants::mu0 * mu);
     }
   }

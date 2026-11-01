@@ -98,8 +98,8 @@ assembly::AxisymmetricForm axisymmetric_pml_form(const pml::PmlBox<2>& box,
                                         s(0) * s_phi / s(1));
   };
   assembly::AxisymmetricForm form;
-  const Complex inv_mu = 1.0 / material.mu_r;
-  const Complex eps = material.eps_r;
+  const Complex inv_mu = 1.0 / material.mu_scalar();
+  const Complex eps = material.eps_scalar();
   form.inverse_permeability = [lambda, inv_mu](const Point<2>& x) {
     return Eigen::Matrix<Complex, 3, 1>(inv_mu * lambda(x).cwiseInverse());
   };
@@ -114,8 +114,8 @@ namespace {
 
 assembly::AxisymmetricForm material_form(const materials::Material& material) {
   assembly::AxisymmetricForm form;
-  const Complex inv_mu = 1.0 / material.mu_r;
-  const Complex eps = material.eps_r;
+  const Complex inv_mu = 1.0 / material.mu_scalar();
+  const Complex eps = material.eps_scalar();
   form.inverse_permeability = [inv_mu](const Point<2>&) {
     return Eigen::Matrix<Complex, 3, 1>::Constant(inv_mu);
   };
@@ -188,7 +188,7 @@ AxisymmetricCavity::AxisymmetricCavity(const fespace::NedelecDofMap<2>& meridian
   const auto& mesh = meridian.mesh();
   for (Index c = 0; c < mesh.num_cells(); ++c) {
     const auto& material = setup_.materials.of_cell(mesh, c);
-    if (material.eps_r.imag() != 0 || material.mu_r.imag() != 0) {
+    if (material.eps_scalar().imag() != 0 || material.mu_scalar().imag() != 0) {
       throw InvalidArgument(fmt::format("AxisymmetricCavity: cell {} has a lossy material", c));
     }
   }
@@ -439,7 +439,7 @@ bool materials_differ(const materials::Material& a, const materials::Material& b
   const auto close = [](Complex x, Complex y) {
     return std::abs(x - y) <= 1e-12 * std::max(1.0, std::abs(y));
   };
-  return !close(a.eps_r, b.eps_r) || !close(a.mu_r, b.mu_r);
+  return !close(a.eps_scalar(), b.eps_scalar()) || !close(a.mu_scalar(), b.mu_scalar());
 }
 
 }  // namespace
@@ -481,8 +481,8 @@ void AxisymmetricScattering::check_background() const {
             "AxisymmetricScattering: cell {} (tag {}) in the PML deviates from the layered "
             "background (eps_r {} + {}i against {} + {}i of stack region {}); the body must stay "
             "out of the PML and the layer cells must carry the stack's materials",
-            c, mesh.cell_tag(c), std::real(material.eps_r), std::imag(material.eps_r),
-            std::real(layer.eps_r), std::imag(layer.eps_r), region));
+            c, mesh.cell_tag(c), std::real(material.eps_scalar()), std::imag(material.eps_scalar()),
+            std::real(layer.eps_scalar()), std::imag(layer.eps_scalar()), region));
       }
     }
   }
@@ -509,7 +509,7 @@ assembly::AxisymmetricForm AxisymmetricScattering::form_of_cell(Index cell) cons
     form.source = setup_.current;
     return form;
   }
-  const Complex contrast = k0_ * k0_ * (material.eps_r - background.eps_r);
+  const Complex contrast = k0_ * k0_ * (material.eps_scalar() - background.eps_scalar());
   if (contrast != Complex{0.0, 0.0}) {
     form.source = [contrast, incident = setup_.incident](const Point<2>& x) {
       return Eigen::Matrix<Complex, 3, 1>(contrast * incident(x));
@@ -584,7 +584,8 @@ ModeFields mode_fields_at(const fespace::NedelecDofMap<2>& meridian,
   f.e_phi = kI * v / r;
   const Complex curl_r = kI * (mm * e(1) - grad_v(1)) / r;
   const Complex curl_z = kI * (grad_v(0) - mm * e(0)) / r;
-  const Complex factor = 1.0 / (kI * omega * constants::mu0 * materials.of_cell(mesh, c).mu_r);
+  const Complex factor =
+      1.0 / (kI * omega * constants::mu0 * materials.of_cell(mesh, c).mu_scalar());
   f.h_r = factor * curl_r;
   f.h_phi = factor * curl_phi;
   f.h_z = factor * curl_z;
@@ -654,7 +655,7 @@ void visit_flux_points(const fespace::NedelecDofMap<2>& meridian,
   for (const auto& point : surface_quadrature<2>(meridian.mesh(), surface, order)) {
     const Real r = point.x(0);
     if (!(r > 0)) continue;  // the axis contributes nothing (weight r)
-    const Complex mu_r = materials.of_cell(meridian.mesh(), point.cell).mu_r;
+    const Complex mu_r = materials.of_cell(meridian.mesh(), point.cell).mu_scalar();
     const ModeFields f = add_analytic(
         mode_fields_at(meridian, azimuthal, meridian_coefficients, azimuthal_coefficients,
                        azimuthal_order, omega, materials, point.cell, point.xi, r),
@@ -765,7 +766,7 @@ AbsorbedPower axisymmetric_absorbed_power(
   const auto& mesh = meridian.mesh();
   const auto loss = [&](Index c) {
     if (pml && pml->in_layer(mesh::affine_map(mesh, c).centroid())) return 0.0;
-    return std::imag(materials.of_cell(mesh, c).eps_r);
+    return std::imag(materials.of_cell(mesh, c).eps_scalar());
   };
   AbsorbedPower result;
   result.per_cell.assign(as_size(mesh.num_cells()), 0.0);
@@ -874,9 +875,10 @@ AxisymmetricFarField axisymmetric_far_field(
     throw InvalidArgument("axisymmetric_far_field: coefficients do not match the maps");
   }
   const auto& background = materials.background();
-  const Real index = std::sqrt(background.eps_r * background.mu_r).real();
+  const Real index = std::sqrt(background.eps_scalar() * background.mu_scalar()).real();
   const Real k = omega / constants::c0 * index;
-  const Real impedance = constants::Z0 * std::sqrt(background.mu_r / background.eps_r).real();
+  const Real impedance =
+      constants::Z0 * std::sqrt(background.mu_scalar() / background.eps_scalar()).real();
   AxisymmetricFarField out;
   out.azimuthal_order = azimuthal_order;
   out.wavenumber = k;
@@ -980,7 +982,7 @@ AxisymmetricLayeredFarField axisymmetric_layered_far_field(
           "axisymmetric_layered_far_field: theta_down = {} must lie in (pi/2, pi]", theta));
     }
   }
-  if (!theta_down.empty() && std::imag(stack.substrate().eps_r) != 0) {
+  if (!theta_down.empty() && std::imag(stack.substrate().eps_scalar()) != 0) {
     throw InvalidArgument(
         "axisymmetric_layered_far_field: no far field in a lossy substrate (theta_down given)");
   }
@@ -1000,7 +1002,7 @@ AxisymmetricLayeredFarField axisymmetric_layered_far_field(
         {point,
          mode_fields_at(meridian, azimuthal, meridian_coefficients, azimuthal_coefficients, m,
                         omega, materials, point.cell, point.xi, r),
-         materials.of_cell(meridian.mesh(), point.cell).mu_r});
+         materials.of_cell(meridian.mesh(), point.cell).mu_scalar()});
   }
   const Complex sign = (m % 2 == 0) ? 1.0 : -1.0;  // e^{i m pi}
   // F . e for the wave of polarisation pol arriving at the angle theta_inc from the normal
@@ -1100,7 +1102,7 @@ Vector3c cross(const Vector3c& a, const Vector3c& b) {
 /// The stack of a wave from the substrate side: incidence medium the substrate, layers in
 /// reverse order, substrate the incidence medium, mirrored z → −z.
 LayerStack<3> reversed_stack(const LayerStack<3>& stack) {
-  if (std::imag(stack.substrate().eps_r) != 0) {
+  if (std::imag(stack.substrate().eps_scalar()) != 0) {
     throw InvalidArgument(
         "layered_axisymmetric_wave: incidence from the bottom needs a lossless substrate");
   }
@@ -1193,7 +1195,7 @@ AxisymmetricLayeredWave layered_axisymmetric_wave(const LayerStack<3>& stack, Re
   data->omega = k0 * constants::c0;
   data->pol = pol;
   for (int j = 0; j <= data->stack.num_layers() + 1; ++j) {
-    data->eps.push_back(data->stack.material(j).eps_r);
+    data->eps.push_back(data->stack.material(j).eps_scalar());
   }
   data->kz = wave.kz;
   data->down = wave.down;

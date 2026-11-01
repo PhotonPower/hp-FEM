@@ -197,7 +197,7 @@ ConicalVector ConicalResonance::curl_field(const ConicalResonantMode& mode, Inde
 
 ConicalVector ConicalResonance::h_field(const ConicalResonantMode& mode, Index cell,
                                         const Point<2>& xi) const {
-  const Complex mu = setup_.materials.of_cell(transverse_->mesh(), cell).mu_r;
+  const Complex mu = setup_.materials.of_cell(transverse_->mesh(), cell).mu_scalar();
   return curl_field(mode, cell, xi) / (kI * mode.omega * constants::mu0 * mu);
 }
 

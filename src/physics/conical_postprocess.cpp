@@ -105,7 +105,7 @@ PowerBalance conical_power_balance(const ConicalScattering& problem,
   for (const auto& sp : surface_quadrature<2>(mesh, reflection, order)) {
     const ConicalVector e_total = problem.total_field(solution, sp.cell, sp.xi);
     const ConicalVector h_total = problem.h_field(solution, sp.cell, sp.xi);
-    const Complex mu = setup.materials.of_cell(mesh, sp.cell).mu_r;
+    const Complex mu = setup.materials.of_cell(mesh, sp.cell).mu_scalar();
     const ConicalVector e_inc = incident_wave(sp.x);
     const ConicalVector h_inc =
         conical_curl_of(incident_wave, sp.x, beta, step) / (kI * omega * constants::mu0 * mu);
@@ -149,7 +149,7 @@ CrossSections conical_cross_sections(const ConicalScattering& problem,
   Real scattered = 0;
   for (const auto& sp : surface_quadrature<2>(mesh, surface, order)) {
     const ConicalVector e = problem.field(solution, sp.cell, sp.xi);
-    const Complex mu = setup.materials.of_cell(mesh, sp.cell).mu_r;
+    const Complex mu = setup.materials.of_cell(mesh, sp.cell).mu_scalar();
     const ConicalVector h =
         problem.curl_field(solution, sp.cell, sp.xi) / (kI * omega * constants::mu0 * mu);
     scattered += sp.weight * flux_density(e, h, sp.normal);
@@ -180,8 +180,9 @@ ConicalFarField::ConicalFarField(const ConicalScattering& problem, const Conical
         k_));
   }
   kt_ = std::sqrt(k_ * k_ - beta_ * beta_);
-  impedance_ = std::real(constants::Z0 * std::sqrt(background.mu_r / background.eps_r));
-  const Complex h_factor = 1.0 / (kI * setup.omega * constants::mu0 * background.mu_r);
+  impedance_ =
+      std::real(constants::Z0 * std::sqrt(background.mu_scalar() / background.eps_scalar()));
+  const Complex h_factor = 1.0 / (kI * setup.omega * constants::mu0 * background.mu_scalar());
   const int order = 2 * problem.transverse().max_order() + extra_order;
   for (const auto& sp : surface_quadrature<2>(mesh, surface, order)) {
     const ConicalVector e = problem.field(solution, sp.cell, sp.xi);

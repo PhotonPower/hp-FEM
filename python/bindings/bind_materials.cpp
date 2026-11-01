@@ -86,22 +86,49 @@ void bind_pml_dim(py::module_& m) {
 void bind_materials(py::module_& m) {
   using materials::Material;
   using materials::MaterialMap;
+  using materials::Tensor3;
   py::class_<Material>(m, "Material",
-                       "Isotropic, non-dispersive medium: relative permittivity eps_r and "
-                       "permeability mu_r (complex; lossy media have Im eps_r > 0 with the "
-                       "exp(-i omega t) convention)")
+                       "Non-dispersive medium: relative permittivity eps_r (isotropic) or a "
+                       "symmetric 3x3 permittivity tensor (Material.anisotropic, ADR-0015) and "
+                       "scalar permeability mu_r (complex; lossy media have Im eps_r > 0 with "
+                       "the exp(-i omega t) convention). The scalar properties eps_r and "
+                       "refractive_index raise AnisotropicUnsupported for a tensor material.")
       .def(py::init([](Complex eps_r, Complex mu_r) { return Material{eps_r, mu_r}; }),
            py::arg("eps_r") = Complex{1, 0}, py::arg("mu_r") = Complex{1, 0})
-      .def_readwrite("eps_r", &Material::eps_r)
-      .def_readwrite("mu_r", &Material::mu_r)
+      .def_property(
+          "eps_r", &Material::eps_scalar,
+          [](Material& mat, Complex eps) { mat.set_eps_scalar(eps); },
+          "scalar permittivity (isotropic only); setting it makes the material isotropic")
+      .def_property(
+          "mu_r", &Material::mu_scalar, [](Material& mat, Complex mu) { mat.set_mu(mu); },
+          "scalar permeability")
+      .def_property_readonly("is_isotropic", &Material::is_isotropic)
+      .def_property_readonly("eps_tensor", &Material::eps_tensor,
+                             "3x3 permittivity tensor (eps_r * I for an isotropic material)")
+      .def_property_readonly("mu_inv_tensor", &Material::mu_inv_tensor)
       .def_property_readonly("refractive_index", &Material::refractive_index,
-                             "n = sqrt(eps_r mu_r), principal branch")
+                             "n = sqrt(eps_r mu_r), principal branch (isotropic only)")
+      .def_static("isotropic", &Material::isotropic, py::arg("eps_r"),
+                  py::arg("mu_r") = Complex{1, 0})
+      .def_static("anisotropic", &Material::anisotropic, py::arg("eps"),
+                  py::arg("mu_r") = Complex{1, 0},
+                  "symmetric 3x3 permittivity tensor in the laboratory frame (x, y, z)")
       .def_static("vacuum", &Material::vacuum)
       .def_static("dielectric", &Material::dielectric, py::arg("n"),
                   "lossless non-magnetic dielectric of refractive index n")
       .def("__repr__", [](const Material& mat) {
-        return fmt::format("<hpfem.Material eps_r={}+{}j mu_r={}+{}j>", mat.eps_r.real(),
-                           mat.eps_r.imag(), mat.mu_r.real(), mat.mu_r.imag());
+        const Complex mu = mat.mu_scalar();
+        if (!mat.is_isotropic()) {
+          const Tensor3 e = mat.eps_tensor();
+          return fmt::format(
+              "<hpfem.Material anisotropic eps diag=({:.6g}{:+.6g}j, {:.6g}{:+.6g}j, "
+              "{:.6g}{:+.6g}j) mu_r={}+{}j>",
+              e(0, 0).real(), e(0, 0).imag(), e(1, 1).real(), e(1, 1).imag(), e(2, 2).real(),
+              e(2, 2).imag(), mu.real(), mu.imag());
+        }
+        const Complex eps = mat.eps_scalar();
+        return fmt::format("<hpfem.Material eps_r={}+{}j mu_r={}+{}j>", eps.real(), eps.imag(),
+                           mu.real(), mu.imag());
       });
   py::class_<MaterialMap>(m, "MaterialMap",
                           "Materials by cell tag; unlisted (and untagged) cells get the background")
@@ -115,6 +142,8 @@ void bind_materials(py::module_& m) {
       .def_property_readonly("num_cell_overrides", &MaterialMap::num_cell_overrides)
       .def_property_readonly("background", &MaterialMap::background)
       .def("has", &MaterialMap::has, py::arg("tag"))
+      .def_property_readonly("is_isotropic", &MaterialMap::is_isotropic,
+                             "every material of the map is isotropic")
       .def("at", &MaterialMap::at, py::arg("tag"), "material of a tag, the background if unlisted")
       .def(
           "of_cell",

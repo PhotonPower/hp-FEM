@@ -132,7 +132,7 @@ BandDerivative material_derivative(const BandStructure<Dim>& problem, const Band
   Complex mu{1.0, 0.0};
   for (Index c = 0; c < mesh.num_cells(); ++c) {
     if (mesh.cell_tag(c) == tag) {
-      mu = problem.setup().materials.of_cell(mesh, c).mu_r;
+      mu = problem.setup().materials.of_cell(mesh, c).mu_scalar();
       break;
     }
   }

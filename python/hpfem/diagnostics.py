@@ -9,7 +9,8 @@ Codes: ``mesh_invalid_cells``, ``mesh_poor_angles``, ``mesh_untagged_cells``,
 ``tag_without_material``, ``material_without_cells``, ``interface_off_mesh``,
 ``periodic_partner_missing``, ``periodic_faces_differ``, ``pml_under_resolved``, ``pml_thin``,
 ``pml_missing``, ``too_few_elements_per_wavelength``, ``material_out_of_range``,
-``lossy_incidence_medium``, ``grazing_order``, ``pec_wall_too_close``, ``setup``.
+``lossy_incidence_medium``, ``grazing_order``, ``pec_wall_too_close``,
+``anisotropic_unsupported``, ``setup``.
 """
 
 from __future__ import annotations
@@ -378,6 +379,36 @@ def validate_materials(materials, omega: float) -> list[Diagnostic]:
     return out
 
 
+def validate_isotropic(materials, feature: str, stack=None) -> list[Diagnostic]:
+    """An anisotropic material (ADR-0015) given to a feature that takes isotropic materials only
+    (error ``anisotropic_unsupported``). ``materials`` is a ``MaterialMap``, a
+    ``DispersiveMap`` or a mapping tag -> material; ``stack`` an optional layer stack or its
+    materials. Run it before the set-up, which would otherwise fail inside the core with
+    ``hpfem.AnisotropicUnsupported``."""
+    from hpfem.materials import is_anisotropic
+
+    where = []
+    if isinstance(materials, Mapping):
+        where += [f"tag {tag}" for tag, m in materials.items() if is_anisotropic(m)]
+    elif materials is not None and is_anisotropic(materials):
+        where.append("the material map")
+    if stack is not None:
+        for name in ("incidence_medium", "substrate"):
+            medium = getattr(stack, name, None)
+            if medium is not None and is_anisotropic(medium):
+                where.append(f"the stack {name.replace('_', ' ')}")
+    if not where:
+        return []
+    return [
+        Diagnostic(
+            "anisotropic_unsupported",
+            "error",
+            f"{feature} takes isotropic materials only; anisotropic: {', '.join(where)}",
+            "anisotropic materials are being added in stages (ADR-0015, roadmap M19)",
+        )
+    ]
+
+
 def validate_stack(stack) -> list[Diagnostic]:
     """A lossy incidence medium (error); ``stack`` is a ``LayerStack2D`` or the incidence
     ``Material`` itself (the stack constructor already refuses a lossy medium)."""
@@ -464,7 +495,10 @@ def validate_scattering(mesh, setup, orders, materials=None) -> list[Diagnostic]
     (:func:`validate_mesh`), the stack interfaces, the periodic pairs, the PML and the
     resolution per tag; ``materials`` (dict) adds the range check of dispersive data and the
     tags-without-material check."""
-    out = validate_mesh(mesh, materials if materials is not None else setup.materials)
+    out = validate_isotropic(materials if materials is not None else setup.materials, "scattering")
+    if errors(out):
+        return out
+    out += validate_mesh(mesh, materials if materials is not None else setup.materials)
     background = getattr(setup, "background", None)
     k0 = float(units.vacuum_wavenumber(setup.omega))
     if background is not None:
@@ -498,6 +532,7 @@ __all__ = [
     "raise_on_errors",
     "validate_bottom_wall",
     "validate_interfaces",
+    "validate_isotropic",
     "validate_materials",
     "validate_mesh",
     "validate_orders",

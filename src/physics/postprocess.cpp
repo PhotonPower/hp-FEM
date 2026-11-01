@@ -247,8 +247,8 @@ Real poynting_flux(const mesh::Mesh<Dim>& mesh, const Surface<Dim>& surface,
   assembly::ComplexCurl<Dim> curl;
   for (const auto& p : surface_quadrature<Dim>(mesh, surface, order)) {
     field(p, e, curl);
-    flux += p.weight *
-            poynting_normal<Dim>(e, curl, p.normal, omega, materials.of_cell(mesh, p.cell).mu_r);
+    flux += p.weight * poynting_normal<Dim>(e, curl, p.normal, omega,
+                                            materials.of_cell(mesh, p.cell).mu_scalar());
   }
   return flux;
 }
@@ -269,7 +269,7 @@ std::vector<Real> absorbed_power_per_cell(const fespace::NedelecDofMap<Dim>& dof
   const auto& mesh = dofs.mesh();
   std::vector<Real> power(as_size(mesh.num_cells()), 0.0);
   parallel_for(mesh.num_cells(), [&](Index c, int) {
-    const Real loss = materials.of_cell(mesh, c).eps_r.imag();
+    const Real loss = materials.of_cell(mesh, c).eps_scalar().imag();
     if (loss == 0) return;
     const int p = dofs.cell_order(c);
     const auto geometry = mesh::cell_geometry(mesh, c);
@@ -297,7 +297,8 @@ Real absorbed_power(const fespace::NedelecDofMap<Dim>& dofs, const Vector& e_h, 
 }
 
 Real plane_wave_intensity(Real amplitude, const materials::Material& medium) {
-  const Real impedance = std::real(constants::Z0 * std::sqrt(medium.mu_r / medium.eps_r));
+  const Real impedance =
+      std::real(constants::Z0 * std::sqrt(medium.mu_scalar() / medium.eps_scalar()));
   return amplitude * amplitude / (2.0 * impedance);
 }
 
@@ -309,7 +310,7 @@ Real absorbed_power(const Scattering<Dim>& problem, const ScatteringSolution<Dim
   const Real omega = problem.setup().omega;
   std::vector<Real> partial(as_size(num_threads()), 0.0);
   parallel_for(mesh.num_cells(), [&](Index c, int thread) {
-    const Real loss = std::imag(problem.material(c).eps_r);
+    const Real loss = std::imag(problem.material(c).eps_scalar());
     if (!(loss > 0)) return;
     const auto rule = assembly::simplex_quadrature<Dim>(2 * dofs.cell_order(c) + extra_order);
     const auto geometry = mesh::cell_geometry(mesh, c);

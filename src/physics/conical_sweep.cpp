@@ -76,8 +76,8 @@ ConicalSweep::ConicalSweep(const fespace::NedelecDofMap<2>& transverse,
     } else {
       bulk_cells_.push_back(c);
       const materials::Material& m = base.materials.of_cell(mesh, c);
-      const std::pair<Real, Real> eps{m.eps_r.real(), m.eps_r.imag()};
-      const std::pair<Real, Real> mu{m.mu_r.real(), m.mu_r.imag()};
+      const std::pair<Real, Real> eps{m.eps_scalar().real(), m.eps_scalar().imag()};
+      const std::pair<Real, Real> mu{m.mu_scalar().real(), m.mu_scalar().imag()};
       auto& by_mu = group_of[eps];
       auto it = by_mu.find(mu);
       if (it == by_mu.end()) {
@@ -92,7 +92,7 @@ ConicalSweep::ConicalSweep(const fespace::NedelecDofMap<2>& transverse,
   // permittivity: S0, S1 = (S(b) - S(-b)) / 2, S2 = (S(b) + S(-b)) / 2 - S0
   const auto stiffness_form = [&](Index c) {
     assembly::ConicalForm form;
-    const Complex inv_mu = 1.0 / base.materials.of_cell(mesh, c).mu_r;
+    const Complex inv_mu = 1.0 / base.materials.of_cell(mesh, c).mu_scalar();
     form.inverse_permeability = [inv_mu](const Point<2>&) {
       return Eigen::Matrix<Complex, 3, 1>::Constant(inv_mu).eval();
     };
@@ -279,7 +279,8 @@ assembly::ConicalSystem ConicalSweep::pml_system(const ConicalScattering& proble
   }
   for (const Index c : pml_cells_) {
     const materials::Material& m = setup.materials.of_cell(mesh, c);
-    key.insert(key.end(), {m.eps_r.real(), m.eps_r.imag(), m.mu_r.real(), m.mu_r.imag()});
+    key.insert(key.end(), {m.eps_scalar().real(), m.eps_scalar().imag(), m.mu_scalar().real(),
+                           m.mu_scalar().imag()});
   }
   const auto form = [&problem](Index c) {
     assembly::ConicalForm f = problem.form_of_cell(c);
@@ -379,7 +380,7 @@ Vector ConicalSweep::factor_point(const ConicalScatteringSetup& setup, bool asse
     // the generic path (first point, or a point whose structure differs), then the cache
     SparseMatrix a_full = s0_ + t * s1_ + (t * t) * s2_;
     for (const Group& group : groups_) {
-      const Complex eps = setup.materials.of_cell(mesh, group.representative).eps_r;
+      const Complex eps = setup.materials.of_cell(mesh, group.representative).eps_scalar();
       a_full -= (k0 * k0 * eps) * group.mass;
     }
     a_full += pml_point;
@@ -408,7 +409,7 @@ Vector ConicalSweep::factor_point(const ConicalScatteringSetup& setup, bool asse
   // the cached path: values only
   Vector values = cache_.parts[0] + t * cache_.parts[1] + (t * t) * cache_.parts[2];
   for (std::size_t g = 0; g < groups_.size(); ++g) {
-    const Complex eps = setup.materials.of_cell(mesh, groups_[g].representative).eps_r;
+    const Complex eps = setup.materials.of_cell(mesh, groups_[g].representative).eps_scalar();
     values -= (k0 * k0 * eps) * cache_.parts[3 + g];
   }
   for (Index k = 0; k < pml_point.nonZeros(); ++k) {

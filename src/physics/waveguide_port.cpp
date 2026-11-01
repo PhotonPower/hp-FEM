@@ -142,12 +142,12 @@ void PortModes<Dim>::build_2d(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag
       seg.bubbles = num_1d_;
       num_1d_ += seg.order - 1;
       const auto& material = materials.of_cell(mesh, f.inside_cell);
-      if (material.eps_r.imag() != 0 || material.mu_r.imag() != 0) {
+      if (material.eps_scalar().imag() != 0 || material.mu_scalar().imag() != 0) {
         throw InvalidArgument(
             fmt::format("PortModes: cell {} on the port has a lossy material", f.inside_cell));
       }
-      seg.eps_r = material.eps_r.real();
-      seg.mu_r = material.mu_r.real();
+      seg.eps_r = material.eps_scalar().real();
+      seg.mu_r = material.mu_scalar().real();
       segments_.push_back(seg);
     }
     std::sort(segments_.begin(), segments_.end(),
@@ -357,7 +357,7 @@ void PortModes<Dim>::build_3d(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag
       tags.push_back(mesh.cell_tag(f.inside_cell));
       orders.push_back(dofs.cell_order(f.inside_cell));
       const auto& material = materials.of_cell(mesh, f.inside_cell);
-      if (material.eps_r.imag() != 0 || material.mu_r.imag() != 0) {
+      if (material.eps_scalar().imag() != 0 || material.mu_scalar().imag() != 0) {
         throw InvalidArgument(
             fmt::format("PortModes: cell {} on the port has a lossy material", f.inside_cell));
       }
@@ -452,7 +452,7 @@ void PortModes<Dim>::build_3d(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag
       if (q % per_facet == 0) {
         for (const Index d : cell_dofs) port_dofs_.push_back(d);
       }
-      const Real mu_r = materials.of_cell(mesh, sp.cell).mu_r.real();
+      const Real mu_r = materials.of_cell(mesh, sp.cell).mu_scalar().real();
       for (Index m = 0; m < n_modes; ++m) {
         Vec2 e_t;
         Complex e_z;

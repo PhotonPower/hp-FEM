@@ -10,6 +10,9 @@ Convention ``exp(-i omega t)``: ``eps_r = (n + i k)^2`` with ``k >= 0``, lossy m
 Models: :class:`Tabulated` n, k with linear interpolation in wavelength (the library data
 in ``hpfem/data/*.csv``, each file naming its source), :class:`Sellmeier` (lossless
 dielectrics), :class:`Drude` and :class:`DrudeLorentz` oscillator models, :class:`Constant`.
+Anisotropic crystals (ADR-0015): :class:`Anisotropic` (three principal models and a rotation)
+and :func:`Uniaxial` (ordinary / extraordinary models, optic axis by polar angle and azimuth)
+return a tensor ``Material`` from ``at(omega)``.
 
 Library (``library[name]`` / ``get(name)``), all from the refractiveindex.info database
 (CC0 1.0) with the original references in the data files:
@@ -23,6 +26,7 @@ Au       Johnson & Christy 1972                           0.188 – 1.94
 Ag       Johnson & Christy 1972                           0.188 – 1.94
 Al       Rakić 1995 (Kramers–Kronig consistent)           0.000124 – 200
 TiO2     Devore 1951 Sellmeier (rutile, ordinary ray)     0.43 – 1.53
+Al2O3    Malitson & Dodge 1972 Sellmeier (sapphire, o/e)  0.2 – 5.0
 GaAs     Aspnes et al. 1986                               0.207 – 0.827
 MAPbI3   Phillips et al. 2015 (CH3NH3PbI3 perovskite)     0.30 – 1.50
 ======== ================================================ =================
@@ -32,13 +36,13 @@ from __future__ import annotations
 
 import importlib.resources
 import warnings
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 
 import numpy as np
 
 from hpfem import units
-from hpfem._hpfem import Material, MaterialMap, constants
+from hpfem._hpfem import AnisotropicUnsupported, Material, MaterialMap, constants
 
 
 class Dispersive:
@@ -219,6 +223,181 @@ def Drude(eps_inf: float, omega_p: float, gamma: float, name: str = "drude") -> 
     return DrudeLorentz(eps_inf, omega_p, gamma, (), name=name)
 
 
+# --- anisotropic media (ADR-0015) ------------------------------------------------------------
+
+
+def _rotation_z(angle: float) -> np.ndarray:
+    c, s = np.cos(angle), np.sin(angle)
+    return np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+
+
+def _rotation_x(angle: float) -> np.ndarray:
+    c, s = np.cos(angle), np.sin(angle)
+    return np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])
+
+
+def _rotation_y(angle: float) -> np.ndarray:
+    c, s = np.cos(angle), np.sin(angle)
+    return np.array([[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]])
+
+
+def axis_rotation(theta: float, phi: float) -> np.ndarray:
+    """Rotation that takes the crystal z axis (the optic axis of a uniaxial crystal) to the
+    laboratory direction ``(sin θ cos φ, sin θ sin φ, cos θ)``: θ is the polar angle from the
+    laboratory z axis (the layer normal), φ the azimuth from x towards y (ADR-0015 §6);
+    ``R = R_z(φ) R_y(θ)``. Angles in radians."""
+    return _rotation_z(phi) @ _rotation_y(theta)
+
+
+def euler_rotation(alpha: float, beta: float, gamma: float) -> np.ndarray:
+    """Intrinsic z-x-z Euler rotation ``R = R_z(α) R_x(β) R_z(γ)`` from the principal (crystal)
+    frame to the laboratory frame: the columns of ``R`` are the principal axes in laboratory
+    coordinates (ADR-0015 §6). Angles in radians."""
+    return _rotation_z(alpha) @ _rotation_x(beta) @ _rotation_z(gamma)
+
+
+def _as_dispersive(model) -> Dispersive:
+    if isinstance(model, Dispersive):
+        return model
+    if isinstance(model, str):
+        return get(model)
+    if isinstance(model, (int, float, complex, np.number)):
+        return Constant(complex(model))
+    raise TypeError(f"cannot use {model!r} as a principal permittivity model")
+
+
+def _wavelength_range(model) -> tuple[float, float] | None:
+    rng = getattr(model, "range", None)
+    if rng is None and isinstance(model, Sellmeier):
+        rng = (model.range_um[0] * units.um, model.range_um[1] * units.um)
+    return rng
+
+
+@dataclass(repr=False)
+class Anisotropic(Dispersive):
+    """Crystal with three principal permittivity models and an orientation (ADR-0015 §6):
+    ``eps_tensor(omega) = R diag(eps_1, eps_2, eps_3) R^T`` in the laboratory frame (x, y along
+    the lattice, z the layer normal), symmetric because ``R`` is a real rotation. ``principal``
+    holds three :class:`Dispersive` models (numbers and library names are accepted),
+    ``rotation`` the 3×3 matrix from the principal to the laboratory frame
+    (:func:`axis_rotation`, :func:`euler_rotation`). ``at(omega)`` returns the tensor
+    ``Material``; the scalar ``eps_r`` and ``refractive_index`` raise
+    ``hpfem.AnisotropicUnsupported``. Use :func:`Uniaxial` for uniaxial crystals."""
+
+    principal: tuple = (1.0, 1.0, 1.0)
+    rotation: np.ndarray = field(default_factory=lambda: np.eye(3))
+    name: str = "anisotropic"
+    source: str = "user"
+    mu_r: complex = 1.0
+
+    def __post_init__(self):
+        if len(self.principal) != 3:
+            raise ValueError("Anisotropic: principal needs three permittivity models")
+        self.principal = tuple(_as_dispersive(m) for m in self.principal)
+        self.rotation = np.asarray(self.rotation, dtype=float)
+        if self.rotation.shape != (3, 3) or not np.allclose(
+            self.rotation @ self.rotation.T, np.eye(3), atol=1e-12
+        ):
+            raise ValueError("Anisotropic: rotation must be a real orthogonal 3x3 matrix")
+
+    @property
+    def analytic(self) -> bool:  # type: ignore[override]
+        return all(m.analytic for m in self.principal)
+
+    @property
+    def range(self) -> tuple[float, float] | None:
+        """Common wavelength range [m] of the principal models (``None`` if unrestricted)."""
+        ranges = [r for r in map(_wavelength_range, self.principal) if r is not None]
+        if not ranges:
+            return None
+        return max(r[0] for r in ranges), min(r[1] for r in ranges)
+
+    def principal_values(self, omega) -> np.ndarray:
+        """``(eps_1, eps_2, eps_3)`` at one angular frequency."""
+        return np.array([complex(np.asarray(m.eps_r(omega))) for m in self.principal])
+
+    def eps_tensor(self, omega) -> np.ndarray:
+        """Complex 3×3 permittivity tensor in the laboratory frame at one angular frequency."""
+        r = self.rotation
+        return r @ np.diag(self.principal_values(omega)) @ r.T
+
+    def eps_r(self, omega):
+        raise AnisotropicUnsupported(
+            f"{self.name}: the material is anisotropic; use eps_tensor(omega) (ADR-0015)"
+        )
+
+    def refractive_index(self, omega):
+        raise AnisotropicUnsupported(
+            f"{self.name}: an anisotropic material has no single refractive index; use "
+            "eps_tensor(omega) or the principal models (ADR-0015)"
+        )
+
+    def at(self, omega) -> Material:
+        omega = omega if np.iscomplexobj(omega) else float(omega)
+        return Material.anisotropic(self.eps_tensor(omega), complex(self.mu_r))
+
+    def rotated(self, rotation) -> Anisotropic:
+        """The same crystal turned by the laboratory-frame rotation ``rotation`` (applied after
+        the current orientation)."""
+        return replace(self, rotation=np.asarray(rotation, dtype=float) @ self.rotation)
+
+
+def Uniaxial(
+    ordinary,
+    extraordinary,
+    theta: float = 0.0,
+    phi: float = 0.0,
+    name: str = "uniaxial",
+    source: str = "user",
+) -> Anisotropic:
+    """Uniaxial crystal with the ordinary and extraordinary permittivity models (numbers,
+    :class:`Dispersive` models or library names) and the optic axis at the polar angle
+    ``theta`` from the layer normal z and the azimuth ``phi`` from x (radians, ADR-0015 §6):
+    ``theta = 0`` is a c-cut (axis along the normal), ``theta = pi/2`` an a- or m-cut (axis in
+    the plane). Numbers are permittivities; use ``n**2`` for indices."""
+    return Anisotropic(
+        (ordinary, ordinary, extraordinary), axis_rotation(theta, phi), name=name, source=source
+    )
+
+
+@dataclass(repr=False)
+class _FrozenTensor(Dispersive):
+    """A fixed tensor ``Material`` as a frequency-independent model (``DispersiveMap``)."""
+
+    material: Material | None = None
+    name: str = "anisotropic material"
+    source: str = "user"
+
+    analytic = True
+
+    def eps_r(self, omega):
+        raise AnisotropicUnsupported(f"{self.name}: the material is anisotropic (ADR-0015)")
+
+    def eps_tensor(self, omega) -> np.ndarray:
+        return np.asarray(self.material.eps_tensor)
+
+    def at(self, omega) -> Material:
+        return self.material
+
+
+def is_anisotropic(material) -> bool:
+    """True for an :class:`Anisotropic` model, a tensor ``Material`` or a ``MaterialMap`` /
+    ``DispersiveMap`` / mapping that contains one."""
+    if isinstance(material, (Anisotropic, _FrozenTensor)):
+        return True
+    if isinstance(material, Material):
+        return not material.is_isotropic
+    if isinstance(material, MaterialMap):
+        return not material.is_isotropic
+    if isinstance(material, DispersiveMap):
+        return is_anisotropic(material.background) or any(
+            is_anisotropic(m) for _, m in material.items()
+        )
+    if isinstance(material, Mapping):
+        return any(is_anisotropic(m) for m in material.values())
+    return False
+
+
 def with_policy(material: Dispersive, out_of_range: str) -> Dispersive:
     """A copy of a ``Tabulated`` material with another out-of-range policy (``"error"`` or
     ``"clamp"``); other materials are returned unchanged."""
@@ -247,6 +426,8 @@ class DispersiveMap:
         if isinstance(material, str):
             return get(material)
         if isinstance(material, Material):
+            if not material.is_isotropic:
+                return _FrozenTensor(material)
             return Constant(complex(material.eps_r), complex(material.mu_r), name="material")
         if isinstance(material, (int, float, complex)):
             return Constant(complex(material))
@@ -403,6 +584,30 @@ def _build_library() -> dict[str, Dispersive]:
         source="J. R. Devore, J. Opt. Soc. Am. 41, 416 (1951), doi:10.1364/JOSA.41.000416 "
         "(rutile, ordinary ray, room temperature)",
     )
+    sapphire = (
+        "I. H. Malitson and M. J. Dodge, J. Opt. Soc. Am. 62, 1405 (1972) (synthetic sapphire, "
+        "20 C)"
+    )
+    lib["Al2O3"] = Uniaxial(
+        Sellmeier(
+            0.0,
+            (1.4313493, 0.65054713, 5.3414021),
+            (0.0726631**2, 0.1193242**2, 18.028251**2),
+            range_um=(0.2, 5.0),
+            name="Al2O3 ordinary",
+            source=sapphire + ", ordinary ray",
+        ),
+        Sellmeier(
+            0.0,
+            (1.5039759, 0.55069141, 6.5927379),
+            (0.0740288**2, 0.1216529**2, 20.072248**2),
+            range_um=(0.2, 5.0),
+            name="Al2O3 extraordinary",
+            source=sapphire + ", extraordinary ray",
+        ),
+        name="Al2O3",
+        source=sapphire + "; uniaxial, optic (c) axis along z (c-cut), turn with .rotated()",
+    )
     lib["vacuum"] = Constant(1.0, name="vacuum", source="definition")
     lib["air"] = Constant(1.000293**2, name="air", source="n = 1.000293 (dry air, visible)")
     lib["water"] = Sellmeier(
@@ -440,5 +645,6 @@ def plasma_frequency(carrier_density: float, effective_mass: float = 1.0) -> flo
 
 __all__ = [
     "Dispersive", "Constant", "Tabulated", "Sellmeier", "DrudeLorentz", "Drude",
+    "Anisotropic", "Uniaxial", "axis_rotation", "euler_rotation", "is_anisotropic",
     "library", "get", "plasma_frequency",
 ]  # fmt: skip

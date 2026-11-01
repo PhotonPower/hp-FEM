@@ -44,7 +44,8 @@ materials::MaterialMap ThermoOptical<Dim>::materials_at(const Vector& temperatur
     if (it == setup_.thermo_optic.end() || it->second == Complex{0.0, 0.0}) continue;
     const Real t = assembly::evaluate_h1<Dim>(*thermal_, temperature, c, centroid).real();
     materials::Material material = setup_.optical.materials.at(mesh.cell_tag(c));
-    material.eps_r += it->second * (t - setup_.reference_temperature);
+    material.set_eps_scalar(material.eps_scalar() +
+                            it->second * (t - setup_.reference_temperature));
     materials.set_cell(c, material);
   }
   return materials;

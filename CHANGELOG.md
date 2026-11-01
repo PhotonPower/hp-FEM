@@ -3,6 +3,19 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Anisotropic material model (M19 S1, ADR-0015): `materials::Material` takes a symmetric complex
+  3×3 permittivity tensor (`Material::anisotropic`, gyrotropic tensors refused) next to the
+  isotropic scalars, with `eps_tensor()` / `mu_inv_tensor()` for both kinds and
+  `MaterialMap::is_isotropic()`. The scalar accessors `eps_scalar()` / `refractive_index()` throw
+  the new `AnisotropicUnsupported` for a tensor, so no solver computes with a wrong scalar before
+  it is migrated (S2 onwards). Python: `Material.anisotropic`, `eps_tensor`, `is_isotropic`,
+  `hpfem.AnisotropicUnsupported`; `hpfem.materials.Anisotropic`, `Uniaxial(o, e, theta, phi)`,
+  `axis_rotation`, `euler_rotation`, `is_anisotropic`; library entry `Al2O3` (sapphire, ordinary
+  and extraordinary, Malitson & Dodge 1972); diagnostic `anisotropic_unsupported` from
+  `grating.validate` / `solve` and `validate_scattering`; `docs/theory/materials.md`.
+  **Breaking (C++):** `Material::eps_r` / `mu_r` are private; use `eps_scalar()` / `mu_scalar()`
+  and `set_eps_scalar()` / `set_mu()` (`Material{eps, mu}` still compiles). The Python
+  `Material.eps_r` / `mu_r` properties are unchanged for isotropic materials.
 - ADR-0015 (accepted) and roadmap milestone M19: optically anisotropic materials in substrates,
   layers and structured parts (tensor `Material` with private scalar fields, anisotropic layer
   stack on the ordered Schur form of the 4×4 system with Jones / Mueller output, conical solver

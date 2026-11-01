@@ -29,8 +29,9 @@ FarField<Dim>::FarField(const mesh::Mesh<Dim>& mesh, const Surface<Dim>& surface
     throw InvalidArgument("FarField: the background medium must be lossless");
   }
   k_ = omega / constants::c0 * n.real();
-  impedance_ = std::real(constants::Z0 * std::sqrt(background.mu_r / background.eps_r));
-  const Complex h_factor = 1.0 / (kI * omega * constants::mu0 * background.mu_r);
+  impedance_ =
+      std::real(constants::Z0 * std::sqrt(background.mu_scalar() / background.eps_scalar()));
+  const Complex h_factor = 1.0 / (kI * omega * constants::mu0 * background.mu_scalar());
   assembly::ComplexVector<Dim> e;
   assembly::ComplexCurl<Dim> curl;
   for (const auto& p : surface_quadrature<Dim>(mesh, surface, order)) {

@@ -220,7 +220,7 @@ TEST_CASE("absorbed_power_by_tag: two lossy tags of a grating add up to the tota
   for (Index c = 0; c < film.mesh.num_cells(); ++c) {
     if (film.mesh.cell_tag(c) == 4) {
       ++ridge_cells;
-      REQUIRE(std::imag(problem.material(c).eps_r) == 1.0);
+      REQUIRE(std::imag(problem.material(c).eps_scalar()) == 1.0);
     }
   }
   REQUIRE(ridge_cells > 0);
