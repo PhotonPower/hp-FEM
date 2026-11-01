@@ -1606,6 +1606,37 @@ $\beta$ runs up to $k_0 n_{max}$ of the cell. `guided` is the sum of the shares
 $s\,i\pi\,w_\beta R$ over the poles, and `guided_modes` lists them per pole. On the slab below,
 these steps make the run about 4.5 times as expensive as the plain scan.
 
+**Surface plasmons** (`guided="auto"` is on for a cell with a metal, $\mathrm{Re}\,\varepsilon < 0$).
+A metal surface carries a plasmon, a pole that its loss moves off the real $k_x$ axis by a
+fraction of a percent of the window. The pole is no singularity of the path, but its peak is too
+sharp for the rule. Near the $\beta$ where the pair of poles meets at $k_x = 0$ or $\pi/P$, the
+pole moves further off the axis, as $1/q$. Three additions handle it:
+
+- **Lossy poles in $k_x$.** Poles up to $5\cdot10^{-2}$ of the window off the axis get a
+  bump. Off the axis, more than $2\cdot10^{-3}$ of the window, the bump turns away from the
+  pole, so it never crosses it; there the residue rule and the position agree. Such a pole
+  counts only with a residue of at least $10^{-2}$ of the slice scale (window times the median
+  of the trace). The fit also approximates the branch cuts of the light lines by weak poles off
+  the axis, with $10^{-3}$ or less; the plasmon of silver has several $10^{-2}$.
+- **Lossy pinches in $\beta$.** At the meeting point $\beta_r + i\delta$ of a lossy pair, the
+  $\beta$ integrand has a peak of width $\delta$. On silver at 633 nm, $\delta \approx
+  3\cdot10^{-3}k_0$: the $\beta$ rule with a break at $\beta_r$ alone was 1 % off, the
+  imprecise breaks of a coarse pre-pass 2.8 %. The pre-pass now fits on $[0, 3k_0n]$ (the
+  near field up to an explicit `beta_max` holds no modes), refits every candidate on 12
+  samples around it and returns the pinch complex. The $\beta$ panels are graded geometrically
+  towards $\beta_r$ ($\delta, 2\delta, 4\delta, \ldots$ up to $k_0/4$, 4 points each). With
+  exact slice values this rule is right to $10^{-5}$.
+- **The near field.** Beyond the last break every medium is evanescent and the integrand decays
+  like $e^{-2\beta d}$, with $d$ the distance of the dipole from the metal. Panels of width
+  $k_0 \max n$ resolve an explicit `beta_max`. Quenching at 80 nm above silver needs
+  $\beta_{max} \approx 12k_0$.
+
+The scan logic was checked on the analytic (Airy) spectrum in place of the cell problems. A
+dipole in a dielectric of $n = 1.5$, 80 nm above silver, matches the Sommerfeld integral to
+$1.4\cdot10^{-4}$. A dipole in air above a 50 nm silver film on glass, whose plasmon lies 3 %
+from the light line, matches to $2\cdot10^{-3}$. The FEM slices of the film agree with the Airy
+spectrum to $6\cdot10^{-4}$ at $p = 4$.
+
 A collection aperture of numerical aperture NA above the sample is the same integral restricted
 to $\theta \le \arcsin(\mathrm{NA}/n)$ (`emission_cone`): $P_{NA} = \mathrm{Re}\,p^H R_{NA}\,p$,
 and $P_{NA}/P_{em}$ the extraction efficiency into it. The cost of a run is known before it
@@ -1625,6 +1656,9 @@ Verified by `python/tests/test_dipole_emission.py`:
   guided-pole sides on a synthetic power matrix.
 - One $\beta$ slice above a perfect mirror, as the ratio to the free array, against the
   image-dipole spectrum ($r_s = -1$, $r_p = +1$) to $10^{-4}$.
+- The graded $\beta$ panels on a Lorentzian of width $3\cdot10^{-3}k$ ($4\cdot10^{-5}$;
+  32 % with a break alone), the bumps of lossy poles away from them and the dropped weak
+  ones, and the complex pinch from the pre-pass ($10^{-6}k_0$).
 
 The full scans are long local runs (`benchmarks/m17_dipole_scan.py`, record in
 `benchmarks/results/`):

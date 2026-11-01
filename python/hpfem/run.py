@@ -106,7 +106,7 @@ Gaussian dipole in the cell (periodic in x, invariant in z) over a wavelength sw
      "emitter": {"position": [0, 160], "sigma": 8, "moment": "isotropic", "stage": "B",
                  "wavelength": {"start": 600, "stop": 700, "count": 3},
                  "scan": {"nodes": 6, "kx_nodes": 4, "depth": 0.5, "angle_nodes": [8, 16],
-                          "symmetric": false},
+                          "symmetric": false, "workers": 1},
                  "aperture": [0.5], "calibrate": true, "dry_run": false}}
 
 ``moment``: ``"isotropic"`` (the mean of the three orientations), ``"x"``, ``"y"``, ``"z"``
@@ -114,7 +114,8 @@ Gaussian dipole in the cell (periodic in x, invariant in z) over a wavelength sw
 ``[px, py, pz]`` [A m]. ``stage``: ``"A"`` — the Bloch array at one ``kx_over_k0``,
 ``beta_over_k0`` (:func:`hpfem.grating.emit`, one solve per orientation); ``"B"`` — the single
 dipole by array scanning (:func:`hpfem.grating.dipole_emission` with the ``scan`` options and
-``beta_max_over_k0``): F_P, the fractions up / down / nonradiated of the emitted power and,
+``beta_max_over_k0``; ``scan.workers`` solves the cell problems in that many threads): F_P, the
+fractions up / down / nonradiated of the emitted power and,
 per numerical ``aperture``, the power collected above (:func:`hpfem.grating.emission_cone`,
 ``aperture_side`` ``"up"`` or ``"down"``); ``"C"`` — dP/dΩ on the grid ``directions``
 (``theta_deg``, ``phi_deg``, ``sides``; :func:`hpfem.grating.emission_pattern`) with the power
@@ -750,7 +751,8 @@ def _run_emitter(job, spec, wavelengths, mesh, material_specs, unit, order, pml,
     scan_kwargs = dict(nodes=int(scan.get("nodes", 6)), kx_nodes=int(scan.get("kx_nodes", 4)),
                        depth=float(scan.get("depth", 0.5)),
                        angle_nodes=tuple(int(v) for v in scan.get("angle_nodes", (16, 32))),
-                       symmetric=bool(scan.get("symmetric", False)))  # fmt: skip
+                       symmetric=bool(scan.get("symmetric", False)),
+                       workers=int(scan.get("workers", 1)))  # fmt: skip
     beta_max_over_k0 = scan.get("beta_max_over_k0")
     apertures = [float(v) for v in _listed(_get(spec, "aperture", [], where="emitter"))]
     aperture_side = str(_get(spec, "aperture_side", "up", where="emitter"))

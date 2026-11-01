@@ -257,6 +257,15 @@ integral):
 - **Result.** F_P is right to 4·10⁻⁴ for the three orientations, with 192 poles. The guided
   power from the residues equals the non-radiated rest to 3·10⁻⁴. The run takes 9276 cell
   problems, about 4.5 times the plain scan.
+- **Lossy poles** (M17 S3, plasmonic quenching). A surface plasmon is a pole off the axis by
+  its loss. The detection accepts poles up to 5·10⁻² of the window off the axis. Off the axis
+  (more than 2·10⁻³) the bump turns away from the pole, and only a pole with a residue of at
+  least 10⁻² of the slice scale counts; the fit puts weak poles along the branch cuts of the
+  light lines. Where the lossy pair meets at kx = 0 or π/P, the β integrand has a peak of width
+  δ = Im β_pinch. The pre-pass therefore refits each candidate locally and returns it complex,
+  and the β rule grades its panels towards Re β_pinch. On the analytic spectrum of a dipole
+  80 nm above silver, the scan matches the Sommerfeld integral to 1.4·10⁻⁴, against up to
+  2.8 % without these steps.
 
 ### 5. Cost and execution
 
@@ -264,6 +273,12 @@ integral):
   (`solve_many` on the kept factorisation), the symbolic analysis is reused across samples
   (`refactorize`), samples are independent (`hpfem.sweep.solve_sweep` over processes, each with a
   thread budget as ADR-0012 §7).
+- Implemented (M17 S3) as threads in one process rather than processes: the assembly, the
+  factorisation and the dipole responses release the GIL, and the cell (mesh, DoF maps,
+  materials) need not be pickled. `dipole_emission(workers=n)` runs the β pre-pass, the first
+  pass over all β nodes and the second pass of the guided bumps as one batch each, every thread
+  with `num_threads() / n` OpenMP threads. The symbolic analysis is not yet shared between
+  samples: the complex Bloch phase of §3a (`Constraints::set_test`) is not part of `ConicalSweep`.
 - Before the run, the front end reports the number of samples of the first quadrature level, the
   memory per factorisation (`estimate_memory`) and the extrapolated time; `cancel` is polled
   between samples, `progress` reports per sample.
