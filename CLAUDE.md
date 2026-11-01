@@ -351,8 +351,11 @@ resonator, each with a README and a regression test in `python/tests/test_exampl
 optical power on the same mesh), `physics::ThermoOptical` (temperature-dependent
 permittivity feedback loop with per-cell `MaterialMap` overrides), `hpfem.pv` (carrier
 generation profiles for device solvers) and the `solar_cell_texture` example;
-`docs/theory/multiphysics.md`. All roadmap milestones M0-M9 are done; what remains is the
-backlog (dual formulation, band structures, time domain, GPU assembly, MPI).
+`docs/theory/multiphysics.md`. Done from the backlog as well: the dual H-formulation with
+guaranteed (Prager–Synge) error bounds (`adaptivity::dual_solution`, `hypercircle_estimate`),
+the Floquet–Bloch band-structure solver (`physics::BandStructure`), the time-domain solver
+(`physics::TimeDomain`, Newmark-β) and the cuDSS GPU direct solver (ADR-0008; GPU assembly
+deferred).
 **M10 (validation against the literature)** is complete: rib waveguide (Vassallo 1997),
 metallic lamellar grating (Granet & Guizal 1996), Mie sphere (Bohren & Huffman, with
 `physics::mie_sphere` and `mesh::box_with_ball`) and the slit–groove problem in silver
@@ -362,6 +365,9 @@ is computed under a documented permittivity assumption because the source does n
 ε (`examples/gold_dimer`, `docs/validation.md` G). Results, deviations and the honest
 assessment of each are in `docs/validation.md`, the long local runs (ctest label
 `validation-long`) in `benchmarks/results/`.
+**M11 (axisymmetric 2.5D solver, ADR-0010)**, **M13 (conical incidence and the E_z
+polarisation, `physics::ConicalScattering`)** and **M14 (accuracy infrastructure for oblique
+incidence and gratings)** are complete.
 **M15 (features requested by the GUI work)** is complete: hp-adaptivity for the conical
 solver with residual and goal-oriented estimators and the non-matching Bloch coupling
 (F1, F16), `hpfem.grating.solve` / `validate` with the unit-cell mesher, diagnostics,
@@ -372,8 +378,14 @@ absorption, H field and sweep acceleration (F3, F4, F8, F12, gpu agent) and the 
 workflow with `hpfem-gui` (F15). **M12** is complete except the full ring in 3D: material and
 shape sensitivities by the adjoint solve (ADR-0011) and the 3D directional coupler with modal
 ports validated against coupled-mode theory on the cuDSS backend (`docs/validation.md` F).
-Open: the full ring resonator in 3D (backlog, beyond the GPU memory at useful accuracy) and
-the optional MPI item.
+**M16 (optimisation, calibration, UQ, `hpfem.opt`)** is complete except the remaining
+validation studies of S8 and the study view in `hpfem-gui` (S9b). **M17 (dipole emitters in
+periodic structures, ADR-0013)**: phased array, reciprocity and the job-runner task are done;
+the array scanning `grating.dipole_emission` (S3) lacks only the FEM validation of the
+plasmonic film against the layered Sommerfeld integral (a long local run, about 18 h).
+**M18 (layered background for the axisymmetric solver, ADR-0014)** is complete.
+Open: the items above, the full ring resonator in 3D (backlog, beyond the GPU memory at useful
+accuracy) and the optional MPI item.
 See `docs/roadmap.md`.
 
 ## 13. Parallel agents on one machine

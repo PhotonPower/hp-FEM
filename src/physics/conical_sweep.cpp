@@ -141,11 +141,14 @@ ConicalSweep::Rows ConicalSweep::reduction_rows(const ConicalScattering& problem
   for (Index f = 0; f < n_free; ++f) {
     auto& row = rows[as_size(f)];
     if (constraints && constraints->is_constrained(f)) {
-      for (const auto& t : constraints->terms(f)) {
-        row.push_back({constraints->reduced_index(t.master), t.coefficient});
+      const auto terms = constraints->terms(f);
+      for (std::size_t k = 0; k < terms.size(); ++k) {
+        row.push_back({constraints->reduced_index(terms[k].master), terms[k].coefficient,
+                       constraints->test_coefficient(f, k)});
       }
     } else {
-      row.push_back({constraints ? constraints->reduced_index(f) : f, Complex{1.0, 0.0}});
+      row.push_back(
+          {constraints ? constraints->reduced_index(f) : f, Complex{1.0, 0.0}, Complex{1.0, 0.0}});
     }
   }
   return rows;
@@ -231,10 +234,29 @@ void ConicalSweep::build_cache(const ConicalScattering& problem, const Rows& row
              cache_.reduced.nonZeros(), cache_.targets.size());
 }
 
-ConicalSolution ConicalSweep::finish(const ConicalScattering& problem, const Vector& reduced,
-                                     const ConicalScatteringSetup& setup) {
-  const auto& free = problem.free_dofs();
-  const Vector on_free = problem.constraints() ? problem.constraints()->expand(reduced) : reduced;
+Vector ConicalSweep::reduce_load(const Vector& on_free) const {
+  Vector out = Vector::Zero(solver_->size());
+  for (std::size_t f = 0; f < rows_.size(); ++f) {
+    const Complex value = on_free(static_cast<Index>(f));
+    if (value == Complex{0.0, 0.0}) continue;
+    for (const auto& a : rows_[f]) out(a.master) += std::conj(a.test) * value;
+  }
+  return out;
+}
+
+Vector ConicalSweep::expand(const Vector& reduced) const {
+  Vector out(static_cast<Index>(rows_.size()));
+  for (std::size_t f = 0; f < rows_.size(); ++f) {
+    Complex value{0.0, 0.0};
+    for (const auto& b : rows_[f]) value += b.trial * reduced(b.master);
+    out(static_cast<Index>(f)) = value;
+  }
+  return out;
+}
+
+ConicalSolution ConicalSweep::finish(const Vector& reduced, const ConicalScatteringSetup& setup) {
+  const auto& free = point_->free_dofs();
+  const Vector on_free = expand(reduced);
   const Index n_e = transverse_->num_dofs();
   Vector full = Vector::Zero(n_e + longitudinal_->num_dofs());
   for (Index j = 0; j < on_free.size(); ++j) full(free[as_size(j)]) = on_free(j);
@@ -246,8 +268,64 @@ ConicalSolution ConicalSweep::finish(const ConicalScattering& problem, const Vec
   return out;
 }
 
-ConicalSolution ConicalSweep::solve(const ConicalScatteringSetup& setup) {
-  const ConicalScattering problem(*transverse_, *longitudinal_, setup);
+assembly::ConicalSystem ConicalSweep::pml_system(const ConicalScattering& problem,
+                                                 const ConicalScatteringSetup& setup) {
+  const auto& mesh = transverse_->mesh();
+  std::vector<Real> key{setup.omega, setup.pml->k0(),
+                        static_cast<Real>(setup.extra_quadrature_order),
+                        static_cast<Real>(setup.pml_extra_quadrature_order)};
+  for (std::size_t side = 0; side < setup.pml->thickness().size(); ++side) {
+    key.push_back(setup.pml->sigma_max(side));
+  }
+  for (const Index c : pml_cells_) {
+    const materials::Material& m = setup.materials.of_cell(mesh, c);
+    key.insert(key.end(), {m.eps_r.real(), m.eps_r.imag(), m.mu_r.real(), m.mu_r.imag()});
+  }
+  const auto form = [&problem](Index c) {
+    assembly::ConicalForm f = problem.form_of_cell(c);
+    f.source = {};
+    return f;
+  };
+  const int extra = setup.extra_quadrature_order;
+  if (!(pml_parts_ && pml_parts_->key == key) && key != last_pml_key_) {
+    // a new stretch: assemble at this beta (a frequency sweep changes the stretch every point;
+    // the parts pay off only when the next point keeps it)
+    last_pml_key_ = std::move(key);
+    return assembly::assemble_conical(*transverse_, *longitudinal_, setup.beta, form, extra,
+                                      pml_cells_);
+  }
+  if (!pml_parts_ || pml_parts_->key != key) {
+    // the second point with this stretch: S(beta) of the PML cells at beta = 0, +b, -b, split
+    // as for the bulk cells
+    const Real b = beta_scale_;
+    PmlParts parts;
+    auto at_zero =
+        assembly::assemble_conical(*transverse_, *longitudinal_, 0.0, form, extra, pml_cells_);
+    const SparseMatrix plus =
+        assembly::assemble_conical(*transverse_, *longitudinal_, b, form, extra, pml_cells_)
+            .stiffness;
+    const SparseMatrix minus =
+        assembly::assemble_conical(*transverse_, *longitudinal_, -b, form, extra, pml_cells_)
+            .stiffness;
+    parts.s0 = std::move(at_zero.stiffness);
+    parts.mass = std::move(at_zero.mass);
+    parts.s1 = 0.5 * (plus - minus);
+    parts.s2 = 0.5 * (plus + minus) - parts.s0;
+    parts.key = std::move(key);
+    pml_parts_ = std::move(parts);
+    log().debug("ConicalSweep: PML parts assembled for omega = {:.6g}", setup.omega);
+  }
+  const Real t = setup.beta / beta_scale_;
+  assembly::ConicalSystem out;
+  out.stiffness = pml_parts_->s0 + t * pml_parts_->s1 + (t * t) * pml_parts_->s2;
+  out.stiffness.makeCompressed();
+  out.mass = pml_parts_->mass;
+  return out;
+}
+
+Vector ConicalSweep::factor_point(const ConicalScatteringSetup& setup, bool assemble_load) {
+  auto problem_ptr = std::make_unique<ConicalScattering>(*transverse_, *longitudinal_, setup);
+  const ConicalScattering& problem = *problem_ptr;
   if (problem.free_dofs().size() != base_free_) {
     throw InvalidArgument(
         fmt::format("ConicalSweep: the point has {} free DoFs, the base {} (PEC tags or maps "
@@ -262,16 +340,14 @@ ConicalSolution ConicalSweep::solve(const ConicalScatteringSetup& setup) {
   auto start = Clock::now();
   assembly::ConicalSystem pml;
   if (!pml_cells_.empty()) {
-    pml = assembly::assemble_conical(
-        *transverse_, *longitudinal_, setup.beta,
-        [&problem](Index c) { return problem.form_of_cell(c); }, extra, pml_cells_);
+    pml = pml_system(problem, setup);
   } else {
     const Index n = transverse_->num_dofs() + longitudinal_->num_dofs();
     pml.stiffness.resize(n, n);
     pml.mass.resize(n, n);
   }
   Vector rhs_full = Vector::Zero(pml.stiffness.rows());
-  if (!source_cells_.empty()) {
+  if (assemble_load && !source_cells_.empty()) {
     rhs_full = assembly::assemble_conical(
                    *transverse_, *longitudinal_, setup.beta,
                    [&problem](Index c) {
@@ -284,12 +360,16 @@ ConicalSolution ConicalSweep::solve(const ConicalScatteringSetup& setup) {
                    .rhs;
   }
   timings_.assemble += seconds_since(start);
-  const Rows rows = reduction_rows(problem);
+  const auto& free = problem.free_dofs();
+  Vector rhs_free(static_cast<Index>(free.size()));
+  for (std::size_t f = 0; f < free.size(); ++f) rhs_free(static_cast<Index>(f)) = rhs_full(free[f]);
+  rows_ = reduction_rows(problem);
+  point_ = std::move(problem_ptr);
   // this point's PML structure against the cache (the term counts of the reduction rows
   // are fixed by the periodic pairs and the mesh, which every point keeps)
   start = Clock::now();
   const SparseMatrix pml_point = pml.stiffness - (k0 * k0) * pml.mass;
-  bool use_cache =
+  const bool use_cache =
       cache_.valid &&
       static_cast<std::size_t>(pml_point.outerSize() + 1) == cache_.pml_outer.size() &&
       static_cast<std::size_t>(pml_point.nonZeros()) == cache_.pml_inner.size() &&
@@ -305,18 +385,13 @@ ConicalSolution ConicalSweep::solve(const ConicalScatteringSetup& setup) {
     a_full += pml_point;
     timings_.combine += seconds_since(start);
     start = Clock::now();
-    const auto& free = problem.free_dofs();
     SparseMatrix a = assembly::extract(a_full, free, free);
     a.makeCompressed();
-    Vector rhs(static_cast<Index>(free.size()));
-    for (Index j = 0; j < rhs.size(); ++j) rhs(j) = rhs_full(free[as_size(j)]);
     if (problem.constraints()) {
-      auto reduced_system = problem.constraints()->reduce(a, rhs);
-      a = std::move(reduced_system.first);
-      rhs = std::move(reduced_system.second);
+      a = problem.constraints()->reduce(a, Vector::Zero(a.rows())).first;
     }
     timings_.reduce += seconds_since(start);
-    build_cache(problem, rows, pml);
+    build_cache(problem, rows_, pml);
     start = Clock::now();
     if (factorised_) {
       solver_->refactorize(a);
@@ -325,13 +400,10 @@ ConicalSolution ConicalSweep::solve(const ConicalScatteringSetup& setup) {
       factorised_ = true;
     }
     timings_.factorize += seconds_since(start);
-    start = Clock::now();
-    ConicalSolution out = finish(problem, solver_->solve(rhs), setup);
-    timings_.solve += seconds_since(start);
     ++timings_.points;
-    log().info("ConicalSweep: point {} solved on the generic path (k0 = {:.6g}, beta = {:.6g})",
+    log().info("ConicalSweep: point {} factorised on the generic path (k0 = {:.6g}, beta = {:.6g})",
                timings_.points, k0, setup.beta);
-    return out;
+    return assemble_load ? reduce_load(rhs_free) : Vector{};
   }
   // the cached path: values only
   Vector values = cache_.parts[0] + t * cache_.parts[1] + (t * t) * cache_.parts[2];
@@ -348,41 +420,79 @@ ConicalSolution ConicalSweep::solve(const ConicalScatteringSetup& setup) {
   Complex* out_values = reduced.valuePtr();
   std::fill(out_values, out_values + reduced.nonZeros(), Complex{0.0, 0.0});
   const SparseMatrix& u = cache_.pattern;
+  // Q^H A P: the test coefficients on the left (conjugated), the trial ones on the right
   for (Index i = 0; i < u.outerSize(); ++i) {
     const Index fi = cache_.free_index[as_size(i)];
     if (fi < 0) continue;
-    const auto& ri = rows[as_size(fi)];
+    const auto& ri = rows_[as_size(fi)];
     for (Index k = u.outerIndexPtr()[i]; k < u.outerIndexPtr()[i + 1]; ++k) {
       const Index fj = cache_.free_index[as_size(u.innerIndexPtr()[k])];
       if (fj < 0) continue;
-      const auto& rj = rows[as_size(fj)];
+      const auto& rj = rows_[as_size(fj)];
       Index target = cache_.target_offsets[as_size(k)];
       const Complex v = values(k);
       for (const auto& a : ri) {
-        const Complex left = std::conj(a.coefficient) * v;
+        const Complex left = std::conj(a.test) * v;
         for (const auto& b : rj) {
-          out_values[cache_.targets[as_size(target++)]] += left * b.coefficient;
+          out_values[cache_.targets[as_size(target++)]] += left * b.trial;
         }
       }
     }
-  }
-  Vector rhs = Vector::Zero(reduced.rows());
-  const auto& free = problem.free_dofs();
-  for (std::size_t f = 0; f < free.size(); ++f) {
-    const Complex value = rhs_full(free[f]);
-    for (const auto& a : rows[f]) rhs(a.master) += std::conj(a.coefficient) * value;
   }
   timings_.reduce += seconds_since(start);
   start = Clock::now();
   solver_->refactorize(reduced);
   timings_.factorize += seconds_since(start);
-  start = Clock::now();
-  ConicalSolution out = finish(problem, solver_->solve(rhs), setup);
-  timings_.solve += seconds_since(start);
   ++timings_.points;
-  log().info("ConicalSweep: point {} solved (k0 = {:.6g}, beta = {:.6g}, {} unknowns)",
+  log().info("ConicalSweep: point {} factorised (k0 = {:.6g}, beta = {:.6g}, {} unknowns)",
              timings_.points, k0, setup.beta, reduced.rows());
+  return assemble_load ? reduce_load(rhs_free) : Vector{};
+}
+
+ConicalSolution ConicalSweep::solve(const ConicalScatteringSetup& setup) {
+  const Vector rhs = factor_point(setup, true);
+  const auto start = Clock::now();
+  ConicalSolution out = finish(solver_->solve(rhs), setup);
+  timings_.solve += seconds_since(start);
   return out;
+}
+
+void ConicalSweep::factorize(const ConicalScatteringSetup& setup) {
+  static_cast<void>(factor_point(setup, false));
+}
+
+Matrix ConicalSweep::solve_loads(const Matrix& loads) {
+  if (!point_) throw InvalidArgument("ConicalSweep::solve_loads: no point solved or factorised");
+  const Index n_e = transverse_->num_dofs();
+  const Index n = n_e + longitudinal_->num_dofs();
+  if (loads.rows() != n) {
+    throw InvalidArgument(
+        fmt::format("ConicalSweep::solve_loads: loads have {} rows, the block system {} DoFs",
+                    loads.rows(), n));
+  }
+  const auto start = Clock::now();
+  const auto& free = point_->free_dofs();
+  Matrix reduced(solver_->size(), loads.cols());
+  Vector on_free(static_cast<Index>(free.size()));
+  for (Index col = 0; col < loads.cols(); ++col) {
+    for (std::size_t f = 0; f < free.size(); ++f) {
+      on_free(static_cast<Index>(f)) = loads(free[f], col);
+    }
+    reduced.col(col) = reduce_load(on_free);
+  }
+  const Matrix x = solver_->solve_many(reduced);
+  Matrix out = Matrix::Zero(n, loads.cols());
+  for (Index col = 0; col < loads.cols(); ++col) {
+    const Vector values = expand(x.col(col));
+    for (Index j = 0; j < values.size(); ++j) out(free[as_size(j)], col) = values(j);
+  }
+  timings_.solve += seconds_since(start);
+  return out;
+}
+
+const ConicalScattering& ConicalSweep::point() const {
+  if (!point_) throw InvalidArgument("ConicalSweep::point: no point solved or factorised");
+  return *point_;
 }
 
 }  // namespace hpfem::physics

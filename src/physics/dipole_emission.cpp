@@ -71,6 +71,52 @@ Real conical_source_power(const ConicalScattering& problem, const ConicalSolutio
   return power;
 }
 
+namespace {
+
+/// Full-size loads (one column per row of `moments`) of the Gaussian dipoles of a cell problem,
+/// assembled on the cells within 7σ of the position, where the Gaussian lives.
+Matrix dipole_loads(const ConicalScattering& problem, const Point<2>& position, Real sigma,
+                    const Matrix& moments) {
+  const auto& nd = problem.transverse_dofs();
+  const auto& h1 = problem.longitudinal_dofs();
+  const auto& mesh = nd.mesh();
+  const auto& setup = problem.setup();
+  std::vector<Index> cells;
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    const auto map = mesh::affine_map(mesh, c);
+    if ((map.centroid() - position).norm() <= 7.0 * sigma + map.h) cells.push_back(c);
+  }
+  Matrix loads(nd.num_dofs() + h1.num_dofs(), moments.rows());
+  for (Index k = 0; k < moments.rows(); ++k) {
+    const ConicalVector moment = moments.row(k).transpose();
+    const ConicalField source =
+        conical_gaussian_dipole(position, moment, sigma, setup.omega, setup.beta);
+    loads.col(k) = assembly::assemble_conical(
+                       nd, h1, setup.beta,
+                       [&problem, &source](Index c) {
+                         assembly::ConicalForm form = problem.form_of_cell(c);
+                         form.source = source;
+                         return form;
+                       },
+                       setup.extra_quadrature_order, cells)
+                       .rhs;
+  }
+  return loads;
+}
+
+/// The total-field solution of a cell problem from its full block vector.
+ConicalSolution response_of(const ConicalScattering& problem, const Vector& x) {
+  const Index n_e = problem.transverse_dofs().num_dofs();
+  ConicalSolution response;
+  response.beta = problem.setup().beta;
+  response.scattered = false;
+  response.transverse = x.head(n_e);
+  response.longitudinal = x.tail(problem.longitudinal_dofs().num_dofs());
+  return response;
+}
+
+}  // namespace
+
 std::vector<ConicalSolution> conical_dipole_responses(const ConicalScattering& problem,
                                                       const ConicalSolution& solution,
                                                       const Point<2>& position, Real sigma,
@@ -84,38 +130,11 @@ std::vector<ConicalSolution> conical_dipole_responses(const ConicalScattering& p
   if (moments.cols() != 3) {
     throw InvalidArgument("conical_dipole_responses: moments must be k x 3 (px, py, pz)");
   }
-  const auto& nd = problem.transverse_dofs();
-  const auto& h1 = problem.longitudinal_dofs();
-  const auto& mesh = nd.mesh();
-  const auto& setup = problem.setup();
-  // the cells under the Gaussian (7 sigma), where the load lives
-  std::vector<Index> cells;
-  for (Index c = 0; c < mesh.num_cells(); ++c) {
-    const auto map = mesh::affine_map(mesh, c);
-    if ((map.centroid() - position).norm() <= 7.0 * sigma + map.h) cells.push_back(c);
-  }
-  const Index n_e = nd.num_dofs();
+  const Matrix loads = dipole_loads(problem, position, sigma, moments);
   std::vector<ConicalSolution> out;
   out.reserve(static_cast<std::size_t>(moments.rows()));
   for (Index k = 0; k < moments.rows(); ++k) {
-    const ConicalVector moment = moments.row(k).transpose();
-    const ConicalField source =
-        conical_gaussian_dipole(position, moment, sigma, setup.omega, setup.beta);
-    const auto system = assembly::assemble_conical(
-        nd, h1, setup.beta,
-        [&problem, &source](Index c) {
-          assembly::ConicalForm form = problem.form_of_cell(c);
-          form.source = source;
-          return form;
-        },
-        setup.extra_quadrature_order, cells);
-    const Vector x = solution.factorisation->solve(system.rhs);
-    ConicalSolution response;
-    response.beta = setup.beta;
-    response.scattered = false;
-    response.transverse = x.head(n_e);
-    response.longitudinal = x.tail(h1.num_dofs());
-    out.push_back(std::move(response));
+    out.push_back(response_of(problem, solution.factorisation->solve(loads.col(k))));
   }
   return out;
 }
@@ -162,6 +181,23 @@ Eigen::Matrix3cd conical_dipole_power_matrix(const ConicalScattering& problem,
     }
   }
   return a;
+}
+
+Eigen::Matrix3cd conical_sweep_dipole_power_matrix(ConicalSweep& sweep,
+                                                   const ConicalScatteringSetup& setup,
+                                                   const Point<2>& position, Real sigma,
+                                                   int extra_order) {
+  if (!(sigma > 0)) {
+    throw InvalidArgument("conical_sweep_dipole_power_matrix: sigma must be positive");
+  }
+  sweep.factorize(setup);
+  const ConicalScattering& problem = sweep.point();
+  const Matrix x =
+      sweep.solve_loads(dipole_loads(problem, position, sigma, Matrix::Identity(3, 3)));
+  std::vector<ConicalSolution> responses;
+  responses.reserve(3);
+  for (Index j = 0; j < 3; ++j) responses.push_back(response_of(problem, x.col(j)));
+  return conical_dipole_power_matrix(problem, responses, position, sigma, extra_order);
 }
 
 namespace {

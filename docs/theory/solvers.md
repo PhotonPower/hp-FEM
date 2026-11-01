@@ -431,6 +431,22 @@ field and the Bloch phases; mesh, orders, PEC tags, periodic pairs, PML geometry
 cell-to-material grouping stay. Results agree with `ConicalScattering::solve` to rounding
 amplified by the conditioning (measured $10^{-13}$ to $5\cdot10^{-9}$).
 
+**Complex Bloch phases and the array scanning (M17, ADR-0013 §5).** For a phase off the unit
+circle (a complex $k_x$ on the contour of the array scanning) the reduction uses the test space
+of the constraints, $Q^H A P$ with the test phases $1/\bar\lambda$, as `ConicalScattering`
+does: every term of the scatter map carries its trial and its test coefficient, and the
+pattern is the same as for $P^H A P$. When consecutive points keep the stretch (ω, the PML's
+$k_0$ and $\sigma_{max}$, the PML cells' materials), the PML cells are split like the bulk,
+$S_{pml}(\beta) = S_0 + \beta S_1 + \beta^2 S_2$, from the second such point on; a frequency
+sweep assembles them per point as before. `ConicalSweep::factorize(setup)` factorises a point
+without its load and `solve_loads(loads)` solves several full-size loads on it (one multi-rhs
+solve); `conical_sweep_dipole_power_matrix` builds the 3 × 3 power matrix of a Gaussian dipole
+from the loads of the three unit moments on the cells near the emitter.
+`grating.dipole_emission` runs its samples on one sweep per thread (`sweep=True`, the default).
+On a homogeneous cell with the SparseLU backend a sample took 0.77 s instead of 1.74 s at
+p = 3 (18 k DoFs) and 2.7 s instead of 3.7 s at p = 4 (32 k DoFs, where the numerical
+factorisation is 2.1 s of it).
+
 Two changes made along the way help every conical solve: `assembly::assemble_conical` runs
 in parallel over the cells (per-thread triplet buffers) and takes an optional cell subset,
 and `fespace::Constraints::reduce` computes $P^H A P$ in one scatter pass over the nonzeros

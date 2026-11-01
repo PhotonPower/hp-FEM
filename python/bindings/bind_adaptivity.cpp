@@ -65,15 +65,19 @@ void bind_adaptivity_dim(py::module_& m) {
   m.def(
       "dual_solution",
       [](const Dual& dual_dofs, const Factory& form_of_cell, Real k_squared,
-         const std::vector<Index>& essential_facets, int extra_order) {
+         const std::vector<Index>& essential_facets,
+         const std::vector<assembly::PeriodicPair<Dim>>& periodic, int extra_order) {
         return adaptivity::dual_solution<Dim>(dual_dofs, form_of_cell, k_squared, essential_facets,
-                                              extra_order);
+                                              periodic, extra_order);
       },
       py::arg("dual_dofs"), py::arg("form_of_cell"), py::arg("k_squared"),
-      py::arg("essential_facets") = std::vector<Index>{}, py::arg("extra_order") = 2, Release(),
+      py::arg("essential_facets") = std::vector<Index>{},
+      py::arg("periodic") = std::vector<assembly::PeriodicPair<Dim>>{}, py::arg("extra_order") = 2,
+      Release(),
       "Galerkin solution of the dual (magnetic) problem on the H1 map (2D) or Nedelec map (3D) "
       "for the per-cell primal forms and k^2; essential_facets: facets where the primal "
-      "problem is PMC");
+      "problem is PMC; hanging nodes are constrained, periodic: the Bloch pairs of the primal "
+      "problem (full coefficients returned)");
   m.def(
       "hypercircle_estimate",
       [](const ND& dofs, const Vector& e, const Dual& dual_dofs, const Vector& sigma,

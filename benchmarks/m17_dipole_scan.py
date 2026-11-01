@@ -28,9 +28,11 @@ Every case runs for ``--nodes`` β points per panel (default 6 and 8) with ``--k
 (default 4) at ``--order`` (default 3). The record
 ``benchmarks/results/<date>-validation-m17-scan.json`` is rewritten after every run and keyed
 by case/order/nodes, so a rerun skips what is done. Runtime about 15 min (nodes 4) to 40 min
-(nodes 6) per case on 16 cores.
+(nodes 6) per case on 16 cores; ``silver`` is far larger (13452 samples at p = 4, nodes 6:
+about 18 h on 12 cores with ``--workers 4`` and ``OMP_NUM_THREADS=3``, 4.9 s per sample).
 
     python benchmarks/m17_dipole_scan.py [--cases homogeneous glass] [--nodes 4 6] [--order 3]
+        [--workers 4]
 """
 
 import argparse
@@ -294,7 +296,7 @@ def reference(name):
     return {"x": (f_par, up_par), "y": (f_perp, up_perp), "z": (f_par, up_par)}
 
 
-def run(name, order, nodes, kx_nodes):
+def run(name, order, nodes, kx_nodes, workers=1):
     bottom, pml = "pml", {"top": UM, "bottom": UM}
     omega = units.angular_frequency(wavelength=LAMBDA)
     extra = {}
@@ -321,7 +323,7 @@ def run(name, order, nodes, kx_nodes):
     r = grating.dipole_emission(
         mesh, materials, stack, {"position": (0.0, height), "sigma": sigma}, omega,
         nodes=nodes, kx_nodes=kx_nodes, order=order, symmetric=True, angle_nodes=(8, 16),
-        pml=pml, bottom=bottom, **extra,
+        pml=pml, bottom=bottom, workers=workers, **extra,
         progress=lambda i, n: print(f"\r  {name} p={order} nodes={nodes}: {i + 1}/{n}", end="",
                                     flush=True),
     )  # fmt: skip
@@ -350,6 +352,7 @@ def main():
     parser.add_argument("--nodes", nargs="+", type=int, default=[6, 8])
     parser.add_argument("--kx-nodes", type=int, default=4)
     parser.add_argument("--order", type=int, default=3)
+    parser.add_argument("--workers", type=int, default=1)  # parallel samples (threads)
     parser.add_argument("--record", default=os.path.join(
         os.path.dirname(__file__), "results",
         f"{datetime.date.today().isoformat()}-validation-m17-scan.json"))  # fmt: skip
@@ -367,7 +370,7 @@ def main():
             if key in runs:
                 print(f"{key}: done")
                 continue
-            runs[key] = run(name, args.order, nodes, args.kx_nodes)
+            runs[key] = run(name, args.order, nodes, args.kx_nodes, args.workers)
             tmp = args.record + ".tmp"
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(record, f, indent=1)

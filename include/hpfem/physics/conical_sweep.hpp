@@ -11,8 +11,11 @@
 /// source cells (the load), a value-only constraint reduction through a precomputed scatter
 /// map onto the fixed reduced pattern, and a numerical refactorisation on the symbolic
 /// analysis of the first point (`solvers::LinearSolver::refactorize`). Results agree with
-/// `ConicalScattering::solve` to rounding. See docs/theory/solvers.md#parameter-sweeps.
+/// `ConicalScattering::solve` to rounding. Bloch phases off the unit circle (a complex k_x, the
+/// array scanning of ADR-0013) reduce with the test space of the constraints,
+/// @f$ Q^H A P @f$, as `ConicalScattering` does. See docs/theory/solvers.md#parameter-sweeps.
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "hpfem/assembly/conical_forms.hpp"
@@ -56,6 +59,25 @@ class ConicalSweep {
   ///         DoFs, groups), Error if the factorisation fails.
   [[nodiscard]] ConicalSolution solve(const ConicalScatteringSetup& setup);
 
+  /// Factorises the system of a point without assembling its load (the PML cells, the cached
+  /// parts, the reduction and the refactorisation of `solve`), for loads given afterwards by
+  /// `solve_loads`: the dipole responses of the array scanning, whose loads live on the few
+  /// cells around the emitter (`conical_sweep_dipole_power_matrix`).
+  /// @throws as `solve`.
+  void factorize(const ConicalScatteringSetup& setup);
+
+  /// Solutions of the last point (`solve` or `factorize`) for full-size loads over the block
+  /// DoFs (E_x, E_y | v; one load per column): reduced with the test space, one multi-rhs
+  /// solve, expanded with the trial space; entries of PEC DoFs are ignored, the solutions are
+  /// zero there.
+  /// @throws InvalidArgument before the first point or for a row count other than the number
+  ///         of block DoFs.
+  [[nodiscard]] Matrix solve_loads(const Matrix& loads);
+
+  /// The problem of the last point (its setup, DoF maps and constraints).
+  /// @throws InvalidArgument before the first point.
+  [[nodiscard]] const ConicalScattering& point() const;
+
   [[nodiscard]] const SweepTimings& timings() const noexcept { return timings_; }
   /// The solver after the first point (name, details).
   [[nodiscard]] const solvers::LinearSolver& solver() const noexcept { return *solver_; }
@@ -91,14 +113,34 @@ class ConicalSweep {
     std::vector<Index> targets;         ///< positions in reduced.valuePtr()
     bool valid = false;
   };
-  /// Terms of the reduction per free DoF: (reduced index, coefficient) of a free DoF is
-  /// itself with 1, of a slave its resolved masters.
-  using Rows = std::vector<std::vector<fespace::Constraints::Term>>;
+  /// A term of the reduction: the reduced index of a master with its coefficient in the trial
+  /// space P and in the test space Q (equal for Bloch phases on the unit circle).
+  struct RowTerm {
+    Index master;
+    Complex trial;
+    Complex test;
+  };
+  /// Terms of the reduction per free DoF: a free DoF is itself with 1, a slave its resolved
+  /// masters.
+  using Rows = std::vector<std::vector<RowTerm>>;
   [[nodiscard]] Rows reduction_rows(const ConicalScattering& problem) const;
   void build_cache(const ConicalScattering& problem, const Rows& rows,
                    const assembly::ConicalSystem& pml);
-  [[nodiscard]] ConicalSolution finish(const ConicalScattering& problem, const Vector& reduced,
-                                       const ConicalScatteringSetup& setup);
+  /// The PML cells' system at a point: @f$ S(\beta) = S_0 + \beta S_1 + \beta^2 S_2 @f$ and the
+  /// mass as for the bulk, assembled once per stretch (ω, the PML's k0 and σ_max, the
+  /// quadrature orders and the PML cells' materials as the key) from the second point that
+  /// keeps it — the array scanning keeps ω and changes β and the Bloch phase only; a frequency
+  /// sweep assembles the PML cells at each point's β as before.
+  [[nodiscard]] assembly::ConicalSystem pml_system(const ConicalScattering& problem,
+                                                   const ConicalScatteringSetup& setup);
+  /// Builds and factorises the point's system (`point_`, `rows_`); returns the reduced load
+  /// with `assemble_load`, an empty vector otherwise.
+  [[nodiscard]] Vector factor_point(const ConicalScatteringSetup& setup, bool assemble_load);
+  /// @f$ Q^H b @f$ of a load on the free DoFs.
+  [[nodiscard]] Vector reduce_load(const Vector& on_free) const;
+  /// @f$ P x @f$: the free-DoF values of a reduced solution.
+  [[nodiscard]] Vector expand(const Vector& reduced) const;
+  [[nodiscard]] ConicalSolution finish(const Vector& reduced, const ConicalScatteringSetup& setup);
 
   const fespace::NedelecDofMap<2>* transverse_;
   const fespace::DofMap<2>* longitudinal_;
@@ -113,6 +155,15 @@ class ConicalSweep {
   Cache cache_;
   std::unique_ptr<solvers::LinearSolver> solver_;
   bool factorised_ = false;
+  /// The affine parts of the PML cells for one stretch (`pml_system`).
+  struct PmlParts {
+    std::vector<Real> key;  ///< ω, k0, σ_max per side, quadrature orders, (ε, μ) per PML cell
+    SparseMatrix s0, s1, s2, mass;
+  };
+  std::optional<PmlParts> pml_parts_;
+  std::vector<Real> last_pml_key_;  ///< the stretch of the last point (parts from its repeat)
+  std::unique_ptr<ConicalScattering> point_;  ///< the problem of the last point
+  Rows rows_;                                 ///< its reduction rows
   SweepTimings timings_;
 };
 

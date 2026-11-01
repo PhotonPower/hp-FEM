@@ -558,6 +558,11 @@ solver; the anisotropic emitter scan comes last.
   H1 / Nédélec dual space, `hypercircle_estimate` with the Prager–Synge bound for the
   coercive problem; convergence test `hypercircle_bound`, Python `dual_solution` /
   `hypercircle_estimate`)
+- [x] hypercircle bound on constrained meshes and in the hp loop: `dual_solution` with the
+  hanging-node constraints and the Bloch pairs of the primal problem, the hypercircle indicators
+  as marker of the hp loop; convergence test `hypercircle_adaptive` (L-shape corner
+  singularity: the bound holds in every step, effectivity 1.02–1.29, exponential in N^(1/3)),
+  Python `dual_solution(..., periodic=...)` and `bloch_constraints` on the H1 map
 - [x] Floquet-Bloch band structure solver (`physics::BandStructure`: Bloch constraints with
   complex phases on the Nédélec and H1 spaces, gauged complex shift-invert Arnoldi,
   bands per wave vector and along Γ–X–M paths; convergence test on the empty lattice,

@@ -21,6 +21,7 @@
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/physics/conical_scattering.hpp"
 #include "hpfem/physics/conical_sweep.hpp"
+#include "hpfem/physics/dipole_emission.hpp"
 #include "hpfem/physics/layer_stack.hpp"
 #include "hpfem/pml/pml.hpp"
 
@@ -175,4 +176,59 @@ TEST_CASE("assemble_conical: cell subsets add up to the full assembly",
   REQUIRE_THROWS_AS(
       hpfem::assembly::assemble_conical(g.nd, g.h1, setup.beta, form, 2, std::vector<Index>{-1}),
       hpfem::InvalidArgument);
+}
+
+TEST_CASE("ConicalSweep with complex Bloch phases reproduces the dipole cell problems",
+          "[physics][conical][sweep][dipole]") {
+  // the array scanning of ADR-0013: a Gaussian dipole above the lossy ridge, samples at complex
+  // k_x (|phase| != 1, test space Q != P) and several beta; the first sample on the real axis
+  // builds the pattern cache, the others run through it with the test coefficients
+  const Grating g;
+  const Real wavelength = 0.6 * kUm;
+  const Real k0 = 2 * std::numbers::pi / wavelength;
+  const Point<2> position(0.25 * kUm, 0.15 * kUm);
+  const Real sigma = 0.02 * kUm;
+  const auto cell_setup = [&](Complex kx, Real beta) {
+    ConicalScatteringSetup s = g.setup(wavelength, 0.4, 0.3);
+    s.incident = {};
+    s.background.reset();
+    s.beta = beta;
+    s.current = hpfem::physics::conical_gaussian_dipole(
+        position, hpfem::physics::ConicalVector(1.0, 0.0, 0.0), sigma, s.omega, beta);
+    s.periodic[0].phase = std::exp(Complex{0.0, 1.0} * kx * kPeriod);
+    return s;
+  };
+  ConicalSweep sweep(g.nd, g.h1, cell_setup(Complex{0.3 * k0, 0.0}, 0.2 * k0));
+  const std::vector<std::pair<Complex, Real>> samples = {
+      {Complex{0.3 * k0, 0.0}, 0.2 * k0},
+      {Complex{0.5 * k0, 0.2 * k0}, 0.2 * k0},
+      {Complex{1.1 * k0, -0.15 * k0}, 0.7 * k0},
+      {Complex{-0.4 * k0, 0.05 * k0}, 1.3 * k0},
+  };
+  for (const auto& [kx, beta] : samples) {
+    INFO("kx / k0 = " << kx / k0 << ", beta / k0 = " << beta / k0);
+    auto setup = cell_setup(kx, beta);
+    setup.keep_factorisation = true;
+    const ConicalScattering problem(g.nd, g.h1, setup);
+    const auto solution = problem.solve();
+    const auto responses = hpfem::physics::conical_dipole_responses(
+        problem, solution, position, sigma, hpfem::Matrix::Identity(3, 3));
+    const Eigen::Matrix3cd direct =
+        hpfem::physics::conical_dipole_power_matrix(problem, responses, position, sigma);
+    const Eigen::Matrix3cd swept =
+        hpfem::physics::conical_sweep_dipole_power_matrix(sweep, setup, position, sigma);
+    REQUIRE(direct.norm() > 0);
+    REQUIRE((swept - direct).norm() < 1e-8 * direct.norm());
+    // the full solution of the swept point against the direct solve
+    const auto full = sweep.solve(setup);
+    const Real scale = std::hypot(solution.transverse.norm(), solution.longitudinal.norm());
+    REQUIRE((full.transverse - solution.transverse).norm() < 1e-7 * scale);
+    REQUIRE((full.longitudinal - solution.longitudinal).norm() < 1e-7 * scale);
+  }
+  REQUIRE(sweep.cached());
+  REQUIRE(sweep.point().beta() == samples.back().second);
+  REQUIRE_THROWS_AS(sweep.solve_loads(hpfem::Matrix::Zero(3, 1)), hpfem::InvalidArgument);
+  ConicalSweep fresh(g.nd, g.h1, cell_setup(Complex{0.3 * k0, 0.0}, 0.2 * k0));
+  REQUIRE_THROWS_AS(fresh.point(), hpfem::InvalidArgument);
+  REQUIRE_THROWS_AS(fresh.solve_loads(hpfem::Matrix::Zero(3, 1)), hpfem::InvalidArgument);
 }

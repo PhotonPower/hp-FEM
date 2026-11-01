@@ -3,9 +3,29 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
-- ADR-0015 (proposed) and roadmap milestone M19: optically anisotropic materials in substrates,
-  layers and structured parts (tensor `Material`, anisotropic layer stack with Jones / Mueller
-  output, conical solver with full tensors); documentation only, nothing implemented yet.
+- ADR-0015 (accepted) and roadmap milestone M19: optically anisotropic materials in substrates,
+  layers and structured parts (tensor `Material` with private scalar fields, anisotropic layer
+  stack on the ordered Schur form of the 4×4 system with Jones / Mueller output, conical solver
+  with full tensors and the loss of symmetry for an optic axis with a component along the lines);
+  documentation only, nothing implemented yet.
+- Hypercircle bound on adaptive and periodic meshes: `adaptivity::dual_solution` constrains the
+  hanging DoFs of the dual space and takes the Bloch pairs of the primal problem (`periodic`,
+  same phases), and returns the expanded coefficients. The guaranteed (Prager–Synge) bound of
+  the coercive problem thus holds on every mesh of an hp-adaptive loop and with Bloch-periodic
+  sides. New convergence test `hypercircle_adaptive`: hp-adaptivity on the hypercircle
+  indicators at the L-shape corner, the bound holds in all 20 steps with effectivity 1.02–1.29,
+  and the error falls exponentially in N^(1/3). Python: `dual_solution(..., periodic=pairs)`,
+  `bloch_constraints` on an H1 `DofMap`. **Breaking (C++):** the new `periodic` parameter of
+  `dual_solution` comes before `extra_order` and `backend`, and `essential_facets` now
+  defaults to empty.
+- `ConicalSweep` with complex Bloch phases (M17 S3, ADR-0013 §5): the cached reduction forms
+  Q^H A P with the test space of the constraints, so the array-scanning samples off the real kx
+  axis run on the sweep. `factorize(setup)` / `solve_loads(loads)` / `point` solve several
+  loads on a point, and `conical_sweep_dipole_power_matrix` gives the dipole power matrix on a
+  sweep. With a fixed stretch (ω, PML, PML materials) the PML cells are split affinely in β as
+  well, from the second point on. `grating.dipole_emission` / `emission_cost` run the samples on
+  one sweep per thread (`sweep=True`): 1.35–2.3 times faster per sample with SparseLU, the same
+  result to rounding. `Constraints::test_coefficient` is public.
 - Parallel samples in the single-dipole scan (M17 S3, ADR-0013 §5): `grating.dipole_emission(...,
   workers=n)` solves the cell problems in `n` threads, each with `num_threads() / n` OpenMP
   threads. The bindings release the GIL, so mesh and materials need not be pickled. The β

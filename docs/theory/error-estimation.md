@@ -254,6 +254,38 @@ cube with $E = (\sin\pi y\sin\pi z, \sin\pi z\sin\pi x, \sin\pi x\sin\pi y)$ the
 for $p = 1, 2$ on $3^3$ cells; a quadratic solution in $\mathrm{ND}_3$ with its dual in
 $P_3$ gives $\eta < 10^{-9}$.
 
+### Constrained meshes and the hp loop
+
+The argument above needs only that $E_h$ and $\sigma_h$ are *conforming* with the primal and
+dual essential conditions. On a one-irregular mesh (`mesh::AdaptiveMesh`) this means the
+hanging DoFs of both spaces follow their masters, and with Bloch-periodic sides both fields
+carry the Bloch phase: $\sigma = \mu^{-1}\nabla\times E - g$ commutes with the lattice
+translation, so the dual field has the *same* phases as the primal one, and the boundary terms
+of the periodic sides cancel in the integration by parts. `dual_solution` therefore constrains
+the hanging DoFs of the dual space (`assembly::hanging_constraints`) and takes the primal's
+`PeriodicPair`s; it reduces the dual system by $P^H A P$, imposes the dual essential condition
+on the free DoFs and returns the expanded coefficients. `hypercircle_estimate` works cell by
+cell on the expanded coefficients of both fields and needs no change. A dual field without the
+Bloch constraints is not admissible: it is not quasi-periodic, and its estimate is no bound.
+
+The indicators $\eta_K$ drive the hp loop like the residual indicators (Dörfler marking,
+hp decision by error prediction), with the difference that $\eta = (\sum_K \eta_K^2)^{1/2}$
+is a bound of the energy error on every mesh of the loop, without a constant.
+
+**Verification** (`tests/convergence/hypercircle_adaptive.cpp`,
+`tests/unit/adaptivity/test_hypercircle.cpp`): on the L-shaped domain with PEC walls, the
+coercive problem $\nabla\times\nabla\times E + E = f$ and
+$E = (\sin\pi y, \sin\pi x) + \nabla(\varphi b)$, $\varphi = r^{2/3}\sin(2\theta/3)$,
+$b = (1 - x^2)(1 - y^2)$ (the curl-free corner singularity $E \sim r^{-1/3}$, the strongest of
+the Maxwell corner fields, with a cut-off that makes the tangential trace vanish on the outer
+walls; the smooth part gives a non-trivial $\sigma$), the hp loop on the hypercircle
+indicators with the dual order $p + 1$ per cell (Dörfler 0.5) keeps the bound in all 20 steps
+with effectivity 1.02–1.29 and reaches an energy error of $6.9\cdot10^{-4}$ at 13 800 DoFs,
+exponentially in $N^{1/3}$ ($b = 0.37$). A quadratic solution on a mesh with hanging nodes
+gives $\eta < 10^{-9}$ (only the constrained dual solution is exact there), the bound holds
+with Bloch-periodic sides (phase $e^{0.7i}$) and hanging nodes at the same time (effectivity
+below 1.5 with the dual order $p + 1$) and with hanging nodes in 3D.
+
 ## Verification
 
 - Effectivity index $\theta = \eta / \|E - E_{hp}\|$ on problems with analytic
@@ -263,7 +295,8 @@ $P_3$ gives $\eta < 10^{-9}$.
 - The DWR estimate must track the true goal error (effectivity bounded) and goal-driven
   refinement must beat energy-driven refinement for the goal.
 - The hypercircle estimate must bound the energy error from above on every mesh of the
-  coercive test problem and converge at the rate of the error.
+  coercive test problem and converge at the rate of the error, also on the meshes with
+  hanging nodes of an hp-adaptive loop.
 
 ### Results (`tests/convergence/estimator_effectivity.cpp`, `tests/unit/adaptivity/`)
 
