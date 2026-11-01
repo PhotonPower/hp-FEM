@@ -520,6 +520,55 @@ particles on substrates, nanoparticle-on-mirror, holes and grooves in films (neg
   in a gold film, transmission) with README and a quick regression test (written by the helper
   agent `opt-jobs`)
 
+## M19 — Optically anisotropic materials (ADR-0015)
+Proposal of 1 November 2026, reviewed and accepted the same day: substrates, unstructured layers
+and structured parts of anisotropic crystals (uniaxial, biaxial, rotated optic axis) as used in
+semiconductor metrology; Jones and Mueller matrices. Nothing implemented yet. Out of scope of the
+first step: gyrotropy / optical activity, a μ tensor, anisotropic cover media, tilted axes in the
+axisymmetric solver, isolated structures in a tilted substrate; the anisotropic emitter scan comes
+last.
+- [x] S0: ADR-0015 accepted (`docs/adr/0015-anisotropic-materials.md`); review results: the
+  conical interface conditions are natural (no re-derivation), but an optic axis with a component
+  along the lines breaks the symmetry of the conical system (A(β)ᵀ = S A(−β) S); the stack uses
+  the ordered Schur form instead of eigenvectors (degenerate, near-degenerate and defective
+  layers); the PML condition fails already for tilted ordinary crystals (diagnostic, modal
+  substrate boundary for gratings); `Material` gets private scalar fields (breaking, Python alias)
+- [ ] S1: material model: optional 3×3 ε tensor in `materials::Material` (μ scalar), private
+  `eps_r` / `mu_r` with `eps_scalar()` throwing for tensors, `Material::isotropic` /
+  `anisotropic`, diagnostic `anisotropic-unsupported` on every unmigrated path, Python
+  `eps_r` alias with `DeprecationWarning`; `hpfem.materials.Anisotropic` / `Uniaxial(n_o, n_e,
+  theta, phi)` with the orientation conventions of ADR §6, ordinary / extraordinary data,
+  `docs/theory/materials.md`; regression test: ε·I reproduces all existing benchmarks to
+  round-off
+- [ ] S2: volume solvers 2D / 3D: tensors in `form_of_cell`, PML `ε̃_ij = ε_ij s_x s_y s_z/(s_i s_j)`
+  with the `pml-backward-wave` diagnostic (geometric condition), estimators (divergence,
+  `n·εE` jump), per-cell tensor overrides; tests: uniaxial slab in 3D, PML reflection with a full
+  tensor (aligned and tilted axis), symmetry detection (non-gyrotropic crystals take the LDLᵀ
+  paths)
+- [ ] S3: conical solver: full tensors in `ConicalForm`, derivation in the conical section of
+  `docs/theory/maxwell.md`, estimators; first ε_xz = ε_yz = 0 (symmetric), then the general tensor
+  with the transposed paths (adjoint of `conical_goal`, emission pattern by reciprocity at −β,
+  power matrix on `ConicalSweep`, sensitivities), `scalar_ez` rejecting coupling tensors; tests:
+  A(β)ᵀ = S A(−β) S on the cell matrices, each transposed path against a forward solve, conical
+  against 3D with the crystal and the grating rotated together, form-birefringent grating against
+  the effective-medium plate (and L. Li 2003 where it applies)
+- [ ] S4: anisotropic `LayerStack`: 4×4 system per layer (ε_zz ≠ 0), ordered complex Schur form
+  and 2×2 block exponentials, stable S-matrix recursion on the up / down subspaces, substrate modes
+  (o / e by the axis, biaxial by power orthogonality), Jones matrix, analytic stack field for the
+  scattered-field source; tests: independent eigenvector 4×4 transfer matrix (thin layers), closed
+  forms at normal incidence, isotropic layers between anisotropic ones, axis along z and 10⁻⁶ rad
+  off, a Voigt direction of an absorbing biaxial layer, R+T+A=1
+- [ ] S5: post-processing: mode-resolved diffraction orders in anisotropic half-spaces, modal
+  transparent substrate boundary for gratings over tilted crystals, absorption and Poynting flux
+  with tensors, Jones / Mueller output with the s/p convention of `conical_polarisation`; tests:
+  mirror symmetry in the azimuth (r_sp odd, r_ss / r_pp even), reciprocity
+  r_ps(k_in → k_out) = −r_sp(−k_out → −k_in) on a rotated crystal (stack and conical)
+- [ ] S6: axisymmetric solver with diagonal (r, φ, z) tensors, rejection of tilted axes
+- [ ] S7: dipole emitters above anisotropic stacks (ADR-0013 amendment, β ↔ −β reciprocity), after
+  S4 / S5 are validated
+- [ ] S8: GUI material editor (isotropic / uniaxial / biaxial / full, axis angles, per part and
+  layer) and display of the Jones / Mueller elements (`GUI-hpFEM`)
+
 ## Backlog / ideas
 - [ ] the full ring resonator with ports in 3D (M12 stage B): needs an hp-mesh that is fine
   only across the cores and in the coupling region, p = 3 there for the resonance widths

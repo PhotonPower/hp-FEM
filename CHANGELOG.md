@@ -3,6 +3,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- ADR-0015 (accepted) and roadmap milestone M19: optically anisotropic materials in substrates,
+  layers and structured parts (tensor `Material` with private scalar fields, anisotropic layer
+  stack on the ordered Schur form of the 4×4 system with Jones / Mueller output, conical solver
+  with full tensors and the loss of symmetry for an optic axis with a component along the lines);
+  documentation only, nothing implemented yet.
 - Hypercircle bound on adaptive and periodic meshes: `adaptivity::dual_solution` constrains the
   hanging DoFs of the dual space and takes the Bloch pairs of the primal problem (`periodic`,
   same phases), and returns the expanded coefficients. The guaranteed (Prager–Synge) bound of
