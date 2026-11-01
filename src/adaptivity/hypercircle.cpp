@@ -8,6 +8,7 @@
 #include <fmt/format.h>
 
 #include "hpfem/assembly/dirichlet.hpp"
+#include "hpfem/assembly/hanging_constraints.hpp"
 #include "hpfem/assembly/quadrature.hpp"
 #include "hpfem/assembly/sparse_assembler.hpp"
 #include "hpfem/core/error.hpp"
@@ -151,7 +152,8 @@ DualForm<Dim> dual_form(const assembly::MaxwellForm<Dim>& primal, Real k_squared
 template <int Dim>
 Vector dual_solution(const DualDofMap<Dim>& dual_dofs,
                      const std::type_identity_t<assembly::CellFormFactory<Dim>>& form_of_cell,
-                     Real k_squared, std::span<const Index> essential_facets, int extra_order,
+                     Real k_squared, std::span<const Index> essential_facets,
+                     std::span<const assembly::PeriodicPair<Dim>> periodic, int extra_order,
                      solvers::DirectSolverBackend backend) {
   check_k(k_squared, "dual_solution");
   const auto dual_of_cell = [&](Index cell) {
@@ -168,10 +170,29 @@ Vector dual_solution(const DualDofMap<Dim>& dual_dofs,
   }
   const assembly::DirichletData essential =
       assembly::homogeneous_dirichlet(dual_dofs, essential_facets);
-  assembly::apply_dirichlet(system.matrix, system.rhs, essential);
-  log().debug("dual_solution<{}>: {} DoFs, {} essential", Dim, dual_dofs.num_dofs(),
-              essential.size());
-  return solvers::solve_direct(system.matrix, system.rhs, backend, solvers::Symmetry::kDetect);
+  fespace::Constraints constraints = assembly::hanging_constraints(dual_dofs);
+  if (!periodic.empty()) constraints.append(assembly::bloch_constraints<Dim>(dual_dofs, periodic));
+  if (constraints.num_constrained() == 0) {
+    assembly::apply_dirichlet(system.matrix, system.rhs, essential);
+    log().debug("dual_solution<{}>: {} DoFs, {} essential", Dim, dual_dofs.num_dofs(),
+                essential.size());
+    return solvers::solve_direct(system.matrix, system.rhs, backend, solvers::Symmetry::kDetect);
+  }
+  // reduce by P^H A P first, then the (homogeneous) essential condition on the free DoFs: a
+  // constrained essential DoF follows from its masters, which lie on the same boundary
+  auto [matrix, load] = constraints.reduce(system.matrix, system.rhs);
+  assembly::DirichletData free_essential;
+  for (const Index dof : essential.dofs) {
+    if (!constraints.is_constrained(dof)) {
+      free_essential.dofs.push_back(constraints.reduced_index(dof));
+    }
+  }
+  free_essential.values = Vector::Zero(free_essential.size());
+  assembly::apply_dirichlet(matrix, load, free_essential);
+  log().debug("dual_solution<{}>: {} DoFs, {} constrained, {} essential", Dim, dual_dofs.num_dofs(),
+              constraints.num_constrained(), free_essential.size());
+  return constraints.expand(
+      solvers::solve_direct(matrix, load, backend, solvers::Symmetry::kDetect));
 }
 
 Real HypercircleEstimate::total() const {
@@ -254,9 +275,11 @@ HypercircleEstimate hypercircle_estimate(
 template DualForm<2> dual_form<2>(const assembly::MaxwellForm<2>&, Real);
 template DualForm<3> dual_form<3>(const assembly::MaxwellForm<3>&, Real);
 template Vector dual_solution<2>(const DualDofMap<2>&, const assembly::CellFormFactory<2>&, Real,
-                                 std::span<const Index>, int, solvers::DirectSolverBackend);
+                                 std::span<const Index>, std::span<const assembly::PeriodicPair<2>>,
+                                 int, solvers::DirectSolverBackend);
 template Vector dual_solution<3>(const DualDofMap<3>&, const assembly::CellFormFactory<3>&, Real,
-                                 std::span<const Index>, int, solvers::DirectSolverBackend);
+                                 std::span<const Index>, std::span<const assembly::PeriodicPair<3>>,
+                                 int, solvers::DirectSolverBackend);
 template HypercircleEstimate hypercircle_estimate<2>(const fespace::NedelecDofMap<2>&,
                                                      const Vector&, const DualDofMap<2>&,
                                                      const Vector&,

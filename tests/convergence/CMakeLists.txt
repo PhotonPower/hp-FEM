@@ -44,6 +44,9 @@ hpfem_add_test(convergence_empty_lattice_bands convergence
 hpfem_add_test(convergence_hypercircle_bound convergence
   hypercircle_bound.cpp)
 
+hpfem_add_test(convergence_hypercircle_adaptive convergence
+  hypercircle_adaptive.cpp)
+
 hpfem_add_test(convergence_time_domain_cavity convergence
   time_domain_cavity.cpp)
 
