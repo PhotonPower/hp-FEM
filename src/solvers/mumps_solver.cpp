@@ -22,14 +22,15 @@ namespace {
 
 constexpr MUMPS_INT kUseCommWorld = -987654;
 
+/// MPI_Init once per process; the static initialisation makes it thread safe when solvers are
+/// created from several threads (the parallel samples of `grating.dipole_emission`).
 void ensure_mpi_initialised() {
-  static bool initialised = false;
-  if (!initialised) {
+  [[maybe_unused]] static const bool initialised = [] {
     int argc = 0;
     char** argv = nullptr;
     MPI_Init(&argc, &argv);
-    initialised = true;
-  }
+    return true;
+  }();
 }
 
 class MumpsSolver final : public LinearSolver {

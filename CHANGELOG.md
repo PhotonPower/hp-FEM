@@ -3,6 +3,21 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Parallel samples in the single-dipole scan (M17 S3, ADR-0013 §5): `grating.dipole_emission(...,
+  workers=n)` solves the cell problems in `n` threads, each with `num_threads() / n` OpenMP
+  threads. The bindings release the GIL, so mesh and materials need not be pickled. The β
+  pre-pass, the first pass over all β nodes and the second pass of the guided bumps run as one
+  batch each. The result equals the serial scan to rounding; progress and cancellation stay in
+  the calling thread. `emission_cost(workers=n)` reports `peak_bytes` (n factorisations at
+  once) and divides the scan time by n; the job-runner task `emitter` takes `scan.workers`.
+  `MPI_Init` of the MUMPS backend is now thread safe.
+- Lossy surface-plasmon poles in the single-dipole scan (M17 S3, ADR-0013 §4a): `guided="auto"`
+  is on for a cell with a metal. Poles off the kx axis by their loss get a bump turned away from
+  them; weak fits along the branch cuts are discarded. The β pre-pass returns a lossy pinch
+  complex, and the β rule grades its panels towards it (plain Gauss–Legendre on the graded
+  panels: 9e-6 on the Lorentzian peak of the unit test, 3.5e-4 with the light-line map). On the
+  analytic spectrum of a dipole 80 nm above silver the scan logic matched the Sommerfeld
+  integral to 1.4e-4 (before: up to 2.8 %). The FEM validation on a silver film is open.
 - A dipole above a perfect mirror in the single-dipole scan (M17 S3): benchmark cases at 150,
   300 and 600 nm against the image dipole. F_P is right to 1.4e-4 for x and z and to 6e-4 for
   y, and all the power goes up, to 3e-5. The cell problems end on a PEC wall; the channels see

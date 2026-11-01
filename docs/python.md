@@ -251,7 +251,7 @@ orientations —, `"x"`, `"y"`, `"z"` or `[px, py, pz]`), `wavelength` (a value,
 - `"A"`: the Bloch array at `kx_over_k0`, `beta_over_k0` (`grating.emit`): `P_cell`, `up`,
   `down`, `absorbed`, `guided`, the order powers.
 - `"B"`: the single dipole (`grating.dipole_emission` with `scan` = `nodes`, `kx_nodes`,
-  `depth`, `angle_nodes`, `symmetric`, `beta_max_over_k0`): `purcell`, the `fractions` up / down
+  `depth`, `angle_nodes`, `symmetric`, `workers`, `beta_max_over_k0`): `purcell`, the `fractions` up / down
   / nonradiated of the emitted power and, per numerical `aperture`, the collected power and
   fraction (`grating.emission_cone`, `aperture_side`).
 - `"C"`: dP/dΩ on the grid `directions` = `{"theta_deg", "phi_deg", "sides"}`
@@ -691,7 +691,8 @@ power and the Purcell factor need Stage B.
 
 **Single dipole by array scanning (M17 S3).** `grating.dipole_emission(mesh, materials, stack,
 dipole, omega, nodes=6, kx_nodes=4, depth=0.5, beta_max=None, symmetric=False, order=4,
-channels=True, angle_nodes=(16, 32), guided="auto", pml=..., progress=None, cancel=None, ...)`
+channels=True, angle_nodes=(16, 32), guided="auto", pml=..., workers=1, progress=None,
+cancel=None, ...)`
 integrates the
 cell problem over kx (one period, on the complex contour around the light lines) and β
 (`grating.array_scan_rule`, docs/theory/maxwell.md "Stage B"). The `DipoleEmission` holds, per
@@ -711,10 +712,16 @@ the validation this costs 4.5 times the samples of the plain scan (a β pre-pass
 detection pass and a second pass per β node with poles); β runs up to k0 times the largest
 index of the cell. Quenching near a metal lives in the near field: give `beta_max` (about
 10/d, d the distance to the metal; 12 k0 at 80 nm above silver at 633 nm).
+`workers=n` solves the cell problems of the scan in `n` threads (the samples are independent;
+each thread gets `num_threads() / n` OpenMP threads and owns its factorisation, so the memory
+of `n` factorisations is needed at once); the result is the same as with one worker. A direct
+solver scales poorly with threads beyond a few cores, so several workers with few threads each
+use a many-core machine better; the plane-wave solves of the channels stay serial.
 `grating.emission_cost(...)` with the same arguments counts the cell
 problems and plane-wave solves without running them (with `guided` an estimate of the second
-passes), gives the memory of one factorisation and, with `calibrate=True`, times one of each
-and extrapolates the wall time (`EmissionCost`).
+passes), gives the memory of one factorisation (`peak_bytes` for `workers` of them) and, with
+`calibrate=True`, times one of each and extrapolates the wall time (`EmissionCost`; the scan
+time divided by `workers`, ideal scaling).
 `grating.emission_cone(mesh, materials, stack, dipole, omega,
 aperture, side="up", angle_nodes=(16, 32), symmetric=False, ...)` is the power radiated into a
 collection cone θ ≤ asin(NA / n) per orientation key (`EmissionCone.power`); divided by

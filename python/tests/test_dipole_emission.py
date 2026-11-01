@@ -272,7 +272,7 @@ def test_beta_rule_grades_towards_a_lossy_pinch():
         slices = grating._scan_slices(PERIOD, K0, [N], beta_max, 6, True, breaks)
         value = sum(sl.weight / factor * lorentz(sl.beta) for sl in slices)
         errors[name] = abs(value / exact - 1.0)
-    assert errors["graded"] < 1e-4, errors  # 3.6e-5
+    assert errors["graded"] < 1e-4, errors  # 8.8e-6
     assert errors["real"] > 1e-3, errors
 
 
@@ -311,3 +311,60 @@ def test_guided_breaks_find_a_lossy_pinch(monkeypatch):
     assert count >= 2 * grating._GUIDED_BREAK_POINTS
     lossy = [b for b in breaks if isinstance(b, complex)]
     assert len(lossy) == 1 and abs(lossy[0] - pinch) < 1e-6 * K0, breaks
+
+
+def test_parallel_samples_keep_the_order_the_progress_and_the_cancellation(monkeypatch):
+    # the batch of cell samples in a thread pool: the matrices come back in the order of the
+    # points whatever the completion order, one tick per sample, a cancel stops the batch
+    import threading
+    import time
+
+    seen = set()
+
+    def power_matrix(_cell, kx, beta):
+        seen.add(threading.get_ident())
+        time.sleep(1e-3 * ((int(kx.real) * 7) % 5))  # finish out of order
+        return np.eye(3) * (kx + 1j * beta)
+
+    monkeypatch.setattr(grating, "_dipole_power_matrix", power_matrix)
+    points = [(float(i), 0.5 * i) for i in range(24)]
+    ticks = []
+    serial = grating._power_matrices(None, points, 1, lambda: ticks.append(1), None)
+    assert len(ticks) == len(points)
+    ticks.clear()
+    parallel = grating._power_matrices(None, points, 4, lambda: ticks.append(1), None)
+    assert len(ticks) == len(points)
+    assert len(seen) > 1  # the pool ran
+    for a, b in zip(serial, parallel, strict=True):
+        assert np.array_equal(a, b)
+    calls = [0]
+
+    def cancel():
+        calls[0] += 1
+        return calls[0] > 3
+
+    with pytest.raises(hpfem.Cancelled):
+        grating._power_matrices(None, points, 4, lambda: None, cancel)
+    with pytest.raises(grating.GratingError, match="workers"):
+        grating._check_workers(0)
+
+
+def test_dipole_emission_with_workers_matches_the_serial_scan():
+    # the same coarse scan as in the interface test, the samples in two threads: the same
+    # quadrature and the same power matrix up to rounding, every solve reported once
+    mesh, stack = homogeneous_cell(h=0.25 * UM)
+    dipole = {"position": (0.0, 0.1 * UM), "sigma": SIGMA}
+    options = dict(nodes=2, kx_nodes=2, order=2, beta_max=0.3 * K, symmetric=True,
+                   channels=False, pml={"top": UM, "bottom": UM})  # fmt: skip
+    serial = grating.dipole_emission(mesh, {}, stack, dipole, OMEGA, **options)
+    calls = []
+    parallel = grating.dipole_emission(mesh, {}, stack, dipole, OMEGA, workers=2,
+                                       progress=lambda i, n: calls.append((i, n)),
+                                       **options)  # fmt: skip
+    assert parallel.samples == serial.samples and len(calls) == parallel.samples
+    assert np.array_equal(parallel.rule.kx, serial.rule.kx)
+    np.testing.assert_allclose(parallel.power_matrix, serial.power_matrix, rtol=1e-10,
+                               atol=1e-10 * np.abs(serial.power_matrix).max())  # fmt: skip
+    cost = grating.emission_cost(mesh, {}, stack, dipole, OMEGA, workers=2, **options)
+    assert cost.workers == 2 and cost.peak_bytes == 2 * cost.total_bytes
+    assert cost.samples == serial.samples

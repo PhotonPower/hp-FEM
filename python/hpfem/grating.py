@@ -16,6 +16,7 @@ from __future__ import annotations
 import math
 import time
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -2078,12 +2079,16 @@ def _scan_slices(period: float, k0: float, indices, beta_max: float, nodes: int,
     b_points = [k0 * n for n in indices] + [complex(b).real for b in beta_breaks]
     # a lossy pinch β_r + iδ (the pole pair of a lossy mode meeting at kx = 0 or π/P) makes a
     # peak of width δ: panels graded geometrically towards β_r, δ, 2δ, 4δ, ... up to
-    # _GRADE_TOP k0, with _GRADE_NODES points each
+    # _GRADE_TOP k0, with _GRADE_NODES points each; a panel is graded when both its ends are
+    # (β_r or a grading point), and gets plain Gauss–Legendre: the Lorentzian is smooth there, the
+    # cosine map of the light-line panels would crowd its points at the ends (3.5e-4 against
+    # 9e-6 on the peak of the unit test); the long panels next to the graded ones keep ``nodes``
     graded = set()
     for b in beta_breaks:
         b = complex(b)
         delta = abs(b.imag)
         if delta > 1e-6 * k0:
+            graded.add(b.real)
             step = delta
             while step < _GRADE_TOP * k0:
                 graded |= {b.real - step, b.real + step}
@@ -2108,8 +2113,11 @@ def _scan_slices(period: float, k0: float, indices, beta_max: float, nodes: int,
     out = []
     b_edges = _breaks(0.0, beta_max, b_points)
     for b0, b1 in zip(b_edges[:-1], b_edges[1:], strict=True):
-        n_panel = _GRADE_NODES or nodes if b0 in graded or b1 in graded else nodes
-        betas, wb = _mapped_gauss(b0, b1, n_panel)
+        if b0 in graded and b1 in graded:
+            t, w = np.polynomial.legendre.leggauss(_GRADE_NODES or nodes)
+            betas, wb = b0 + 0.5 * (b1 - b0) * (t + 1.0), 0.5 * (b1 - b0) * w
+        else:
+            betas, wb = _mapped_gauss(b0, b1, nodes)
         for beta, w_beta in zip(betas, wb, strict=True):
             crossings = _light_line_crossings(period, k0, indices, float(beta))
             if symmetric:
@@ -2352,6 +2360,58 @@ def _dipole_power_matrix(cell: _DipoleCell, kx: complex, beta: float) -> np.ndar
                                                         cell.sigma))  # fmt: skip
 
 
+def _check_workers(workers) -> int:
+    """``workers`` of the array scanning: an integer >= 1."""
+    if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
+        raise GratingError(f"workers={workers!r}: use an integer >= 1")
+    return workers
+
+
+def _power_matrices(cell: _DipoleCell, points, workers: int, tick, cancel) -> list[np.ndarray]:
+    """The power matrices A(kx, β) of :func:`_dipole_power_matrix` at the ``points`` (pairs
+    (kx, β)), in their order. With ``workers`` > 1 the samples run in a pool of threads: the
+    assembly, the factorisation and the dipole responses release the GIL, and every sample owns
+    its problem and factorisation, so the threads share only the read-only cell (mesh, DoF
+    maps, materials). Each thread gets an equal share of the OpenMP threads of the caller
+    (``omp_set_num_threads`` holds per thread); ``workers`` factorisations live at the same
+    time. The first point runs in the calling thread before the pool starts, so that one-time
+    initialisations of the solver backends (MPI for MUMPS, the cuDSS library) happen once.
+    ``tick()`` is called in the calling thread per sample — before it when serial, when it is
+    done in the pool — and ``cancel()`` checked between samples (``hpfem.Cancelled``; the
+    pending samples are dropped, the running ones finish)."""
+    points = [(complex(kx), float(beta)) for kx, beta in points]
+    out: list = [None] * len(points)
+
+    def check():
+        if cancel is not None and cancel():
+            raise hpfem.Cancelled("dipole_emission cancelled")
+
+    if workers <= 1 or len(points) <= 2:
+        for i, (kx, beta) in enumerate(points):
+            check()
+            tick()
+            out[i] = _dipole_power_matrix(cell, kx, beta)
+        return out
+    check()
+    tick()
+    out[0] = _dipole_power_matrix(cell, *points[0])
+    threads = max(1, int(hpfem.num_threads()) // workers)
+    with ThreadPoolExecutor(min(workers, len(points) - 1), initializer=hpfem.set_num_threads,
+                            initargs=(threads,)) as pool:  # fmt: skip
+        futures = {pool.submit(_dipole_power_matrix, cell, kx, beta): i
+                   for i, (kx, beta) in enumerate(points) if i > 0}  # fmt: skip
+        try:
+            for future in as_completed(futures):
+                out[futures[future]] = future.result()
+                tick()
+                check()
+        except BaseException:
+            for future in futures:
+                future.cancel()
+            raise
+    return out
+
+
 def _hemisphere_directions(nodes_theta: int, nodes_phi: int, symmetric: bool, mirror_z: bool,
                            theta_breaks=(), theta_max: float = 0.5 * math.pi):  # fmt: skip
     """Directions (θ, φ) and solid-angle weights of one half-space: Gauss points in θ on the
@@ -2476,7 +2536,8 @@ _GUIDED_BREAK_POINTS = 40  # β samples of the guided pre-pass at each of kx = 0
 
 
 def _guided_breaks(cell: _DipoleCell, k0: float, beta_max: float, progress, cancel,
-                   points: int = _GUIDED_BREAK_POINTS, refine: int = 12):  # fmt: skip
+                   points: int = _GUIDED_BREAK_POINTS, refine: int = 12,
+                   workers: int = 1):  # fmt: skip
     """β breaks of the guided modes (ADR-0013 §4a): where a pair of guided poles meets at
     kx = 0 or π/P, the β integrand has a square-root point. These β are the poles of the AAA fit
     of the trace of A(kx, β) along β at kx = 0 and π/P (``points`` samples each, crowded towards
@@ -2485,55 +2546,55 @@ def _guided_breaks(cell: _DipoleCell, k0: float, beta_max: float, progress, canc
     explicit beta_max holds no modes). Each is refitted on ``refine`` samples around it. A lossy
     mode meets off the axis, at β_r + iδ: it is returned complex, and the β rule grades its
     panels towards β_r (:func:`_scan_slices`); a pole within 2e-4 k0 of the axis is real.
-    Returns the breaks and the number of cell problems solved."""
+    The samples of both traces, and then those of all refits, run as one batch each
+    (``workers`` threads, :func:`_power_matrices`). Returns the breaks and the number of cell
+    problems solved."""
     n_top = max([cell.pr.n_cover.real, cell.n_max]
                 + ([cell.pr.n_sub.real] if cell.pr.transmitted else []))  # fmt: skip
     top = min(float(beta_max), 3.0 * k0 * n_top)
     count = 0
     total = 2 * int(points)
 
-    def trace_at(kx, betas):
+    def tick():
         nonlocal count
-        out = []
-        for beta in betas:
-            if cancel is not None and cancel():
-                raise hpfem.Cancelled("dipole_emission cancelled")
-            if progress is not None:
-                progress(count, max(total, count + 1))
-            a = _dipole_power_matrix(cell, complex(kx), float(beta))
-            out.append(a[0, 0] + a[1, 1] + a[2, 2])
-            count += 1
-        return np.array(out)
+        if progress is not None:
+            progress(count, max(total, count + 1))
+        count += 1
+
+    def traces(points_kx_beta):
+        a = _power_matrices(cell, points_kx_beta, workers, tick, cancel)
+        return np.array([m[0, 0] + m[1, 1] + m[2, 2] for m in a])
 
     t = np.polynomial.legendre.leggauss(int(points))[0]
     betas = 0.5 * top * (1.0 - np.cos(0.5 * np.pi * (t + 1.0)))
     t_local = np.polynomial.legendre.leggauss(int(refine))[0]
-    breaks = []
-    for kx in (0.0, math.pi / cell.pr.period):
-        trace = trace_at(kx, betas)
+    kxs = (0.0, math.pi / cell.pr.period)
+    coarse = traces([(kx, b) for kx in kxs for b in betas]).reshape(len(kxs), len(betas))
+    candidates = []  # (kx, pole, half width, local β samples)
+    for kx, trace in zip(kxs, coarse, strict=True):
         poles, residues = _aaa(betas, trace)
         scale = top * float(np.median(np.abs(trace)))
-        candidates = []
         for p, r in zip(poles, residues, strict=True):
             if not (0.0 < p.real < top and np.isfinite(r)):
                 continue
             # a guided pole on the axis as before; a lossy one off it only with a residue that
             # matters (the fit also puts weak poles along the branch cuts of the light lines)
             if abs(p.imag) < 1e-3 * top or (abs(p.imag) < 2e-2 * top and abs(r) > 3e-3 * scale):
-                candidates.append(p)
-        for p in candidates:
-            half = max(10.0 * abs(p.imag), 0.02 * k0)
-            lo, hi = max(0.0, p.real - half), min(top, p.real + half)
-            local = lo + 0.5 * (hi - lo) * (t_local + 1.0)
-            total += len(local)
-            fine, _r = _aaa(local, trace_at(kx, local))
-            if len(fine):
-                q = fine[int(np.argmin(np.abs(fine - p)))]
-                if abs(q - p) < half:
-                    p = q
-            breaks.append(
-                float(p.real) if abs(p.imag) < 2e-4 * k0 else complex(p.real, abs(p.imag))
-            )
+                half = max(10.0 * abs(p.imag), 0.02 * k0)
+                lo, hi = max(0.0, p.real - half), min(top, p.real + half)
+                candidates.append((kx, p, half, lo + 0.5 * (hi - lo) * (t_local + 1.0)))
+    total += sum(len(local) for *_c, local in candidates)
+    fine_traces = traces([(kx, b) for kx, _p, _h, local in candidates for b in local])
+    breaks = []
+    start = 0
+    for _kx, p, half, local in candidates:
+        fine, _r = _aaa(local, fine_traces[start : start + len(local)])
+        start += len(local)
+        if len(fine):
+            q = fine[int(np.argmin(np.abs(fine - p)))]
+            if abs(q - p) < half:
+                p = q
+        breaks.append(float(p.real) if abs(p.imag) < 2e-4 * k0 else complex(p.real, abs(p.imag)))
     return sorted(breaks, key=lambda b: complex(b).real), count
 
 
@@ -2573,7 +2634,10 @@ class EmissionCost:
     first looks for guided-mode poles (the β pre-pass and the denser detection samples, both
     counted exactly) and passes again, with a bump per pole, over the β nodes where it finds
     some; ``samples`` then assumes a second pass as large as the detection at every node (on the
-    slab of the S3b validation, with poles at most nodes, 9664 against 9736 solved)."""
+    slab of the S3b validation, with poles at most nodes, 9664 against 9736 solved). With
+    ``workers`` > 1 the scan holds that many factorisations at a time (``peak_bytes``) and
+    ``seconds`` divides the scan time by ``workers`` (ideal scaling, a lower bound: the threads
+    share the memory bandwidth)."""
 
     samples: int
     plane_wave_solves: int
@@ -2584,13 +2648,19 @@ class EmissionCost:
     seconds_per_sample: float | None = None
     seconds_per_plane_wave: float | None = None
     guided: bool = False
+    workers: int = 1
+
+    @property
+    def peak_bytes(self) -> int:
+        """Memory of the factorisations alive at the same time during the scan [bytes]."""
+        return self.workers * self.total_bytes
 
     @property
     def seconds(self) -> float | None:
         """Predicted wall time of the run [s] (calibrated only)."""
         if self.seconds_per_sample is None:
             return None
-        return (self.samples * self.seconds_per_sample
+        return (self.samples * self.seconds_per_sample / self.workers
                 + self.plane_wave_solves * (self.seconds_per_plane_wave or 0.0))  # fmt: skip
 
     def as_dict(self) -> dict:
@@ -2598,7 +2668,8 @@ class EmissionCost:
                 "solves": self.solves, "dofs": self.dofs, "total_bytes": self.total_bytes,
                 "memory": self.memory, "seconds_per_sample": self.seconds_per_sample,
                 "seconds_per_plane_wave": self.seconds_per_plane_wave,
-                "seconds": self.seconds, "guided": self.guided}  # fmt: skip
+                "seconds": self.seconds, "guided": self.guided, "workers": self.workers,
+                "peak_bytes": self.peak_bytes}  # fmt: skip
 
 
 def emission_cost(mesh, materials, stack, dipole, omega: float, *, nodes: int = 6,
@@ -2607,11 +2678,14 @@ def emission_cost(mesh, materials, stack, dipole, omega: float, *, nodes: int = 
                   angle_nodes=(16, 32), guided="auto", pml=None, bottom: str = "pml",
                   snap_tolerance: float = 1e-9, pml_target: float = 1e-6,
                   pml_wavelengths: float = 0.5, extra_quadrature_order: int = 4, solver=None,
-                  calibrate: bool = False, **solve_kwargs) -> EmissionCost:  # fmt: skip
+                  workers: int = 1, calibrate: bool = False,
+                  **solve_kwargs) -> EmissionCost:  # fmt: skip
     """The number of solves and the memory of :func:`dipole_emission` with the same arguments,
     without running it: the scan rule and the channel directions are built as there, the memory
     is ``estimate_memory`` of the cell problem. ``calibrate`` times one cell sample and one
-    plane-wave solve on this machine (two solves) and extrapolates the wall time."""
+    plane-wave solve on this machine (two solves) and extrapolates the wall time; ``workers``
+    as for :func:`dipole_emission` (the calibration sample runs alone, with all threads)."""
+    workers = _check_workers(workers)
     k0 = float(units.vacuum_wavenumber(omega))
     position = np.asarray(dipole["position"], dtype=float)
     sigma = float(dipole["sigma"])
@@ -2637,7 +2711,7 @@ def emission_cost(mesh, materials, stack, dipole, omega: float, *, nodes: int = 
     cost = EmissionCost(samples=samples, plane_wave_solves=2 * len(directions),
                         solves=samples + 2 * len(directions), dofs=int(estimate.dofs),
                         total_bytes=int(estimate.total_bytes), memory=estimate.describe(),
-                        guided=guided_on)  # fmt: skip
+                        guided=guided_on, workers=workers)  # fmt: skip
     if calibrate:
         t0 = time.perf_counter()
         _dipole_power_matrix(cell, complex(rule.kx[0]), float(rule.beta[0]))
@@ -2740,7 +2814,8 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
                     quadrature_points: int = 6, pml=None, bottom: str = "pml",
                     snap_tolerance: float = 1e-9, pml_target: float = 1e-6,
                     pml_wavelengths: float = 0.5, extra_quadrature_order: int = 4, solver=None,
-                    progress=None, cancel=None, **solve_kwargs) -> DipoleEmission:  # fmt: skip
+                    workers: int = 1, progress=None, cancel=None,
+                    **solve_kwargs) -> DipoleEmission:  # fmt: skip
     """Emission of a single Gaussian dipole in a structure periodic in x and invariant in z by
     array scanning of the cell problem (M17 Stage B, ADR-0013 §3, §3a):
     P_em = (P/2π) ∫ dkx (1/π) ∫_0^βmax dβ P_cell, the kx integral on the complex contour of
@@ -2774,8 +2849,15 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     power positive; ``guided`` and ``guided_modes`` of the result hold the power per mode (from
     the residue, ±iπ R; for a plasmon the power it is launched with, absorbed later in the
     metal). **Limits:** the evanescent range β > k0 n_max, where near-field absorption by nearby
-    metals lives, needs an explicit ``beta_max``; lossy hosts are excluded. ``progress(i, n)`` is
-    called per solve, ``cancel()`` checked between solves (``hpfem.Cancelled``). ``pml``,
+    metals lives, needs an explicit ``beta_max``; lossy hosts are excluded.
+
+    ``workers`` > 1 solves the cell problems of the scan in that many threads (the β pre-pass,
+    the first pass over all β nodes and the second pass of the guided bumps as one batch each;
+    the samples are independent, ADR-0013 §5), each with an equal share of the OpenMP threads;
+    memory grows to ``workers`` factorisations at a time (:func:`emission_cost`). The result is
+    the same as with one worker up to rounding. The plane-wave solves of the channels stay
+    serial. ``progress(i, n)`` is called per solve (in the calling thread), ``cancel()`` checked
+    between solves (``hpfem.Cancelled``). ``pml``,
     ``bottom``, ``snap_tolerance``, ``pml_target``, ``pml_wavelengths``,
     ``extra_quadrature_order`` and ``solver`` as for :func:`emit`; further keyword arguments
     go to the plane-wave solves of the channels."""
@@ -2786,6 +2868,7 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     if position.shape != (2,) or not sigma > 0:
         raise GratingError("dipole: position (x0, y0) and sigma > 0 needed")
     own = dipole.get("moment")
+    workers = _check_workers(workers)
     cell = _dipole_cell(mesh, materials, stack, position, sigma, omega, order, pml=pml,
                         bottom=bottom, snap_tolerance=snap_tolerance, pml_target=pml_target,
                         pml_wavelengths=pml_wavelengths,
@@ -2795,7 +2878,8 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     beta_top = k0 * max(n_semi, cell.n_max) if beta_max is None else float(beta_max)
     breaks, n_prepass = [], 0
     if guided_on:
-        breaks, n_prepass = _guided_breaks(cell, k0, beta_top, progress, cancel)
+        breaks, n_prepass = _guided_breaks(cell, k0, beta_top, progress, cancel,
+                                           workers=workers)  # fmt: skip
     rule, directions, indices = _emission_plan(cell, k0, nodes=nodes, kx_nodes=kx_nodes,
                                                depth=depth, beta_max=beta_top,
                                                symmetric=symmetric, channels=channels,
@@ -2859,38 +2943,56 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     done = n_channel + n_prepass
     planned = [total]
 
-    def matrices(kxs, beta):
+    def tick():
         nonlocal done
-        out = []
-        for kx in kxs:
-            if cancel is not None and cancel():
-                raise hpfem.Cancelled("dipole_emission cancelled")
-            if progress is not None:
-                progress(done, max(planned[0], done + 1))
-            out.append(_dipole_power_matrix(cell, complex(kx), beta))
-            done += 1
-        return np.array(out)
+        if progress is not None:
+            progress(done, max(planned[0], done + 1))
+        done += 1
 
+    def matrices(points):
+        return np.array(_power_matrices(cell, points, workers, tick, cancel)).reshape(-1, 3, 3)
+
+    def per_slice(passes, a):
+        # splits the matrices of a batch over the slices of ``passes`` (kxs first in each)
+        bounds = np.cumsum([0] + [len(p[0]) for p in passes])
+        return [a[lo:hi] for lo, hi in zip(bounds[:-1], bounds[1:], strict=True)]
+
+    # first pass over all β nodes as one batch: the detection samples (with guided poles; without
+    # poles they are the integration rule as well) or the integration rule
+    passes = []
     for sl in slices:
         if guided_on:
-            # the detection samples; without poles they are the integration rule as well
-            kxs, wk = _detection_contour(sl, kx_nodes, depth)
-            a = matrices(kxs, sl.beta)
+            passes.append(_detection_contour(sl, kx_nodes, depth))
+        else:
+            passes.append(_kx_contour(sl.lo, sl.hi, sl.crossings, kx_nodes, depth, sl.branch)[:2])
+    first_a = matrices([(kx, sl.beta) for sl, (kxs, _w) in zip(slices, passes, strict=True)
+                        for kx in kxs])  # fmt: skip
+    passes = [(kxs, wk, a) for (kxs, wk), a in zip(passes, per_slice(passes, first_a),
+                                                    strict=True)]  # fmt: skip
+    # second pass, again one batch: the bumps of the guided poles on their causal side
+    second = []  # (slice index, poles, kxs, wk)
+    if guided_on:
+        for i, sl in enumerate(slices):
+            kxs, _wk, a = passes[i]
             poles = _guided_poles(kxs, a, sl)
             if poles:
-                # second pass: the bumps of the guided poles on their causal side
                 bumps = sl.crossings + [(c, s) for c, s, _r in poles]
-                kxs, wk, _ = _kx_contour(sl.lo, sl.hi, bumps, kx_nodes, depth, sl.branch)
-                planned[0] += len(kxs)
-                a = matrices(kxs, sl.beta)
-                for c, s, residue in poles:
-                    # the bump's share over the principal value: ±iπ R (below +, above −)
-                    share = s * 1j * np.pi * sl.weight * residue
-                    share[odd] = 0.0
-                    guided_modes.append({"beta": sl.beta, "kx": c, "side": s, "matrix": share})
-        else:
-            kxs, wk, _ = _kx_contour(sl.lo, sl.hi, sl.crossings, kx_nodes, depth, sl.branch)
-            a = matrices(kxs, sl.beta)
+                kxs2, wk2, _ = _kx_contour(sl.lo, sl.hi, bumps, kx_nodes, depth, sl.branch)
+                planned[0] += len(kxs2)
+                second.append((i, poles, kxs2, wk2))
+    if second:
+        second_a = matrices([(kx, slices[i].beta) for i, _p, kxs2, _w in second for kx in kxs2])
+        for (i, poles, kxs2, wk2), a in zip(
+            second, per_slice([(kxs2,) for _i, _p, kxs2, _w in second], second_a), strict=True
+        ):
+            passes[i] = (kxs2, wk2, a)
+            sl = slices[i]
+            for c, s, residue in poles:
+                # the bump's share over the principal value: ±iπ R (below +, above −)
+                share = s * 1j * np.pi * sl.weight * residue
+                share[odd] = 0.0
+                guided_modes.append({"beta": sl.beta, "kx": c, "side": s, "matrix": share})
+    for sl, (kxs, wk, a) in zip(slices, passes, strict=True):
         integrated += sl.weight * np.einsum("k,kij->ij", wk, a)
         samples_kx.append(kxs)
         samples_beta.append(np.full(len(kxs), sl.beta))

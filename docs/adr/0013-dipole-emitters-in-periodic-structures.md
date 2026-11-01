@@ -273,6 +273,12 @@ integral):
   (`solve_many` on the kept factorisation), the symbolic analysis is reused across samples
   (`refactorize`), samples are independent (`hpfem.sweep.solve_sweep` over processes, each with a
   thread budget as ADR-0012 §7).
+- Implemented (M17 S3) as threads in one process rather than processes: the assembly, the
+  factorisation and the dipole responses release the GIL, and the cell (mesh, DoF maps,
+  materials) need not be pickled. `dipole_emission(workers=n)` runs the β pre-pass, the first
+  pass over all β nodes and the second pass of the guided bumps as one batch each, every thread
+  with `num_threads() / n` OpenMP threads. The symbolic analysis is not yet shared between
+  samples: the complex Bloch phase of §3a (`Constraints::set_test`) is not part of `ConicalSweep`.
 - Before the run, the front end reports the number of samples of the first quadrature level, the
   memory per factorisation (`estimate_memory`) and the extrapolated time; `cancel` is polled
   between samples, `progress` reports per sample.
