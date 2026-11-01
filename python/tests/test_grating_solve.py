@@ -320,10 +320,12 @@ def test_jacobian_by_angles_and_wavelength_matches_finite_differences(pol, phi_d
         assert scale > 0
         assert np.abs(jac[:, j] - reference[name]).max() < 1e-3 * scale, name
     # mixed with the material columns: the same numbers, up to the round-off of the parallel
-    # assembly (summation order) amplified by the difference quotient 1/(2h) (about 3e-8)
+    # assembly (summation order, not deterministic) amplified by the difference quotient 1/(2h)
+    # of the 1e-6 rad step: up to 1.1e-6 relative seen on the CI runners, hence 1e-5 (a wrong
+    # column differs at the 1e-3 level of the finite-difference check above)
     mixed, _, mixed_columns = grating.jacobian(result, [("eps", RIDGE_TAG), "theta"], rows)
     assert mixed_columns == [f"eps[{RIDGE_TAG}].re", f"eps[{RIDGE_TAG}].im", "theta"]
-    assert np.abs(mixed[:, 2] - jac[:, 0]).max() < 1e-6 * np.abs(jac[:, 0]).max()
+    assert np.abs(mixed[:, 2] - jac[:, 0]).max() < 1e-5 * np.abs(jac[:, 0]).max()
     if pol == "s":
         with pytest.raises(grating.GratingError, match="scalar"):
             grating.jacobian(result, ["phi"])
