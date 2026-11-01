@@ -1,7 +1,9 @@
 // Dual formulation and hypercircle bound: a polynomial solution contained in both spaces
-// gives a vanishing estimate (2D), on the coercive cube the estimate is a guaranteed upper
-// bound of the energy error with bounded effectivity (3D), the indefinite lossy problem is
+// gives a vanishing estimate (2D, also with hanging nodes), on the coercive cube the estimate
+// is a guaranteed upper bound of the energy error with bounded effectivity (3D, also with
+// hanging nodes), the bound holds with Bloch-periodic sides, the indefinite lossy problem is
 // still estimable, and bad input is rejected.
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <numbers>
@@ -12,9 +14,12 @@
 
 #include "hpfem/adaptivity/hypercircle.hpp"
 #include "hpfem/assembly/dirichlet.hpp"
+#include "hpfem/assembly/hanging_constraints.hpp"
 #include "hpfem/assembly/maxwell_forms.hpp"
+#include "hpfem/assembly/periodic.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/fespace/dof_map.hpp"
+#include "hpfem/mesh/adaptive_mesh.hpp"
 #include "hpfem/mesh/generators.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
 
@@ -30,8 +35,10 @@ using hpfem::adaptivity::hypercircle_estimate;
 using hpfem::assembly::ComplexCurl;
 using hpfem::assembly::ComplexVector;
 using hpfem::assembly::MaxwellForm;
+using hpfem::assembly::PeriodicPair;
 using hpfem::fespace::DofMap;
 using hpfem::fespace::NedelecDofMap;
+using hpfem::mesh::AdaptiveMesh;
 using hpfem::mesh::box;
 using hpfem::mesh::Mesh;
 using hpfem::mesh::rectangle;
@@ -65,6 +72,32 @@ Vector primal_solution(const NedelecDofMap<Dim>& dofs, const MaxwellForm<Dim>& f
   hpfem::assembly::apply_dirichlet(system.matrix, system.rhs,
                                    hpfem::assembly::homogeneous_dirichlet(dofs, facets));
   return hpfem::solvers::solve_direct(system.matrix, system.rhs);
+}
+
+/// The same on a constrained mesh (hanging nodes, Bloch pairs) with PEC on `pec`: reduced by
+/// P^H A P, PEC on the free DoFs, the full coefficients returned.
+template <int Dim>
+Vector constrained_primal(const NedelecDofMap<Dim>& dofs, const MaxwellForm<Dim>& form,
+                          Real k_squared, const std::vector<Index>& pec,
+                          const std::vector<PeriodicPair<Dim>>& periodic = {}) {
+  auto system =
+      hpfem::assembly::assemble_maxwell_operator<Dim>(dofs, [&](Index) { return form; }, k_squared);
+  hpfem::fespace::Constraints c = hpfem::assembly::hanging_constraints(dofs);
+  if (!periodic.empty()) c.append(hpfem::assembly::bloch_constraints<Dim>(dofs, periodic));
+  auto [matrix, load] = c.reduce(system.matrix, system.rhs);
+  hpfem::assembly::DirichletData data;
+  for (const Index dof : hpfem::assembly::homogeneous_dirichlet(dofs, pec).dofs) {
+    if (!c.is_constrained(dof)) data.dofs.push_back(c.reduced_index(dof));
+  }
+  data.values = Vector::Zero(data.size());
+  hpfem::assembly::apply_dirichlet(matrix, load, data);
+  return c.expand(hpfem::solvers::solve_direct(matrix, load));
+}
+
+template <int Dim>
+std::vector<Index> all_boundary(const Mesh<Dim>& mesh) {
+  const auto& boundary = mesh.boundary_facets();
+  return {boundary.begin(), boundary.end()};
 }
 
 }  // namespace
@@ -101,7 +134,93 @@ TEST_CASE("hypercircle: a quadratic solution in ND_3 and its dual in P_3 give et
   REQUIRE(static_cast<bool>(scalar.gradient_source));
 }
 
+TEST_CASE("hypercircle: the exact pair stays exact with hanging nodes",
+          "[adaptivity][hypercircle]") {
+  // the quadratic solution of the previous case on a one-irregular mesh: the dual space has
+  // hanging DoFs, and only the constrained (conforming) dual solution reproduces sigma
+  AdaptiveMesh<2> adaptive(rectangle(3, 3));
+  const std::vector<Index> first{0, 4};
+  static_cast<void>(adaptive.refine(first));
+  const std::vector<Index> second{1};
+  static_cast<void>(adaptive.refine(second));
+  const Mesh<2> mesh = adaptive.mesh();
+  const NedelecDofMap<2> dofs(mesh, 3);
+  const DofMap<2> dual(mesh, 3);
+  REQUIRE(hpfem::assembly::hanging_constraints(dual).num_constrained() > 0);
+  const MaxwellForm<2> form = vacuum_form<2>([](const Point<2>& x) {
+    return ComplexVector<2>(2.0 + x(1) * (1 - x(1)), 2.0 + x(0) * (1 - x(0)));
+  });
+  const Real k2 = -1.0;
+  const auto factory = [&](Index) { return form; };
+  const Vector e_h = constrained_primal<2>(dofs, form, k2, all_boundary(mesh));
+  const Vector sigma_h = dual_solution<2>(dual, factory, k2);
+  REQUIRE(sigma_h.size() == dual.num_dofs());
+  REQUIRE(hypercircle_estimate<2>(dofs, e_h, dual, sigma_h, factory, k2).total() < 1e-9);
+}
+
+TEST_CASE("hypercircle: guaranteed bound with Bloch-periodic sides and hanging nodes",
+          "[adaptivity][hypercircle]") {
+  // E = (sin(pi y) e^{ikx}, 0) on the unit square, Bloch-periodic in x with the phase e^{ik},
+  // PEC at y = 0, 1: curl E = -pi cos(pi y) e^{ikx},
+  // f = curl curl E + E = ((pi^2 + 1) sin(pi y), ik pi cos(pi y)) e^{ikx}
+  constexpr Real k = 0.7;
+  const Complex i{0.0, 1.0};
+  const auto wave = [=](const Point<2>& x) { return std::exp(i * k * x(0)); };
+  const auto exact = [=](const Point<2>& x) {
+    return ComplexVector<2>(std::sin(kPi * x(1)) * wave(x), 0.0);
+  };
+  const auto exact_curl = [=](const Point<2>& x) {
+    return ComplexCurl<2>(-kPi * std::cos(kPi * x(1)) * wave(x));
+  };
+  const MaxwellForm<2> form = vacuum_form<2>([=](const Point<2>& x) {
+    return ComplexVector<2>((kPi * kPi + 1) * std::sin(kPi * x(1)) * wave(x),
+                            i * k * kPi * std::cos(kPi * x(1)) * wave(x));
+  });
+  const Real k2 = -1.0;
+  const auto factory = [&](Index) { return form; };
+  namespace box_tag = hpfem::mesh::box_tag;
+  const std::vector<PeriodicPair<2>> periodic{
+      {box_tag::kXMin, box_tag::kXMax, Point<2>(1.0, 0.0), std::exp(i * k)}};
+  AdaptiveMesh<2> adaptive(rectangle(4, 4));
+  const std::vector<Index> interior{12};  // a cell away from the periodic sides
+  static_cast<void>(adaptive.refine(interior));
+  const Mesh<2> mesh = adaptive.mesh();
+  std::vector<Index> pec;
+  for (const Index f : mesh.boundary_facets()) {
+    const auto tag = mesh.facet_tag(f);
+    if (tag == box_tag::kYMin || tag == box_tag::kYMax) pec.push_back(f);
+  }
+  for (const int p : {1, 2}) {
+    const NedelecDofMap<2> dofs(mesh, p);
+    const DofMap<2> dual(mesh, p + 1);
+    const Vector e_h = constrained_primal<2>(dofs, form, k2, pec, periodic);
+    const auto errors = hpfem::assembly::hcurl_error<2>(dofs, e_h, exact, exact_curl);
+    const Real energy = std::sqrt(errors.curl * errors.curl + errors.l2 * errors.l2);
+    const Vector sigma_h = dual_solution<2>(dual, factory, k2, {}, periodic);
+    const Real eta = hypercircle_estimate<2>(dofs, e_h, dual, sigma_h, factory, k2).total();
+    INFO("p = " << p << ": energy error " << energy << ", eta " << eta);
+    REQUIRE(eta >= energy * (1 - 1e-10));  // guaranteed
+    REQUIRE(eta < 1.5 * energy);           // sharp with the dual order p + 1
+    // the dual field carries the Bloch phase (the admissibility the bound relies on: the
+    // boundary terms of the periodic sides cancel); without the pairs it does not
+    const auto bloch = hpfem::assembly::bloch_constraints<2>(dual, periodic);
+    const auto violation = [&](const Vector& sigma) {
+      Real worst = 0;
+      for (Index s = 0; s < dual.num_dofs(); ++s) {
+        if (!bloch.is_constrained(s)) continue;
+        Complex value = 0;
+        for (const auto& term : bloch.terms(s)) value += term.coefficient * sigma(term.master);
+        worst = std::max(worst, std::abs(sigma(s) - value));
+      }
+      return worst;
+    };
+    REQUIRE(violation(sigma_h) < 1e-12 * sigma_h.cwiseAbs().maxCoeff());
+    REQUIRE(violation(dual_solution<2>(dual, factory, k2)) > 1e-3 * sigma_h.cwiseAbs().maxCoeff());
+  }
+}
+
 TEST_CASE("hypercircle: guaranteed bound of the energy error on the coercive cube",
+
           "[adaptivity][hypercircle][3d]") {
   // E = (sin(pi y) sin(pi z), sin(pi z) sin(pi x), sin(pi x) sin(pi y)), div E = 0, so
   // f = curl curl E + E = (2 pi² + 1) E; PEC on all faces
@@ -142,7 +261,41 @@ TEST_CASE("hypercircle: guaranteed bound of the energy error on the coercive cub
   }
 }
 
+TEST_CASE("hypercircle: guaranteed bound with hanging nodes in 3D",
+          "[adaptivity][hypercircle][3d]") {
+  const auto exact = [](const Point<3>& x) {
+    return ComplexVector<3>(std::sin(kPi * x(1)) * std::sin(kPi * x(2)),
+                            std::sin(kPi * x(2)) * std::sin(kPi * x(0)),
+                            std::sin(kPi * x(0)) * std::sin(kPi * x(1)));
+  };
+  const auto exact_curl = [](const Point<3>& x) {
+    const Real sx = std::sin(kPi * x(0)), sy = std::sin(kPi * x(1)), sz = std::sin(kPi * x(2));
+    const Real cx = std::cos(kPi * x(0)), cy = std::cos(kPi * x(1)), cz = std::cos(kPi * x(2));
+    return ComplexCurl<3>(kPi * sx * (cy - cz), kPi * sy * (cz - cx), kPi * sz * (cx - cy));
+  };
+  const Real k2 = -1.0;
+  const MaxwellForm<3> form = vacuum_form<3>(
+      [&](const Point<3>& x) { return ComplexVector<3>((2 * kPi * kPi + 1) * exact(x)); });
+  const auto factory = [&](Index) { return form; };
+  AdaptiveMesh<3> adaptive(box(2, 2, 2));
+  const std::vector<Index> marked{0, 7};
+  static_cast<void>(adaptive.refine(marked));
+  const Mesh<3> mesh = adaptive.mesh();
+  const NedelecDofMap<3> dofs(mesh, 1);
+  const NedelecDofMap<3> dual(mesh, 2);
+  REQUIRE(hpfem::assembly::hanging_constraints(dual).num_constrained() > 0);
+  const Vector e_h = constrained_primal<3>(dofs, form, k2, all_boundary(mesh));
+  const auto errors = hpfem::assembly::hcurl_error<3>(dofs, e_h, exact, exact_curl);
+  const Real energy = std::sqrt(errors.curl * errors.curl + errors.l2 * errors.l2);
+  const Vector sigma_h = dual_solution<3>(dual, factory, k2);
+  const Real eta = hypercircle_estimate<3>(dofs, e_h, dual, sigma_h, factory, k2).total();
+  INFO("energy error " << energy << ", eta " << eta);
+  REQUIRE(eta >= energy * (1 - 1e-10));
+  REQUIRE(eta < 2.0 * energy);
+}
+
 TEST_CASE("hypercircle: indefinite lossy problem is estimable, bad input is rejected",
+
           "[adaptivity][hypercircle]") {
   const Mesh<2> mesh = rectangle(4, 4);
   const NedelecDofMap<2> dofs(mesh, 2);

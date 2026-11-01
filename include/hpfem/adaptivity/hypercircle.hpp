@@ -29,6 +29,7 @@
 
 #include "hpfem/assembly/h1_forms.hpp"
 #include "hpfem/assembly/maxwell_forms.hpp"
+#include "hpfem/assembly/periodic.hpp"
 #include "hpfem/core/types.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
@@ -55,13 +56,20 @@ template <int Dim>
 /// mass coefficient k² of the primal problem. `essential_facets` are the facets where the
 /// primal problem has the natural (PMC) condition: there the dual field has the essential one
 /// (tangential trace zero in 3D, value zero in 2D). Where the primal field is PEC nothing is
-/// imposed on the dual field. Constrained meshes (hanging nodes, Bloch) are not supported.
-/// @throws InvalidArgument if k² is zero.
+/// imposed on the dual field. On a one-irregular mesh (`mesh::AdaptiveMesh`) the hanging DoFs
+/// of the dual space are constrained (`assembly::hanging_constraints`); `periodic` are the
+/// Bloch pairs of the primal problem, which the dual field inherits with the same phases
+/// (@f$ \sigma = \mu^{-1}\nabla\times E - g @f$ commutes with the lattice translation). The
+/// constrained system is reduced by @f$ P^H A P @f$ before the essential condition is imposed
+/// on the free DoFs; the result is the full coefficient vector (slaves filled in), ready for
+/// `hypercircle_estimate`.
+/// @throws InvalidArgument if k² is zero or a periodic pair does not match the mesh.
 template <int Dim>
 [[nodiscard]] Vector dual_solution(
     const DualDofMap<Dim>& dual_dofs,
     const std::type_identity_t<assembly::CellFormFactory<Dim>>& form_of_cell, Real k_squared,
-    std::span<const Index> essential_facets, int extra_order = 2,
+    std::span<const Index> essential_facets = {},
+    std::span<const assembly::PeriodicPair<Dim>> periodic = {}, int extra_order = 2,
     solvers::DirectSolverBackend backend = solvers::DirectSolverBackend::kAuto);
 
 /// Squared contributions of the two constitutive relations of one cell.
@@ -82,7 +90,9 @@ struct HypercircleEstimate {
 };
 
 /// Indicators of the primal coefficients `e_h` on `dofs` and the dual coefficients `sigma_h`
-/// on `dual_dofs` (same mesh) for the per-cell forms and the mass coefficient k². The
+/// on `dual_dofs` (same mesh) for the per-cell forms and the mass coefficient k². On a
+/// constrained mesh (hanging nodes, Bloch) both vectors are the full coefficients with the
+/// slaves filled in (`Constraints::expand`), so that the fields are conforming. The
 /// weighted norms are @f$ |w^H T w| @f$ with the energy weights @f$ T = \mu @f$ and
 /// @f$ T = -k^2\varepsilon @f$, which are the exact energy norms for real coefficients and
 /// k² < 0 and their moduli otherwise (lossy materials, PML). Quadrature of degree
@@ -98,10 +108,12 @@ template <int Dim>
 extern template DualForm<2> dual_form<2>(const assembly::MaxwellForm<2>&, Real);
 extern template DualForm<3> dual_form<3>(const assembly::MaxwellForm<3>&, Real);
 extern template Vector dual_solution<2>(const DualDofMap<2>&, const assembly::CellFormFactory<2>&,
-                                        Real, std::span<const Index>, int,
+                                        Real, std::span<const Index>,
+                                        std::span<const assembly::PeriodicPair<2>>, int,
                                         solvers::DirectSolverBackend);
 extern template Vector dual_solution<3>(const DualDofMap<3>&, const assembly::CellFormFactory<3>&,
-                                        Real, std::span<const Index>, int,
+                                        Real, std::span<const Index>,
+                                        std::span<const assembly::PeriodicPair<3>>, int,
                                         solvers::DirectSolverBackend);
 extern template HypercircleEstimate hypercircle_estimate<2>(const fespace::NedelecDofMap<2>&,
                                                             const Vector&, const DualDofMap<2>&,

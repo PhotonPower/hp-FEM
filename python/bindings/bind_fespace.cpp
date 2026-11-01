@@ -96,6 +96,13 @@ void bind_periodic(py::module_& m) {
       py::arg("dofs"), py::arg("pairs"), py::arg("tolerance") = 1e-8, Release(),
       "Constraints of all slave-facet DoFs of the periodic directions (facets must match "
       "pairwise after the shift)");
+  m.def(
+      "bloch_constraints",
+      [](const fespace::DofMap<Dim>& dofs, const std::vector<Pair>& pairs, Real tolerance) {
+        return assembly::bloch_constraints<Dim>(dofs, pairs, tolerance);
+      },
+      py::arg("dofs"), py::arg("pairs"), py::arg("tolerance") = 1e-8, Release(),
+      "The same for the H1 space (scalar trace)");
 }
 
 }  // namespace
