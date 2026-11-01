@@ -32,4 +32,4 @@ Template:
 | 0012 | Optimisation, calibration and UQ in `hpfem.opt` on the discrete sensitivities | accepted |
 | 0013 | Dipole emitters in periodic structures by array scanning of the conical cell problem | accepted |
 | 0014 | Layered background for the axisymmetric solver | accepted |
-| 0015 | Optically anisotropic materials (substrates, layers, structured parts) | proposed |
+| 0015 | Optically anisotropic materials (substrates, layers, structured parts) | accepted |
