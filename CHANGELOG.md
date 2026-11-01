@@ -3,6 +3,14 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `ConicalSweep` with complex Bloch phases (M17 S3, ADR-0013 §5): the cached reduction forms
+  Q^H A P with the test space of the constraints, so the array-scanning samples off the real kx
+  axis run on the sweep. `factorize(setup)` / `solve_loads(loads)` / `point` solve several
+  loads on a point, and `conical_sweep_dipole_power_matrix` gives the dipole power matrix on a
+  sweep. With a fixed stretch (ω, PML, PML materials) the PML cells are split affinely in β as
+  well, from the second point on. `grating.dipole_emission` / `emission_cost` run the samples on
+  one sweep per thread (`sweep=True`): 1.35–2.3 times faster per sample with SparseLU, the same
+  result to rounding. `Constraints::test_coefficient` is public.
 - Parallel samples in the single-dipole scan (M17 S3, ADR-0013 §5): `grating.dipole_emission(...,
   workers=n)` solves the cell problems in `n` threads, each with `num_threads() / n` OpenMP
   threads. The bindings release the GIL, so mesh and materials need not be pickled. The β

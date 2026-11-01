@@ -62,6 +62,9 @@ class Constraints {
   void set_test(const Constraints& test);
   /// True after `set_test`.
   [[nodiscard]] bool has_test() const noexcept { return !test_.empty(); }
+  /// Coefficient of the resolved term `k` of `terms(slave)` in the test space @f$ Q @f$ (the
+  /// trial coefficient without a test space). Call `terms` first, which resolves the chains.
+  [[nodiscard]] Complex test_coefficient(Index slave, std::size_t k) const;
   /// Prolongation @f$ P @f$ (num_dofs × num_free): @f$ x = P x_f @f$.
   [[nodiscard]] SparseMatrix prolongation() const;
   /// Test prolongation @f$ Q @f$ (equal to @f$ P @f$ without `set_test`).
@@ -85,8 +88,6 @@ class Constraints {
   mutable std::vector<Index> reduced_;    ///< reduced index per DoF, built on resolve
   /// test coefficients aligned with the resolved terms, empty without a test space
   std::vector<std::vector<Complex>> test_;
-  /// coefficient of resolved term k of DoF i in the test space
-  [[nodiscard]] Complex test_coefficient(Index i, std::size_t k) const;
 };
 
 }  // namespace hpfem::fespace

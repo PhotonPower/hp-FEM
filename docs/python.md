@@ -716,7 +716,10 @@ index of the cell. Quenching near a metal lives in the near field: give `beta_ma
 each thread gets `num_threads() / n` OpenMP threads and owns its factorisation, so the memory
 of `n` factorisations is needed at once); the result is the same as with one worker. A direct
 solver scales poorly with threads beyond a few cores, so several workers with few threads each
-use a many-core machine better; the plane-wave solves of the channels stay serial.
+use a many-core machine better; the plane-wave solves of the channels stay serial. Each
+thread runs its samples on one `ConicalSweep` (`sweep=True`, the default: the parts outside
+the PML and, at fixed ω, the PML parts assembled once, refactorisation on the first symbolic
+analysis); `sweep=False` builds a `ConicalScattering` per sample.
 `grating.emission_cost(...)` with the same arguments counts the cell
 problems and plane-wave solves without running them (with `guided` an estimate of the second
 passes), gives the memory of one factorisation (`peak_bytes` for `workers` of them) and, with

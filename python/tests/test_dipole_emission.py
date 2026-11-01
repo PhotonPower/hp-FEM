@@ -368,3 +368,17 @@ def test_dipole_emission_with_workers_matches_the_serial_scan():
     cost = grating.emission_cost(mesh, {}, stack, dipole, OMEGA, workers=2, **options)
     assert cost.workers == 2 and cost.peak_bytes == 2 * cost.total_bytes
     assert cost.samples == serial.samples
+
+
+def test_dipole_emission_on_the_sweep_matches_the_per_sample_problems():
+    # the samples on one ConicalSweep (default) against a ConicalScattering per sample: the same
+    # power matrix to rounding, on the complex contour (test space of the Bloch constraints)
+    mesh, stack = homogeneous_cell(h=0.25 * UM)
+    dipole = {"position": (0.0, 0.1 * UM), "sigma": SIGMA}
+    options = dict(nodes=2, kx_nodes=2, order=2, beta_max=0.3 * K, channels=False,
+                   pml={"top": UM, "bottom": UM})  # fmt: skip
+    swept = grating.dipole_emission(mesh, {}, stack, dipole, OMEGA, **options)
+    direct = grating.dipole_emission(mesh, {}, stack, dipole, OMEGA, sweep=False, **options)
+    assert np.any(np.abs(swept.rule.kx.imag) > 0)  # the contour leaves the real axis
+    np.testing.assert_allclose(swept.power_matrix, direct.power_matrix, rtol=1e-8,
+                               atol=1e-8 * np.abs(direct.power_matrix).max())  # fmt: skip

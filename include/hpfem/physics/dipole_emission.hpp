@@ -20,6 +20,7 @@
 
 #include "hpfem/core/types.hpp"
 #include "hpfem/physics/conical_scattering.hpp"
+#include "hpfem/physics/conical_sweep.hpp"
 
 namespace hpfem::physics {
 
@@ -67,6 +68,19 @@ namespace hpfem::physics {
 [[nodiscard]] Eigen::Matrix3cd conical_dipole_power_matrix(
     const ConicalScattering& problem, const std::vector<ConicalSolution>& unit_responses,
     const Point<2>& position, Real sigma, int extra_order = 4);
+
+/// The power matrix of `conical_dipole_power_matrix` for the cell problem `setup` (one (kx, β)
+/// sample of the array scanning) on a sweep: `ConicalSweep::factorize` (the cached affine parts,
+/// the reduction with the test space for a complex Bloch phase, the refactorisation on the
+/// symbolic analysis of the first sample), then the loads of the three unit moments on the
+/// cells within 7σ and one multi-rhs solve. The setup must keep what the sweep's base fixes
+/// (mesh, orders, PEC tags, periodic pairs, PML box, materials) and carry a current (any; the
+/// loads are the dipoles'). Agrees with `ConicalScattering` + `conical_dipole_responses` to
+/// rounding. Not thread safe: one sweep per thread.
+/// @throws InvalidArgument for σ ≤ 0, and as `ConicalSweep::solve`.
+[[nodiscard]] Eigen::Matrix3cd conical_sweep_dipole_power_matrix(
+    ConicalSweep& sweep, const ConicalScatteringSetup& setup, const Point<2>& position, Real sigma,
+    int extra_order = 4);
 
 /// The field of a solution averaged over the Gaussian of `conical_gaussian_dipole`,
 /// @f$ e^{-\sigma^2\beta^2/2}\int g_2\,E\,dA @f$ with the total physical field E (the incident
