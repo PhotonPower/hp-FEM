@@ -370,6 +370,35 @@ void bind_postprocess(py::module_& m) {
       py::arg("max_order") = 3, py::arg("num_points") = 0, py::arg("incident_amplitude") = 1.0,
       "orders of field - incident (or field) on any OrderLine as ConicalDiffractionOrder with "
       "vector amplitudes (solver frame; to_literature_frame converts)");
+  py::class_<physics::ModeChannel>(m, "ModeChannel",
+                                   "one mode channel of a diffraction order (ADR-0015 §7)")
+      .def_readonly("kind", &physics::ModeChannel::kind)
+      .def_readonly("kn", &physics::ModeChannel::kn, "normal wavenumber along the line normal")
+      .def_readonly("amplitude", &physics::ModeChannel::amplitude, "amplitude of the unit-|E| mode")
+      .def_readonly("field", &physics::ModeChannel::field, "E of the unit mode (solver frame)")
+      .def_readonly("propagating", &physics::ModeChannel::propagating)
+      .def_readonly("efficiency", &physics::ModeChannel::efficiency);
+  py::class_<physics::ModeResolvedOrder>(m, "ModeResolvedOrder")
+      .def_readonly("order", &physics::ModeResolvedOrder::order)
+      .def_readonly("k_tangential", &physics::ModeResolvedOrder::k_tangential)
+      .def_readonly("amplitude", &physics::ModeResolvedOrder::amplitude)
+      .def_readonly("channels", &physics::ModeResolvedOrder::channels)
+      .def_readonly("propagating", &physics::ModeResolvedOrder::propagating)
+      .def_readonly("efficiency", &physics::ModeResolvedOrder::efficiency);
+  m.def(
+      "conical_mode_orders",
+      [](const ConicalFn& field, const physics::OrderLine& line, Real k0,
+         const materials::Tensor3& eps_line, Real kt0, Real beta, Real kn_incident,
+         const ConicalFn& incident, int max_order, int num_points, Real incident_amplitude) {
+        return physics::conical_mode_orders(field, line, k0, eps_line, kt0, beta, kn_incident,
+                                            incident, max_order, num_points, incident_amplitude);
+      },
+      py::arg("field"), py::arg("line"), py::arg("k0"), py::arg("eps_line"), py::arg("kt0"),
+      py::arg("beta"), py::arg("kn_incident"), py::arg("incident") = ConicalFn{},
+      py::arg("max_order") = 3, py::arg("num_points") = 0, py::arg("incident_amplitude") = 1.0,
+      "orders of field - incident (or field) on the line, decomposed on the two outgoing modes "
+      "of the medium of permittivity eps_line (solver frame): s / p, ordinary / extraordinary or "
+      "biaxial channels with their own k_n and efficiency");
   m.def(
       "conical_power_balance",
       [](const physics::ConicalScattering& problem, const physics::ConicalSolution& solution,

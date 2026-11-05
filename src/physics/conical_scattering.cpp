@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <map>
 #include <memory>
+#include <numbers>
 #include <utility>
 #include <vector>
 
@@ -169,6 +171,39 @@ ConicalScattering::ConicalScattering(const fespace::NedelecDofMap<2>& transverse
       }
     }
   }
+  // modal transparent boundaries: one Bloch direction, a homogeneous medium outside the PML
+  for (const ConicalModalBoundary& b : setup_.modal_boundaries) {
+    if (setup_.periodic.size() != 1) {
+      throw InvalidArgument(
+          "ConicalScattering: a modal boundary needs exactly one periodic pair (the period)");
+    }
+    const Surface<2> line = Surface<2>::boundary(mesh, b.facet_tag);
+    if (line.facets.empty()) {
+      throw InvalidArgument(fmt::format(
+          "ConicalScattering: no boundary facets with the modal boundary tag {}", b.facet_tag));
+    }
+    const materials::Material& first = setup_.materials.of_cell(mesh, line.facets[0].inside_cell);
+    for (const auto& f : line.facets) {
+      const materials::Material& m = setup_.materials.of_cell(mesh, f.inside_cell);
+      if ((m.eps_tensor() - first.eps_tensor()).cwiseAbs().maxCoeff() != 0 ||
+          m.mu_scalar() != Complex{1.0, 0.0}) {
+        throw InvalidArgument(
+            fmt::format("ConicalScattering: the cells along the modal boundary {} must share one "
+                        "non-magnetic medium (cell {} differs)",
+                        b.facet_tag, f.inside_cell));
+      }
+      if (setup_.pml) {
+        const Point<2> x = mesh::affine_map(mesh, f.inside_cell).centroid();
+        for (int d = 0; d < 2; ++d) {
+          if (x(d) < setup_.pml->lower()(d) || x(d) > setup_.pml->upper()(d)) {
+            throw InvalidArgument(
+                fmt::format("ConicalScattering: cell {} on the modal boundary {} lies in the PML",
+                            f.inside_cell, b.facet_tag));
+          }
+        }
+      }
+    }
+  }
   // PEC: tangential in-plane DoFs and E_z on the tagged facets
   std::vector<Index> pec;
   for (const mesh::Tag tag : setup_.pec_tags) {
@@ -211,15 +246,19 @@ ConicalScattering::ConicalScattering(const fespace::NedelecDofMap<2>& transverse
     }
     // a crystal with eps_xz or eps_yz couples E_z to the in-plane field already at beta = 0
     for (Index c = 0; c < mesh.num_cells(); ++c) {
-      const materials::Material& m = setup_.materials.of_cell(mesh, c);
-      if (m.is_isotropic()) continue;
-      const materials::Tensor3 eps = m.eps_tensor();
-      if (eps(0, 2) != Complex{0.0, 0.0} || eps(1, 2) != Complex{0.0, 0.0}) {
-        throw AnisotropicUnsupported(fmt::format(
-            "ConicalScattering: scalar_ez with the crystal of cell {} (tag {}): eps_xz or eps_yz "
-            "couples E_z to the in-plane field, so the polarisations do not decouple; solve "
-            "the full block system (ADR-0015 §4)",
-            c, mesh.cell_tag(c)));
+      // the cell's own material and, for the scattered field, the layer of the background
+      for (const materials::Material* mp :
+           {&setup_.materials.of_cell(mesh, c), &background_material(c)}) {
+        const materials::Material& m = *mp;
+        if (m.is_isotropic()) continue;
+        const materials::Tensor3 eps = m.eps_tensor();
+        if (eps(0, 2) != Complex{0.0, 0.0} || eps(1, 2) != Complex{0.0, 0.0}) {
+          throw AnisotropicUnsupported(fmt::format(
+              "ConicalScattering: scalar_ez with the crystal of cell {} (tag {}): eps_xz or eps_yz "
+              "couples E_z to the in-plane field, so the polarisations do not decouple; solve "
+              "the full block system (ADR-0015 §4)",
+              c, mesh.cell_tag(c)));
+        }
       }
     }
   }
@@ -313,8 +352,26 @@ ConicalSolution ConicalScattering::solve() const {
   // the scalar E_z path takes the H1 block alone (zero coupling at beta = 0)
   const std::vector<Index>& dofs = system_dofs();
   const std::optional<fespace::Constraints>& constraints = system_constraints();
-  SparseMatrix a =
-      assembly::extract(SparseMatrix(system.stiffness - (k0_ * k0_) * system.mass), dofs, dofs);
+  SparseMatrix full_matrix = system.stiffness - (k0_ * k0_) * system.mass;
+  for (const ConicalModalBoundary& b : setup_.modal_boundaries) {
+    const auto& mesh = transverse_->mesh();
+    const Surface<2> line = Surface<2>::boundary(mesh, b.facet_tag);
+    const assembly::PeriodicPair<2>& pair = setup_.periodic.front();
+    const Real period = pair.shift.norm();
+    // the Bloch wavenumber in the first Brillouin zone
+    const Real kt0 = std::arg(pair.phase) / period;
+    int max_order = b.max_order;
+    if (max_order < 0) {
+      int p = 0;
+      for (const auto& f : line.facets) p = std::max(p, transverse_->cell_order(f.inside_cell));
+      max_order = static_cast<int>((line.facets.size() * static_cast<std::size_t>(p) + 1) / 2) + 2;
+    }
+    full_matrix += conical_modal_boundary_matrix(
+        *transverse_, *longitudinal_, line,
+        setup_.materials.of_cell(mesh, line.facets[0].inside_cell).eps_tensor(), k0_, setup_.beta,
+        pair.shift, kt0, max_order);
+  }
+  SparseMatrix a = assembly::extract(full_matrix, dofs, dofs);
   a.makeCompressed();
   Vector rhs(static_cast<Index>(dofs.size()));
   for (Index j = 0; j < rhs.size(); ++j) rhs(j) = system.rhs(dofs[as_size(j)]);
@@ -383,6 +440,144 @@ ConicalError ConicalScattering::error(
     }
   }
   return {std::sqrt(l2), std::sqrt(curl)};
+}
+
+SparseMatrix conical_modal_boundary_matrix(const fespace::NedelecDofMap<2>& transverse,
+                                           const fespace::DofMap<2>& longitudinal,
+                                           const Surface<2>& line, const materials::Tensor3& eps,
+                                           Real k0, Real beta, const Point<2>& shift, Real kt0,
+                                           int max_order) {
+  const auto& mesh = transverse.mesh();
+  const Real period = shift.norm();
+  if (line.facets.empty() || !(period > 0) || !(k0 > 0) || max_order < 0) {
+    throw InvalidArgument(
+        "conical_modal_boundary_matrix: empty line, zero period, k0 <= 0 or max_order < 0");
+  }
+  const Point<2> t = shift / period;
+  // the Fourier integrals need the oscillation of the highest order on a facet
+  int p = 0;
+  Real h = 0;
+  for (const auto& f : line.facets) {
+    p = std::max(p, transverse.cell_order(f.inside_cell));
+    const auto v = mesh.facet_vertices(f.facet);
+    h = std::max(h, (mesh.vertex(v[1]) - mesh.vertex(v[0])).norm());
+  }
+  const Real k_max = std::abs(kt0) + 2.0 * std::numbers::pi * max_order / period;
+  const int degree = 2 * p + 6 + 2 * static_cast<int>(std::ceil(k_max * h));
+  const auto points = surface_quadrature<2>(mesh, line, degree);
+  const Point<2> n = points.front().normal;
+  for (const auto& sp : points) {
+    if ((sp.normal - n).norm() > 1e-9) {
+      throw InvalidArgument("conical_modal_boundary_matrix: the line must be straight");
+    }
+  }
+  if (std::abs(n.dot(t)) > 1e-9) {
+    throw InvalidArgument(
+        "conical_modal_boundary_matrix: the line must run along the period vector");
+  }
+  // local frame (t, n x t, n); n x t = y_sign z
+  const Real y_sign = n(0) * t(1) - n(1) * t(0);
+  Eigen::Matrix3d r;
+  r << t(0), t(1), 0.0, 0.0, 0.0, y_sign, n(0), n(1), 0.0;
+  const materials::Tensor3 eps_local = r.cast<Complex>() * eps * r.transpose().cast<Complex>();
+  const int num_orders = 2 * max_order + 1;
+  std::vector<Real> km(as_size(num_orders));
+  std::vector<Eigen::Matrix2cd> jy(as_size(num_orders));
+  Eigen::Matrix2cd j_cross;
+  j_cross << 0.0, -1.0, 1.0, 0.0;  // n x (tangential H) in the local frame
+  for (int m = -max_order; m <= max_order; ++m) {
+    const auto idx = as_size(m + max_order);
+    km[idx] = kt0 + 2.0 * std::numbers::pi * m / period;
+    HalfSpaceModes modes;
+    try {
+      modes = half_space_modes(eps_local, km[idx] / k0, y_sign * beta / k0, true);
+    } catch (const InvalidArgument& e) {
+      throw InvalidArgument(
+          fmt::format("conical_modal_boundary_matrix: order {}: {}", m, e.what()));
+    }
+    Eigen::Matrix2cd we;
+    Eigen::Matrix2cd wh;
+    for (int c = 0; c < 2; ++c) {
+      we.col(c) = modes.modes[as_size(c)].head<2>();
+      wh.col(c) = modes.modes[as_size(c)].tail<2>();
+    }
+    jy[idx] = j_cross * wh * we.inverse();
+  }
+  // Fourier vectors of the trial (E-hat, with 1/a) and test (F-hat) traces per block DoF
+  const Index n_e = transverse.num_dofs();
+  std::map<Index, std::pair<Eigen::MatrixXcd, Eigen::MatrixXcd>> traces;
+  const Point<2> origin = points.front().x;
+  for (const auto& sp : points) {
+    const auto geometry = mesh::cell_geometry(mesh, sp.cell);
+    const auto g = geometry->evaluate(sp.xi);
+    const fespace::NedelecBasis<2> nd_basis(transverse.cell_layout(sp.cell));
+    const fespace::H1Basis<2> h1_basis(longitudinal.cell_layout(sp.cell));
+    std::vector<Point<2>> values(as_size(nd_basis.size()));
+    std::vector<fespace::CurlVector<2>> curls(as_size(nd_basis.size()));
+    std::vector<Real> psi(as_size(h1_basis.size()));
+    std::vector<Point<2>> grads(as_size(h1_basis.size()));
+    nd_basis.evaluate(sp.xi, values, curls);
+    h1_basis.evaluate(sp.xi, psi, grads);
+    const Real s = (sp.x - origin).dot(t);
+    Eigen::VectorXcd phase(num_orders);
+    for (int m = 0; m < num_orders; ++m) phase(m) = std::exp(-kI * km[as_size(m)] * s);
+    const auto add = [&](Index dof, const Eigen::Vector2cd& trial, const Eigen::Vector2cd& test) {
+      auto [it, inserted] = traces.try_emplace(dof);
+      if (inserted) {
+        it->second.first = Eigen::MatrixXcd::Zero(2, num_orders);
+        it->second.second = Eigen::MatrixXcd::Zero(2, num_orders);
+      }
+      it->second.first += (sp.weight / period) * trial * phase.transpose();
+      it->second.second += sp.weight * test * phase.conjugate().transpose();
+    };
+    // tangential traces vanish for the functions not attached to the facet: skip them
+    const auto nd_dofs = transverse.cell_dofs(sp.cell);
+    Real nd_scale = 0;
+    std::vector<Real> nd_t(as_size(nd_basis.size()));
+    for (Index i = 0; i < nd_basis.size(); ++i) {
+      nd_t[as_size(i)] = (g.inverse_transpose * values[as_size(i)]).dot(t);
+      nd_scale = std::max(nd_scale, (g.inverse_transpose * values[as_size(i)]).norm());
+    }
+    for (Index i = 0; i < nd_basis.size(); ++i) {
+      const Real et = nd_t[as_size(i)];
+      if (std::abs(et) <= 1e-12 * nd_scale) continue;
+      add(nd_dofs[as_size(i)], Eigen::Vector2cd(et, 0.0), Eigen::Vector2cd(et, 0.0));
+    }
+    // E_z = i v (trial), F_z = -i w (test); local y = y_sign z
+    const auto h1_dofs = longitudinal.cell_dofs(sp.cell);
+    for (Index j = 0; j < h1_basis.size(); ++j) {
+      const Real v = psi[as_size(j)];
+      if (std::abs(v) <= 1e-12) continue;
+      add(n_e + h1_dofs[as_size(j)], Eigen::Vector2cd(0.0, y_sign * kI * v),
+          Eigen::Vector2cd(0.0, -y_sign * kI * v));
+    }
+  }
+  // B_ij = i k0 sum_m F-hat_{i,m}^T (J Y_m) E-hat_{j,m}, dense on the DoFs of the line
+  const auto n_b = static_cast<Index>(traces.size());
+  Eigen::MatrixXcd trial(2 * num_orders, n_b);
+  Eigen::MatrixXcd test(2 * num_orders, n_b);
+  std::vector<Index> index;
+  index.reserve(as_size(n_b));
+  Index col = 0;
+  for (const auto& [dof, tr] : traces) {
+    for (int m = 0; m < num_orders; ++m) {
+      trial.block<2, 1>(2 * m, col) = jy[as_size(m)] * tr.first.col(m);
+      test.block<2, 1>(2 * m, col) = tr.second.col(m);
+    }
+    index.push_back(dof);
+    ++col;
+  }
+  const Eigen::MatrixXcd dense = (kI * k0) * (test.transpose() * trial);
+  std::vector<Eigen::Triplet<Complex, Index>> triplets;
+  triplets.reserve(as_size(n_b * n_b));
+  for (Index i = 0; i < n_b; ++i) {
+    for (Index j = 0; j < n_b; ++j)
+      triplets.emplace_back(index[as_size(i)], index[as_size(j)], dense(i, j));
+  }
+  const Index size = n_e + longitudinal.num_dofs();
+  SparseMatrix out(size, size);
+  out.setFromTriplets(triplets.begin(), triplets.end());
+  return out;
 }
 
 ConicalVector conical_field_at(const fespace::NedelecDofMap<2>& transverse,

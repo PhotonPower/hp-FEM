@@ -459,3 +459,132 @@ TEST_CASE("Anisotropic stack: ordinary and extraordinary substrate modes",
           .response(kK0, 0.0);
   REQUIRE((c.channel_transmittance.colwise().sum().transpose() - c.transmittance).norm() < 1e-12);
 }
+
+TEST_CASE("Anisotropic stack: half-space modes", "[physics][stack][anisotropic]") {
+  using hpfem::physics::half_space_modes;
+  using hpfem::physics::HalfSpaceModes;
+  using hpfem::physics::SubstrateMode;
+  const Real a = 0.5;
+  const Real b = -0.3;
+  // isotropic: s / p with k_z = +-sqrt(eps - a^2 - b^2) and the flux Re k_z (unit |E|)
+  for (const bool up : {true, false}) {
+    const HalfSpaceModes m = half_space_modes(2.25 * Tensor3::Identity(), a, b, up);
+    const Real kz = std::sqrt(2.25 - a * a - b * b);
+    REQUIRE(m.kinds[0] == SubstrateMode::kS);
+    REQUIRE(m.kinds[1] == SubstrateMode::kP);
+    for (std::size_t j = 0; j < 2; ++j) {
+      REQUIRE(std::abs(m.kz[j] - (up ? kz : -kz)) < 1e-13);
+      REQUIRE(std::abs(m.flux[j] - kz) < 1e-12);
+      REQUIRE(std::abs(m.fields[j].norm() - 1.0) < 1e-13);
+    }
+  }
+  // an evanescent order of a lossless medium carries no flux and decays away
+  const HalfSpaceModes ev = half_space_modes(Tensor3::Identity(), 1.4, 0.2, true);
+  REQUIRE(std::imag(ev.kz[0]) > 0.9);
+  REQUIRE(ev.flux[0] < 1e-14);
+  // a tilted uniaxial crystal: eigenvectors of K, ordinary k_z in closed form, and the mode
+  // flux the power of the mode
+  const Tensor3 eps = uniaxial(2.25, 3.1, Eigen::Vector3d(0.4, 0.8, 0.5));
+  const Eigen::Matrix4cd k = AnisotropicStack::berreman_matrix(eps, a, b);
+  for (const bool up : {true, false}) {
+    const HalfSpaceModes m = half_space_modes(eps, a, b, up);
+    REQUIRE(m.kinds[0] == SubstrateMode::kOrdinary);
+    REQUIRE(m.kinds[1] == SubstrateMode::kExtraordinary);
+    const Real kz_o = std::sqrt(2.25 - a * a - b * b);
+    REQUIRE(std::abs(m.kz[0] - (up ? kz_o : -kz_o)) < 1e-10);
+    for (std::size_t j = 0; j < 2; ++j) {
+      REQUIRE((k * m.modes[j] - m.kz[j] * m.modes[j]).norm() < 1e-10);
+      REQUIRE(std::abs(m.flux[j] - (up ? 1.0 : -1.0) * flux(m.modes[j])) < 1e-14);
+      REQUIRE(m.flux[j] > 0.1);
+    }
+  }
+  // the substrate modes of a stack are its downward half-space modes
+  const AnisotropicStack stack(Material::vacuum(), {}, Material::anisotropic(eps));
+  const Real angle = 0.6;
+  const Real azimuth = 0.9;
+  const StackResponse r = stack.response(kK0, angle, azimuth);
+  const HalfSpaceModes d = half_space_modes(eps, std::sin(angle) * std::cos(azimuth),
+                                            std::sin(angle) * std::sin(azimuth), false);
+  for (std::size_t j = 0; j < 2; ++j) {
+    REQUIRE(r.substrate_mode_kinds[j] == d.kinds[j]);
+    REQUIRE(std::abs(r.substrate_kz[j] - kK0 * d.kz[j]) < 1e-10 * kK0);
+    // the same mode up to a phase
+    REQUIRE(std::abs(std::abs(r.substrate_modes[j].dot(d.modes[j])) -
+                     r.substrate_modes[j].norm() * d.modes[j].norm()) < 1e-10);
+  }
+  REQUIRE_THROWS_AS(half_space_modes(Tensor3::Identity(), 1.0, 0.0, true),
+                    hpfem::InvalidArgument);  // grazing: a Rayleigh anomaly
+}
+
+TEST_CASE("Anisotropic stack: mirror symmetry and reciprocity of the Jones matrix",
+          "[physics][stack][anisotropic]") {
+  // ADR-0015 §9 items 6 and 8 on a plate over a substrate, both crystals
+  const Real angle = 0.5;
+  const auto plate_at = [](Real alpha, Real tilt) {
+    // optic axis at the azimuth alpha against the plane of incidence (xz), tilted out of the
+    // layer plane by `tilt`
+    const Eigen::Vector3d c(std::cos(tilt) * std::cos(alpha), std::cos(tilt) * std::sin(alpha),
+                            std::sin(tilt));
+    return AnisotropicStack(Material::vacuum(),
+                            {{Material::anisotropic(uniaxial(2.25, 2.9, c)), 0.37}},
+                            Material::anisotropic(uniaxial(1.9, 2.4, c)));
+  };
+  // mirror at the plane of incidence (axis in the layer plane): r_sp, r_ps odd in alpha,
+  // r_ss, r_pp even; both vanish with the axis in or perpendicular to the plane of incidence
+  for (const Real alpha : {0.3, 1.1}) {
+    const Eigen::Matrix2cd rp = plate_at(alpha, 0.0).response(kK0, angle).reflection;
+    const Eigen::Matrix2cd rm = plate_at(-alpha, 0.0).response(kK0, angle).reflection;
+    REQUIRE(std::abs(rp(0, 0) - rm(0, 0)) < 1e-12);
+    REQUIRE(std::abs(rp(1, 1) - rm(1, 1)) < 1e-12);
+    REQUIRE(std::abs(rp(0, 1) + rm(0, 1)) < 1e-12);
+    REQUIRE(std::abs(rp(1, 0) + rm(1, 0)) < 1e-12);
+    REQUIRE(std::abs(rp(0, 1)) > 1e-3);
+  }
+  for (const Real alpha : {0.0, std::numbers::pi / 2}) {
+    const Eigen::Matrix2cd r = plate_at(alpha, 0.0).response(kK0, angle).reflection;
+    REQUIRE(std::abs(r(0, 1)) < 1e-12);
+    REQUIRE(std::abs(r(1, 0)) < 1e-12);
+  }
+  // reciprocity: the reversed path of the specular reflection at the azimuth phi is the one at
+  // phi + pi; with s = z x k_par (z x k_par / |k_par| for both waves) r_ss, r_pp agree and
+  // r_ps(phi) = -r_sp(phi + pi), also for an axis tilted out of the plane
+  for (const Real tilt : {0.0, 0.7}) {
+    const AnisotropicStack stack = plate_at(0.4, tilt);
+    for (const Real phi : {0.0, 0.8}) {
+      const Eigen::Matrix2cd f = stack.response(kK0, angle, phi).reflection;
+      const Eigen::Matrix2cd g = stack.response(kK0, angle, phi + std::numbers::pi).reflection;
+      REQUIRE(std::abs(f(0, 0) - g(0, 0)) < 1e-12);
+      REQUIRE(std::abs(f(1, 1) - g(1, 1)) < 1e-12);
+      REQUIRE(std::abs(f(1, 0) + g(0, 1)) < 1e-12);
+      REQUIRE(std::abs(f(1, 0)) > 1e-3);
+    }
+  }
+}
+
+TEST_CASE("Anisotropic stack: reflection at any in-plane wavevector",
+          "[physics][stack][anisotropic]") {
+  // M19 S7a: the dipole spectrum needs r(a, b) also beyond the light cone of the cover
+  const Material crystal = Material::anisotropic(uniaxial(2.25, 3.1, Eigen::Vector3d(1, 0.4, 0.7)));
+  const AnisotropicStack stack(Material::dielectric(1.2), {{crystal, 0.2}},
+                               Material::dielectric(1.5));
+  // inside the light cone: the response at the matching angle
+  const Real angle = 0.6;
+  const Real azimuth = 0.9;
+  const Real s = 1.2 * std::sin(angle);
+  REQUIRE((stack.reflection_at(kK0, s * std::cos(azimuth), s * std::sin(azimuth)) -
+           stack.response(kK0, angle, azimuth).reflection)
+              .norm() < 1e-13);
+  // an isotropic half-space beyond the light cone: the Fresnel coefficients with complex k_z
+  const AnisotropicStack half(Material::vacuum(), {}, Material::dielectric(1.5));
+  for (const Real a : {1.2, 1.4, 2.0}) {
+    const Complex q1 = kI * std::sqrt(a * a - 1.0);
+    const Complex q2 =
+        a < 1.5 ? Complex(std::sqrt(2.25 - a * a), 0.0) : Complex(0.0, std::sqrt(a * a - 2.25));
+    const Eigen::Matrix2cd r = half.reflection_at(kK0, a, 0.0);
+    REQUIRE(std::abs(r(0, 0) - (q1 - q2) / (q1 + q2)) < 1e-12);
+    REQUIRE(std::abs(r(1, 1) - (2.25 * q1 - q2) / (2.25 * q1 + q2)) < 1e-12);
+    REQUIRE(std::abs(r(0, 1)) + std::abs(r(1, 0)) < 1e-12);
+  }
+  // the evanescent spectrum of a crystal stack
+  REQUIRE(stack.reflection_at(kK0, 2.0, -0.7).allFinite());
+}

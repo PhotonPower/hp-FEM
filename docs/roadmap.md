@@ -569,8 +569,9 @@ last.
     differences), crystals in `hpfem.grating.solve` / `validate` in the laboratory frame
     (y ↔ z to the conical frame, ADR-0015 S3 amendment)
   - [ ] S3c: the emission pattern and the array scan by reciprocity with crystals (mirrored
-    tensor for the substrate directions), the grating rotated with the crystal against 3D, form
-    birefringence against the effective-medium plate (L. Li 2003)
+    tensor for the substrate directions; done in S7d, except a crystal substrate), the grating
+    rotated with the crystal against 3D, form birefringence against the effective-medium plate
+    (L. Li 2003)
 - [ ] S4: anisotropic `LayerStack`: 4×4 system per layer (ε_zz ≠ 0), ordered complex Schur form
   and 2×2 block exponentials, stable S-matrix recursion on the up / down subspaces, substrate modes
   (o / e by the axis, biaxial by power orthogonality), Jones matrix, analytic stack field for the
@@ -593,14 +594,70 @@ last.
     stacks, a crystal plate on a c-cut half-space against the full stack in 3D and conical
     (`anisotropic_stack_background`). Crystal stacks in `hpfem.grating` need the mode-resolved
     orders of S5
-- [ ] S5: post-processing: mode-resolved diffraction orders in anisotropic half-spaces, modal
+- [x] S5: post-processing: mode-resolved diffraction orders in anisotropic half-spaces, modal
   transparent substrate boundary for gratings over tilted crystals, absorption and Poynting flux
   with tensors, Jones / Mueller output with the s/p convention of `conical_polarisation`; tests:
   mirror symmetry in the azimuth (r_sp odd, r_ss / r_pp even), reciprocity
   r_ps(k_in → k_out) = −r_sp(−k_out → −k_in) on a rotated crystal (stack and conical)
-- [ ] S6: axisymmetric solver with diagonal (r, φ, z) tensors, rejection of tilted axes
-- [ ] S7: dipole emitters above anisotropic stacks (ADR-0013 amendment, β ↔ −β reciprocity), after
-  S4 / S5 are validated
+  - [x] S5a: `half_space_modes` (upward / downward modes of a crystal half-space with kinds, k_z,
+    flux), `conical_mode_orders` (orders on any line decomposed on the outgoing modes: o / e,
+    biaxial or s / p channels with efficiencies); tests: modes against K and closed forms, the
+    mirror symmetry and the reciprocity r_ps(φ) = −r_sp(φ + π) of the stack Jones matrix (also
+    for a tilted axis), a known-mode field recovered on a line, the transmitted o / e channels of
+    the conical FEM field against the stack (`anisotropic_stack_background`)
+  - [x] S5b: modal transparent boundary (`ConicalScatteringSetup::modal_boundaries`,
+    `conical_modal_boundary_matrix`: DtN of the half-space modes per Fourier order) for the
+    conical solver, where a PML over a tilted crystal is unstable; tests: the transposition
+    symmetry of the DtN matrix, a crystal plate on a tilted substrate against the stack, a
+    lossless grating with a backward order −1 (energy balance converges, the PML stalls)
+    (`anisotropic_modal_boundary`)
+  - [x] S5c: `grating.jones` (Jones / Mueller matrix of every propagating order,
+    `conical_polarisation` s / p in isotropic media, mode channels in crystal substrates,
+    power-normalised and referred to the stack interfaces), crystal stacks in `hpfem.grating`
+    as `AnisotropicStack` (laboratory frame) with mode-resolved transmitted orders
+    (`Order.channels`) and `bottom="modal"`, the refusal of a bottom PML over backward orders;
+    `scalar_ez` also checks crystals of the background stack; tests: a flat crystal stack
+    against the stack Jones matrix (J = D r D) and channels, reciprocity of the specular order
+    of a tilted crystal ridge (`test_grating_jones.py`)
+- [x] S6: axisymmetric solver with diagonal (r, φ, z) tensors, rejection of tilted axes
+  (`axisymmetric_permittivity`: a tensor is read in (r, φ, z) and must be diagonal; the material
+  and PML forms, the componentwise scattered-field contrast, the absorption and the cavity loss
+  check take it; the background and the layered background stay isotropic); tests: a uniaxial
+  filling with the axis along z against the ordinary / extraordinary closed forms, a radially
+  anisotropic coaxial cavity against the Bessel modes of non-integer order (5e-11), an isotropic
+  tensor equal to the scalar case, the refusals (`axisymmetric_anisotropic`)
+- [ ] S7: dipole emitters above anisotropic stacks (ADR-0015 S7 amendment), after S4 / S5 are
+  validated
+  - [x] S7a: reference: `AnisotropicStack::reflection_at` (Jones reflection at any in-plane
+    wavevector, evanescent included), `hpfem.planar.dipole_above_stack` (Purcell factor of a
+    point dipole above a crystal stack from the 2D plane-wave spectrum, exact for the Gaussian
+    emitter); tests: the CPS / Airy Sommerfeld integrals for a glass half-space and an absorbing
+    layer, the closed-form r_p of a c-cut half-space, the rotational covariance of a tilted
+    crystal, `reflection_at` against `response` and the evanescent Fresnel coefficients
+  - [x] S7b: `grating.emit` above an `AnisotropicStack` (isotropic lossless host, downward orders
+    of a crystal substrate per mode channel, `bottom="modal"`, a warning when the Gaussian
+    reaches across a stack interface), `hpfem.planar.array_sample_above_stack` (the cell sample
+    of a flat stack: the plane-wave spectrum on the orders); tests: a tilted absorbing crystal
+    layer (6e-8 inside the light cone, 2e-5 beyond it), a tilted lossless crystal substrate with
+    the modal bottom (1e-5, P_cell = up + down)
+  - [x] S7c: `dipole_emission` for crystals (an `AnisotropicStack` or crystal cells): β over
+    (−β_max, β_max), the full kx zone, every power-matrix entry, the light lines and branch
+    points of crystal half-spaces from their Fresnel quartic and the β turning points of their
+    sheets; refused with crystals: `symmetric`, `channels` (S7d), the guided-mode poles (a
+    lossless crystal structure that may guide modes), `bottom="modal"`; tests: the light lines
+    against closed forms, the scan rule on the exact spectrum of a tilted crystal half-space
+    (1e-4), the refusals; long run `benchmarks/m19_crystal_dipole_scan.py`: the FEM scan against
+    S7a to 5e-4
+  - [x] S7d: emission pattern / channels by reciprocity with crystals: `emission_pattern`,
+    `emission_cone` and the `channels` of `dipole_emission` take crystal cells and an
+    `AnisotropicStack`; the substrate directions mirror the cell with M ε M (M = diag(1, −1, 1))
+    and the stack as a mirrored `AnisotropicStack`; no z mirror of the directions and no odd-entry
+    zeroing with crystals; a crystal substrate has no down directions yet (refused: it would
+    need incidence from a crystal); tests: the pattern up and down against |p · E_pw(x0)|² of
+    the analytic stack field per polarisation (6e-5); local run
+    `benchmarks/m19_crystal_emission_balance.py`: the hemisphere powers up + down (8×16
+    directions each) against the total of S7a to 4.8e-5
+  - [ ] S7e (open): guided-mode poles above crystals, down channels into a crystal substrate
 - [ ] S8: GUI material editor (isotropic / uniaxial / biaxial / full, axis angles, per part and
   layer) and display of the Jones / Mueller elements (`GUI-hpFEM`)
 

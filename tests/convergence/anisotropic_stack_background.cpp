@@ -10,6 +10,11 @@
 // field of B must converge exponentially in p to the analytic field of A at points above, in and
 // below the plate. With the plate also in the background (zero contrast everywhere) the scattered
 // field vanishes exactly.
+//
+// Mode-resolved orders (M19 S5a, ADR-0015 §7): on a lossless c-cut substrate, the transmitted
+// orders of the conical FEM field, decomposed on the ordinary and extraordinary modes of the
+// substrate (`conical_mode_orders`), converge to the per-mode transmittances of the stack.
+#include <algorithm>
 #include <cmath>
 #include <numbers>
 #include <vector>
@@ -26,6 +31,7 @@
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/mesh/point_location.hpp"
 #include "hpfem/physics/anisotropic_stack.hpp"
+#include "hpfem/physics/conical_postprocess.hpp"
 #include "hpfem/physics/conical_scattering.hpp"
 #include "hpfem/physics/scattering.hpp"
 #include "hpfem/pml/pml.hpp"
@@ -205,4 +211,86 @@ TEST_CASE("Crystal layer stack as the background of the conical solver",
     errors.push_back(error);
   }
   REQUIRE(errors.back() < 3e-4);
+}
+
+TEST_CASE("Mode-resolved transmitted orders in a crystal substrate",
+          "[convergence][anisotropic][stack][conical][orders]") {
+  using hpfem::physics::ConicalVector;
+  using hpfem::physics::SubstrateMode;
+  const Material substrate =
+      Material::anisotropic(uniaxial(2.4, 2.9, Eigen::Vector3d(0, 0, 1)));  // lossless
+  const AnisotropicStack full(Material::vacuum(), {{kPlate, kThickness}}, substrate, 0.0);
+  const AnisotropicStack half(Material::vacuum(), {}, substrate, -kThickness);
+  const auto exact =
+      hpfem::physics::anisotropic_conical_wave(full, kK0, kTheta, kPhi, Polarisation::kP);
+  const auto background =
+      hpfem::physics::anisotropic_conical_wave(half, kK0, kTheta, kPhi, Polarisation::kP);
+  const hpfem::physics::StackResponse reference = full.response(kK0, kTheta, kPhi);
+  REQUIRE(reference.substrate_mode_kinds[0] == SubstrateMode::kOrdinary);
+  const Eigen::Vector2d channels = reference.channel_transmittance.col(1);  // incident p
+  REQUIRE(channels.minCoeff() > 1e-3);  // the plate converts p into the ordinary mode
+  REQUIRE(channels.maxCoeff() > 0.3);
+  const Real y_max = kInterior + kLayer;
+  Mesh<2> mesh = hpfem::mesh::rectangle(2, static_cast<Index>(std::lround(2.0 * y_max / kH)),
+                                        Point<2>(0.0, -y_max), Point<2>(kPeriod, y_max));
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    const Real yc = hpfem::mesh::affine_map(mesh, c).centroid()(1);
+    if (yc < 0 && yc > -kThickness) mesh.set_cell_tag(c, 2);
+    if (yc < -kThickness) mesh.set_cell_tag(c, 3);
+  }
+  const hpfem::mesh::PointLocator<2> locator(mesh);
+  // the line y = -0.35 in the substrate, normal away from the plate
+  const hpfem::physics::OrderLine line{Point<2>(0.0, -0.35), Point<2>(1.0, 0.0),
+                                       Point<2>(0.0, -1.0), kPeriod};
+  const Tensor3 eps_line = background.background.substrate().eps_tensor();  // solver frame
+  fmt::print(
+      "\nTransmitted orders on ordinary / extraordinary modes, conical solver\n"
+      "stack: o {:.6f}  e {:.6f}  T {:.6f}\n{:>4} {:>12} {:>12} {:>12}\n",
+      channels(0), channels(1), reference.transmittance(1), "p", "o error", "e error", "T error");
+  std::vector<Real> errors;
+  for (int p = 2; p <= 5; ++p) {
+    const hpfem::fespace::NedelecDofMap<2> nd(mesh, p);
+    const hpfem::fespace::DofMap<2> h1(mesh, p);
+    hpfem::physics::ConicalScatteringSetup s;
+    s.omega = kK0 * hpfem::constants::c0;
+    s.beta = background.wave.beta;
+    s.materials.set(2, exact.background.material(1)).set(3, background.background.substrate());
+    s.background = background.background;
+    s.incident = background.wave.field;
+    s.incident_curl = background.wave.field_curl;
+    PmlBox<2>::Thickness t{};
+    t[2] = t[3] = kLayer;
+    s.pml = PmlBox<2>(Point<2>(0.0, -kInterior), Point<2>(kPeriod, kInterior), t, kK0, 1.6,
+                      PmlProfile{2, 1e-12});
+    s.pec_tags = {box_tag::kYMin, box_tag::kYMax};
+    s.periodic = {hpfem::assembly::PeriodicPair<2>{box_tag::kXMin, box_tag::kXMax,
+                                                   Point<2>(kPeriod, 0.0),
+                                                   std::exp(kI * background.wave.kx * kPeriod)}};
+    const hpfem::physics::ConicalScattering problem(nd, h1, s);
+    const auto solution = problem.solve();
+    const auto total = [&](const Point<2>& x) {
+      const auto e = problem.total_field(solution, locator, x);
+      REQUIRE(e);
+      return ConicalVector(*e);
+    };
+    const auto orders =
+        hpfem::physics::conical_mode_orders(total, line, kK0, eps_line, background.wave.kx,
+                                            background.wave.beta, background.wave.ky, {}, 1);
+    const auto& o = orders[1];  // the zeroth order
+    REQUIRE(o.order == 0);
+    REQUIRE(o.channels[0].kind == SubstrateMode::kOrdinary);
+    REQUIRE(o.channels[1].kind == SubstrateMode::kExtraordinary);
+    REQUIRE(!orders[0].propagating);  // sub-wavelength period
+    const Real e_o = std::abs(o.channels[0].efficiency - channels(0));
+    const Real e_e = std::abs(o.channels[1].efficiency - channels(1));
+    const Real e_t = std::abs(o.efficiency - reference.transmittance(1));
+    fmt::print("{:>4} {:>12.3e} {:>12.3e} {:>12.3e}\n", p, e_o, e_e, e_t);
+    const Real error = std::max({e_o, e_e, e_t});
+    errors.push_back(error);
+  }
+  // the efficiencies (quadratic in the field) converge in pairs of p (the sign of the error
+  // alternates, p = 2 / 3 and 4 / 5 lie close); asserted over the range and at the end
+  REQUIRE(errors[2] < 1e-2 * errors[0]);
+  REQUIRE(errors[3] < 1e-2 * errors[1]);
+  REQUIRE(errors.back() < 1e-6);
 }

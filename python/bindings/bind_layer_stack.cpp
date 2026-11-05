@@ -86,6 +86,20 @@ void bind_layered(py::module_& m) {
       .value("ORDINARY", physics::SubstrateMode::kOrdinary)
       .value("EXTRAORDINARY", physics::SubstrateMode::kExtraordinary)
       .value("BIAXIAL", physics::SubstrateMode::kBiaxial);
+  py::class_<physics::HalfSpaceModes>(m, "HalfSpaceModes",
+                                      "The two upward or downward plane-wave modes of a half-space")
+      .def_readonly("modes", &physics::HalfSpaceModes::modes,
+                    "tangential fields (E_x, E_y, Z0 H_x, Z0 H_y), unit |E|")
+      .def_readonly("fields", &physics::HalfSpaceModes::fields, "full E of each mode (unit norm)")
+      .def_readonly("kinds", &physics::HalfSpaceModes::kinds)
+      .def_readonly("kz", &physics::HalfSpaceModes::kz, "k_z / k0")
+      .def_readonly("flux", &physics::HalfSpaceModes::flux,
+                    "power flux 2 Z0 S_z along the direction of each mode (|E| = 1)");
+  m.def("half_space_modes", &physics::half_space_modes, py::arg("eps"), py::arg("a"), py::arg("b"),
+        py::arg("upward"),
+        "modes of a half-space of permittivity eps (laboratory frame, z the normal) at the "
+        "normalised in-plane wavevector (a, b) = (k_x, k_y) / k0, travelling or decaying towards "
+        "+z (upward) or -z");
   py::class_<physics::StackResponse>(
       m, "StackResponse",
       "Plane-wave response of an AnisotropicStack for incident s and p of unit |E|")
@@ -123,6 +137,13 @@ void bind_layered(py::module_& m) {
            py::arg("incidence_medium"), py::arg("layers"), py::arg("substrate"),
            py::arg("top") = 0.0)
       .def_property_readonly("num_layers", &physics::AnisotropicStack::num_layers)
+      .def_property_readonly("top", &physics::AnisotropicStack::top)
+      .def("material", &physics::AnisotropicStack::material, py::arg("region"),
+           "0 incidence medium, 1..N layers, N + 1 substrate")
+      .def("reflection_at", &physics::AnisotropicStack::reflection_at, py::arg("k0"), py::arg("a"),
+           py::arg("b"),
+           "Jones reflection matrix at the normalised in-plane wavevector (a, b) = (kx, ky) / k0, "
+           "also for evanescent waves of the incidence medium (dipole spectrum)")
       .def("response", &physics::AnisotropicStack::response, py::arg("k0"), py::arg("angle"),
            py::arg("azimuth") = 0.0, Release(),
            "Jones reflection, substrate transmission and R, T, A at the vacuum wavenumber k0 "

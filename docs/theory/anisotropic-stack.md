@@ -145,10 +145,159 @@ components and its physical curl $\det(P)\,P\,\nabla\times E = -P\,\nabla\times 
 pseudovector and P a reflection). The angles and the s / p vectors coincide with
 `layered_conical_wave`.
 
-**Not yet:** diffraction orders and the power balance in a crystal substrate (mode-resolved
-orders, M19 S5), and therefore crystal stacks in `hpfem.grating`; a PML in a substrate with a
-tilted axis fails the stability condition (`pml-backward-wave`), the modal transparent boundary
-of ADR-0015 §2 is S5 as well.
+## Mode-resolved diffraction orders
+
+`half_space_modes(eps, a, b, upward)` gives the two upward or downward modes of a homogeneous
+half-space at the normalised in-plane wavevector $(a, b)$, labelled as the substrate modes above,
+with unit $|E|$, their $k_z/k_0$, the full $E$ and the flux $2Z_0S_z$ along their direction. The
+substrate modes of `response` are the downward ones.
+
+`conical_mode_orders` (ADR-0015 §7) decomposes the orders of a conical field on an `OrderLine` in
+a crystal on these modes. With the unit tangent $\hat t$ and the normal $\hat n$ away from the
+structure, the local frame $(\hat t, \hat n\times\hat t, \hat n)$ is right-handed in the solver
+coordinates; with R the matrix of its rows the order $m$ sees the medium $R\varepsilon R^T$ at
+$a = k_{t,m}/k_0$, $b = \beta\,(\hat n\times\hat t)_z/k_0$, and only outgoing waves (along
+$\hat n$) on the line. The tangential part of $R A_m$ then fixes both amplitudes $c_{1,2}$ by a
+2×2 solve, and
+
+$$
+\eta_{m,j} = \frac{|c_j|^2 S_j}{|E_0|^2 k_n^{inc}/k_0}, \qquad
+\eta_m = \frac{S(c_1\psi_1 + c_2\psi_2)}{|E_0|^2 k_n^{inc}/k_0}
+$$
+
+with the fluxes $S$ in units of $2Z_0$. In a lossless medium with distinct modes the channels are
+power-orthogonal and $\eta_m = \eta_{m,1} + \eta_{m,2}$; in an isotropic one the channels are s and
+p and $\eta_m$ equals `conical_diffraction_orders`. In a lossy medium the efficiencies are the
+powers through the line. A channel propagates when $|\operatorname{Im}k_n| < |\operatorname{Re}k_n|$.
+
+**Jones convention and reciprocity.** The reflection Jones matrix of the stack uses
+$\hat s = \hat z\times\hat k_\parallel$ for both waves and $\hat p = \hat s\times\hat k/n$ in the
+laboratory frame. `hpfem.grating.jones` uses `conical_polarisation` in the solver frame,
+$\hat s = \hat k\times\hat n$, $\hat p = \hat s\times\hat k$; mapped back by the reflection P
+(y ↔ z), cross products change sign, so its ŝ is the stack's and its p̂ the negative of the
+stack's for both waves: $J = D\,r\,D$ with $D = \operatorname{diag}(1, -1)$, i.e. equal
+diagonals and opposite off-diagonal elements (checked to $10^{-8}$ on a flat crystal stack).
+Reversing the specular path at the azimuth φ is the incidence at φ + π, and for every symmetric
+tensor
+
+$$
+r_{ss}(\phi + \pi) = r_{ss}(\phi),\quad r_{pp}(\phi + \pi) = r_{pp}(\phi),\quad
+r_{ps}(\phi) = -r_{sp}(\phi + \pi).
+$$
+
+A plate with its axis in the layer plane at the azimuth α against the plane of incidence is
+mirrored by α → −α: $r_{ss}, r_{pp}$ are even, $r_{sp}, r_{ps}$ odd in α (and zero for the axis
+in or perpendicular to the plane of incidence).
+
+## Modal transparent boundary
+
+A coordinate-stretching PML amplifies a *backward* wave, whose phase travels into the layer while
+its energy leaves it ($k_nv_n < 0$, `pml-backward-wave`). In a crystal with a tilted axis an
+outgoing diffraction order can be such a wave. `ConicalScatteringSetup::modal_boundaries`
+truncates the substrate (or the cover) of a periodic conical problem instead with the exact
+radiation condition of the half-space: the boundary term of the weak form,
+$\oint (n\times\nabla\times E)\cdot F\,ds = ik_0\oint (n\times\tilde H)\cdot F\,ds$
+($\nabla\times E = ik_0\tilde H$, the test function in physical components
+$F = (V_x, V_y, -iw)\,e^{-i\beta z}$), is evaluated order by order. In the local frame
+$(\hat t, \hat n\times\hat t, \hat n)$ of the line (n outward) the unknown is outgoing, so for
+the order $k_m = k_{t0} + 2\pi m/a$ its tangential magnetic field is
+$\tilde H_t = Y_mE_t$ with the admittance $Y_m = W_HW_E^{-1}$ of the two outgoing modes of
+`half_space_modes` (labelling-independent, also for coinciding modes). With
+$J = \left[\begin{smallmatrix}0&-1\\1&0\end{smallmatrix}\right]$ for $n\times$,
+
+$$
+B_{ij} = ik_0\sum_{m=-M}^{M}\hat F_{i,m}^T\,J\,Y_m\,\hat E_{j,m},\qquad
+\hat E_{j,m} = \frac1a\int_\Gamma E_t(\phi_j)e^{-ik_ms}ds,\quad
+\hat F_{i,m} = \int_\Gamma F_t(\phi_i)e^{ik_ms}ds
+$$
+
+(`conical_modal_boundary_matrix`, dense on the DoFs of the line; the tangential traces are the
+tangential Nédélec component and $\pm E_z = \pm iv$). The Bloch constraints combine the two ends
+of the line as for the volume terms. Orders beyond M see a natural boundary; the default
+$M = \lceil n_fp/2\rceil + 2$ covers the resolution of the trace of n_f facets of order p.
+Like the volume operator, B satisfies $B(\beta, k_t)^T = S\,B(-\beta, -k_t)\,S$
+(reciprocity of a symmetric tensor). The line must be straight, along the period, in one
+homogeneous non-magnetic medium outside the PML; the estimators, the resonance and the sweep
+solvers do not take the term.
+
+## Crystal stacks in `hpfem.grating`
+
+`grating.solve` / `validate` / `jones` take the stack as an `AnisotropicStack` in the laboratory
+frame (as the crystals of the structured parts); it is turned into the solver frame with
+`anisotropic_conical_wave`. A `LayerStack2D` with crystals is refused (its frame would be
+ambiguous). In a crystal substrate the transmitted orders are measured with
+`conical_mode_orders` and carry `channels`; `bottom="modal"` truncates the substrate by the
+modal transparent boundary, and `bottom="pml"` is refused when a transmitted order is a backward
+wave. `grating.jones` solves for s and p and returns per propagating order the power-normalised
+Jones matrix (amplitudes referred to the top / bottom interface of the stack, rows s / p or the
+mode channels) and its Mueller matrix $M = A(J\otimes\bar J)A^{-1}$ (Stokes vectors
+(I, Q, U, V), $Q = |E_s|^2 - |E_p|^2$; $M_{00}$ is the efficiency for unpolarised light). The
+reciprocity relation above holds for the specular order of a grating too (the reversed path is
+the incidence at φ + π).
+
+## A dipole above the stack
+
+`AnisotropicStack::reflection_at(k0, a, b)` gives the Jones reflection matrix at any in-plane
+wavevector $k_0(a, b)$, also beyond the light cone of the cover, where the incident and the
+reflected wave are evanescent ($q = \sqrt{n^2 - a^2 - b^2}$, Im q ≥ 0, ŝ and p̂ complex with
+$\hat s\cdot\hat s = \hat p\cdot\hat p = 1$). A current moment m at the height h above the top
+interface delivers (exp(−iωt), Weyl expansion of the Green's dyadic,
+$I - \hat k\hat k^T = \hat s\hat s^T + \hat p\hat p^T$)
+
+$$
+\frac{P}{P_{bulk}} = 1 + \frac{3}{4\pi n|m|^2}\,\mathrm{Re}\iint \frac{da\,db}{q}\,
+e^{2ik_0qh}\; m^H\,[\hat s, \hat p_u]\; r\; [\hat s, \hat p_d]^T\, m,
+\qquad P_{bulk} = \frac{Z_0k_0^2n|m|^2}{12\pi}
+$$
+
+(`hpfem.planar.dipole_above_stack`). For an isotropic stack and m ∥ ẑ it reduces to the
+Chance–Prock–Silbey integral $1 + \tfrac32\mathrm{Re}\int s^3/s_z\,r_p\,e^{2ik_1hs_z}ds$ (the
+stack's $r_{pp}$ has the convention $r_p = +1$ for a perfect conductor). The Gaussian dipole of
+ADR-0013 multiplies every spectral component by $e^{-\sigma^2k\cdot k} = e^{-(nk_0\sigma)^2}$,
+the factor of $P_{bulk}$, so the Purcell factor of the point dipole is that of the FEM emitter.
+The radial integral runs on the real axis ($s = n\sin t$, $s = n\cosh u$), the azimuth by the
+trapezoidal rule; guided modes of lossless stacks (poles on the real axis) are not covered.
+
+**One sample of the array scan.** The cell problem of `grating.emit` (a Bloch array of
+Gaussian dipoles with $e^{ik_xP}$ and $e^{i\beta z}$) samples the same spectrum on the orders
+$k_m = k_x + 2\pi m/P$ at $k_y^{lab} = \beta$: with $\iint d^2k = \sum_m\int_{BZ}dk_x\int d\beta$ and
+the array-scan weight $P/(4\pi^2)$,
+
+$$
+P_{cell}(k_x, \beta) = \frac{\omega\mu_0}{4P}\sum_m \mathrm{Re}\Big[\frac{1}{k_z}\Big(
+\tfrac12\textstyle\sum_\pm|m_\perp^\pm|^2\,[k_z\ \text{real}] + e^{2ik_zh}\,m^HM_mm\Big)\Big]
+e^{-(nk_0\sigma)^2}
+$$
+
+(`hpfem.planar.array_sample_above_stack`; the homogeneous term is the closed form of the M17 S1
+test). The Gaussian must stay 6σ clear of the stack interfaces (`emit` warns otherwise): a source
+reaching into the next medium is no longer the point dipole of the reference (the first
+comparison missed by 2.5 % for σ = 0.05 µm at 0.12 µm until the dipole was raised to 0.32 µm).
+
+**The array scan above crystals (S7c).** The (kx, β) integrand of `grating.dipole_emission` is
+even in β and in kx only for mirror-symmetric media. With a crystal in the cell or the stack, β
+runs over (−β_max, β_max) with half the weight, kx over the full zone, and every entry of the
+power matrix counts. The light line of a crystal half-space (k_y = 0 in the solver frame) is
+the zero set of the Fresnel quartic $F(k_x) = \det(k_0^2\varepsilon + kk^T - |k|^2I)$,
+$k = (k_x, 0, \beta)$: its real roots are the crossings of the kx contour, on the side of the
+group velocity $v_x = -F_{k_x}/F_{k_0}$ (a small loss moves the root into the upper half plane
+when $v_x > 0$), its complex roots the branch points of the evanescent sheets; β is split at the
+turning points of the two sheets, the largest $k\sin t$ of the generalised eigenvalues
+$\det(k_0^2\varepsilon - k^2(I - uu^T)) = 0$, $u = (\cos t, 0, \sin t)$. The Wood-anomaly
+pinch breaks are kept for the isotropic media only. The guided-mode poles and `symmetric`
+are not available with crystals; a lossless crystal structure that may guide modes is refused.
+
+**Emission by reciprocity (S7d).** dP/dΩ into the direction r̂ is
+$n k_0^2Z_0|p\cdot\langle E_{pw}\rangle|^2/(32\pi^2)$ with the plane wave incident from r̂ (ADR-0013
+§6); reciprocity needs only a symmetric ε, so it holds for crystals. A direction into the
+substrate is computed on the cell mirrored at y = 0: the mirror maps a solution for ε onto one
+for $M\varepsilon M$, $M = \operatorname{diag}(1, -1, 1)$ (solver frame), so every cell's
+tensor is mirrored and the stack becomes the `AnisotropicStack` of the reversed layers with
+$M_z\varepsilon M_z$ (laboratory frame), the former substrate as its incidence medium. A crystal
+substrate would become a crystal incidence medium, which the stack does not take: no down
+directions there yet. The Gaussian average at the dipole carries $e^{-(n_{host}k_0\sigma)^2}$
+for every direction (the plane wave at the dipole lives in the host), the prefactor n is that of
+the direction's medium.
 
 ## Verification
 
@@ -183,4 +332,57 @@ of ADR-0015 §2 is S5 as well.
   scattered field (exactly zero), in both solvers;
 - `anisotropic_conical_wave` of an isotropic stack equals `layered_conical_wave` (field, curl,
   β, R), and its curl matches the field by finite differences for a crystal stack;
+- half-space modes: s / p with $k_z = \pm\sqrt{\varepsilon - a^2 - b^2}$ and flux $\operatorname{Re}k_z$,
+  eigenvectors of K and the closed-form ordinary $k_z$ of a tilted crystal, both directions, and
+  the substrate modes of `response`; the mirror symmetry in α and the reciprocity relation above
+  (also for an axis tilted out of the plane) to $10^{-12}$;
+- `conical_mode_orders` (`test_anisotropic_conical.cpp`): a field of known ordinary and
+  extraordinary waves (one evanescent) in a tilted crystal, verified to solve Maxwell's equations
+  in the solver frame by finite differences, gives back its amplitudes to $10^{-10}$; in an
+  isotropic medium the order efficiencies equal `conical_diffraction_orders`;
+- `anisotropic_stack_background` (convergence): on a lossless c-cut substrate the ordinary and
+  extraordinary channels of the transmitted zeroth order of the conical FEM field converge to the
+  per-mode transmittances of the stack ($1.5\cdot10^{-4} \to 3.5\cdot10^{-7}$ for p = 2…5; the
+  error of these quadratic quantities alternates in sign, so it falls in pairs of p);
+- `conical_modal_boundary_matrix` (`test_anisotropic_conical.cpp`): the transposition symmetry
+  above to $10^{-12}$ for a tilted crystal, rows only on the line;
+- `anisotropic_modal_boundary` (convergence), a tilted lossless crystal substrate truncated by
+  the modal boundary: a crystal plate converges to the analytic stack field
+  ($5.8\cdot10^{-2} \to 1.5\cdot10^{-5}$, the o / e channels to $6.5\cdot10^{-7}$, p = 2…5); a
+  lossless lamellar grating whose transmitted order −1 is an extraordinary backward wave closes
+  the energy balance R + T = 1 to $1.6\cdot10^{-4} \to 3.3\cdot10^{-8}$, while a PML in the
+  same substrate stalls at $1.1\cdot10^{-4}$ for every p. (The plate alone is no test of the
+  PML: only its zeroth order propagates, a forward wave, and the PML there converges as well.)
+- `python/tests/test_grating_jones.py`: a flat crystal stack through `grating.jones` gives the
+  stack's reflection Jones matrix ($J = DrD$) and its o / e channels to $10^{-8}$; a tilted
+  crystal ridge on glass satisfies the reciprocity relation of the specular order in the conical
+  solver to $10^{-5}$ at p = 3 (with $|J_{ps}| = 0.056$; $1.3\cdot10^{-7}$ at p = 4); a grating
+  on a substrate with a backward order −1 is refused with `bottom="pml"` and closes its energy
+  balance with `bottom="modal"`;
+- `reflection_at` equals `response` inside the light cone and the Fresnel coefficients with
+  complex $k_z$ beyond it; `python/tests/test_planar_dipole.py`: `dipole_above_stack` equals the
+  1D Sommerfeld integrals with the Fresnel / Airy coefficients (glass half-space, absorbing layer
+  on glass) and with the closed-form $r_p = (\varepsilon_oq_1 - q_{2e})/(\varepsilon_oq_1 +
+  q_{2e})$, $q_{2e} = \sqrt{\varepsilon_o(1 - s^2/\varepsilon_e)}$, of a c-cut half-space, to
+  $10^{-9}$ (the glass case to $10^{-15}$); a tilted absorbing crystal layer gives the same F
+  when crystal and dipole are rotated together about the normal; `grating.emit` above a tilted
+  absorbing crystal layer equals `array_sample_above_stack` to $6\cdot10^{-8}$ inside and
+  $2\cdot10^{-5}$ beyond the light cone of the cover, above a tilted lossless crystal substrate
+  with the modal bottom to $10^{-5}$ with $P_{cell} = $ up + down;
+- the crystal light lines (`test_planar_dipole.py`): the roots of the Fresnel quartic and the
+  turning points of a diagonal tensor equal the closed forms; the scan rule with the crystal
+  light lines integrates the exact sample spectrum above a tilted lossless crystal half-space to
+  the 2D reference ($10^{-4}$ at 6 nodes per panel, $2\cdot10^{-6}$ to $10^{-5}$ at 10);
+- the emission pattern of a dipole above a tilted crystal layer on a substrate of index 2, up
+  and down at azimuths without symmetry, equals $|p\cdot E_{pw}(x_0)|^2$ of
+  `AnisotropicStack.plane_wave` (and of the mirrored stack for the down directions) to
+  $6\cdot10^{-5}$ per polarisation (`test_planar_dipole.py`); the powers radiated into both
+  half-spaces (`emission_cone`, 8×16 directions each) add up to the total of
+  `dipole_above_stack` to $4.8\cdot10^{-5}$ (lossless, no guided modes;
+  `benchmarks/m19_crystal_emission_balance.py`, 15 min);
+- `benchmarks/m19_crystal_dipole_scan.py` (a long local run, 3840 cell problems, 32 min with 4
+  workers): `dipole_emission` of a Gaussian dipole 0.32 µm above that half-space equals
+  `dipole_above_stack` to $5\cdot10^{-4}$ for every orientation (x −5.3e-4, y −5.1e-4,
+  z +2.9e-5; the rule alone contributes 1–2e-4), `benchmarks/results/2026-11-05-validation-
+  m19-crystal-scan.json`;
 - `python/tests/test_anisotropic_volume.py` checks the bindings.

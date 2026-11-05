@@ -344,7 +344,30 @@ index `min(n_cover, n_substrate)`, thickness half a local wavelength rounded to 
 or `pml={"top": t, "bottom": t}`), places the measurement lines between the structure and
 the PML, and raises `GratingError` with a hint for cells straddling an interface or bad
 options. `bottom="pec"` ends a thick lossy substrate on the PEC wall without a bottom PML
-(no transmitted orders).
+(no transmitted orders); `bottom="modal"` truncates the substrate at the mesh bottom by the
+modal transparent boundary (no bottom PML).
+
+**Crystal stacks and Jones matrices (M19 S5).** `stack` may be an `hpfem.AnisotropicStack` of
+crystal layers and substrate in the laboratory frame (x across the lines, y along them, z the
+normal), like the crystals in `materials`. Transmitted orders in a crystal substrate carry
+`channels` (`Channel`: `kind` ordinary / extraordinary / biaxial, efficiency, amplitude, k_n);
+a substrate whose transmitted orders include a backward wave needs `bottom="modal"`.
+`grating.jones(mesh, materials, stack, theta, phi, omega, order, **options)` solves for s and p
+and returns a `JonesResult` with `R_orders` / `T_orders` of `JonesOrder` (`jones`: the
+power-normalised 2×2 Jones matrix in the `conical_polarisation` s / p basis, or with the mode
+channels as rows in a crystal substrate; `mueller`: its 4×4 Mueller matrix,
+`grating.mueller(J)`); `result.order(m, "R")` picks one (docs/theory/anisotropic-stack.md).
+
+**A dipole above a crystal stack (M19 S7a).** `hpfem.planar.dipole_above_stack(stack, k0, height,
+moment)` returns the Purcell factor of a point (or the Gaussian FEM) dipole in the cover of an
+`AnisotropicStack` from the 2D plane-wave spectrum (`AnisotropicStack.reflection_at`); the
+reference for emitters above crystals (absorbing layers or stacks without guided modes).
+`grating.emit` takes an `AnisotropicStack` as well (S7b; the emitter in an isotropic lossless
+medium, `bottom="modal"`, downward orders with `channel_power`), and
+`planar.array_sample_above_stack(stack, k0, kx, beta, period, height, moment, sigma)` is the exact
+value of one such sample for a flat stack. `grating.dipole_emission` scans crystal structures
+too (S7c: `channels=False`, no `symmetric`, no guided-mode poles yet; `array_scan_rule` takes
+3×3 solver-frame tensors among the media for the crystal light lines).
 
 ```python
 stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)   # air over glass

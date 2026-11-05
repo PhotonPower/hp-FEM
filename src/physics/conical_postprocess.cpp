@@ -1,5 +1,6 @@
 #include "hpfem/physics/conical_postprocess.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <numbers>
 #include <vector>
@@ -75,6 +76,78 @@ std::vector<ConicalDiffractionOrder> conical_diffraction_orders(
                                                          kt0, max_order, points);
   return conical_diffraction_efficiencies(coefficients, k0, index_line, line.period, kt0, beta,
                                           kn_incident, incident_amplitude);
+}
+
+std::vector<ModeResolvedOrder> conical_mode_orders(
+    const ConicalFieldFunction& field, const OrderLine& line, Real k0,
+    const materials::Tensor3& eps_line, Real kt0, Real beta, Real kn_incident,
+    const ConicalFieldFunction& incident, int max_order, int num_points, Real incident_amplitude) {
+  if (!field) throw InvalidArgument("conical_mode_orders: empty field");
+  if (!(line.period > 0) || line.tangent.norm() == 0 || line.normal.norm() == 0) {
+    throw InvalidArgument("conical_mode_orders: degenerate line");
+  }
+  if (!(k0 > 0) || !(kn_incident > 0) || !(incident_amplitude > 0) || max_order < 0) {
+    throw InvalidArgument(
+        "conical_mode_orders: invalid k0, kn_incident, incident amplitude or max_order");
+  }
+  const Point<2> t = line.tangent.normalized();
+  const Point<2> n = line.normal.normalized();
+  if (std::abs(t.dot(n)) > 1e-9) {
+    throw InvalidArgument(
+        "conical_mode_orders: the line normal must be perpendicular to its tangent");
+  }
+  // local laboratory frame: x along the tangent, z along the normal, y = n x t = +-z (solver)
+  const Real y_sign = n(0) * t(1) - n(1) * t(0);
+  Eigen::Matrix3d r;
+  r << t(0), t(1), 0.0, 0.0, 0.0, y_sign, n(0), n(1), 0.0;
+  const materials::Tensor3 eps_lab = r.cast<Complex>() * eps_line * r.transpose().cast<Complex>();
+  const int points = num_points > 0 ? num_points : std::max(64, 16 * (2 * max_order + 1));
+  const ConicalFieldFunction sampled = incident ? ConicalFieldFunction([&](const Point<2>& x) {
+    return ConicalVector(field(x) - incident(x));
+  })
+                                                : field;
+  const auto coefficients =
+      conical_fourier_coefficients(sampled, line.origin, t, line.period, kt0, max_order, points);
+  const Real p_inc = incident_amplitude * incident_amplitude * kn_incident / k0;
+  const auto flux = [](const TangentialField& psi) {
+    return std::real(psi(0) * std::conj(psi(3)) - psi(1) * std::conj(psi(2)));
+  };
+  std::vector<ModeResolvedOrder> out;
+  for (int m = -max_order; m <= max_order; ++m) {
+    ModeResolvedOrder o;
+    o.order = m;
+    o.k_tangential = kt0 + 2.0 * std::numbers::pi * m / line.period;
+    o.amplitude = coefficients[static_cast<std::size_t>(m + max_order)];
+    const Real a = o.k_tangential / k0;
+    const Real b = y_sign * beta / k0;
+    HalfSpaceModes modes;
+    try {
+      modes = half_space_modes(eps_lab, a, b, true);
+    } catch (const InvalidArgument& e) {
+      throw InvalidArgument(fmt::format("conical_mode_orders: order {}: {}", m, e.what()));
+    }
+    const Eigen::Vector3cd e_lab = r.cast<Complex>() * o.amplitude;
+    Eigen::Matrix2cd basis;
+    for (int j = 0; j < 2; ++j) basis.col(j) = modes.modes[static_cast<std::size_t>(j)].head<2>();
+    const Eigen::Vector2cd c = basis.colPivHouseholderQr().solve(e_lab.head<2>());
+    TangentialField psi = TangentialField::Zero();
+    for (int j = 0; j < 2; ++j) {
+      const auto idx = static_cast<std::size_t>(j);
+      ModeChannel& ch = o.channels[idx];
+      ch.kind = modes.kinds[idx];
+      ch.kn = modes.kz[idx] * k0;
+      ch.amplitude = c(j);
+      ch.field = r.transpose().cast<Complex>() * modes.fields[idx];
+      // propagating: more phase than decay along the normal (exact split in a lossless medium)
+      ch.propagating = std::abs(std::imag(modes.kz[idx])) < std::abs(std::real(modes.kz[idx]));
+      ch.efficiency = std::norm(c(j)) * modes.flux[idx] / p_inc;
+      o.propagating = o.propagating || ch.propagating;
+      psi += c(j) * modes.modes[idx];
+    }
+    o.efficiency = std::max(0.0, flux(psi)) / p_inc;
+    out.push_back(o);
+  }
+  return out;
 }
 
 PowerBalance conical_power_balance(const ConicalScattering& problem,

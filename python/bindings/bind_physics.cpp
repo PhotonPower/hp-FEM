@@ -861,6 +861,18 @@ void bind_physics(py::module_& m) {
         py::arg("amplitude") = 1.0,
         "Plane wave of an AnisotropicStack in the conical solver frame (x across the lines, y the "
         "normal, z along them; laboratory y and z swapped), with the matching background");
+    py::class_<physics::ConicalModalBoundary>(
+        m, "ConicalModalBoundary",
+        "Modal transparent boundary (DtN of the half-space modes per Fourier order) on a straight "
+        "boundary line along the period in a homogeneous medium; for tilted crystal substrates "
+        "where a PML is unstable")
+        .def(py::init([](mesh::Tag facet_tag, int max_order) {
+               return physics::ConicalModalBoundary{facet_tag, max_order};
+             }),
+             py::arg("facet_tag"), py::arg("max_order") = -1)
+        .def_readwrite("facet_tag", &physics::ConicalModalBoundary::facet_tag)
+        .def_readwrite("max_order", &physics::ConicalModalBoundary::max_order,
+                       "Fourier orders -M..M; -1: the resolution of the trace");
     py::class_<ConicalScatteringSetup>(
         m, "ConicalScatteringSetup",
         "Conical scattering problem (2.5D): omega, beta, materials, PEC tags, PML, periodic pairs, "
@@ -872,6 +884,8 @@ void bind_physics(py::module_& m) {
         .def_readwrite("pec_tags", &ConicalScatteringSetup::pec_tags)
         .def_readwrite("pml", &ConicalScatteringSetup::pml)
         .def_readwrite("periodic", &ConicalScatteringSetup::periodic)
+        .def_readwrite("modal_boundaries", &ConicalScatteringSetup::modal_boundaries,
+                       "ConicalModalBoundary list (needs one periodic pair)")
         .def_readwrite("background", &ConicalScatteringSetup::background,
                        "LayerStack2D (normal along y) or None")
         .def_readwrite("incident_curl", &ConicalScatteringSetup::incident_curl,

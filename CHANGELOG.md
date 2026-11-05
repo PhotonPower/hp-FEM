@@ -3,6 +3,61 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Crystals in the axisymmetric solver (M19 S6, ADR-0015 §8): tensor materials are read as
+  diagonal (r, φ, z) tensors (`axisymmetric_permittivity`): an optic axis along the symmetry
+  axis, or radially / azimuthally anisotropic media; tilted axes are refused. The material and
+  PML forms, the scattered-field contrast, the absorbed power and the cavity take them. New
+  convergence test `axisymmetric_anisotropic`: uniaxial and radially anisotropic cavities against
+  closed forms (Bessel modes of non-integer order).
+- Emission by reciprocity above crystals (M19 S7d): `grating.emission_pattern`,
+  `emission_cone` and the `channels` of `dipole_emission` take crystal cells and an
+  `AnisotropicStack`; the substrate directions use the cell with mirrored tensors and the
+  mirrored stack, and the directions no longer assume the z mirror with crystals. The pattern up
+  and down equals the analytic stack field of the incident plane wave per polarisation. A
+  crystal substrate has no down directions yet.
+- Array scanning above crystals (M19 S7c): `grating.dipole_emission` takes an
+  `AnisotropicStack` and crystal cells; without the isotropic symmetries the β integral runs
+  over (−β_max, β_max) and kx over the full zone, every power-matrix entry counts, and the
+  light lines of crystal half-spaces come from their Fresnel quartic (`array_scan_rule` takes
+  3×3 tensors among the media). Channels by reciprocity and guided-mode poles are refused with
+  crystals for now. Benchmark `m19_crystal_dipole_scan.py`: a dipole above a tilted crystal
+  half-space against the 2D-spectrum reference to 5e-4.
+- Emitters above crystal stacks, one sample (M19 S7b): `grating.emit` takes an
+  `AnisotropicStack` (emitter in an isotropic, lossless medium), resolves the downward orders of
+  a crystal substrate into mode channels (`EmissionOrder.channel_power`), supports
+  `bottom="modal"` and warns when the dipole's Gaussian reaches across a stack interface;
+  `hpfem.planar.array_sample_above_stack` is the exact cell sample of a flat stack (agreement
+  6e-8 / 2e-5 inside / beyond the light cone).
+- Reference for dipoles above crystal stacks (M19 S7a, ADR-0015 S7 amendment):
+  `AnisotropicStack::reflection_at` (Python `reflection_at`, also `material`, `top`) gives the
+  Jones reflection at any in-plane wavevector, evanescent included, and
+  `hpfem.planar.dipole_above_stack` the Purcell factor of a point (or Gaussian) dipole above the
+  stack from the 2D plane-wave spectrum of the Green's dyadic; checked against the Sommerfeld
+  integrals of isotropic stacks and of a c-cut crystal half-space.
+- Crystal stacks and Jones / Mueller matrices in `hpfem.grating` (M19 S5c, ADR-0015 §7):
+  `solve` / `validate` take an `AnisotropicStack` (laboratory frame) as the stack, transmitted
+  orders in a crystal substrate carry the mode `channels`, `bottom="modal"` uses the modal
+  transparent boundary (a bottom PML over a backward transmitted order is refused), and
+  `grating.jones` returns the power-normalised Jones and Mueller matrices of every propagating
+  order from the solves for s and p (`grating.mueller`). Tests: a flat crystal stack against the
+  stack's Jones matrix and channels, the reciprocity of the specular order of a tilted crystal
+  ridge in the conical solver.
+- Modal transparent boundary of the conical solver (M19 S5b, ADR-0015 §2):
+  `ConicalScatteringSetup::modal_boundaries` (Python `ConicalModalBoundary`) truncates a
+  periodic problem on a straight line in a homogeneous, possibly tilted-crystal medium with the
+  Dirichlet-to-Neumann map of the half-space modes per Fourier order
+  (`conical_modal_boundary_matrix`), where a PML amplifies backward waves. New convergence test
+  `anisotropic_modal_boundary`: a crystal plate on a tilted substrate against the analytic stack,
+  and a lossless grating with a backward transmitted order whose energy balance converges with
+  the modal boundary and stalls with a PML.
+- Mode-resolved diffraction orders in crystal half-spaces (M19 S5a, ADR-0015 §7):
+  `half_space_modes` gives the upward or downward modes of a half-space (s / p, ordinary /
+  extraordinary, biaxial; k_z, full E and flux) and `conical_mode_orders` decomposes the orders of
+  a conical field on any line on the outgoing modes of the medium there, with per-channel
+  amplitudes and efficiencies (Python `half_space_modes`, `conical_mode_orders`). Tests of the
+  mirror symmetry and the reciprocity r_ps(φ) = −r_sp(φ + π) of the stack Jones matrix; the
+  transmitted ordinary / extraordinary channels of the conical FEM field converge to the stack
+  (`anisotropic_stack_background`).
 - Crystal layer stacks as the background of the solvers (M19 S4b, ADR-0015 §5):
   `AnisotropicStack::plane_wave` (Python `AnisotropicStack.plane_wave`) gives the analytic field
   in every region (value, curl, the branch of a region) with layer-local amplitudes;
@@ -346,6 +401,8 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   side-wall angle tolerances of a silicon grating propagated to its reflectance spectrum.
 
 ### Fixed
+- `ConicalScattering` with `scalar_ez` now also refuses a background stack whose crystal couples
+  E_z to the in-plane field (only the cells' own materials were checked).
 - The adjoint solves of the conical solver (`conical_adjoint_solution` without a kept
   factorisation, `conical_dwr_estimate`) used A instead of Aᵀ, which is correct only for
   symmetric systems; they now assemble the transpose (no change for isotropic media).

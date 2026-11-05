@@ -61,6 +61,27 @@ with $e^{-im\varphi}$), which is what makes the forms symmetric in $(E, v) \left
 $v$. Per-cell diagonal tensors in $(r, \varphi, z)$ cover anisotropic media and the
 cylindrical PML (stretched tensors of Teixeira–Chew, stage 2).
 
+**Crystals (ADR-0015 §8, M19 S6).** A tensor material is read in the cylindrical components
+$(r, \varphi, z)$ (`axisymmetric_permittivity`) and must be diagonal there: a uniaxial crystal
+with its optic axis along the symmetry axis ($\varepsilon_{xx} = \varepsilon_{yy}$) means the
+same in both frames, $\varepsilon_{xx} \ne \varepsilon_{yy}$ describes a radially / azimuthally
+anisotropic medium, which no constant Cartesian tensor can. An optic axis tilted against z
+(off-diagonal entries) breaks the rotational symmetry and is refused
+(`AnisotropicUnsupported`). The PML stretches the tensor componentwise, the scattered-field
+source is the componentwise contrast $k_0^2(\varepsilon_c - \varepsilon_b)_k$ on the scaled
+$(E_r, v, E_z)$, the absorption density is $\sum_k \operatorname{Im}\varepsilon_k|E_k|^2$. The
+background medium and the layers of the layered background stay isotropic (they carry the
+incident and the far fields). Tests (`tests/convergence/axisymmetric_anisotropic.cpp`): a PEC
+cylinder with a uniaxial filling (axis along z) has the ordinary modes
+$k_0^2\varepsilon_t = (j'_{mn}/a)^2 + (p\pi/h)^2$ and the extraordinary ones
+$k_0^2 = (j_{mn}/a)^2/\varepsilon_z + (p\pi/h)^2/\varepsilon_t$ (to $10^{-7}$ at p = 5); a flat
+coaxial cavity with a radially anisotropic filling and PMC caps has the $H_z$ modes of the
+Bessel order $\nu = m\sqrt{\varepsilon_\varphi/\varepsilon_r}$ in $\sqrt{\varepsilon_\varphi}\,k_0r$,
+$J'_\nu(xb)Y'_\nu(xa) = J'_\nu(xa)Y'_\nu(xb)$ (to $5\cdot10^{-11}$ at p = 6 for ν = 0.745
+and 1.491; the axis is kept out of the domain since $H \sim r^\nu$ is not smooth there for a
+non-integer ν, and the inner conductor carries the axis tag, whose conditions for m ≠ 0 are those
+of a PEC).
+
 ## The axis
 
 The $1/r$ terms are singular on the axis unless their numerators vanish there. The
