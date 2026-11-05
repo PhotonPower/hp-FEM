@@ -3,6 +3,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Emitters above crystal stacks, one sample (M19 S7b): `grating.emit` takes an
+  `AnisotropicStack` (emitter in an isotropic, lossless medium), resolves the downward orders of
+  a crystal substrate into mode channels (`EmissionOrder.channel_power`), supports
+  `bottom="modal"` and warns when the dipole's Gaussian reaches across a stack interface;
+  `hpfem.planar.array_sample_above_stack` is the exact cell sample of a flat stack (agreement
+  6e-8 / 2e-5 inside / beyond the light cone).
 - Reference for dipoles above crystal stacks (M19 S7a, ADR-0015 S7 amendment):
   `AnisotropicStack::reflection_at` (Python `reflection_at`, also `material`, `top`) gives the
   Jones reflection at any in-plane wavevector, evanescent included, and

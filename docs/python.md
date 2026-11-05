@@ -362,6 +362,10 @@ channels as rows in a crystal substrate; `mueller`: its 4×4 Mueller matrix,
 moment)` returns the Purcell factor of a point (or the Gaussian FEM) dipole in the cover of an
 `AnisotropicStack` from the 2D plane-wave spectrum (`AnisotropicStack.reflection_at`); the
 reference for emitters above crystals (absorbing layers or stacks without guided modes).
+`grating.emit` takes an `AnisotropicStack` as well (S7b; the emitter in an isotropic lossless
+medium, `bottom="modal"`, downward orders with `channel_power`), and
+`planar.array_sample_above_stack(stack, k0, kx, beta, period, height, moment, sigma)` is the exact
+value of one such sample for a flat stack.
 
 ```python
 stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)   # air over glass

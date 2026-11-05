@@ -627,8 +627,12 @@ last.
     emitter); tests: the CPS / Airy Sommerfeld integrals for a glass half-space and an absorbing
     layer, the closed-form r_p of a c-cut half-space, the rotational covariance of a tilted
     crystal, `reflection_at` against `response` and the evanescent Fresnel coefficients
-  - [ ] S7b: `grating.emit` above an `AnisotropicStack` (one sample against the spectrum on the
-    orders)
+  - [x] S7b: `grating.emit` above an `AnisotropicStack` (isotropic lossless host, downward orders
+    of a crystal substrate per mode channel, `bottom="modal"`, a warning when the Gaussian
+    reaches across a stack interface), `hpfem.planar.array_sample_above_stack` (the cell sample
+    of a flat stack: the plane-wave spectrum on the orders); tests: a tilted absorbing crystal
+    layer (6e-8 inside the light cone, 2e-5 beyond it), a tilted lossless crystal substrate with
+    the modal bottom (1e-5, P_cell = up + down)
   - [ ] S7c: `dipole_emission` for crystals (full β and kx ranges, all power-matrix entries,
     crystal light lines) against S7a
   - [ ] S7d: emission pattern / channels by reciprocity with crystals (mirrored tensors, with
