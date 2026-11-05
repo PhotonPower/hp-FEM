@@ -542,12 +542,14 @@ last.
   `axis_rotation` / `euler_rotation` (ADR §6), sapphire `Al2O3` with ordinary / extraordinary
   data (Malitson & Dodge 1972), diagnostic `anisotropic_unsupported` in `grating.validate` /
   `solve` and `validate_scattering`; `docs/theory/materials.md`
-- [ ] S2: volume solvers 2D / 3D: regression test first: ε·I through the tensor path reproduces
+- [x] S2: volume solvers 2D / 3D: regression test first: ε·I through the tensor path reproduces
   the existing benchmarks to round-off; tensors in `form_of_cell`, PML `ε̃_ij = ε_ij s_x s_y s_z/(s_i s_j)`
   with the `pml-backward-wave` diagnostic (geometric condition), estimators (divergence,
   `n·εE` jump), per-cell tensor overrides; tests: uniaxial slab in 3D, PML reflection with a full
   tensor (aligned and tilted axis), symmetry detection (non-gyrotropic crystals take the LDLᵀ
-  paths)
+  paths); done in `Scattering`, `Resonance`, `BandStructure`, the losses and `Thermal`, 2D on
+  the in-plane block (plane-to-z coupling refused); finding: aligned biaxial crystals also fail
+  the PML condition, along their intermediate axis (ADR-0015 S2 amendment)
 - [ ] S3: conical solver: full tensors in `ConicalForm`, derivation in the conical section of
   `docs/theory/maxwell.md`, estimators; first ε_xz = ε_yz = 0 (symmetric), then the general tensor
   with the transposed paths (adjoint of `conical_goal`, emission pattern by reciprocity at −β,

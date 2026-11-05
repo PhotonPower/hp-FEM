@@ -1,5 +1,6 @@
 /// Bindings of `materials` and `pml`: isotropic materials by tag and the PML box.
 #include <array>
+#include <optional>
 #include <vector>
 
 #include "common.hpp"
@@ -87,6 +88,18 @@ void bind_pml_dim(py::module_& m) {
            "effective permittivity tensor eps_ij det(L)/(s_i s_j) of an anisotropic material at x "
            "(in 2D the in-plane block)")
       .def("inverse_permeability", &Box::inverse_permeability, py::arg("mu_r"), py::arg("x"));
+  m.def(
+      Dim == 2 ? "pml_backward_wave_2d" : "pml_backward_wave_3d",
+      [](const assembly::PermittivityTensor<Dim>& eps, int axis,
+         int samples) -> std::optional<py::tuple> {
+        const auto wave = pml::backward_wave<Dim>(eps, axis, samples);
+        if (!wave) return std::nullopt;
+        return py::make_tuple(Point<Dim>(wave->direction), wave->worst);
+      },
+      py::arg("eps"), py::arg("axis"), py::arg("samples") = 2048,
+      "geometric PML stability condition along `axis` for the permittivity `eps` (in 2D the "
+      "in-plane block): None if it holds, otherwise (phase direction, min k_d v_d) of the worst "
+      "wave, which the stretch amplifies (ADR-0015 section 2)");
 }
 
 }  // namespace
@@ -116,6 +129,9 @@ void bind_materials(py::module_& m) {
       .def_property_readonly("mu_inv_tensor", &Material::mu_inv_tensor)
       .def_property_readonly("refractive_index", &Material::refractive_index,
                              "n = sqrt(eps_r mu_r), principal branch (isotropic only)")
+      .def_property_readonly("max_real_index", &materials::max_real_index,
+                             "largest Re sqrt(lambda mu_r) over the eigenvalues lambda of the "
+                             "permittivity (Re n for an isotropic material)")
       .def_static("isotropic", &Material::isotropic, py::arg("eps_r"),
                   py::arg("mu_r") = Complex{1, 0})
       .def_static("anisotropic", &Material::anisotropic, py::arg("eps"),

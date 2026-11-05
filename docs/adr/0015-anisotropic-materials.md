@@ -97,6 +97,17 @@ travelling out of it, and the stretch then amplifies it. Consequences:
   mode-resolved orders of §7 directly. For isolated structures in such a substrate the first step
   stops with the diagnostic.
 
+*Amendment (S2, 2026-11-05):* the statement above that aligned axes never trigger the
+diagnostic holds for **uniaxial** crystals (optic axis along the normal or in the layer plane)
+only. An aligned **biaxial** crystal violates the geometric condition along its intermediate
+principal axis: near the optic axes the group velocity of one sheet sweeps the cone of internal
+conical refraction, which reaches across the layer plane (min k_d v_d ≈ −0.01 for
+ε = diag(2, 3, 4.5), checked independently with the gradient of ω(k)). The diagnostic therefore
+also fires there; it is a warning, since only waves near the optic axes are affected. The check
+samples the wave directions (`pml::backward_wave`, `docs/theory/materials.md`). In the 2D solver
+the tensor is the in-plane block; a tensor coupling the plane to z is refused there
+(`anisotropic_unsupported`), not approximated.
+
 ### 3. Solver symmetry
 
 A material with ε = εᵀ (all non-gyrotropic crystals, also rotated by a real rotation and

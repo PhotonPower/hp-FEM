@@ -212,3 +212,64 @@ TEST_CASE("Anisotropic volume: a symmetric tensor keeps the operator complex-sym
       9.0);
   REQUIRE(detect_symmetry(general.matrix) == Symmetry::kGeneral);
 }
+
+TEST_CASE("Anisotropic volume: geometric PML stability condition", "[pml][anisotropic]") {
+  using hpfem::pml::backward_wave;
+  const auto uniaxial = [](const Eigen::Vector3d& axis) {
+    const Eigen::Vector3d a = axis.normalized();
+    return Tensor3((2.25 * Eigen::Matrix3d::Identity() + 1.75 * a * a.transpose()).cast<Complex>());
+  };
+  // isotropic and aligned crystals: never (axis along the normal or in the layer plane)
+  REQUIRE_FALSE(backward_wave<3>(Tensor3(Complex{2.25, 0.1} * Tensor3::Identity()), 0));
+  for (int d = 0; d < 3; ++d) {
+    REQUIRE_FALSE(backward_wave<3>(uniaxial(Eigen::Vector3d(1, 0, 0)), d));
+    REQUIRE_FALSE(backward_wave<3>(uniaxial(Eigen::Vector3d(0, 0, 1)), d));
+  }
+  REQUIRE_FALSE(backward_wave<3>(uniaxial(Eigen::Vector3d(0, 1, 1)), 0));  // in the x plane
+  // an aligned biaxial crystal holds along its largest and smallest principal axes but fails
+  // along the intermediate one: near the optic axes (in the x-z plane) the group velocity
+  // sweeps the cone of internal conical refraction, which contains v_y < 0 for k_y > 0
+  // (k_y v_y ≈ -0.0098 here, confirmed by the gradient of ω(k); ADR-0015 S2 amendment)
+  Tensor3 biaxial = Tensor3::Zero();
+  biaxial.diagonal() << 2.0, 3.0, 4.5;
+  REQUIRE_FALSE(backward_wave<3>(biaxial, 0));
+  REQUIRE_FALSE(backward_wave<3>(biaxial, 2));
+  const auto intermediate = backward_wave<3>(biaxial, 1);
+  REQUIRE(intermediate);
+  REQUIRE(intermediate->worst > -0.02);
+  REQUIRE(std::abs(intermediate->direction(1)) < 0.2);
+  // tilted against the normal: fails, also for an ordinary uniaxial crystal
+  const auto tilted = backward_wave<3>(uniaxial(Eigen::Vector3d(1, 0, 1)), 2);
+  REQUIRE(tilted);
+  REQUIRE(tilted->worst < 0);
+  REQUIRE(std::abs(tilted->direction.norm() - 1.0) < 1e-12);
+  REQUIRE(backward_wave<3>(uniaxial(Eigen::Vector3d(1, 1, 1)), 0));
+  // 2D: the in-plane block; a tilt in the plane fails along both axes, aligned never
+  const auto block = [&](const Eigen::Vector3d& axis) {
+    return hpfem::materials::permittivity_tensor<2>(Material::anisotropic(uniaxial(axis)));
+  };
+  REQUIRE_FALSE(backward_wave<2>(block(Eigen::Vector3d(1, 0, 0)), 0));
+  REQUIRE_FALSE(backward_wave<2>(block(Eigen::Vector3d(0, 0, 1)), 1));
+  const Eigen::Vector3d at30(std::cos(0.5236), std::sin(0.5236), 0.0);
+  REQUIRE(backward_wave<2>(block(at30), 0));
+  REQUIRE(backward_wave<2>(block(at30), 1));
+  REQUIRE_THROWS_AS(backward_wave<2>(block(at30), 2), hpfem::InvalidArgument);
+}
+
+TEST_CASE("Anisotropic volume: per-cell tensor overrides", "[physics][scattering][anisotropic]") {
+  const Mesh<2> m = with_scatterer(hpfem::mesh::rectangle(8, 8));
+  const NedelecDofMap<2> dofs(m, 2);
+  Tensor3 eps = kEps * Tensor3::Identity();
+  eps(0, 0) = 4.0;
+  eps(0, 1) = eps(1, 0) = 0.5;
+  const Material crystal = Material::anisotropic(eps);
+  // the crystal by tag, and the same crystal set cell by cell on an isotropic tag
+  const auto by_tag = Scattering<2>(dofs, pml_setup<2>(crystal)).solve().unknown;
+  ScatteringSetup<2> setup = pml_setup<2>(Material::isotropic(kEps));
+  for (Index c = 0; c < m.num_cells(); ++c) {
+    if (m.cell_tag(c) == 2) setup.materials.set_cell(c, crystal);
+  }
+  REQUIRE_FALSE(setup.materials.is_isotropic());
+  const auto by_cell = Scattering<2>(dofs, setup).solve().unknown;
+  REQUIRE((by_cell - by_tag).norm() < 1e-12 * by_tag.norm());
+}

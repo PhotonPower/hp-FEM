@@ -4,6 +4,7 @@
 #include <cmath>
 #include <numbers>
 
+#include <Eigen/Eigenvalues>
 #include <fmt/format.h>
 
 #include "hpfem/core/error.hpp"
@@ -228,6 +229,75 @@ assembly::InversePermeabilityTensor<Dim> PmlBox<Dim>::inverse_permeability(
   }
   return inv;
 }
+
+template <int Dim>
+std::optional<BackwardWave<Dim>> backward_wave(const assembly::PermittivityTensor<Dim>& eps,
+                                               int axis, int samples) {
+  if (axis < 0 || axis >= Dim) {
+    throw InvalidArgument(fmt::format("backward_wave: axis {} outside [0, {})", axis, Dim));
+  }
+  if (samples < 8) throw InvalidArgument("backward_wave: at least 8 samples");
+  using RealMatrix = Eigen::Matrix<Real, Dim, Dim>;
+  const RealMatrix e = eps.real();
+  BackwardWave<Dim> worst;
+  worst.worst = 1.0;
+  // product of the unit phase and group directions along the axis for one wave
+  const auto consider = [&](const Point<Dim>& k, const Point<Dim>& v) {
+    const Real norm = v.norm();
+    if (!(norm > 0)) return;
+    const Real product = k(axis) * v(axis) / norm;
+    if (product < worst.worst) {
+      worst.worst = product;
+      worst.direction = k;
+    }
+  };
+  if constexpr (Dim == 2) {
+    // in-plane E, H_z: slowness curve k^T Q k = k0^2 with Q = R^T eps^-1 R, R k = (k_y, -k_x);
+    // the group velocity is the normal Q k (no propagating wave where k^T Q k <= 0)
+    if (std::abs(e.determinant()) == 0) return std::nullopt;
+    RealMatrix r;
+    r << 0.0, 1.0, -1.0, 0.0;
+    const RealMatrix q = r.transpose() * e.inverse() * r;
+    for (int j = 0; j < samples; ++j) {
+      const Real theta = std::numbers::pi * (j + 0.5) / samples;
+      const Point<2> k(std::cos(theta), std::sin(theta));
+      if (!(k.dot(q * k) > 0)) continue;
+      consider(k, q * k);
+    }
+  } else {
+    // eigenwaves along k: P E = lambda eps E with P = I - k k^T, lambda = 1/n^2 > 0 propagating
+    if (std::abs(e.determinant()) == 0) return std::nullopt;
+    const RealMatrix inv = e.inverse();
+    const Real golden = std::numbers::pi * (3.0 - std::sqrt(5.0));
+    for (int j = 0; j < samples; ++j) {
+      const Real z = (j + 0.5) / samples;  // hemisphere z > 0
+      const Real rho = std::sqrt(std::max(0.0, 1.0 - z * z));
+      const Point<3> k(rho * std::cos(golden * j), rho * std::sin(golden * j), z);
+      const RealMatrix p = RealMatrix::Identity() - k * k.transpose();
+      const Eigen::EigenSolver<RealMatrix> eig(inv * p);
+      for (int m = 0; m < 3; ++m) {
+        const Complex lambda = eig.eigenvalues()(m);
+        if (!(lambda.real() > 1e-12) || std::abs(lambda.imag()) > 1e-9 * std::abs(lambda)) {
+          continue;
+        }
+        // real eigenvector up to a complex phase: rotate its largest entry onto the real axis
+        Eigen::Vector3cd v = eig.eigenvectors().col(m);
+        Eigen::Index big = 0;
+        v.cwiseAbs().maxCoeff(&big);
+        v *= std::abs(v(big)) / v(big);
+        const Point<3> field = v.real();
+        consider(k, Point<3>(k * field.squaredNorm() - field * k.dot(field)));
+      }
+    }
+  }
+  if (worst.worst < -1e-9) return worst;
+  return std::nullopt;
+}
+
+template std::optional<BackwardWave<2>> backward_wave<2>(const assembly::PermittivityTensor<2>&,
+                                                         int, int);
+template std::optional<BackwardWave<3>> backward_wave<3>(const assembly::PermittivityTensor<3>&,
+                                                         int, int);
 
 template class PmlBox<2>;
 template class PmlBox<3>;

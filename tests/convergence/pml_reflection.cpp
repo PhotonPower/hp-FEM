@@ -18,8 +18,10 @@
 // homogeneous crystal. Along x the eigenwaves have E_x = -(eps_xy E_y + eps_xz E_z) / eps_xx and
 // k^2 = k0^2 lambda with lambda an eigenvalue of the Schur complement
 // S = eps_tt - eps_tx eps_xt / eps_xx (t = y, z); the tilted optic axis gives them a
-// longitudinal component, which only the off-diagonal tensor entries produce. Phase and group
-// velocity then both point into the layer, so the geometric PML condition holds.
+// longitudinal component, which only the off-diagonal tensor entries produce. For this wave
+// phase and group velocity both point into the layer, so it is absorbed; the geometric PML
+// condition fails for other (grazing) directions of a tilted crystal, which this wave does not
+// excite (the solver logs pml-backward-wave).
 #include <algorithm>
 #include <cmath>
 #include <numbers>

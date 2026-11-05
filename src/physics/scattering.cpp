@@ -4,6 +4,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -77,6 +78,32 @@ Scattering<Dim>::Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringS
           "with a PEC wall for a substrate",
           worst, worst_cell, materials::max_real_index(material(worst_cell)),
           dofs_->cell_order(worst_cell), worst_limit);
+    }
+    // geometric stability condition of the stretch for every crystal meshed inside a layer,
+    // once per material and stretched axis (ADR-0015 §2, diagnostic pml-backward-wave)
+    std::set<std::pair<const materials::Material*, int>> checked;
+    for (Index c = 0; c < mesh.num_cells(); ++c) {
+      const materials::Material& m = material(c);
+      if (m.is_isotropic()) continue;
+      const Point<Dim> x = mesh::affine_map(mesh, c).centroid();
+      if (!setup_.pml->in_layer(x)) continue;
+      const auto s = setup_.pml->stretch(x);
+      for (int d = 0; d < Dim; ++d) {
+        if (s(d) == Complex{1.0, 0.0} || !checked.emplace(&m, d).second) continue;
+        const auto wave = pml::backward_wave<Dim>(materials::permittivity_tensor<Dim>(m), d);
+        if (!wave) continue;
+        log().warn(
+            "Scattering: pml-backward-wave: the crystal of cell {} (tag {}) violates the PML "
+            "stability condition along axis {}: a wave with phase direction {} carries its "
+            "energy against the stretch (k_d v_d = {:.3g}) and is amplified instead of "
+            "absorbed; align a principal axis of the crystal with the layer normal or truncate "
+            "the crystal before the layer",
+            c, mesh.cell_tag(c), d,
+            Dim == 2 ? fmt::format("({:.3f}, {:.3f})", wave->direction(0), wave->direction(1))
+                     : fmt::format("({:.3f}, {:.3f}, {:.3f})", wave->direction(0),
+                                   wave->direction(1), wave->direction(Dim - 1)),
+            wave->worst);
+      }
     }
   }
   if (setup_.background) {
