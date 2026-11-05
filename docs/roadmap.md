@@ -619,8 +619,20 @@ last.
     against the stack Jones matrix (J = D r D) and channels, reciprocity of the specular order
     of a tilted crystal ridge (`test_grating_jones.py`)
 - [ ] S6: axisymmetric solver with diagonal (r, φ, z) tensors, rejection of tilted axes
-- [ ] S7: dipole emitters above anisotropic stacks (ADR-0013 amendment, β ↔ −β reciprocity), after
-  S4 / S5 are validated
+- [ ] S7: dipole emitters above anisotropic stacks (ADR-0015 S7 amendment), after S4 / S5 are
+  validated
+  - [x] S7a: reference: `AnisotropicStack::reflection_at` (Jones reflection at any in-plane
+    wavevector, evanescent included), `hpfem.planar.dipole_above_stack` (Purcell factor of a
+    point dipole above a crystal stack from the 2D plane-wave spectrum, exact for the Gaussian
+    emitter); tests: the CPS / Airy Sommerfeld integrals for a glass half-space and an absorbing
+    layer, the closed-form r_p of a c-cut half-space, the rotational covariance of a tilted
+    crystal, `reflection_at` against `response` and the evanescent Fresnel coefficients
+  - [ ] S7b: `grating.emit` above an `AnisotropicStack` (one sample against the spectrum on the
+    orders)
+  - [ ] S7c: `dipole_emission` for crystals (full β and kx ranges, all power-matrix entries,
+    crystal light lines) against S7a
+  - [ ] S7d: emission pattern / channels by reciprocity with crystals (mirrored tensors, with
+    S3c)
 - [ ] S8: GUI material editor (isotropic / uniaxial / biaxial / full, axis angles, per part and
   layer) and display of the Jones / Mueller elements (`GUI-hpFEM`)
 

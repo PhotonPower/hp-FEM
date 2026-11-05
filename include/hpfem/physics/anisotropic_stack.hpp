@@ -129,6 +129,16 @@ class AnisotropicStack {
   [[nodiscard]] AnisotropicPlaneWave plane_wave(Real k0, Real angle, Polarisation pol,
                                                 Real amplitude = 1.0, Real azimuth = 0.0) const;
 
+  /// Jones reflection matrix (as `StackResponse::reflection`) at the normalised in-plane
+  /// wavevector (a, b) = (k_x, k_y)/k0 of the incidence medium, also beyond its light cone,
+  /// where the incident and the reflected wave are evanescent (k_z / k0 = ±sqrt(n0² − a² − b²),
+  /// Im ≥ 0 towards the decaying side): the plane-wave spectrum of a dipole above the stack
+  /// (`dipole_power_above`). ŝ = ẑ × k̂_∥ (ŷ at a = b = 0), p̂ = ŝ × k̂ / n0 with the complex k̂.
+  /// Guided modes of a lossless stack are poles on the real (a, b) plane, where the matrix is
+  /// singular or large. @throws InvalidArgument for k0 ≤ 0 or grazing propagation in a region
+  /// (k_z = 0, e.g. |(a, b)| = n0).
+  [[nodiscard]] Eigen::Matrix2cd reflection_at(Real k0, Real a, Real b) const;
+
   /// Berreman matrix K of a medium for the normalised in-plane wavevector (a, b) = (k_x, k_y)/k0:
   /// @f$ \psi' = ik_0K\psi @f$ (exposed for tests and the theory page).
   [[nodiscard]] static Eigen::Matrix4cd berreman_matrix(const materials::Tensor3& eps, Real a,

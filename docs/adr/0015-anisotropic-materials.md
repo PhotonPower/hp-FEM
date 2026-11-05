@@ -259,6 +259,33 @@ anisotropic stack (Sommerfeld integral with the 4×4 formalism of §5, poles and
 the extraordinary and ordinary modes) and the β ↔ −β reciprocity of §4; it is a **separate later
 stage** with its own ADR amendment once §5 and §7 are validated.
 
+*Amendment (S7, 2026-11-05): emitters above crystal stacks.* The emitter stays the Gaussian
+dipole of ADR-0013 in an **isotropic, lossless host** (the cover or an isotropic layer); hosts
+that are crystals need their own bulk power and are not part of S7. Decisions, in stages:
+
+- **S7a, reference.** The power of a point dipole above an `AnisotropicStack` is computed from the
+  2D plane-wave (Weyl) spectrum of the Green's dyadic and the Jones reflection of the stack at
+  every in-plane wavevector, propagating and evanescent (`AnisotropicStack::reflection_at`,
+  `hpfem.planar.dipole_above_stack`), not from a 1D Sommerfeld integral: without rotational
+  symmetry the azimuth of the in-plane wavevector does not separate. The radial integral runs on
+  the real axis; guided modes of lossless stacks (real-axis poles) are excluded, the references
+  use absorbing layers or stacks without guided modes. Complex in-plane wavevectors (a deformed
+  path through the 4×4 system) are deferred. The Gaussian smearing multiplies every spectral
+  component by exp(−σ² k·k) = exp(−(n k0 σ)²) and cancels in the Purcell factor, so the point
+  dipole is the exact reference of the FEM emitter.
+- **S7b, one sample.** `grating.emit` with an `AnisotropicStack`: one Bloch sample (kx, β) of a
+  flat stack is the plane-wave spectrum on the orders (kx + 2πm/P, β), which gives an exact
+  reference for the delivered power of the cell problem.
+- **S7c, array scan.** For crystals the (kx, β) integrand is in general neither even in β nor in
+  kx: `dipole_emission` integrates β over (−∞, ∞) and kx over the full zone, keeps every entry
+  of the power matrix (no zeroing of odd entries), and takes the light lines and branch points
+  of crystal media from their ordinary / extraordinary roots (`half_space_modes`). The
+  reciprocity of a symmetric tensor, A(kx, β)ᵀ = S A(−kx, −β) S, pairs the samples at (kx, β)
+  and (−kx, −β) and may halve the work later; S7c does not rely on it.
+- **S7d, channels by reciprocity.** The substrate directions of the reciprocity path mirror the
+  cell; a crystal needs the mirrored tensor M ε M (M = diag(1, −1, 1) in the solver frame) or a
+  plane wave incident from the substrate (M19 S3c).
+
 ### 9. Validation (each stage with an independent reference)
 
 1. **Isotropic limit:** a tensor ε·I must reproduce every existing benchmark and test to

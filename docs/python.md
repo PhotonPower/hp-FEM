@@ -358,6 +358,11 @@ power-normalised 2×2 Jones matrix in the `conical_polarisation` s / p basis, or
 channels as rows in a crystal substrate; `mueller`: its 4×4 Mueller matrix,
 `grating.mueller(J)`); `result.order(m, "R")` picks one (docs/theory/anisotropic-stack.md).
 
+**A dipole above a crystal stack (M19 S7a).** `hpfem.planar.dipole_above_stack(stack, k0, height,
+moment)` returns the Purcell factor of a point (or the Gaussian FEM) dipole in the cover of an
+`AnisotropicStack` from the 2D plane-wave spectrum (`AnisotropicStack.reflection_at`); the
+reference for emitters above crystals (absorbing layers or stacks without guided modes).
+
 ```python
 stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)   # air over glass
 result = hpfem.grating.solve(mesh, {SUB: glass, RIDGE: glass}, stack, "p",
