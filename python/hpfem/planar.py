@@ -34,27 +34,43 @@ import hpfem
 __all__ = ["dipole_above_stack", "array_sample_above_stack"]
 
 
-def _vectors(a: float, b: float, n: float):
-    """ŝ, p̂_d, p̂_u and q for the normalised in-plane wavevector (a, b) in the medium n."""
-    par = math.hypot(a, b)
-    s = np.array([-b / par, a / par, 0.0]) if par > 0 else np.array([0.0, 1.0, 0.0])
+def _vectors(a, b, n: float):
+    """ŝ, p̂_d, p̂_u and q for the normalised in-plane wavevector (a, b) in the medium n; (a, b)
+    may be complex (a deformed path), ŝ is then normalised by the non-conjugating norm."""
+    par = complex(np.sqrt(complex(a * a + b * b)))
+    s = np.array([-b / par, a / par, 0.0]) if abs(par) > 0 else np.array([0.0, 1.0, 0.0])
     q = complex(np.sqrt(complex(n * n - a * a - b * b)))
-    if q.imag < 0:
+    if q.imag < 0 or (q.imag == 0 and q.real < 0):
         q = -q
     k_d = np.array([a, b, -q])
     k_u = np.array([a, b, q])
     return s.astype(complex), np.cross(s, k_d) / n, np.cross(s, k_u) / n, q
 
 
+def _term_complex(stack, k0, height, m, a, b, n, jacobian) -> complex:
+    """The complex integrand m^H [ŝ, p̂_u] r [ŝ, p̂_d]^T m e^{2ik0qh} times ``jacobian``."""
+    s, p_d, p_u, q = _vectors(a, b, n)
+    r = np.asarray(stack.reflection_at(k0, complex(a), complex(b)), dtype=complex)
+    dyad = np.column_stack([s, p_u]) @ r @ np.column_stack([s, p_d]).T
+    return complex((m.conj() @ dyad @ m) * np.exp(2j * k0 * q * height) * jacobian)
+
+
 def dipole_above_stack(stack, k0: float, height: float, moment, *, azimuths: int = 64,
-                       tolerance: float = 1e-10) -> float:  # fmt: skip
+                       tolerance: float = 1e-10, depth: float = 0.0,
+                       points: int = 2000) -> float:  # fmt: skip
     """Purcell factor P / P_bulk of the current moment ``moment`` (3 components, laboratory
     frame: z the stack normal) at ``height`` [m] above the top interface of the
     ``hpfem.AnisotropicStack`` ``stack`` (its incidence medium is the dipole's host) at the
     vacuum wavenumber ``k0`` [1/m]. ``azimuths``: trapezoidal points over the azimuth of the
     in-plane wavevector (a tilted crystal needs more than a c-cut one, whose integrand is a
     trigonometric polynomial of low degree); ``tolerance``: relative tolerance of the radial
-    integrals. Lossless stacks with guided modes are not covered (poles on the real axis)."""
+    integrals. Lossless stacks with guided modes (poles on the real axis) need ``depth`` > 0:
+    beyond the largest principal index s_b of the two half-spaces (where bound modes live) the
+    radial integral then leaves the real axis, s − i·depth·sin(πτ) up to S beyond all indices
+    (exp(−iωt): a small loss moves the poles above the real axis, so the path passes them on the
+    causal side), with ``points`` cosine-mapped Gauss points, and returns to it beyond S
+    (M19 S7e); the stack is evaluated at the complex in-plane wavevectors
+    (``reflection_at``). The result must not depend on ``depth``."""
     m = np.asarray(moment, dtype=complex).reshape(3)
     if not height > 0:
         raise ValueError("dipole_above_stack: the height must be positive")
@@ -70,7 +86,7 @@ def dipole_above_stack(stack, k0: float, height: float, moment, *, azimuths: int
     u_max = math.asinh(40.0 / (2.0 * k0 * n * height))
     u_max = max(u_max, 1.2 * max(kinks, default=0.0))
 
-    def term(a: float, b: float, jacobian: complex) -> float:
+    def term(a, b, jacobian: complex) -> float:
         s, p_d, p_u, q = _vectors(a, b, n)
         try:
             r = np.asarray(stack.reflection_at(k0, a, b), dtype=complex)
@@ -81,6 +97,59 @@ def dipole_above_stack(stack, k0: float, height: float, moment, *, azimuths: int
         return value.real
 
     total = 0.0
+    if depth > 0:
+        # guided modes are bound: evanescent in both half-spaces, so their poles lie beyond the
+        # largest principal index s_b of the cover and the substrate. Up to s_b the real axis
+        # (with the substitutions below); from s_b to S below it, s(t) = t − i depth sin(π τ),
+        # τ = (t − s_b)/(S − s_b), where both half-spaces are evanescent and the causal up / down
+        # split is unambiguous (closer to the axis a tilted crystal can have upward modes with
+        # Im k_z < 0: its in-plane group velocity may oppose the wavevector); then the real tail
+        semi = [n] + [math.sqrt(max(v, 0.0)) for v in np.linalg.eigvalsh(
+            np.asarray(stack.material(stack.num_layers + 1).eps_tensor).real)]  # fmt: skip
+        s_b = max(semi)
+        indices = semi + [math.sqrt(max(v, 0.0)) for region in range(1, stack.num_layers + 1)
+                          for v in np.linalg.eigvalsh(
+                              np.asarray(stack.material(region).eps_tensor).real)]  # fmt: skip
+        s_top = max(indices) + 0.3
+        # cosine-mapped Gauss on [s_b, S]: the square-root point of the half-space at s_b
+        g, w = np.polynomial.legendre.leggauss(int(points))
+        theta = 0.5 * math.pi * (g + 1.0)
+        tau = 0.5 * (1.0 - np.cos(theta))
+        w = w * 0.5 * np.sin(theta) * 0.5 * math.pi * (s_top - s_b)
+        s_path = s_b + (s_top - s_b) * tau - 1j * depth * np.sin(np.pi * tau)
+        ds = 1.0 - 1j * depth * np.pi / (s_top - s_b) * np.cos(np.pi * tau)
+        u_b = math.acosh(s_b / n) if s_b > n else 0.0
+        u_top = math.acosh(s_top / n)
+        breaks = [u for u in kinks if 0 < u < u_b]
+        for j in range(azimuths):
+            psi = 2.0 * math.pi * j / azimuths
+            c, sn = math.cos(psi), math.sin(psi)
+
+            def inside(t, c=c, sn=sn):
+                s = n * math.sin(t)
+                return term(s * c, s * sn, n * math.sin(t))
+
+            def outside(u, c=c, sn=sn):
+                s = n * math.cosh(u)
+                return term(s * c, s * sn, -1j * n * math.cosh(u))
+
+            radial = quad(inside, 0.0, 0.5 * math.pi, epsabs=0.0, epsrel=tolerance,
+                          limit=400)[0]  # fmt: skip
+            if u_b > 0:
+                radial += quad(outside, 0.0, u_b, points=breaks or None, epsabs=0.0,
+                               epsrel=tolerance, limit=400)[0]  # fmt: skip
+            deformed = 0.0
+            for s, dsi, wi in zip(s_path, ds, w, strict=True):
+                _s, _pd, _pu, q = _vectors(s * c, s * sn, n)
+                deformed += wi * _term_complex(stack, k0, height, m, s * c, s * sn, n,
+                                               s / q * dsi)  # fmt: skip
+            radial += deformed.real
+            # the tail beyond all indices is tiny: an absolute tolerance on top of the relative one
+            radial += quad(outside, u_top, max(u_max, u_top + 1.0), epsabs=1e-3 * tolerance,
+                           epsrel=tolerance, limit=400)[0]  # fmt: skip
+            total += radial
+        total *= 2.0 * math.pi / azimuths
+        return 1.0 + 3.0 / (4.0 * math.pi * n * float(np.vdot(m, m).real)) * total
     for j in range(azimuths):
         psi = 2.0 * math.pi * j / azimuths
         c, sn = math.cos(psi), math.sin(psi)

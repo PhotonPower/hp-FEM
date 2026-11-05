@@ -3,6 +3,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Guided modes in the dipole reference above crystal stacks (M19 S7e-2a):
+  `AnisotropicStack::reflection_at` takes complex in-plane wavevectors (causal continuation),
+  `hpfem.planar.dipole_above_stack(depth=...)` passes the guided-mode poles of lossless stacks on
+  a deformed path; checked against the Airy–Sommerfeld integral of a waveguide slab and the
+  small-loss limit of a crystal slab.
 - Radiation into crystal substrates (M19 S7e-1): `AnisotropicStack` (and `LayerStack` for the
   lookup of a layered background) take a lossless crystal incidence medium, whose modes
   `AnisotropicStack::mode_wave` and `anisotropic_conical_mode_wave` give; `emission_cone(side=

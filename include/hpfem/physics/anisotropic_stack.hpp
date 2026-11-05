@@ -139,7 +139,10 @@ class AnisotropicStack {
   /// Guided modes of a lossless stack are poles on the real (a, b) plane, where the matrix is
   /// singular or large. @throws InvalidArgument for k0 ≤ 0 or grazing propagation in a region
   /// (k_z = 0, e.g. |(a, b)| = n0).
-  [[nodiscard]] Eigen::Matrix2cd reflection_at(Real k0, Real a, Real b) const;
+  /// (a, b) may be complex: the analytic continuation on a deformed integration path below the
+  /// real axis (guided-mode poles of lossless stacks, M19 S7e), with ŝ normalised by the
+  /// non-conjugating norm and the up / down modes of every region chosen by Im k_z (causal).
+  [[nodiscard]] Eigen::Matrix2cd reflection_at(Real k0, Complex a, Complex b) const;
 
   /// The analytic field of the downward mode `mode` (0 or 1, the order of `half_space_modes`:
   /// s / p, ordinary / extraordinary) of the incidence medium, with |E| = `amplitude` [V/m], at
