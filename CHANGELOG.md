@@ -3,6 +3,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Array scanning above crystals (M19 S7c): `grating.dipole_emission` takes an
+  `AnisotropicStack` and crystal cells; without the isotropic symmetries the β integral runs
+  over (−β_max, β_max) and kx over the full zone, every power-matrix entry counts, and the
+  light lines of crystal half-spaces come from their Fresnel quartic (`array_scan_rule` takes
+  3×3 tensors among the media). Channels by reciprocity and guided-mode poles are refused with
+  crystals for now. Benchmark `m19_crystal_dipole_scan.py`: a dipole above a tilted crystal
+  half-space against the 2D-spectrum reference to 5e-4.
 - Emitters above crystal stacks, one sample (M19 S7b): `grating.emit` takes an
   `AnisotropicStack` (emitter in an isotropic, lossless medium), resolves the downward orders of
   a crystal substrate into mode channels (`EmissionOrder.channel_power`), supports

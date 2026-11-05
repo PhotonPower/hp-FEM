@@ -365,7 +365,9 @@ reference for emitters above crystals (absorbing layers or stacks without guided
 `grating.emit` takes an `AnisotropicStack` as well (S7b; the emitter in an isotropic lossless
 medium, `bottom="modal"`, downward orders with `channel_power`), and
 `planar.array_sample_above_stack(stack, k0, kx, beta, period, height, moment, sigma)` is the exact
-value of one such sample for a flat stack.
+value of one such sample for a flat stack. `grating.dipole_emission` scans crystal structures
+too (S7c: `channels=False`, no `symmetric`, no guided-mode poles yet; `array_scan_rule` takes
+3×3 solver-frame tensors among the media for the crystal light lines).
 
 ```python
 stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)   # air over glass

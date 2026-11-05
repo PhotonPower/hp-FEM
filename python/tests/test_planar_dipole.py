@@ -209,3 +209,71 @@ def test_emitter_above_a_tilted_crystal_substrate_with_the_modal_bottom():
     near = grating.emit(mesh, {5: crystal}, stack, close, OMEGA, kx, beta, order=2,
                         pml={"top": UM}, bottom="modal")  # fmt: skip
     assert any("reaches across" in w for w in near.warnings)
+
+
+def test_crystal_light_lines():
+    """M19 S7c: the light line (k_y = 0) of a crystal from its Fresnel quartic, against the
+    closed forms of a diagonal tensor (solver frame): E ∥ y on kx² + β² = ε_yy k0², E in the
+    xz plane on kx²/ε_zz + β²/ε_xx = k0²; the roots travel along the sign of kx; the turning
+    points of β are sqrt(ε_xx) and sqrt(ε_yy) (times k0)."""
+    from hpfem import grating
+
+    eps = np.diag([2.0, 3.0, 2.5])
+    beta = 0.4 * K0
+    real, branch = grating._crystal_kx_roots(eps, K0, beta)
+    expected = sorted([math.sqrt(3 * K0**2 - beta**2), math.sqrt(2.5 * (K0**2 - beta**2 / 2))])
+    roots = sorted(r for r, _s in real)
+    assert np.allclose(roots, [-expected[1], -expected[0], *expected], rtol=1e-10)
+    assert all(s == math.copysign(1.0, r) for r, s in real)
+    assert branch == []
+    # beyond both sheets: four complex roots, the branch points of the evanescent sheets
+    real, branch = grating._crystal_kx_roots(eps, K0, 1.8 * K0)
+    assert real == [] and len(branch) == 4
+    extrema = sorted(grating._crystal_beta_extrema(eps, K0))
+    assert np.allclose(extrema, [math.sqrt(2.0) * K0, math.sqrt(3.0) * K0], rtol=1e-10)
+
+
+def test_scan_rule_with_a_crystal_half_space():
+    """The array-scan rule with the crystal light lines (β over (−β_max, β_max), the full kx zone)
+    integrates the exact sample spectrum of a dipole above a tilted lossless crystal half-space
+    to the 2D-spectrum reference of S7a (1e-4 at 6 nodes per panel; 2e-6 at 10)."""
+    from hpfem import grating
+    from hpfem.planar import array_sample_above_stack
+
+    axis = np.array([np.sin(0.7), 0.3, np.cos(0.7)])
+    eps_lab = 2.4 * np.eye(3) + np.outer(axis, axis) / 1.09
+    stack = hpfem.AnisotropicStack(
+        hpfem.Material.dielectric(1.0), [], hpfem.Material.anisotropic(eps_lab)
+    )
+    swap = np.array([[1, 0, 0], [0, 0, 1], [0, 1, 0.0]])  # laboratory <-> solver frame
+    height, moment = 0.32 * UM, np.array([0.6, 0.5, 0.4])
+    reference = dipole_above_stack(stack, K0, height, swap @ moment, azimuths=96)
+    rule = grating.array_scan_rule(PERIOD, K0, [1.0, swap @ eps_lab @ swap], beta_max=1.9 * K0,
+                                   nodes=6, depth=0.0)  # fmt: skip
+    assert rule.beta.min() < 0 < rule.beta.max()
+    value = sum(w * array_sample_above_stack(stack, K0, kx.real, b, PERIOD, height, moment)
+                for kx, b, w in zip(rule.kx, rule.beta, rule.weight, strict=True))  # fmt: skip
+    bulk = hpfem.constants.Z0 * K0**2 * float(moment @ moment) / (12 * math.pi)
+    assert value.real / bulk == pytest.approx(reference, rel=3e-4)
+    with pytest.raises(grating.GratingError, match="mirror"):
+        grating.array_scan_rule(PERIOD, K0, [1.0, swap @ eps_lab @ swap], beta_max=K0,
+                                symmetric=True)  # fmt: skip
+
+
+def test_dipole_emission_refusals_with_crystals():
+    """What the crystal scan of S7c does not do yet is refused up front."""
+    from hpfem import grating
+
+    crystal = hpfem.Material.anisotropic(np.diag([2.0, 2.0, 2.6]).astype(complex))
+    stack = hpfem.AnisotropicStack(hpfem.Material.dielectric(1.0), [], crystal)
+    mesh = emitter_cell(0.0)
+    dipole = {"position": (0.05 * UM, 0.32 * UM), "sigma": SIGMA}
+    common = dict(order=2, pml={"top": UM, "bottom": UM})
+    with pytest.raises(grating.GratingError, match="S7d"):
+        grating.dipole_emission(mesh, {5: crystal}, stack, dipole, OMEGA, **common)
+    with pytest.raises(grating.GratingError, match="mirror"):
+        grating.dipole_emission(mesh, {5: crystal}, stack, dipole, OMEGA, symmetric=True,
+                                channels=False, **common)  # fmt: skip
+    with pytest.raises(grating.GratingError, match="real Bloch"):
+        grating.dipole_emission(mesh, {5: crystal}, stack, dipole, OMEGA, bottom="modal",
+                                channels=False, order=2, pml={"top": UM})  # fmt: skip

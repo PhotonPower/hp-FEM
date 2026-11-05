@@ -1,0 +1,33 @@
+{
+  "benchmark": "M19 S7c dipole above a tilted crystal half-space (array scan)",
+  "date": "2026-11-05",
+  "nodes": 6,
+  "kx_nodes": 4,
+  "order": 4,
+  "workers": 4,
+  "samples": 3840,
+  "seconds": 1935.5,
+  "purcell": {
+    "x": {
+      "fem": 1.0727658282776626,
+      "reference": 1.0733323824162242,
+      "relative_error": -0.0005278459383534218
+    },
+    "y": {
+      "fem": 1.0036869473674663,
+      "reference": 1.0042020262699276,
+      "relative_error": -0.0005129235840864999
+    },
+    "z": {
+      "fem": 1.0661448757058465,
+      "reference": 1.0661143365967456,
+      "relative_error": 2.8645247561742693e-05
+    },
+    "moment": {
+      "fem": 1.049997842112945,
+      "reference": 1.0504128388067555,
+      "relative_error": -0.00039507960915818874
+    }
+  },
+  "note": "run with the configuration of benchmarks/m19_crystal_dipole_scan.py (same cell, dipole, crystal and rule); the scan rule alone integrates the exact spectrum to 1.2e-4 (x), 1.9e-4 (y), 1.4e-5 (z) at 6 nodes"
+}
