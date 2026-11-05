@@ -2,6 +2,7 @@
 /// Layer stacks and their plane-wave solutions (`physics/layer_stack.hpp`, ADR-0009):
 /// `Layer`, `LayerStack2D/3D`, `LayeredPlaneWave2D/3D`, `Polarisation`.
 #include "common.hpp"
+#include "hpfem/physics/anisotropic_stack.hpp"
 #include "hpfem/physics/layer_stack.hpp"
 
 namespace hpfem::python {
@@ -77,6 +78,65 @@ void bind_layered(py::module_& m) {
       .def_readwrite("thickness", &physics::Layer::thickness);
   bind_layered_dim<2>(m);
   bind_layered_dim<3>(m);
+
+  py::enum_<physics::SubstrateMode>(m, "SubstrateMode",
+                                    "Kind of a downward substrate mode of an AnisotropicStack")
+      .value("S", physics::SubstrateMode::kS)
+      .value("P", physics::SubstrateMode::kP)
+      .value("ORDINARY", physics::SubstrateMode::kOrdinary)
+      .value("EXTRAORDINARY", physics::SubstrateMode::kExtraordinary)
+      .value("BIAXIAL", physics::SubstrateMode::kBiaxial);
+  py::class_<physics::StackResponse>(
+      m, "StackResponse",
+      "Plane-wave response of an AnisotropicStack for incident s and p of unit |E|")
+      .def_readonly("reflection", &physics::StackResponse::reflection,
+                    "Jones reflection matrix, columns incident (s, p), rows reflected (s, p): "
+                    "[[r_ss, r_sp], [r_ps, r_pp]]")
+      .def_readonly("transmission", &physics::StackResponse::transmission,
+                    "amplitudes of the two downward substrate modes, columns incident (s, p)")
+      .def_readonly("substrate_modes", &physics::StackResponse::substrate_modes,
+                    "tangential fields (E_x, E_y, Z0 H_x, Z0 H_y) of the substrate modes, unit |E|")
+      .def_readonly("substrate_kz", &physics::StackResponse::substrate_kz,
+                    "k_z of the downward substrate modes [1/m]")
+      .def_readonly(
+          "substrate_mode_kinds", &physics::StackResponse::substrate_mode_kinds,
+          "SubstrateMode of each substrate mode (s, p / ordinary, extraordinary / biaxial)")
+      .def_readonly("channel_transmittance", &physics::StackResponse::channel_transmittance,
+                    "power into each substrate mode (rows) per incident s, p (columns)")
+      .def_readonly("reflectance", &physics::StackResponse::reflectance, "R for incident (s, p)")
+      .def_readonly("transmittance", &physics::StackResponse::transmittance,
+                    "T for incident (s, p)")
+      .def_readonly("absorptance", &physics::StackResponse::absorptance,
+                    "A = 1 - R - T for incident (s, p)");
+  py::class_<physics::AnisotropicPlaneWave>(
+      m, "AnisotropicPlaneWave",
+      "Plane wave on an AnisotropicStack: field, incident_wave, response")
+      .def_readonly("field", &physics::AnisotropicPlaneWave::field)
+      .def_readonly("incident_wave", &physics::AnisotropicPlaneWave::incident_wave)
+      .def_readonly("response", &physics::AnisotropicPlaneWave::response);
+  py::class_<physics::AnisotropicStack>(
+      m, "AnisotropicStack",
+      "Planar stack of crystal layers in the laboratory frame (z the normal, ADR-0015 §5): "
+      "isotropic lossless cover above `top`, layers top to bottom, substrate; 4x4 Berreman system "
+      "on ordered Schur subspaces with a stable S-matrix recursion")
+      .def(py::init<materials::Material, std::vector<physics::Layer>, materials::Material, Real>(),
+           py::arg("incidence_medium"), py::arg("layers"), py::arg("substrate"),
+           py::arg("top") = 0.0)
+      .def_property_readonly("num_layers", &physics::AnisotropicStack::num_layers)
+      .def("response", &physics::AnisotropicStack::response, py::arg("k0"), py::arg("angle"),
+           py::arg("azimuth") = 0.0, Release(),
+           "Jones reflection, substrate transmission and R, T, A at the vacuum wavenumber k0 "
+           "[1/m], incidence angle and azimuth [rad]")
+      .def("plane_wave", &physics::AnisotropicStack::plane_wave, py::arg("k0"), py::arg("angle"),
+           py::arg("polarisation"), py::arg("amplitude") = 1.0, py::arg("azimuth") = 0.0,
+           "analytic stack field (field, incident_wave as IncidentField3D) and the response; with "
+           "layer_stack() the layered background of Scattering3D")
+      .def("layer_stack", &physics::AnisotropicStack::layer_stack,
+           "the geometry and materials as a LayerStack3D (background of Scattering3D)")
+      .def_static("berreman_matrix", &physics::AnisotropicStack::berreman_matrix, py::arg("eps"),
+                  py::arg("a"), py::arg("b"),
+                  "4x4 K with psi' = i k0 K psi, psi = (E_x, E_y, Z0 H_x, Z0 H_y), at the "
+                  "normalised in-plane wavevector (a, b)");
 }
 
 }  // namespace hpfem::python

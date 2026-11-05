@@ -153,3 +153,41 @@ def test_grating_takes_crystals_in_the_laboratory_frame():
 
     with pytest.raises(grating.GratingError, match="laboratory frame"):
         grating._material_map(tensor_map, stack, 1e15)
+
+
+def test_anisotropic_stack_binding():
+    """M19 S4: the bound AnisotropicStack reproduces LayerStack3D for isotropic layers and
+    conserves energy for lossless crystals."""
+    k0 = 2 * np.pi / 1e-6
+    glass = hpfem.Material.dielectric(1.5)
+    layers = [hpfem.Layer(hpfem.Material(4.0 + 0.3j, 1.0), 120e-9)]
+    stack = hpfem.AnisotropicStack(hpfem.Material.dielectric(1.0), layers, glass)
+    r = stack.response(k0, 0.5, 0.3)
+    ref = hpfem.LayerStack3D(hpfem.Material.dielectric(1.0), layers, glass, 0.0)
+    s = ref.plane_wave(k0, 0.5, hpfem.Polarisation.S, 1.0, 0.3)
+    p = ref.plane_wave(k0, 0.5, hpfem.Polarisation.P, 1.0, 0.3)
+    assert abs(r.reflection[0, 0] - s.reflection) < 1e-12
+    assert abs(r.reflection[1, 1] - p.reflection) < 1e-12
+    crystal = hpfem.Material.anisotropic(uniaxial(1.5, 1.8, [1.0, 1.0, 1.0]))
+    lossless = hpfem.AnisotropicStack(
+        hpfem.Material.dielectric(1.0), [hpfem.Layer(crystal, 300e-9)], glass
+    ).response(k0, 0.6, 1.0)
+    assert np.allclose(lossless.reflectance + lossless.transmittance, 1.0, atol=1e-12)
+    assert abs(lossless.reflection[0, 1]) > 1e-3
+    assert hpfem.AnisotropicStack.berreman_matrix(np.eye(3), 0.0, 0.0).shape == (4, 4)
+
+
+def test_anisotropic_stack_as_background():
+    """M19 S4b: the analytic field of a crystal stack, its LayerStack3D geometry, the substrate
+    mode kinds and the conical wave are bound (the solver checks are in the C++ suite)."""
+    k0 = 2 * np.pi
+    crystal = hpfem.Material.anisotropic(uniaxial(1.5, 1.7, [0.0, 0.0, 1.0]))
+    stack = hpfem.AnisotropicStack(hpfem.Material.dielectric(1.0), [], crystal, 0.0)
+    wave = stack.plane_wave(k0, 0.4, hpfem.Polarisation.S, 1.0, 0.3)
+    assert wave.response.substrate_mode_kinds[0] == hpfem.SubstrateMode.ORDINARY
+    assert np.asarray(wave.field.value([0.1, 0.2, 0.3])).shape == (3,)
+    geometry = stack.layer_stack()
+    assert geometry.num_layers == 0
+    cw = hpfem.anisotropic_conical_wave(stack, k0, 0.4, 0.3, hpfem.Polarisation.P)
+    assert abs(cw.wave.beta - k0 * np.sin(0.4) * np.sin(0.3)) < 1e-12
+    assert not cw.background.substrate.is_isotropic

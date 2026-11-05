@@ -3,6 +3,29 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Crystal layer stacks as the background of the solvers (M19 S4b, ADR-0015 §5):
+  `AnisotropicStack::plane_wave` (Python `AnisotropicStack.plane_wave`) gives the analytic field
+  in every region (value, curl, the branch of a region) with layer-local amplitudes;
+  `layer_stack()` the geometry as `LayerStack<3>`, which now accepts crystal layers and
+  substrates for lookup (its scalar `plane_wave` refuses them); `Scattering<3>` and
+  `ConicalScattering` form the scattered-field contrast as a tensor against a crystal
+  background; `anisotropic_conical_wave` maps a laboratory-frame stack into the conical solver
+  frame. Substrate modes are labelled (`SubstrateMode`: ordinary / extraordinary by the optic
+  axis, biaxial eigenmodes, power-orthogonal where they coincide) with per-mode
+  `channel_transmittance`. New convergence test `anisotropic_stack_background`: a crystal plate
+  on a c-cut substrate half-space converges to the analytic full stack in the 3D and the conical
+  solver. Crystal stacks in `hpfem.grating` follow with the mode-resolved orders (S5).
+- Anisotropic layer stacks (M19 S4a, ADR-0015 §5): `physics::AnisotropicStack` (Python
+  `hpfem.AnisotropicStack`, `StackResponse`) computes the Jones reflection matrix, the
+  transmission into the substrate modes and R, T, A of planar stacks with crystal layers and a
+  crystal substrate (laboratory frame, z the normal). The Berreman 4×4 system is never
+  diagonalised: two ordered complex Schur forms per region give the upward and downward
+  subspaces, layers are crossed with closed-form 2×2 triangular exponentials and the reflection
+  matrices come from a stable S-matrix recursion, so degenerate regions, an optic axis along z
+  and Voigt (exceptional) points of absorbing biaxial media are exact. Verified against
+  `LayerStack`, an eigenvector-free transfer-matrix reference, closed forms at normal incidence,
+  a Voigt point and the energy balance; `docs/theory/anisotropic-stack.md`. Not yet used as the
+  background of the solvers (S4b).
 - Crystals in the conical solver (M19 S3a, ADR-0015 §4): `assembly::ConicalForm` carries
   physical 3×3 tensors (`ConicalTensorField` now returns a matrix; sources have their own
   `ConicalSourceField`); diagonal tensors keep the specialised assembly, full tensors enter as

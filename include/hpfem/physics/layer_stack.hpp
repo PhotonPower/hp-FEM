@@ -57,8 +57,11 @@ template <int Dim>
 class LayerStack {
  public:
   static_assert(Dim == 2 || Dim == 3);
+  /// Layers and the substrate may be crystals (ADR-0015 §5): the stack then serves as the
+  /// geometry and the materials of a layered background, and its field comes from
+  /// `AnisotropicStack::plane_wave` (`plane_wave` here refuses crystals).
   /// @throws InvalidArgument for a thickness ≤ 0, a magnetic material, a lossy incidence
-  /// medium or Im ε < 0 anywhere.
+  /// medium or Im ε < 0 anywhere; AnisotropicUnsupported for a crystal incidence medium.
   LayerStack(materials::Material incidence_medium, std::vector<Layer> layers,
              materials::Material substrate, Real top = 0.0);
 
@@ -82,7 +85,8 @@ class LayerStack {
   /// [rad] about the normal), vacuum wavenumber k0 [1/m]. Stable Airy / S-matrix recursion of
   /// the reflection coefficients from the substrate upwards and layer-local amplitude
   /// references, so thick absorbing layers neither overflow nor cancel. In 2D `pol` must be
-  /// kP. @throws InvalidArgument for k0 ≤ 0, |angle| ≥ π/2, grazing incidence or kS in 2D.
+  /// kP. @throws InvalidArgument for k0 ≤ 0, |angle| ≥ π/2, grazing incidence or kS in 2D;
+  ///         AnisotropicUnsupported if a region is a crystal.
   [[nodiscard]] LayeredPlaneWave<Dim> plane_wave(Real k0, Real angle,
                                                  Polarisation pol = Polarisation::kP,
                                                  Real amplitude = 1.0, Real azimuth = 0.0) const;

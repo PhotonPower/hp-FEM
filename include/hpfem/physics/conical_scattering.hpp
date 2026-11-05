@@ -33,6 +33,7 @@
 #include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/mesh.hpp"
 #include "hpfem/mesh/point_location.hpp"
+#include "hpfem/physics/anisotropic_stack.hpp"
 #include "hpfem/physics/kept_factorisation.hpp"
 #include "hpfem/physics/layer_stack.hpp"
 #include "hpfem/physics/postprocess.hpp"
@@ -310,6 +311,28 @@ struct LayeredConicalWave {
 [[nodiscard]] LayeredConicalWave layered_conical_wave(const LayerStack<2>& stack, Real k0,
                                                       Real angle, Real azimuth, Polarisation pol,
                                                       Real amplitude = 1.0);
+
+/// A crystal stack as the layered background of the conical solver (ADR-0015 §5): the geometry
+/// in the solver frame and the stack wave.
+struct AnisotropicConicalWave {
+  /// `ConicalScatteringSetup::background`: the layers along y with the tensors turned into the
+  /// solver frame, @f$ \varepsilon_c = P\varepsilon_{\text{lab}}P^T @f$, P swapping y and z.
+  LayerStack<2> background;
+  LayeredConicalWave wave;  ///< the stack field, its incident wave and curls, beta, kx, ky, R, T
+};
+
+/// The plane wave of an `AnisotropicStack` given in the laboratory frame (x across the lines,
+/// y along them, z the normal) in the conical solver frame (x across, y the normal, z along the
+/// lines): the solver point (x, y) is the laboratory point (x, 0, y), the field
+/// @f$ E_c = PE_{\text{lab}} @f$ in scaled components, the physical curl
+/// @f$ \nabla\times E_c = \det(P)\,P\,\nabla\times E_{\text{lab}} = -P\,\nabla\times E_{\text{lab}}
+/// @f$ (P is a reflection), β = k_y of the laboratory frame. The angles and the s / p vectors are
+/// those of `layered_conical_wave` (P maps one set onto the other). R and T are those of `pol`.
+/// @throws as `AnisotropicStack::plane_wave`.
+[[nodiscard]] AnisotropicConicalWave anisotropic_conical_wave(const AnisotropicStack& stack,
+                                                              Real k0, Real angle, Real azimuth,
+                                                              Polarisation pol,
+                                                              Real amplitude = 1.0);
 
 /// Fourier coefficients of a physical 3-vector field on the line through `origin` along the
 /// unit `tangent` (the direction of the period): @f$ A_m = \frac1a\int_0^a E(\text{origin} +

@@ -182,19 +182,19 @@ assembly::MaxwellForm<Dim> Scattering<Dim>::form_of_cell(Index cell) const {
   }
   set_material_tensors<Dim>(form, m, setup_.pml ? &*setup_.pml : nullptr);
   if (setup_.formulation == Formulation::kScatteredField) {
-    // k0^2 (eps_c - eps_b) E_inc as a matrix product; the background stays isotropic
-    // (the anisotropic stack is M19 S4)
-    const Complex eps_b = b.eps_scalar();
-    if (tensor) {
+    // k0^2 (eps_c - eps_b) E_inc, a matrix product if the cell or the background (a crystal
+    // layer of the stack, ADR-0015 §5) is a tensor; zero where the cell equals the background
+    if (tensor || !b.is_isotropic()) {
       const assembly::PermittivityTensor<Dim> contrast =
           k0_ * k0_ *
-          (materials::permittivity_tensor<Dim>(m) -
-           eps_b * assembly::PermittivityTensor<Dim>::Identity());
-      form.source = [contrast, value = setup_.incident.value](const Point<Dim>& x) {
-        return ComplexVector<Dim>(contrast * value(x));
-      };
+          (materials::permittivity_tensor<Dim>(m) - materials::permittivity_tensor<Dim>(b));
+      if (!contrast.isZero(0.0)) {
+        form.source = [contrast, value = setup_.incident.value](const Point<Dim>& x) {
+          return ComplexVector<Dim>(contrast * value(x));
+        };
+      }
     } else {
-      const Complex contrast = k0_ * k0_ * (m.eps_scalar() - eps_b);
+      const Complex contrast = k0_ * k0_ * (m.eps_scalar() - b.eps_scalar());
       if (contrast != Complex{0.0, 0.0}) {
         form.source = [contrast, value = setup_.incident.value](const Point<Dim>& x) {
           return ComplexVector<Dim>(contrast * value(x));

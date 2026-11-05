@@ -36,6 +36,7 @@ add_library(hpfem
   physics/postprocess.cpp
   physics/mie.cpp
   physics/layer_stack.cpp
+  physics/anisotropic_stack.cpp
   physics/farfield.cpp
   physics/diffraction.cpp
   physics/propagating_mode.cpp
