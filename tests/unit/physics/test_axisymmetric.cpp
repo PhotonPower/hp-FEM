@@ -10,6 +10,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "hpfem/assembly/axisymmetric_forms.hpp"
+#include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/materials/material.hpp"
@@ -133,4 +134,53 @@ TEST_CASE("axisymmetric cavity: axis conditions per m and the lowest cylinder mo
   REQUIRE_THROWS_AS(AxisymmetricCavity(nd, h1, bad), hpfem::InvalidArgument);
   const DofMap<2> other(mesh, 2);
   REQUIRE_THROWS_AS(AxisymmetricCavity(nd, other, setup), hpfem::InvalidArgument);
+}
+
+TEST_CASE("Axisymmetric solver: crystals as diagonal (r, phi, z) tensors",
+          "[physics][axisymmetric][anisotropic]") {
+  // ADR-0015 §8, M19 S6
+  using hpfem::materials::Material;
+  using hpfem::materials::Tensor3;
+  using hpfem::physics::axisymmetric_permittivity;
+  REQUIRE((axisymmetric_permittivity(Material::isotropic({2.25, 0.1})) -
+           Eigen::Vector3cd::Constant(Complex{2.25, 0.1}))
+              .norm() == 0);
+  const Tensor3 diag = Eigen::Vector3cd(2.0, 3.0, 4.0).asDiagonal();
+  REQUIRE((axisymmetric_permittivity(Material::anisotropic(diag)) - Eigen::Vector3cd(2.0, 3.0, 4.0))
+              .norm() == 0);
+  Tensor3 tilted = diag;
+  tilted(0, 2) = tilted(2, 0) = 0.2;
+  REQUIRE_THROWS_AS(axisymmetric_permittivity(Material::anisotropic(tilted)),
+                    hpfem::AnisotropicUnsupported);
+  // an isotropic eps given as a tensor reproduces the scalar cavity exactly
+  const Mesh<2> mesh = rectangle(3, 4, Point<2>(0.0, 0.0), Point<2>(1.0, 1.5));
+  const NedelecDofMap<2> nd(mesh, 3);
+  const DofMap<2> h1(mesh, 3);
+  const auto spectrum = [&](const Material& filling) {
+    AxisymmetricCavitySetup setup;
+    setup.axis_tag = hpfem::mesh::box_tag::kXMin;
+    setup.pec_tags = {hpfem::mesh::box_tag::kXMax, hpfem::mesh::box_tag::kYMin,
+                      hpfem::mesh::box_tag::kYMax};
+    setup.azimuthal_order = 1;
+    setup.materials = hpfem::materials::MaterialMap(filling);
+    setup.num_modes = 4;
+    std::vector<Real> out;
+    for (const auto& mode : AxisymmetricCavity(nd, h1, setup).solve())
+      out.push_back(mode.wavenumber);
+    return out;
+  };
+  const auto scalar = spectrum(Material::dielectric(1.5));
+  const auto tensor = spectrum(Material::anisotropic(Tensor3(2.25 * Tensor3::Identity())));
+  REQUIRE(scalar.size() == tensor.size());
+  for (std::size_t i = 0; i < scalar.size(); ++i) {
+    REQUIRE(std::abs(scalar[i] - tensor[i]) < 1e-12 * scalar[i]);
+  }
+  // the incident field lives in an isotropic background
+  hpfem::physics::AxisymmetricScatteringSetup s;
+  s.omega = 1e15;
+  s.axis_tag = hpfem::mesh::box_tag::kXMin;
+  s.incident = hpfem::physics::axial_plane_wave(1.0, 1e15 / hpfem::constants::c0, 1);
+  s.materials = hpfem::materials::MaterialMap(Material::anisotropic(diag));
+  REQUIRE_THROWS_AS(hpfem::physics::AxisymmetricScattering(nd, h1, s),
+                    hpfem::AnisotropicUnsupported);
 }

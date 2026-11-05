@@ -619,7 +619,13 @@ last.
     `scalar_ez` also checks crystals of the background stack; tests: a flat crystal stack
     against the stack Jones matrix (J = D r D) and channels, reciprocity of the specular order
     of a tilted crystal ridge (`test_grating_jones.py`)
-- [ ] S6: axisymmetric solver with diagonal (r, φ, z) tensors, rejection of tilted axes
+- [x] S6: axisymmetric solver with diagonal (r, φ, z) tensors, rejection of tilted axes
+  (`axisymmetric_permittivity`: a tensor is read in (r, φ, z) and must be diagonal; the material
+  and PML forms, the componentwise scattered-field contrast, the absorption and the cavity loss
+  check take it; the background and the layered background stay isotropic); tests: a uniaxial
+  filling with the axis along z against the ordinary / extraordinary closed forms, a radially
+  anisotropic coaxial cavity against the Bessel modes of non-integer order (5e-11), an isotropic
+  tensor equal to the scalar case, the refusals (`axisymmetric_anisotropic`)
 - [ ] S7: dipole emitters above anisotropic stacks (ADR-0015 S7 amendment), after S4 / S5 are
   validated
   - [x] S7a: reference: `AnisotropicStack::reflection_at` (Jones reflection at any in-plane

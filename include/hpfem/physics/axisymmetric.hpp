@@ -51,6 +51,17 @@ struct AxisymmetricDofSets {
                                                         const std::vector<mesh::Tag>& pec_tags,
                                                         mesh::Tag axis_tag, int azimuthal_order);
 
+/// Diagonal permittivity (ε_r, ε_φ, ε_z) of a material in the cylindrical components of the
+/// axisymmetric solver (ADR-0015 §8, M19 S6): an isotropic ε gives (ε, ε, ε); a tensor material is
+/// read in (r, φ, z) components and must be diagonal there. A uniaxial crystal with its optic
+/// axis along the symmetry axis z (ε_xx = ε_yy) means the same in both frames; ε_xx ≠ ε_yy is a
+/// radially / azimuthally anisotropic medium (e.g. a radially uniaxial shell), which no constant
+/// Cartesian tensor describes. Convention exp(−iωt), Im ε ≥ 0 for loss.
+/// @throws AnisotropicUnsupported for off-diagonal entries (an optic axis tilted against z, or a
+///         helical anisotropy, breaks the rotational symmetry) and for a tensor permeability.
+[[nodiscard]] Eigen::Matrix<Complex, 3, 1> axisymmetric_permittivity(
+    const materials::Material& material);
+
 /// Cylindrical PML as material (Teixeira–Chew): with the stretch factors @f$ s_r, s_z @f$ of
 /// the box and @f$ s_\varphi = \tilde r / r @f$ the tensor
 /// @f$ \Lambda = \mathrm{diag}(s_\varphi s_z / s_r,\ s_r s_z / s_\varphi,\ s_r s_\varphi / s_z) @f$

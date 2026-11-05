@@ -3,6 +3,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Crystals in the axisymmetric solver (M19 S6, ADR-0015 §8): tensor materials are read as
+  diagonal (r, φ, z) tensors (`axisymmetric_permittivity`): an optic axis along the symmetry
+  axis, or radially / azimuthally anisotropic media; tilted axes are refused. The material and
+  PML forms, the scattered-field contrast, the absorbed power and the cavity take them. New
+  convergence test `axisymmetric_anisotropic`: uniaxial and radially anisotropic cavities against
+  closed forms (Bessel modes of non-integer order).
 - Emission by reciprocity above crystals (M19 S7d): `grating.emission_pattern`,
   `emission_cone` and the `channels` of `dipole_emission` take crystal cells and an
   `AnisotropicStack`; the substrate directions use the cell with mirrored tensors and the
