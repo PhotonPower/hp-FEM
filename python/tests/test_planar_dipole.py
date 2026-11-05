@@ -410,3 +410,65 @@ def test_radiation_into_a_crystal_substrate_closes_the_balance():
     reference = dipole_above_stack(stack, K0, height, p, azimuths=96)
     assert (up + down) / bulk == pytest.approx(reference, rel=3e-4)
     assert 0.3 < down / (up + down) < 0.7
+
+
+def test_guided_modes_on_a_deformed_path():
+    """M19 S7e-2a: lossless stacks with guided modes (poles on the real axis) on the deformed path
+    s − i·depth·sin(πs/S): an isotropic waveguide slab against the 1D Sommerfeld integral with the
+    Airy coefficient on the same kind of path, and a tilted lossless crystal slab independent of
+    the depth (the path passes the poles on the causal side)."""
+    n_slab, n_sub, d, height = 2.0, 1.45, 0.25 * UM, 0.25 * UM
+
+    def r_p(s):
+        q = [kz(e, s) for e in (1.0, n_slab**2, n_sub**2)]
+        eps = (1.0, n_slab**2, n_sub**2)
+        r = [(eps[i + 1] * q[i] - eps[i] * q[i + 1]) / (eps[i + 1] * q[i] + eps[i] * q[i + 1])
+             for i in range(2)]  # fmt: skip
+        ph = cmath.exp(2j * K0 * q[1] * d)
+        return (r[0] + r[1] * ph) / (1 + r[0] * r[1] * ph)
+
+    # F_perp = 1 + 3/2 Re ∫ s³/q r_p e^{2ik0qh} ds on the same path (cover n = 1)
+    s_top, depth = n_slab + 0.3, 0.03
+    t, w = np.polynomial.legendre.leggauss(1500)
+    t, w = 0.5 * s_top * (t + 1), 0.5 * s_top * w
+    total = 0.0
+    for ti, wi in zip(t, w, strict=True):
+        s = ti - 1j * depth * math.sin(math.pi * ti / s_top)
+        ds = 1 - 1j * depth * math.pi / s_top * math.cos(math.pi * ti / s_top)
+        q = kz(1.0, s)
+        total += wi * ds * s**3 / q * r_p(s) * cmath.exp(2j * K0 * q * height)
+
+    def tail_integrand(s):  # real s beyond all indices: q = i sqrt(s² − 1)
+        q = kz(1.0, s)
+        return (s**3 / q * r_p(s) * cmath.exp(2j * K0 * q * height)).real
+
+    tail = quad(tail_integrand, s_top, 20.0, epsabs=1e-14, limit=200)[0]
+    reference = 1 + 1.5 * (total.real + tail)
+    slab = hpfem.AnisotropicStack(hpfem.Material.dielectric(1.0),
+                                  [hpfem.Layer(hpfem.Material.dielectric(n_slab), d)],
+                                  hpfem.Material.dielectric(n_sub))  # fmt: skip
+    f = dipole_above_stack(slab, K0, height, [0, 0, 1], azimuths=4, depth=depth, points=1500)
+    assert f == pytest.approx(reference, abs=1e-8)
+    assert f > 1.05  # the guided modes carry power
+    # a tilted lossless crystal slab: independent of the path depth
+    axis = np.array([0.8, 0.0, 0.6])
+    crystal = hpfem.Material.anisotropic(3.2 * np.eye(3) + 0.9 * np.outer(axis, axis))
+    stack = hpfem.AnisotropicStack(hpfem.Material.dielectric(1.0), [hpfem.Layer(crystal, d)],
+                                   hpfem.Material.dielectric(n_sub))  # fmt: skip
+    m = [0.6, 0.4, 0.5]
+    values = [dipole_above_stack(stack, K0, height, m, azimuths=12, depth=dep, points=800)
+              for dep in (0.02, 0.05)]  # fmt: skip
+    assert values[0] == pytest.approx(values[1], abs=1e-7)
+    # the causal side: a small loss on the real axis tends linearly to the lossless value
+    differences = []
+    for loss in (4e-3, 2e-3):
+        lossy = hpfem.AnisotropicStack(
+            hpfem.Material.dielectric(1.0),
+            [hpfem.Layer(hpfem.Material.anisotropic(np.asarray(crystal.eps_tensor) + 1j * loss
+                                                    * np.eye(3)), d)],
+            hpfem.Material.dielectric(n_sub),
+        )  # fmt: skip
+        differences.append(dipole_above_stack(lossy, K0, height, m, azimuths=12,
+                                              tolerance=1e-9) - values[0])  # fmt: skip
+    assert abs(differences[1]) < 1e-5
+    assert differences[0] / differences[1] == pytest.approx(2.0, rel=0.05)

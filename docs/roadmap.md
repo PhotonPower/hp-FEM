@@ -666,7 +666,12 @@ last.
       (1.2e-4), the FEM balance (7.5e-5, `benchmarks/m19_crystal_substrate_balance.py`);
       fixed on the way: the crystal cover was left in the laboratory frame by
       `anisotropic_conical_wave`
-    - [ ] S7e-2: guided-mode poles above crystals (a reference on a complex path)
+    - [ ] S7e-2: guided-mode poles above crystals
+      - [x] S7e-2a: the reference on a deformed path (`reflection_at` at complex in-plane
+        wavevectors, the causal up / down split beyond the half-space indices,
+        `dipole_above_stack(depth=...)`); tests: an isotropic slab against Airy, a crystal slab
+        independent of the depth and the small-loss limit
+      - [ ] S7e-2b: the guided-mode poles in the array scan of crystal structures
 - [ ] S8: GUI material editor (isotropic / uniaxial / biaxial / full, axis angles, per part and
   layer) and display of the Jones / Mueller elements (`GUI-hpFEM`)
 
