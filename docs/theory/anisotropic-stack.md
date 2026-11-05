@@ -185,9 +185,39 @@ A plate with its axis in the layer plane at the azimuth α against the plane of 
 mirrored by α → −α: $r_{ss}, r_{pp}$ are even, $r_{sp}, r_{ps}$ odd in α (and zero for the axis
 in or perpendicular to the plane of incidence).
 
-**Not yet:** a PML in a substrate with a tilted axis fails the stability condition
-(`pml-backward-wave`); the modal transparent boundary of ADR-0015 §2 is M19 S5b. The Jones /
-Mueller matrices of every order and crystal stacks in `hpfem.grating` are S5c.
+## Modal transparent boundary
+
+A coordinate-stretching PML amplifies a *backward* wave, whose phase travels into the layer while
+its energy leaves it ($k_nv_n < 0$, `pml-backward-wave`). In a crystal with a tilted axis an
+outgoing diffraction order can be such a wave. `ConicalScatteringSetup::modal_boundaries`
+truncates the substrate (or the cover) of a periodic conical problem instead with the exact
+radiation condition of the half-space: the boundary term of the weak form,
+$\oint (n\times\nabla\times E)\cdot F\,ds = ik_0\oint (n\times\tilde H)\cdot F\,ds$
+($\nabla\times E = ik_0\tilde H$, the test function in physical components
+$F = (V_x, V_y, -iw)\,e^{-i\beta z}$), is evaluated order by order. In the local frame
+$(\hat t, \hat n\times\hat t, \hat n)$ of the line (n outward) the unknown is outgoing, so for
+the order $k_m = k_{t0} + 2\pi m/a$ its tangential magnetic field is
+$\tilde H_t = Y_mE_t$ with the admittance $Y_m = W_HW_E^{-1}$ of the two outgoing modes of
+`half_space_modes` (labelling-independent, also for coinciding modes). With
+$J = \left[\begin{smallmatrix}0&-1\\1&0\end{smallmatrix}\right]$ for $n\times$,
+
+$$
+B_{ij} = ik_0\sum_{m=-M}^{M}\hat F_{i,m}^T\,J\,Y_m\,\hat E_{j,m},\qquad
+\hat E_{j,m} = \frac1a\int_\Gamma E_t(\phi_j)e^{-ik_ms}ds,\quad
+\hat F_{i,m} = \int_\Gamma F_t(\phi_i)e^{ik_ms}ds
+$$
+
+(`conical_modal_boundary_matrix`, dense on the DoFs of the line; the tangential traces are the
+tangential Nédélec component and $\pm E_z = \pm iv$). The Bloch constraints combine the two ends
+of the line as for the volume terms. Orders beyond M see a natural boundary; the default
+$M = \lceil n_fp/2\rceil + 2$ covers the resolution of the trace of n_f facets of order p.
+Like the volume operator, B satisfies $B(\beta, k_t)^T = S\,B(-\beta, -k_t)\,S$
+(reciprocity of a symmetric tensor). The line must be straight, along the period, in one
+homogeneous non-magnetic medium outside the PML; the estimators, the resonance and the sweep
+solvers do not take the term.
+
+**Not yet:** the Jones / Mueller matrices of every order and crystal stacks in `hpfem.grating`
+(M19 S5c).
 
 ## Verification
 
@@ -234,4 +264,13 @@ Mueller matrices of every order and crystal stacks in `hpfem.grating` are S5c.
   extraordinary channels of the transmitted zeroth order of the conical FEM field converge to the
   per-mode transmittances of the stack ($1.5\cdot10^{-4} \to 3.5\cdot10^{-7}$ for p = 2…5; the
   error of these quadratic quantities alternates in sign, so it falls in pairs of p);
+- `conical_modal_boundary_matrix` (`test_anisotropic_conical.cpp`): the transposition symmetry
+  above to $10^{-12}$ for a tilted crystal, rows only on the line;
+- `anisotropic_modal_boundary` (convergence), a tilted lossless crystal substrate truncated by
+  the modal boundary: a crystal plate converges to the analytic stack field
+  ($5.8\cdot10^{-2} \to 1.5\cdot10^{-5}$, the o / e channels to $6.5\cdot10^{-7}$, p = 2…5); a
+  lossless lamellar grating whose transmitted order −1 is an extraordinary backward wave closes
+  the energy balance R + T = 1 to $1.6\cdot10^{-4} \to 3.3\cdot10^{-8}$, while a PML in the
+  same substrate stalls at $1.1\cdot10^{-4}$ for every p. (The plate alone is no test of the
+  PML: only its zeroth order propagates, a forward wave, and the PML there converges as well.)
 - `python/tests/test_anisotropic_volume.py` checks the bindings.

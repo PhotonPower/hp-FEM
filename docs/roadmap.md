@@ -604,9 +604,12 @@ last.
     mirror symmetry and the reciprocity r_ps(φ) = −r_sp(φ + π) of the stack Jones matrix (also
     for a tilted axis), a known-mode field recovered on a line, the transmitted o / e channels of
     the conical FEM field against the stack (`anisotropic_stack_background`)
-  - [ ] S5b: modal transparent boundary (DtN of the half-space modes per Fourier order) for the
-    substrate side of the conical solver, where a PML over a tilted crystal is unstable; test
-    against the stack with a tilted substrate axis
+  - [x] S5b: modal transparent boundary (`ConicalScatteringSetup::modal_boundaries`,
+    `conical_modal_boundary_matrix`: DtN of the half-space modes per Fourier order) for the
+    conical solver, where a PML over a tilted crystal is unstable; tests: the transposition
+    symmetry of the DtN matrix, a crystal plate on a tilted substrate against the stack, a
+    lossless grating with a backward order −1 (energy balance converges, the PML stalls)
+    (`anisotropic_modal_boundary`)
   - [ ] S5c: Jones / Mueller matrix of every order (`conical_polarisation` s / p in isotropic
     media, mode channels in crystals), crystal stacks in `hpfem.grating`, reciprocity of the
     conical solver on a rotated crystal

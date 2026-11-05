@@ -3,6 +3,14 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Modal transparent boundary of the conical solver (M19 S5b, ADR-0015 §2):
+  `ConicalScatteringSetup::modal_boundaries` (Python `ConicalModalBoundary`) truncates a
+  periodic problem on a straight line in a homogeneous, possibly tilted-crystal medium with the
+  Dirichlet-to-Neumann map of the half-space modes per Fourier order
+  (`conical_modal_boundary_matrix`), where a PML amplifies backward waves. New convergence test
+  `anisotropic_modal_boundary`: a crystal plate on a tilted substrate against the analytic stack,
+  and a lossless grating with a backward transmitted order whose energy balance converges with
+  the modal boundary and stalls with a PML.
 - Mode-resolved diffraction orders in crystal half-spaces (M19 S5a, ADR-0015 §7):
   `half_space_modes` gives the upward or downward modes of a half-space (s / p, ordinary /
   extraordinary, biaxial; k_z, full E and flux) and `conical_mode_orders` decomposes the orders of

@@ -574,3 +574,43 @@ TEST_CASE("Conical solver: diffraction orders resolved into crystal modes",
                         k0, eps, kt0, beta, kn_inc),
                     hpfem::InvalidArgument);
 }
+
+TEST_CASE("Conical solver: the modal boundary matrix", "[physics][conical][anisotropic][modal]") {
+  // ADR-0015 §2 / M19 S5b: the DtN term of a tilted crystal half-space obeys the transposition
+  // symmetry of the volume operator, B(beta, kt)^T = S B(-beta, -kt) S (reciprocity; an
+  // independent check of the signs of the trial and test traces), dense on the line only
+  const Mesh<2> mesh = hpfem::mesh::rectangle(3, 2, Point<2>(0.0, -0.4), Point<2>(0.6, 0.0));
+  const NedelecDofMap<2> nd(mesh, 3);
+  const DofMap<2> h1(mesh, 3);
+  const Eigen::Vector3d axis = Eigen::Vector3d(0.6, 0.3, 0.7).normalized();
+  const Tensor3 eps = 2.3 * Tensor3::Identity() + 0.9 * (axis * axis.transpose()).cast<Complex>();
+  const auto line = hpfem::physics::Surface<2>::boundary(mesh, box_tag::kYMin);
+  const Real k0 = 2.0 * std::numbers::pi;
+  const Point<2> shift(0.6, 0.0);
+  const SparseMatrix b =
+      hpfem::physics::conical_modal_boundary_matrix(nd, h1, line, eps, k0, 1.1, shift, 2.0, 6);
+  const SparseMatrix mirrored_source =
+      hpfem::physics::conical_modal_boundary_matrix(nd, h1, line, eps, k0, -1.1, shift, -2.0, 6);
+  Vector s = Vector::Ones(nd.num_dofs() + h1.num_dofs());
+  s.tail(h1.num_dofs()).setConstant(-1.0);
+  const SparseMatrix mirrored = s.asDiagonal() * mirrored_source * s.asDiagonal();
+  REQUIRE(b.norm() > 1.0);
+  REQUIRE(transposed_difference(b, mirrored) < 1e-12);
+  // the rows of the DoFs off the line are empty
+  Index rows = 0;
+  for (Index r = 0; r < b.outerSize(); ++r) {
+    if (SparseMatrix::InnerIterator(b, r)) ++rows;
+  }
+  REQUIRE(rows > 0);
+  REQUIRE(rows < b.rows() / 4);
+  // a line not along the period vector is refused
+  REQUIRE_THROWS_AS(hpfem::physics::conical_modal_boundary_matrix(nd, h1, line, eps, k0, 1.1,
+                                                                  Point<2>(0.0, 0.4), 0.0, 2),
+                    hpfem::InvalidArgument);
+  // the solver needs exactly one periodic pair
+  ConicalScatteringSetup setup;
+  setup.omega = k0 * hpfem::constants::c0;
+  setup.current = [](const Point<2>&) { return ConicalVector(0.0, 0.0, 1.0); };
+  setup.modal_boundaries = {{box_tag::kYMin, -1}};
+  REQUIRE_THROWS_AS(ConicalScattering(nd, h1, setup), hpfem::InvalidArgument);
+}
