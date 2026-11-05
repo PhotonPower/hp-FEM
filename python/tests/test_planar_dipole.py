@@ -277,3 +277,54 @@ def test_dipole_emission_refusals_with_crystals():
     with pytest.raises(grating.GratingError, match="real Bloch"):
         grating.dipole_emission(mesh, {5: crystal}, stack, dipole, OMEGA, bottom="modal",
                                 channels=False, order=2, pml={"top": UM})  # fmt: skip
+
+
+def test_emission_pattern_above_a_crystal_stack():
+    """M19 S7d: the angle-resolved emission by reciprocity above a tilted crystal layer on an
+    isotropic substrate equals |p · E_pw(x0)|² of the analytic stack field of the incident plane
+    wave (``AnisotropicStack.plane_wave``), up into the cover and down into the substrate (the
+    cell, the tensors and the stack mirrored), per polarisation and at azimuths without symmetry.
+    The Gaussian factor is that of the host medium, e^{−(n_host k0 σ)²}, on both sides."""
+    from hpfem import grating
+
+    period, d, height = 0.5 * UM, 0.2 * UM, 0.32 * UM
+    axis = np.array([0.8, 0.0, 0.6])
+    eps = 2.25 * np.eye(3) + 1.1 * np.outer(axis, axis)
+    crystal = hpfem.Material.anisotropic(eps)
+    substrate, cover = hpfem.Material.dielectric(2.0), hpfem.Material.dielectric(1.0)
+    stack = hpfem.AnisotropicStack(cover, [hpfem.Layer(crystal, d)], substrate)
+    mirror = np.diag([1.0, 1.0, -1.0])  # z -> -z, laboratory frame
+    mirrored = hpfem.AnisotropicStack(
+        substrate, [hpfem.Layer(hpfem.Material.anisotropic(mirror @ eps @ mirror), d)], cover, d
+    )
+    mesh = hpfem.rectangle(5, 40, [-period / 2, -2 * UM], [period / 2, 2 * UM])
+    for c in range(mesh.num_cells):
+        y = np.mean([mesh.vertex(int(v))[1] for v in mesh.cell_vertices(c)])
+        if -d < y < 0:
+            mesh.set_cell_tag(c, 4)
+        elif y < -d:
+            mesh.set_cell_tag(c, 5)
+    moment = np.array([0.6, 0.5, 0.4])  # solver frame
+    swap = np.array([[1, 0, 0], [0, 0, 1], [0, 1, 0.0]])
+    directions = [(0.3, 0.4, "up"), (0.6, 2.0, "up"), (0.2, -1.0, "down"), (0.5, 2.5, "down")]
+    dipole = {"position": (0.05 * UM, height), "moment": moment, "sigma": SIGMA}
+    materials = {4: crystal, 5: substrate}
+    pml = {"top": UM, "bottom": UM}
+    pattern = grating.emission_pattern(mesh, materials, stack, dipole, OMEGA, directions,
+                                       order=4, pml=pml)  # fmt: skip
+    gauss = math.exp(-((K0 * SIGMA) ** 2))  # host: vacuum
+    for i, (theta, phi, side) in enumerate(directions):
+        for j, pol in enumerate((hpfem.Polarisation.S, hpfem.Polarisation.P)):
+            if side == "up":
+                wave, x, p, n = stack, [0.05 * UM, 0.0, height], swap @ moment, 1.0
+            else:
+                wave, x, p, n = mirrored, [0.05 * UM, 0.0, -height], mirror @ swap @ moment, 2.0
+            e = np.asarray(wave.plane_wave(K0, theta, pol, 1.0, phi + math.pi).field.value(x))
+            scale = n * K0**2 * hpfem.constants.Z0 * gauss / (32 * math.pi**2)
+            reference = scale * abs(p @ e) ** 2
+            assert pattern.dP_dOmega[i, j] == pytest.approx(reference, rel=2e-4)
+    # a crystal substrate has no 'down' directions yet
+    crystal_sub = hpfem.AnisotropicStack(cover, [], crystal)
+    with pytest.raises(grating.GratingError, match="crystal substrate"):
+        grating.emission_pattern(mesh, {4: crystal, 5: crystal}, crystal_sub, dipole, OMEGA,
+                                 [(0.2, 0.0, "down")], order=2, pml=pml)  # fmt: skip

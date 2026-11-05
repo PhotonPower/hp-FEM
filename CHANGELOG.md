@@ -3,6 +3,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Emission by reciprocity above crystals (M19 S7d): `grating.emission_pattern`,
+  `emission_cone` and the `channels` of `dipole_emission` take crystal cells and an
+  `AnisotropicStack`; the substrate directions use the cell with mirrored tensors and the
+  mirrored stack, and the directions no longer assume the z mirror with crystals. The pattern up
+  and down equals the analytic stack field of the incident plane wave per polarisation. A
+  crystal substrate has no down directions yet.
 - Array scanning above crystals (M19 S7c): `grating.dipole_emission` takes an
   `AnisotropicStack` and crystal cells; without the isotropic symmetries the β integral runs
   over (−β_max, β_max) and kx over the full zone, every power-matrix entry counts, and the
