@@ -17,6 +17,7 @@ add_library(hpfem
   materials/material.cpp
   pml/pml.cpp
   physics/sources.cpp
+  physics/material_form.cpp
   physics/scattering.cpp
   physics/waveguide_port.cpp
   physics/conical_scattering.cpp

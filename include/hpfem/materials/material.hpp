@@ -125,6 +125,24 @@ template <int Dim>
   }
 }
 
+/// True if the permittivity is real (no loss and no gain), isotropic or tensor.
+[[nodiscard]] inline bool is_lossless(const Material& material) {
+  return material.is_isotropic() ? material.eps_scalar().imag() == 0
+                                 : material.eps_tensor().imag().isZero(0.0);
+}
+
+/// Dimensionless loss density @f$ E^H\,\mathrm{Im}(\varepsilon)\,E @f$ of the field `e` with N = 2
+/// (in-plane components, `permittivity_tensor<2>`) or N = 3 components; the time-averaged Joule
+/// heating is @f$ \tfrac12\omega\varepsilon_0 @f$ times it. For a symmetric ε the Hermitian part
+/// @f$ (\varepsilon - \varepsilon^H)/2i @f$ is the real matrix @f$ \mathrm{Im}\,\varepsilon @f$, so
+/// this is real; it reduces to @f$ \mathrm{Im}(\varepsilon_r)|E|^2 @f$ for an isotropic medium.
+template <int N>
+[[nodiscard]] Real loss_density(const Material& material, const Eigen::Matrix<Complex, N, 1>& e) {
+  if (material.is_isotropic()) return material.eps_scalar().imag() * e.squaredNorm();
+  const Eigen::Matrix<Real, N, N> loss = permittivity_tensor<N>(material).imag();
+  return (e.adjoint() * loss.template cast<Complex>() * e)(0, 0).real();
+}
+
 /// Materials by cell tag; cells whose tag is not listed (including untagged cells) get the
 /// background material. Individual cells may override their tag's material (`set_cell`),
 /// e.g. for a temperature-dependent permittivity that varies from cell to cell.

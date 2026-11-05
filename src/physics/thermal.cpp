@@ -31,10 +31,10 @@ Vector absorbed_power_density(const fespace::NedelecDofMap<Dim>& dofs, const Vec
   const Real factor = 0.5 * omega * constants::eps0;
   return assembly::interpolate<Dim>(
       h1, [&](Index cell, const Point<Dim>& xi, const Point<Dim>&) -> Complex {
-        const Real loss = materials.of_cell(mesh, cell).eps_scalar().imag();
-        if (loss == 0) return 0.0;
+        const materials::Material& material = materials.of_cell(mesh, cell);
+        if (materials::is_lossless(material)) return 0.0;
         const auto e = assembly::evaluate_hcurl<Dim>(dofs, e_h, cell, xi);
-        return Complex{factor * loss * e.squaredNorm(), 0.0};
+        return Complex{factor * materials::loss_density<Dim>(material, e), 0.0};
       });
 }
 
@@ -55,12 +55,13 @@ Vector absorbed_power_load(const fespace::NedelecDofMap<Dim>& dofs, const Vector
              h1,
              [&](Index cell) {
                assembly::ScalarForm<Dim> form;
-               const Real loss = materials.of_cell(mesh, cell).eps_scalar().imag();
-               if (loss != 0) {
-                 form.source_reference = [&dofs, &e_h, cell, scale = factor * loss](
+               const materials::Material& material = materials.of_cell(mesh, cell);
+               if (!materials::is_lossless(material)) {
+                 form.source_reference = [&dofs, &e_h, cell, &material, factor](
                                              const Point<Dim>& xi, const Point<Dim>&) {
                    return Complex{
-                       scale * assembly::evaluate_hcurl<Dim>(dofs, e_h, cell, xi).squaredNorm(),
+                       factor * materials::loss_density<Dim>(
+                                    material, assembly::evaluate_hcurl<Dim>(dofs, e_h, cell, xi)),
                        0.0};
                  };
                }

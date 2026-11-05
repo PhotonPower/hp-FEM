@@ -12,6 +12,8 @@
 #include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/generators.hpp"
 #include "hpfem/mesh/geometry.hpp"
+#include "hpfem/physics/absorption.hpp"
+#include "hpfem/physics/postprocess.hpp"
 #include "hpfem/physics/scattering.hpp"
 #include "hpfem/physics/sources.hpp"
 #include "hpfem/pml/pml.hpp"
@@ -74,12 +76,29 @@ ScatteringSetup<Dim> pml_setup(const Material& scatterer) {
   return setup;
 }
 
+/// Relative difference of the solutions for the scatterers a and b; also compares the residual
+/// estimates (divergence term and n·εE jump use the tensor) and the absorbed power when
+/// `estimate` is set.
 template <int Dim>
-Real relative_difference(const NedelecDofMap<Dim>& dofs, const Material& a, const Material& b) {
-  const auto ua = Scattering<Dim>(dofs, pml_setup<Dim>(a)).solve().unknown;
-  const auto ub = Scattering<Dim>(dofs, pml_setup<Dim>(b)).solve().unknown;
-  REQUIRE(ua.norm() > 0);
-  return (ua - ub).norm() / ua.norm();
+Real relative_difference(const NedelecDofMap<Dim>& dofs, const Material& a, const Material& b,
+                         bool estimate = false) {
+  const Scattering<Dim> pa(dofs, pml_setup<Dim>(a));
+  const Scattering<Dim> pb(dofs, pml_setup<Dim>(b));
+  const auto sa = pa.solve();
+  const auto sb = pb.solve();
+  REQUIRE(sa.unknown.norm() > 0);
+  if (estimate) {
+    const auto ea = pa.estimate(sa);
+    const auto eb = pb.estimate(sb);
+    REQUIRE(ea.total() > 0);
+    REQUIRE(std::abs(ea.total() - eb.total()) < 1e-10 * ea.total());
+    // Joule heating E^H Im(eps) E: the same with the tensor
+    const Real qa = hpfem::physics::absorbed_power(pa, sa);
+    REQUIRE(qa > 0);
+    REQUIRE(hpfem::physics::absorbed_power(pb, sb) == Approx(qa).epsilon(1e-10));
+    REQUIRE(hpfem::physics::absorbed_power_by_tag(pb, sb).total == Approx(qa).epsilon(1e-10));
+  }
+  return (sa.unknown - sb.unknown).norm() / sa.unknown.norm();
 }
 
 }  // namespace
@@ -92,7 +111,7 @@ TEST_CASE("Anisotropic volume: eps I through the tensor path reproduces the scal
   SECTION("2D") {
     const Mesh<2> m = with_scatterer(hpfem::mesh::rectangle(8, 8));
     const NedelecDofMap<2> dofs(m, 3);
-    REQUIRE(relative_difference(dofs, scalar, tensor) < 1e-12);
+    REQUIRE(relative_difference(dofs, scalar, tensor, true) < 1e-12);
   }
   SECTION("3D") {
     const Mesh<3> m = with_scatterer(hpfem::mesh::box(3, 3, 3));

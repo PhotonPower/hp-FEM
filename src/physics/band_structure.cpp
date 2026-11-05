@@ -14,6 +14,7 @@
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
 #include "hpfem/fespace/constraints.hpp"
+#include "hpfem/physics/material_form.hpp"
 #include "hpfem/solvers/eigen_solver.hpp"
 
 namespace hpfem::physics {
@@ -37,7 +38,7 @@ BandStructure<Dim>::BandStructure(const fespace::NedelecDofMap<Dim>& dofs,
   const auto& mesh = dofs.mesh();
   for (Index c = 0; c < mesh.num_cells(); ++c) {
     const auto& m = setup_.materials.of_cell(mesh, c);
-    if (m.eps_scalar().imag() != 0 || m.mu_scalar().imag() != 0) {
+    if (!m.eps_tensor().imag().isZero(0.0) || m.mu_scalar().imag() != 0) {
       throw InvalidArgument(fmt::format("BandStructure: cell {} has a lossy material", c));
     }
   }
@@ -145,15 +146,7 @@ template <int Dim>
 assembly::MaxwellForm<Dim> BandStructure<Dim>::form_of_cell(Index cell) const {
   const auto& m = setup_.materials.of_cell(dofs_->mesh(), cell);
   assembly::MaxwellForm<Dim> form;
-  const Complex inv_mu = 1.0 / m.mu_scalar();
-  const Complex eps = m.eps_scalar();
-  form.inverse_permeability = [inv_mu](const Point<Dim>&) {
-    return assembly::InversePermeabilityTensor<Dim>(
-        inv_mu * assembly::InversePermeabilityTensor<Dim>::Identity());
-  };
-  form.permittivity = [eps](const Point<Dim>&) {
-    return assembly::PermittivityTensor<Dim>(eps * assembly::PermittivityTensor<Dim>::Identity());
-  };
+  set_material_tensors<Dim>(form, m, nullptr);
   return form;
 }
 

@@ -14,6 +14,7 @@
 #include "hpfem/core/log.hpp"
 #include "hpfem/core/progress.hpp"
 #include "hpfem/mesh/geometry.hpp"
+#include "hpfem/physics/material_form.hpp"
 #include "hpfem/physics/sweep.hpp"
 #include "hpfem/pml/pml.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
@@ -147,58 +148,26 @@ assembly::MaxwellForm<Dim> Scattering<Dim>::form_of_cell(Index cell) const {
   const materials::Material& m = material(cell);
   const materials::Material& b = background_material(cell);
   assembly::MaxwellForm<Dim> form;
-  const Complex inv_mu = 1.0 / m.mu_scalar();
-  // isotropic cells keep the scalar path; a tensor material goes through the full tensor
-  // (ADR-0015 §2), which equals the scalar path for eps = eps_r I up to round-off
   const bool tensor = !m.is_isotropic();
-  const assembly::PermittivityTensor<Dim> eps_t =
-      tensor ? materials::permittivity_tensor<Dim>(m) : assembly::PermittivityTensor<Dim>{};
-  const Complex eps = tensor ? Complex{} : m.eps_scalar();
-  if (setup_.pml) {
-    // stretched tensors; identity inside the interior box, so every cell may use them, but
-    // the rational tensors of the layer cells need the raised quadrature order
-    if (setup_.pml->in_layer(mesh::affine_map(dofs_->mesh(), cell).centroid())) {
-      form.quadrature_order = 2 * dofs_->cell_order(cell) + setup_.pml_extra_quadrature_order;
-    }
-    const Complex mu = m.mu_scalar();
-    form.inverse_permeability = [mu, pml = *setup_.pml](const Point<Dim>& x) {
-      return pml.inverse_permeability(mu, x);
-    };
-    if (tensor) {
-      form.permittivity = [eps_t, pml = *setup_.pml](const Point<Dim>& x) {
-        return pml.permittivity(eps_t, x);
-      };
-    } else {
-      form.permittivity = [eps, pml = *setup_.pml](const Point<Dim>& x) {
-        return pml.permittivity(eps, x);
-      };
-    }
-  } else {
-    form.inverse_permeability = [inv_mu](const Point<Dim>&) {
-      return assembly::InversePermeabilityTensor<Dim>(
-          inv_mu * assembly::InversePermeabilityTensor<Dim>::Identity());
-    };
-    if (tensor) {
-      form.permittivity = [eps_t](const Point<Dim>&) { return eps_t; };
-    } else {
-      form.permittivity = [eps](const Point<Dim>&) {
-        return assembly::PermittivityTensor<Dim>(eps *
-                                                 assembly::PermittivityTensor<Dim>::Identity());
-      };
-    }
+  // the rational tensors of the PML cells need the raised quadrature order
+  if (setup_.pml && setup_.pml->in_layer(mesh::affine_map(dofs_->mesh(), cell).centroid())) {
+    form.quadrature_order = 2 * dofs_->cell_order(cell) + setup_.pml_extra_quadrature_order;
   }
+  set_material_tensors<Dim>(form, m, setup_.pml ? &*setup_.pml : nullptr);
   if (setup_.formulation == Formulation::kScatteredField) {
     // k0^2 (eps_c - eps_b) E_inc as a matrix product; the background stays isotropic
     // (the anisotropic stack is M19 S4)
     const Complex eps_b = b.eps_scalar();
     if (tensor) {
       const assembly::PermittivityTensor<Dim> contrast =
-          k0_ * k0_ * (eps_t - eps_b * assembly::PermittivityTensor<Dim>::Identity());
+          k0_ * k0_ *
+          (materials::permittivity_tensor<Dim>(m) -
+           eps_b * assembly::PermittivityTensor<Dim>::Identity());
       form.source = [contrast, value = setup_.incident.value](const Point<Dim>& x) {
         return ComplexVector<Dim>(contrast * value(x));
       };
     } else {
-      const Complex contrast = k0_ * k0_ * (eps - eps_b);
+      const Complex contrast = k0_ * k0_ * (m.eps_scalar() - eps_b);
       if (contrast != Complex{0.0, 0.0}) {
         form.source = [contrast, value = setup_.incident.value](const Point<Dim>& x) {
           return ComplexVector<Dim>(contrast * value(x));
