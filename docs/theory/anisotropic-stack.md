@@ -100,6 +100,56 @@ amplitudes in the incidence medium) and $r_{sp} = r_{ps} = 0$. At normal inciden
 $\hat s = \hat y$, the incident p is $-\hat x$ and the reflected p is $+\hat x$, so
 $r_{xx} = -r_{pp}$, $r_{yx} = -r_{sp}$, $r_{yy} = r_{ss}$, $r_{xy} = r_{ps}$.
 
+## Substrate modes
+
+The transmitted field is decomposed on two downward modes of the substrate, each with unit
+$|E|$ (`StackResponse::substrate_modes`, `substrate_mode_kinds`):
+
+- **isotropic:** s and p;
+- **uniaxial** (two equal principal values of $\operatorname{Re}\varepsilon$, optic axis
+  $\hat c$ the third eigenvector): the **ordinary** mode is the one with $D = \varepsilon E \perp
+  \hat c$ (its $k_z = -k_0\sqrt{\varepsilon_o - a^2 - b^2}$), the **extraordinary** one the other
+  eigenmode of the downward block;
+- **biaxial:** the two eigenvectors of the downward block $T_d$;
+- **coinciding modes** (k along an optic axis): the basis of the downward subspace that
+  diagonalises the Hermitian cross power flux
+  $P_{ij} = \tfrac12(\bar E_{x,i}\tilde H_{y,j} + \bar{\tilde H}_{y,i}E_{x,j} - \bar E_{y,i}\tilde H_{x,j}
+  - \bar{\tilde H}_{x,i}E_{y,j})$ (power-orthogonal modes).
+
+`channel_transmittance` is the power per mode, $|t_m|^2$ times the mode's flux over the incident
+flux; it adds up to $T$ when the modes are power-orthogonal (always for a lossless substrate).
+
+## The stack as layered background
+
+`AnisotropicStack::plane_wave(k0, angle, pol, amplitude, azimuth)` returns the analytic total
+field in every region,
+$$
+\psi(z) = e^{ik_0(ax + by)}\Big(W_u\,e^{ik_0T_u(z - z_b)}\alpha + W_d\,e^{ik_0T_d(z - z_t)}\delta\Big),
+$$
+with the upward amplitudes at the bottom and the downward ones at the top of each region (so all
+exponentials decay), the full E from $\psi$ and $\nabla\times E = ik_0\tilde H$, the branch of a
+given region (`value_in_region`, for points on an interface) and the incident wave alone. The
+incident wave has the phase 1 at the origin of the top interface, as in `LayerStack`.
+
+**3D solver.** `layer_stack()` gives the geometry as a `LayerStack<3>` (which now holds crystal
+layers for lookup; its own scalar `plane_wave` refuses them). With it as
+`ScatteringSetup<3>::background` and the stack field as `incident`, the scattered-field source
+is the tensor contrast $k_0^2(\varepsilon_c - \varepsilon_b)E^{inc}$, zero wherever a cell
+equals its layer.
+
+**Conical solver.** `anisotropic_conical_wave(stack, k0, angle, azimuth, pol)` turns a stack given
+in the laboratory frame into the solver frame of the conical solver (x across the lines, y the
+normal, z along them): the background `LayerStack<2>` carries $P\varepsilon P^T$ with P swapping y
+and z, the solver point $(x, y)$ is the laboratory point $(x, 0, y)$, the field is $PE$ in scaled
+components and its physical curl $\det(P)\,P\,\nabla\times E = -P\,\nabla\times E$ (the curl is a
+pseudovector and P a reflection). The angles and the s / p vectors coincide with
+`layered_conical_wave`.
+
+**Not yet:** diffraction orders and the power balance in a crystal substrate (mode-resolved
+orders, M19 S5), and therefore crystal stacks in `hpfem.grating`; a PML in a substrate with a
+tilted axis fails the stability condition (`pml-backward-wave`), the modal transparent boundary
+of ADR-0015 §2 is S5 as well.
+
 ## Verification
 
 `tests/unit/physics/test_anisotropic_stack.cpp`:
@@ -121,9 +171,16 @@ $r_{xx} = -r_{pp}$, $r_{yx} = -r_{sp}$, $r_{yy} = r_{ss}$, $r_{xy} = r_{ps}$.
 - at a Voigt point of an absorbing biaxial medium (found by Newton on the discriminant
   $(q_1 - q_2)^2$ of the downward eigenvalues), the layer agrees with the eigenvector-free
   reference to $10^{-9}$, and the half-space reflection is continuous across the point;
-- `python/tests/test_anisotropic_volume.py` checks the binding.
-
-**Not yet:** the stack as the layered background of the solvers (the analytic field per layer
-for the scattered-field source), the ordinary / extraordinary labelling of uniaxial substrate
-modes by the optic axis and the power-orthogonal modes of biaxial substrates, and the Mueller
-matrix (M19 S4 part 2).
+- the analytic field solves $\nabla\times\nabla\times E = k_0^2\varepsilon E$ in every region
+  (finite differences), its tangential components are continuous at the interfaces, and for an
+  isotropic stack it equals `LayerStack`'s field and curl;
+- the ordinary mode of a tilted uniaxial substrate has the closed-form $k_z$; the power channels
+  add up to $T$, also for coinciding modes;
+- `tests/convergence/anisotropic_stack_background.cpp`: a tilted crystal plate meshed on the
+  analytic half-space of a c-cut substrate converges to the analytic field of the full stack, in
+  the 3D solver (Bloch cell, $2\cdot10^{-2} \to 9\cdot10^{-5}$ for p = 2…4) and in the conical
+  solver ($5\cdot10^{-2} \to 1\cdot10^{-5}$ for p = 2…5); a structure equal to the stack has no
+  scattered field (exactly zero), in both solvers;
+- `anisotropic_conical_wave` of an isotropic stack equals `layered_conical_wave` (field, curl,
+  β, R), and its curl matches the field by finite differences for a crystal stack;
+- `python/tests/test_anisotropic_volume.py` checks the bindings.

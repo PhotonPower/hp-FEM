@@ -7,6 +7,7 @@
 #include "hpfem/adaptivity/conical_estimator.hpp"
 #include "hpfem/adaptivity/refinement.hpp"
 #include "hpfem/assembly/conical_forms.hpp"
+#include "hpfem/assembly/periodic.hpp"
 #include "hpfem/assembly/prolongation.hpp"
 #include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
@@ -383,4 +384,87 @@ TEST_CASE("Anisotropic conical: resonance derivative with the left vector of a c
   const Complex fd = (closest(h) - closest(-h)) / (2.0 * h);
   INFO("adjoint " << derivative.dlambda << " FD " << fd);
   REQUIRE(std::abs(derivative.dlambda - fd) < 1e-5 * std::abs(fd));
+}
+
+TEST_CASE("Anisotropic conical: a crystal stack as the layered background",
+          "[physics][conical][anisotropic][stack]") {
+  using hpfem::physics::AnisotropicStack;
+  using hpfem::physics::Layer;
+  using hpfem::physics::Polarisation;
+  const Material cover = Material::dielectric(1.2);
+  // isotropic stack: the same wave as layered_conical_wave (frame map and curl sign)
+  {
+    const std::vector<Layer> layers{{Material::isotropic(Complex{4.0, 0.3}), 0.13}};
+    const Material sub = Material::dielectric(1.5);
+    for (const Polarisation pol : {Polarisation::kS, Polarisation::kP}) {
+      const auto a = hpfem::physics::anisotropic_conical_wave(AnisotropicStack(cover, layers, sub),
+                                                              kK0, 0.5, 0.7, pol);
+      const auto b = hpfem::physics::layered_conical_wave(
+          hpfem::physics::LayerStack<2>(cover, layers, sub), kK0, 0.5, 0.7, pol);
+      REQUIRE(std::abs(a.wave.beta - b.beta) < 1e-14);
+      REQUIRE(std::abs(a.wave.kx - b.kx) < 1e-14);
+      REQUIRE(std::abs(a.wave.ky - b.ky) < 1e-14);
+      REQUIRE(std::abs(a.wave.reflectance - b.reflectance) < 1e-12);
+      for (const Real y : {0.3, -0.05, -0.4}) {
+        const Point<2> x(0.17, y);
+        REQUIRE((a.wave.field(x) - b.field(x)).norm() < 1e-10);  // round-off of two routes
+        REQUIRE((a.wave.field_curl(x) - b.field_curl(x)).norm() < 1e-10 * kK0);
+        REQUIRE((a.wave.incident(x) - b.incident(x)).norm() < 1e-10);
+      }
+    }
+  }
+  // crystal stack: the physical curl matches the field (E_z = i v, d/dz = i beta)
+  const Material plate = Material::anisotropic(
+      Tensor3(crystal(Complex{0.3, 0.0}) + Complex{0.0, 0.02} * Tensor3::Identity()));
+  const Material sub = Material::anisotropic(
+      Tensor3(crystal(Complex{0.2, 0.0}) + Complex{0.0, 0.03} * Tensor3::Identity()));
+  const AnisotropicStack stack(cover, {{plate, 0.2}}, sub);
+  const auto cw = hpfem::physics::anisotropic_conical_wave(stack, kK0, 0.6, 0.9, Polarisation::kP);
+  const Real beta = cw.wave.beta;
+  for (const Real y : {0.25, -0.1, -0.5}) {
+    const Point<2> x(0.11, y);
+    const Real h = 1e-6;
+    const auto physical = [&](const Point<2>& p) {
+      const ConicalVector f = cw.wave.field(p);
+      return ConicalVector(f(0), f(1), hpfem::kI * f(2));
+    };
+    const ConicalVector e = physical(x);
+    const ConicalVector dx =
+        (physical(Point<2>(x(0) + h, x(1))) - physical(Point<2>(x(0) - h, x(1)))) / (2 * h);
+    const ConicalVector dy =
+        (physical(Point<2>(x(0), x(1) + h)) - physical(Point<2>(x(0), x(1) - h))) / (2 * h);
+    const ConicalVector curl(dy(2) - hpfem::kI * beta * e(1), hpfem::kI * beta * e(0) - dx(2),
+                             dx(1) - dy(0));
+    INFO("y = " << y);
+    REQUIRE((curl - cw.wave.field_curl(x)).norm() < 1e-6 * curl.norm());
+  }
+  // the background materials are in the solver frame (y and z swapped)
+  const Tensor3 lab = sub.eps_tensor();
+  const Tensor3 solver = cw.background.substrate().eps_tensor();
+  REQUIRE(solver(1, 1) == lab(2, 2));
+  REQUIRE(solver(0, 2) == lab(0, 1));
+  // zero contrast: cells with the stack's own materials give no scattered field
+  Mesh<2> mesh = hpfem::mesh::rectangle(2, 20, Point<2>(0.0, -1.0), Point<2>(0.25, 1.0));
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    const Real yc = hpfem::mesh::affine_map(mesh, c).centroid()(1);
+    if (yc < 0 && yc > -0.2) mesh.set_cell_tag(c, 2);
+    if (yc < -0.2) mesh.set_cell_tag(c, 3);
+  }
+  const NedelecDofMap<2> nd(mesh, 2);
+  const DofMap<2> h1(mesh, 2);
+  ConicalScatteringSetup setup;
+  setup.omega = kK0 * hpfem::constants::c0;
+  setup.beta = beta;
+  setup.materials = hpfem::materials::MaterialMap(cover);
+  setup.materials.set(2, cw.background.material(1)).set(3, cw.background.substrate());
+  setup.background = cw.background;
+  setup.incident = cw.wave.field;
+  setup.incident_curl = cw.wave.field_curl;
+  setup.pec_tags = {box_tag::kYMin, box_tag::kYMax};
+  setup.periodic = {hpfem::assembly::PeriodicPair<2>{box_tag::kXMin, box_tag::kXMax,
+                                                     Point<2>(0.25, 0.0),
+                                                     std::exp(hpfem::kI * cw.wave.kx * 0.25)}};
+  const auto solution = ConicalScattering(nd, h1, setup).solve();
+  REQUIRE(solution.transverse.norm() == 0.0);
+  REQUIRE(solution.longitudinal.norm() == 0.0);
 }

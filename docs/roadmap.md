@@ -584,9 +584,15 @@ last.
     degenerate isotropic layer), the closed forms at normal incidence, the axis along z and
     10⁻⁶ rad off, a Voigt point found by Newton, energy balance, a 100-λ absorbing crystal;
     `docs/theory/anisotropic-stack.md`
-  - [ ] S4b: o / e labelling of uniaxial substrate modes, power-orthogonal biaxial modes, the
-    analytic stack field per layer and the stack as the background of the solvers (crystal
-    substrates in `Scattering<3>` and the conical solver, `hpfem.grating`)
+  - [x] S4b: o / e labelling of uniaxial substrate modes, power-orthogonal modes where they
+    coincide, per-mode power channels; `AnisotropicStack::plane_wave` (analytic field per
+    region), `layer_stack()`, crystal layers in `LayerStack` for lookup, the tensor contrast
+    against a crystal background in `Scattering<3>` and the conical solver,
+    `anisotropic_conical_wave` (laboratory → solver frame, curl as a pseudovector); tests: the
+    field solves Maxwell in every region, `LayerStack` / `layered_conical_wave` for isotropic
+    stacks, a crystal plate on a c-cut half-space against the full stack in 3D and conical
+    (`anisotropic_stack_background`). Crystal stacks in `hpfem.grating` need the mode-resolved
+    orders of S5
 - [ ] S5: post-processing: mode-resolved diffraction orders in anisotropic half-spaces, modal
   transparent substrate boundary for gratings over tilted crystals, absorption and Poynting flux
   with tensors, Jones / Mueller output with the s/p convention of `conical_polarisation`; tests:

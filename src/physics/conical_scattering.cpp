@@ -280,20 +280,20 @@ assembly::ConicalForm ConicalScattering::form_of_cell(Index cell) const {
     form.source = setup_.current;
     return form;
   }
-  // k0^2 (eps_c - eps_b) E_inc; for a crystal the contrast tensor maps the scaled incident
-  // field to the scaled source, D'' (eps_c - eps_b I) D' (the background stays isotropic)
-  const Complex eps_b = background_material(cell).eps_scalar();
-  if (!material.is_isotropic()) {
+  // k0^2 (eps_c - eps_b) E_inc; for a crystal (cell or background layer) the contrast tensor
+  // maps the scaled incident field to the scaled source, D'' (eps_c - eps_b) D'
+  const materials::Material& b = background_material(cell);
+  if (!material.is_isotropic() || !b.is_isotropic()) {
     const assembly::ConicalTensor contrast =
-        k0_ * k0_ *
-        assembly::conical_scaled_tensor(material.eps_tensor() -
-                                        eps_b * assembly::ConicalTensor::Identity());
-    form.source = [contrast, incident = setup_.incident](const Point<2>& x) {
-      return ConicalVector(contrast * incident(x));
-    };
+        k0_ * k0_ * assembly::conical_scaled_tensor(material.eps_tensor() - b.eps_tensor());
+    if (!contrast.isZero(0.0)) {
+      form.source = [contrast, incident = setup_.incident](const Point<2>& x) {
+        return ConicalVector(contrast * incident(x));
+      };
+    }
     return form;
   }
-  const Complex contrast = k0_ * k0_ * (material.eps_scalar() - eps_b);
+  const Complex contrast = k0_ * k0_ * (material.eps_scalar() - b.eps_scalar());
   if (contrast != Complex{0.0, 0.0}) {
     form.source = [contrast, incident = setup_.incident](const Point<2>& x) {
       return ConicalVector(contrast * incident(x));
@@ -589,6 +589,54 @@ std::vector<ConicalDiffractionOrder> conical_diffraction_efficiencies(
                                  : 0.0;
     out.push_back(o);
   }
+  return out;
+}
+
+AnisotropicConicalWave anisotropic_conical_wave(const AnisotropicStack& stack, Real k0, Real angle,
+                                                Real azimuth, Polarisation pol, Real amplitude) {
+  // laboratory (x, y, z normal) -> solver frame (x, y normal, z along the lines): swap y, z
+  const auto to_solver = [](const materials::Material& m) {
+    if (m.is_isotropic()) return m;
+    materials::Tensor3 p = materials::Tensor3::Zero();
+    p(0, 0) = p(1, 2) = p(2, 1) = 1.0;
+    return materials::Material::anisotropic(materials::Tensor3(p * m.eps_tensor() * p.transpose()),
+                                            m.mu_scalar());
+  };
+  std::vector<Layer> layers;
+  for (const Layer& layer : stack.layers())
+    layers.push_back({to_solver(layer.material), layer.thickness});
+  AnisotropicConicalWave out{
+      LayerStack<2>(stack.material(0), layers, to_solver(stack.material(stack.num_layers() + 1)),
+                    stack.top()),
+      {}};
+  const auto lab =
+      std::make_shared<AnisotropicPlaneWave>(stack.plane_wave(k0, angle, pol, amplitude, azimuth));
+  // solver point (x, y) -> laboratory point (x, 0, y); scaled components (E_x, E_y, -i E_z)
+  const auto scaled = [](const assembly::ComplexVector<3>& e) {
+    return ConicalVector(e(0), e(2), -kI * e(1));
+  };
+  const auto physical_curl = [](const assembly::ComplexCurl<3>& c) {
+    return ConicalVector(-c(0), -c(2), -c(1));  // det(P) P curl
+  };
+  out.wave.field = [lab, scaled](const Point<2>& x) {
+    return scaled(lab->field.value(Point<3>(x(0), 0.0, x(1))));
+  };
+  out.wave.incident = [lab, scaled](const Point<2>& x) {
+    return scaled(lab->incident_wave.value(Point<3>(x(0), 0.0, x(1))));
+  };
+  out.wave.field_curl = [lab, physical_curl](const Point<2>& x) {
+    return physical_curl(lab->field.curl(Point<3>(x(0), 0.0, x(1))));
+  };
+  out.wave.incident_curl = [lab, physical_curl](const Point<2>& x) {
+    return physical_curl(lab->incident_wave.curl(Point<3>(x(0), 0.0, x(1))));
+  };
+  const Real n0 = std::sqrt(std::real(stack.material(0).eps_scalar()));
+  out.wave.kx = k0 * n0 * std::sin(angle) * std::cos(azimuth);
+  out.wave.beta = k0 * n0 * std::sin(angle) * std::sin(azimuth);
+  out.wave.ky = k0 * n0 * std::cos(angle);
+  const int column = pol == Polarisation::kS ? 0 : 1;
+  out.wave.reflectance = lab->response.reflectance(column);
+  out.wave.transmittance = lab->response.transmittance(column);
   return out;
 }
 

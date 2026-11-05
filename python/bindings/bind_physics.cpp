@@ -849,6 +849,18 @@ void bind_physics(py::module_& m) {
         py::arg("angle"), py::arg("azimuth"), py::arg("polarisation"), py::arg("amplitude") = 1.0,
         "Stack wave at the angle from the normal and the azimuth about it; beta = k0 n sin(angle) "
         "sin(azimuth), azimuth 0 is in-plane incidence (E_z polarisation for s)");
+    py::class_<physics::AnisotropicConicalWave>(
+        m, "AnisotropicConicalWave",
+        "A crystal AnisotropicStack (laboratory frame) as the layered background of the conical "
+        "solver: `background` (LayerStack2D, tensors in the solver frame) and `wave`")
+        .def_readonly("background", &physics::AnisotropicConicalWave::background)
+        .def_readonly("wave", &physics::AnisotropicConicalWave::wave);
+    m.def(
+        "anisotropic_conical_wave", &physics::anisotropic_conical_wave, py::arg("stack"),
+        py::arg("k0"), py::arg("angle"), py::arg("azimuth"), py::arg("polarisation"),
+        py::arg("amplitude") = 1.0,
+        "Plane wave of an AnisotropicStack in the conical solver frame (x across the lines, y the "
+        "normal, z along them; laboratory y and z swapped), with the matching background");
     py::class_<ConicalScatteringSetup>(
         m, "ConicalScatteringSetup",
         "Conical scattering problem (2.5D): omega, beta, materials, PEC tags, PML, periodic pairs, "

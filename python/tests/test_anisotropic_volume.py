@@ -175,3 +175,19 @@ def test_anisotropic_stack_binding():
     assert np.allclose(lossless.reflectance + lossless.transmittance, 1.0, atol=1e-12)
     assert abs(lossless.reflection[0, 1]) > 1e-3
     assert hpfem.AnisotropicStack.berreman_matrix(np.eye(3), 0.0, 0.0).shape == (4, 4)
+
+
+def test_anisotropic_stack_as_background():
+    """M19 S4b: the analytic field of a crystal stack, its LayerStack3D geometry, the substrate
+    mode kinds and the conical wave are bound (the solver checks are in the C++ suite)."""
+    k0 = 2 * np.pi
+    crystal = hpfem.Material.anisotropic(uniaxial(1.5, 1.7, [0.0, 0.0, 1.0]))
+    stack = hpfem.AnisotropicStack(hpfem.Material.dielectric(1.0), [], crystal, 0.0)
+    wave = stack.plane_wave(k0, 0.4, hpfem.Polarisation.S, 1.0, 0.3)
+    assert wave.response.substrate_mode_kinds[0] == hpfem.SubstrateMode.ORDINARY
+    assert np.asarray(wave.field.value([0.1, 0.2, 0.3])).shape == (3,)
+    geometry = stack.layer_stack()
+    assert geometry.num_layers == 0
+    cw = hpfem.anisotropic_conical_wave(stack, k0, 0.4, 0.3, hpfem.Polarisation.P)
+    assert abs(cw.wave.beta - k0 * np.sin(0.4) * np.sin(0.3)) < 1e-12
+    assert not cw.background.substrate.is_isotropic

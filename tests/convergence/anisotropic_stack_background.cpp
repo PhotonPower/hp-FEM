@@ -26,6 +26,7 @@
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/mesh/point_location.hpp"
 #include "hpfem/physics/anisotropic_stack.hpp"
+#include "hpfem/physics/conical_scattering.hpp"
 #include "hpfem/physics/scattering.hpp"
 #include "hpfem/pml/pml.hpp"
 
@@ -135,6 +136,68 @@ TEST_CASE("Crystal layer stack as the background of the 3D solver",
       const auto total = problem.total_field(solution, locator, x);
       REQUIRE(total);
       const Eigen::Matrix<Complex, 3, 1> ref = phase * exact.field.value(x);
+      error = std::max(error, (*total - ref).norm() / ref.norm());
+    }
+    fmt::print("{:>4} {:>12.3e}\n", p, error);
+    if (!errors.empty()) REQUIRE(error < 0.5 * errors.back());
+    errors.push_back(error);
+  }
+  REQUIRE(errors.back() < 3e-4);
+}
+
+TEST_CASE("Crystal layer stack as the background of the conical solver",
+          "[convergence][anisotropic][stack][conical]") {
+  // the same plate and substrate as above, in the solver frame of the conical solver
+  // (anisotropic_conical_wave maps the laboratory stack); the FEM total field of the plate on
+  // the half-space background converges to the analytic field of the full stack
+  using hpfem::physics::ConicalVector;
+  const AnisotropicStack full(Material::vacuum(), {{kPlate, kThickness}}, kSubstrate, 0.0);
+  const AnisotropicStack half(Material::vacuum(), {}, kSubstrate, -kThickness);
+  const auto exact =
+      hpfem::physics::anisotropic_conical_wave(full, kK0, kTheta, kPhi, Polarisation::kP);
+  const auto background =
+      hpfem::physics::anisotropic_conical_wave(half, kK0, kTheta, kPhi, Polarisation::kP);
+  const Real y_max = kInterior + kLayer;
+  Mesh<2> mesh = hpfem::mesh::rectangle(2, static_cast<Index>(std::lround(2.0 * y_max / kH)),
+                                        Point<2>(0.0, -y_max), Point<2>(kPeriod, y_max));
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    const Real yc = hpfem::mesh::affine_map(mesh, c).centroid()(1);
+    if (yc < 0 && yc > -kThickness) mesh.set_cell_tag(c, 2);
+    if (yc < -kThickness) mesh.set_cell_tag(c, 3);
+  }
+  const hpfem::mesh::PointLocator<2> locator(mesh);
+  const Complex phase = std::exp(-kI * kK0 * std::cos(kTheta) * kThickness);
+  const std::vector<Point<2>> probes{Point<2>(0.1, 0.3), Point<2>(0.13, -0.1),
+                                     Point<2>(0.05, -0.4)};
+  fmt::print("\nCrystal plate on a c-cut substrate, conical solver\n{:>4} {:>12}\n", "p",
+             "max error");
+  std::vector<Real> errors;
+  for (int p = 2; p <= 5; ++p) {
+    const hpfem::fespace::NedelecDofMap<2> nd(mesh, p);
+    const hpfem::fespace::DofMap<2> h1(mesh, p);
+    hpfem::physics::ConicalScatteringSetup s;
+    s.omega = kK0 * hpfem::constants::c0;
+    s.beta = background.wave.beta;
+    s.materials.set(2, exact.background.material(1)).set(3, background.background.substrate());
+    s.background = background.background;
+    s.incident = background.wave.field;
+    s.incident_curl = background.wave.field_curl;
+    PmlBox<2>::Thickness t{};
+    t[2] = t[3] = kLayer;
+    s.pml = PmlBox<2>(Point<2>(0.0, -kInterior), Point<2>(kPeriod, kInterior), t, kK0, 1.6,
+                      PmlProfile{2, 1e-12});
+    s.pec_tags = {box_tag::kYMin, box_tag::kYMax};
+    s.periodic = {hpfem::assembly::PeriodicPair<2>{box_tag::kXMin, box_tag::kXMax,
+                                                   Point<2>(kPeriod, 0.0),
+                                                   std::exp(kI * background.wave.kx * kPeriod)}};
+    const hpfem::physics::ConicalScattering problem(nd, h1, s);
+    const auto solution = problem.solve();
+    Real error = 0;
+    for (const Point<2>& x : probes) {
+      const auto total = problem.total_field(solution, locator, x);
+      REQUIRE(total);
+      const ConicalVector f = exact.wave.field(x);
+      const ConicalVector ref = phase * ConicalVector(f(0), f(1), kI * f(2));  // physical
       error = std::max(error, (*total - ref).norm() / ref.norm());
     }
     fmt::print("{:>4} {:>12.3e}\n", p, error);

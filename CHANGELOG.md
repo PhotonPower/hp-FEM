@@ -3,6 +3,18 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Crystal layer stacks as the background of the solvers (M19 S4b, ADR-0015 §5):
+  `AnisotropicStack::plane_wave` (Python `AnisotropicStack.plane_wave`) gives the analytic field
+  in every region (value, curl, the branch of a region) with layer-local amplitudes;
+  `layer_stack()` the geometry as `LayerStack<3>`, which now accepts crystal layers and
+  substrates for lookup (its scalar `plane_wave` refuses them); `Scattering<3>` and
+  `ConicalScattering` form the scattered-field contrast as a tensor against a crystal
+  background; `anisotropic_conical_wave` maps a laboratory-frame stack into the conical solver
+  frame. Substrate modes are labelled (`SubstrateMode`: ordinary / extraordinary by the optic
+  axis, biaxial eigenmodes, power-orthogonal where they coincide) with per-mode
+  `channel_transmittance`. New convergence test `anisotropic_stack_background`: a crystal plate
+  on a c-cut substrate half-space converges to the analytic full stack in the 3D and the conical
+  solver. Crystal stacks in `hpfem.grating` follow with the mode-resolved orders (S5).
 - Anisotropic layer stacks (M19 S4a, ADR-0015 §5): `physics::AnisotropicStack` (Python
   `hpfem.AnisotropicStack`, `StackResponse`) computes the Jones reflection matrix, the
   transmission into the substrate modes and R, T, A of planar stacks with crystal layers and a
