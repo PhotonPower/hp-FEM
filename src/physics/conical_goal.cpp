@@ -78,7 +78,10 @@ GoalEstimate conical_dwr_estimate(const ConicalScattering& problem, const Conica
   free.reserve(free_nd.size() + free_h1.size());
   for (const Index d : free_nd) free.push_back(d);
   for (const Index d : free_h1) free.push_back(n_e + d);
-  SparseMatrix a = assembly::extract(SparseMatrix(system.stiffness - k2 * system.mass), free, free);
+  // the adjoint system is the transpose: A^T z = q (A is not symmetric for a crystal with
+  // eps_xz or eps_yz, ADR-0015 §4; for every other medium A^T = A)
+  SparseMatrix a = assembly::extract(
+      SparseMatrix(SparseMatrix(system.stiffness - k2 * system.mass).transpose()), free, free);
   a.makeCompressed();
   Vector rhs(static_cast<Index>(free.size()));
   for (Index j = 0; j < rhs.size(); ++j) rhs(j) = q(free[as_size(j)]);

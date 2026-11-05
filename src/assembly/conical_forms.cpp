@@ -23,6 +23,27 @@
 
 namespace hpfem::assembly {
 
+ConicalTensor conical_scaled_curl_tensor(const ConicalTensor& inverse_permeability) {
+  // conj(D) mu^-1 D with D = diag(i, -i, 1)
+  const Eigen::Matrix<Complex, 3, 1> d(kI, -kI, 1.0);
+  return d.conjugate().asDiagonal() * inverse_permeability * d.asDiagonal();
+}
+
+ConicalTensor conical_scaled_tensor(const ConicalTensor& permittivity) {
+  // D'' eps D' with D' = diag(1, 1, i), D'' = diag(1, 1, -i)
+  const Eigen::Matrix<Complex, 3, 1> d(1.0, 1.0, kI);
+  return d.conjugate().asDiagonal() * permittivity * d.asDiagonal();
+}
+
+bool is_diagonal(const ConicalTensor& tensor) noexcept {
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      if (i != j && tensor(i, j) != Complex{0.0, 0.0}) return false;
+    }
+  }
+  return true;
+}
+
 ConicalElement element_conical(const fespace::NedelecBasis<2>& nd_basis,
                                const fespace::H1Basis<2>& h1_basis,
                                const mesh::CellGeometry<2>& geometry, const QuadratureRule<2>& rule,
@@ -43,11 +64,12 @@ ConicalElement element_conical(const fespace::NedelecBasis<2>& nd_basis,
   for (std::size_t q = 0; q < rule.size(); ++q) {
     const auto g = geometry.evaluate(rule.points[q]);
     const Real dx = rule.weights[q] * std::abs(g.det);
-    const Eigen::Matrix<Complex, 3, 1> inv_mu = form.inverse_permeability
-                                                    ? form.inverse_permeability(g.x)
-                                                    : Eigen::Matrix<Complex, 3, 1>::Ones();
-    const Eigen::Matrix<Complex, 3, 1> eps =
-        form.permittivity ? form.permittivity(g.x) : Eigen::Matrix<Complex, 3, 1>::Ones();
+    const ConicalTensor inv_mu_t =
+        form.inverse_permeability ? form.inverse_permeability(g.x) : ConicalTensor::Identity();
+    const ConicalTensor eps_t =
+        form.permittivity ? form.permittivity(g.x) : ConicalTensor::Identity();
+    const Eigen::Matrix<Complex, 3, 1> inv_mu = inv_mu_t.diagonal();
+    const Eigen::Matrix<Complex, 3, 1> eps = eps_t.diagonal();
     nd_basis.evaluate(rule.points[q], ref_values, ref_curls);
     h1_basis.evaluate(rule.points[q], psi, ref_grad);
     for (Index i = 0; i < ne; ++i) {
@@ -62,6 +84,31 @@ ConicalElement element_conical(const fespace::NedelecBasis<2>& nd_basis,
     const auto phi_y = phi.row(1);
     const auto d_x = grad.row(0);
     const auto d_y = grad.row(1);
+    if (!is_diagonal(inv_mu_t) || !is_diagonal(eps_t)) {
+      // full tensors: c = (d_y v - beta E_y, d_x v - beta E_x, curl_t E_t) and the scaled field
+      // u = (E_x, E_y, v) as rows over the block functions (Nédélec, then H1)
+      Eigen::Matrix<Complex, 3, Eigen::Dynamic> c =
+          Eigen::Matrix<Complex, 3, Eigen::Dynamic>::Zero(3, ne + nh);
+      Eigen::Matrix<Complex, 3, Eigen::Dynamic> u =
+          Eigen::Matrix<Complex, 3, Eigen::Dynamic>::Zero(3, ne + nh);
+      c.block(0, 0, 1, ne) = (-beta * phi_y).template cast<Complex>();
+      c.block(1, 0, 1, ne) = (-beta * phi_x).template cast<Complex>();
+      c.block(2, 0, 1, ne) = curl.template cast<Complex>();
+      c.block(0, ne, 1, nh) = d_y.template cast<Complex>();
+      c.block(1, ne, 1, nh) = d_x.template cast<Complex>();
+      u.block(0, 0, 1, ne) = phi_x.template cast<Complex>();
+      u.block(1, 0, 1, ne) = phi_y.template cast<Complex>();
+      u.block(2, ne, 1, nh) = val.template cast<Complex>();
+      const ConicalTensor k = conical_scaled_curl_tensor(inv_mu_t);
+      const ConicalTensor m = conical_scaled_tensor(eps_t);
+      s.noalias() += dx * (c.transpose() * (k * c));
+      mass.noalias() += dx * (u.transpose() * (m * u));
+      if (form.source) {
+        const Eigen::Matrix<Complex, 3, 1> f = form.source(g.x);
+        load.noalias() += dx * (u.transpose() * f);
+      }
+      continue;
+    }
     // (curl E)_z = curl_t E_t, weight mu_z^-1
     s.topLeftCorner(ne, ne) +=
         (inv_mu(2) * dx) * (curl.transpose() * curl).template cast<Complex>();

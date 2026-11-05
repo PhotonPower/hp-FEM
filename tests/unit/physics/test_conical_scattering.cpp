@@ -113,8 +113,12 @@ TEST_CASE("conical PML tensors follow the stretch factors", "[physics][conical]"
   const auto form = hpfem::physics::conical_pml_form(box, material);
   for (const Point<2>& x : {Point<2>(0.2, -0.3), Point<2>(1.3, 0.1), Point<2>(1.2, 1.4)}) {
     const auto s = box.stretch(x);
-    const ConicalVector eps = form.permittivity(x);
-    const ConicalVector inv_mu = form.inverse_permeability(x);
+    const auto eps_t = form.permittivity(x);
+    const auto inv_mu_t = form.inverse_permeability(x);
+    REQUIRE(hpfem::assembly::is_diagonal(eps_t));
+    REQUIRE(hpfem::assembly::is_diagonal(inv_mu_t));
+    const ConicalVector eps = eps_t.diagonal();
+    const ConicalVector inv_mu = inv_mu_t.diagonal();
     REQUIRE(std::abs(eps(0) - material.eps_scalar() * s(1) / s(0)) < 1e-12);
     REQUIRE(std::abs(eps(1) - material.eps_scalar() * s(0) / s(1)) < 1e-12);
     REQUIRE(std::abs(eps(2) - material.eps_scalar() * s(0) * s(1)) < 1e-12);

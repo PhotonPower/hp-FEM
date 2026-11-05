@@ -415,13 +415,17 @@ def validate_isotropic(materials, feature: str, stack=None) -> list[Diagnostic]:
 
 
 def validate_volume_anisotropic(mesh, setup) -> list[Diagnostic]:
-    """Crystals in the 2D / 3D volume solver (ADR-0015 §2, M19 S2): a 2D tensor that couples the
-    plane to z (error ``anisotropic_unsupported``: the in-plane solver has no E_z, use the conical
-    solver) and a crystal inside the PML that violates the geometric stability condition along
-    a stretched axis (warning ``pml_backward_wave``, :func:`hpfem.pml_backward_wave_2d`)."""
+    """Crystals in the 2D / 3D volume solver and the conical solver (ADR-0015 §2, §4; M19 S2,
+    S3): a 2D in-plane tensor that couples the plane to z (error ``anisotropic_unsupported``: the
+    in-plane solver has no E_z, use the conical solver), the same coupling on the scalar E_z path
+    of the conical solver (error), and a crystal inside the PML that violates the geometric
+    stability condition along a stretched axis (warning ``pml_backward_wave``,
+    :func:`hpfem.pml_backward_wave_2d` / ``_3d``; for the conical solver the 3D condition over all
+    directions, which is conservative since beta fixes k_z)."""
     materials = setup.materials
     if materials.is_isotropic:
         return []
+    conical = isinstance(setup, hpfem.ConicalScatteringSetup)
     dim = 2 if isinstance(setup, hpfem.ScatteringSetup2D) else 3
     box = getattr(setup, "pml", None)
     first: dict[int, int] = {}
@@ -440,6 +444,17 @@ def validate_volume_anisotropic(mesh, setup) -> list[Diagnostic]:
     out = []
     for tag, c in sorted(first.items()):
         eps = np.asarray(materials.of_cell(mesh, c).eps_tensor)
+        if conical and getattr(setup, "scalar_ez", False) and (eps[0, 2] != 0 or eps[1, 2] != 0):
+            out.append(
+                Diagnostic(
+                    "anisotropic_unsupported",
+                    "error",
+                    f"tag {tag}: eps_xz or eps_yz couples E_z to the in-plane field, so the "
+                    "scalar E_z path does not decouple",
+                    "solve the full block system (scalar_ez = False)",
+                )
+            )
+            continue
         if dim == 2 and (eps[0, 2] != 0 or eps[1, 2] != 0):
             out.append(
                 Diagnostic(
@@ -559,12 +574,7 @@ def validate_scattering(mesh, setup, orders, materials=None) -> list[Diagnostic]
     (:func:`validate_mesh`), the stack interfaces, the periodic pairs, the PML and the
     resolution per tag; ``materials`` (dict) adds the range check of dispersive data and the
     tags-without-material check."""
-    if isinstance(setup, hpfem.ConicalScatteringSetup):
-        out = validate_isotropic(
-            materials if materials is not None else setup.materials, "scattering"
-        )
-    else:
-        out = validate_volume_anisotropic(mesh, setup)
+    out = validate_volume_anisotropic(mesh, setup)
     if errors(out):
         return out
     out += validate_mesh(mesh, materials if materials is not None else setup.materials)

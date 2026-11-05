@@ -96,8 +96,15 @@ class ConicalSweep {
   struct Group {
     Index representative = 0;  ///< a cell of the group (its material is read per point)
     std::vector<Index> cells;
-    SparseMatrix mass;  ///< unit-permittivity mass of the group's cells
+    bool tensor = false;  ///< a crystal: six mass parts, one per independent tensor entry
+    /// Unit-permittivity mass of the group's cells (isotropic), or the masses of the unit
+    /// tensors E_ii, E_ij + E_ji in the order of `kTensorEntries` (crystal); the point's mass
+    /// is the sum of the parts weighted with `weights`.
+    std::vector<SparseMatrix> masses;
   };
+  /// The permittivity weights of a group's mass parts at a point.
+  [[nodiscard]] std::vector<Complex> weights(const Group& group,
+                                             const ConicalScatteringSetup& setup) const;
   /// The structure of a point, computed once: the union pattern of all parts over the block
   /// DoFs, the cached parts as values over it, the PML pattern and its positions, and the
   /// reduction map onto the fixed pattern of @f$ P^H A_{ff} P @f$.

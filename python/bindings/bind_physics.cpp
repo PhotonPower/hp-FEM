@@ -826,7 +826,9 @@ void bind_physics(py::module_& m) {
           "normal) or p polarisation");
     m.def("conical_pml_form", &physics::conical_pml_form, py::arg("box"), py::arg("material"),
           py::arg("quadrature_order") = std::optional<int>{},
-          "PML tensors Lambda = diag(s_y/s_x, s_x/s_y, s_x s_y) as a ConicalForm");
+          "PML tensors as a ConicalForm: eps_ij s_x s_y / (s_i s_j) (s_z = 1), for an isotropic "
+          "medium "
+          "eps diag(s_y/s_x, s_x/s_y, s_x s_y)");
     py::class_<physics::LayeredConicalWave>(
         m, "LayeredConicalWave",
         "Plane wave on a LayerStack2D (normal along y) for the conical solver: the stack field, "

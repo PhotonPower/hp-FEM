@@ -153,7 +153,10 @@ ConicalAdjoint conical_adjoint_solution(const ConicalScattering& problem, const 
   Vector q(n_e + h1.num_dofs());
   q << q_e, q_v;
   const std::vector<Index>& free = problem.free_dofs();
-  SparseMatrix a = assembly::extract(SparseMatrix(system.stiffness - k2 * system.mass), free, free);
+  // the adjoint system is the transpose: A^T z = q (A is not symmetric for a crystal with
+  // eps_xz or eps_yz, ADR-0015 §4; for every other medium A^T = A)
+  SparseMatrix a = assembly::extract(
+      SparseMatrix(SparseMatrix(system.stiffness - k2 * system.mass).transpose()), free, free);
   a.makeCompressed();
   Vector rhs(static_cast<Index>(free.size()));
   for (Index j = 0; j < rhs.size(); ++j) rhs(j) = q(free[as_size(j)]);
@@ -222,12 +225,14 @@ Vector conical_material_residual_derivative(const ConicalScattering& problem,
   const bool scattered = static_cast<bool>(setup.incident);
   const auto form_of_cell = [&](Index c) {
     assembly::ConicalForm form;
-    form.inverse_permeability = [](const Point<2>&) { return ConicalVector::Zero().eval(); };
+    form.inverse_permeability = [](const Point<2>&) {
+      return assembly::ConicalTensor::Zero().eval();
+    };
     if (!tagged[as_size(c)]) {
-      form.permittivity = [](const Point<2>&) { return ConicalVector::Zero().eval(); };
+      form.permittivity = [](const Point<2>&) { return assembly::ConicalTensor::Zero().eval(); };
       return form;
     }
-    form.permittivity = [](const Point<2>&) { return ConicalVector::Ones().eval(); };
+    form.permittivity = [](const Point<2>&) { return assembly::ConicalTensor::Identity().eval(); };
     if (scattered) form.source = setup.incident;
     return form;
   };

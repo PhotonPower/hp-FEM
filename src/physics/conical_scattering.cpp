@@ -74,27 +74,40 @@ ConicalVector conical_polarisation(const Point<3>& wave_vector, const Point<3>& 
 assembly::ConicalForm conical_pml_form(const pml::PmlBox<2>& box,
                                        const materials::Material& material,
                                        std::optional<int> quadrature_order) {
-  const auto lambda = [box](const Point<2>& x) {
-    const auto s = box.stretch(x);
-    return ConicalVector(s(1) / s(0), s(0) / s(1), s(0) * s(1));
-  };
+  using assembly::ConicalTensor;
   assembly::ConicalForm form;
   const Complex inv_mu = 1.0 / material.mu_scalar();
-  const Complex eps = material.eps_scalar();
-  form.inverse_permeability = [lambda, inv_mu](const Point<2>& x) {
-    return ConicalVector(inv_mu * lambda(x).cwiseInverse());
+  // stretch of the (x, y) plane, s_z = 1: eps~_ij = eps_ij s_x s_y / (s_i s_j), which is
+  // eps * diag(s_y/s_x, s_x/s_y, s_x s_y) for an isotropic medium; mu~^-1 = mu^-1 / that
+  form.inverse_permeability = [box, inv_mu](const Point<2>& x) {
+    const auto s = box.stretch(x);
+    return ConicalTensor(
+        (inv_mu * ConicalVector(s(0) / s(1), s(1) / s(0), 1.0 / (s(0) * s(1)))).asDiagonal());
   };
-  form.permittivity = [lambda, eps](const Point<2>& x) { return ConicalVector(eps * lambda(x)); };
+  const ConicalTensor eps = material.eps_tensor();
+  form.permittivity = [box, eps](const Point<2>& x) {
+    const auto s = box.stretch(x);
+    const ConicalVector st(s(0), s(1), 1.0);
+    const Complex det = s(0) * s(1);
+    ConicalTensor out;
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) out(i, j) = eps(i, j) * det / (st(i) * st(j));
+    }
+    return out;
+  };
   form.quadrature_order = quadrature_order;
   return form;
 }
 
 assembly::ConicalForm conical_material_form(const materials::Material& material) {
+  using assembly::ConicalTensor;
   assembly::ConicalForm form;
   const Complex inv_mu = 1.0 / material.mu_scalar();
-  const Complex eps = material.eps_scalar();
-  form.inverse_permeability = [inv_mu](const Point<2>&) { return ConicalVector::Constant(inv_mu); };
-  form.permittivity = [eps](const Point<2>&) { return ConicalVector::Constant(eps); };
+  const ConicalTensor eps = material.eps_tensor();
+  form.inverse_permeability = [inv_mu](const Point<2>&) {
+    return ConicalTensor(inv_mu * ConicalTensor::Identity());
+  };
+  form.permittivity = [eps](const Point<2>&) { return eps; };
   return form;
 }
 
@@ -196,6 +209,19 @@ ConicalScattering::ConicalScattering(const fespace::NedelecDofMap<2>& transverse
           "0 or a current along z); the in-plane part is {:.3g} of the longitudinal one",
           in_plane / std::max(longitudinal_norm, std::numeric_limits<Real>::min())));
     }
+    // a crystal with eps_xz or eps_yz couples E_z to the in-plane field already at beta = 0
+    for (Index c = 0; c < mesh.num_cells(); ++c) {
+      const materials::Material& m = setup_.materials.of_cell(mesh, c);
+      if (m.is_isotropic()) continue;
+      const materials::Tensor3 eps = m.eps_tensor();
+      if (eps(0, 2) != Complex{0.0, 0.0} || eps(1, 2) != Complex{0.0, 0.0}) {
+        throw AnisotropicUnsupported(fmt::format(
+            "ConicalScattering: scalar_ez with the crystal of cell {} (tag {}): eps_xz or eps_yz "
+            "couples E_z to the in-plane field, so the polarisations do not decouple; solve "
+            "the full block system (ADR-0015 §4)",
+            c, mesh.cell_tag(c)));
+      }
+    }
   }
   // hanging-node constraints followed by the Bloch constraints, both spaces, on the free DoFs
   if (!mesh.is_conforming() || !setup_.periodic.empty()) {
@@ -254,8 +280,20 @@ assembly::ConicalForm ConicalScattering::form_of_cell(Index cell) const {
     form.source = setup_.current;
     return form;
   }
-  const Complex contrast =
-      k0_ * k0_ * (material.eps_scalar() - background_material(cell).eps_scalar());
+  // k0^2 (eps_c - eps_b) E_inc; for a crystal the contrast tensor maps the scaled incident
+  // field to the scaled source, D'' (eps_c - eps_b I) D' (the background stays isotropic)
+  const Complex eps_b = background_material(cell).eps_scalar();
+  if (!material.is_isotropic()) {
+    const assembly::ConicalTensor contrast =
+        k0_ * k0_ *
+        assembly::conical_scaled_tensor(material.eps_tensor() -
+                                        eps_b * assembly::ConicalTensor::Identity());
+    form.source = [contrast, incident = setup_.incident](const Point<2>& x) {
+      return ConicalVector(contrast * incident(x));
+    };
+    return form;
+  }
+  const Complex contrast = k0_ * k0_ * (material.eps_scalar() - eps_b);
   if (contrast != Complex{0.0, 0.0}) {
     form.source = [contrast, incident = setup_.incident](const Point<2>& x) {
       return ConicalVector(contrast * incident(x));
