@@ -3,6 +3,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Reference for dipoles above crystal stacks (M19 S7a, ADR-0015 S7 amendment):
+  `AnisotropicStack::reflection_at` (Python `reflection_at`, also `material`, `top`) gives the
+  Jones reflection at any in-plane wavevector, evanescent included, and
+  `hpfem.planar.dipole_above_stack` the Purcell factor of a point (or Gaussian) dipole above the
+  stack from the 2D plane-wave spectrum of the Green's dyadic; checked against the Sommerfeld
+  integrals of isotropic stacks and of a c-cut crystal half-space.
 - Crystal stacks and Jones / Mueller matrices in `hpfem.grating` (M19 S5c, ADR-0015 §7):
   `solve` / `validate` take an `AnisotropicStack` (laboratory frame) as the stack, transmitted
   orders in a crystal substrate carry the mode `channels`, `bottom="modal"` uses the modal

@@ -235,6 +235,29 @@ mode channels) and its Mueller matrix $M = A(J\otimes\bar J)A^{-1}$ (Stokes vect
 reciprocity relation above holds for the specular order of a grating too (the reversed path is
 the incidence at φ + π).
 
+## A dipole above the stack
+
+`AnisotropicStack::reflection_at(k0, a, b)` gives the Jones reflection matrix at any in-plane
+wavevector $k_0(a, b)$, also beyond the light cone of the cover, where the incident and the
+reflected wave are evanescent ($q = \sqrt{n^2 - a^2 - b^2}$, Im q ≥ 0, ŝ and p̂ complex with
+$\hat s\cdot\hat s = \hat p\cdot\hat p = 1$). A current moment m at the height h above the top
+interface delivers (exp(−iωt), Weyl expansion of the Green's dyadic,
+$I - \hat k\hat k^T = \hat s\hat s^T + \hat p\hat p^T$)
+
+$$
+\frac{P}{P_{bulk}} = 1 + \frac{3}{4\pi n|m|^2}\,\mathrm{Re}\iint \frac{da\,db}{q}\,
+e^{2ik_0qh}\; m^H\,[\hat s, \hat p_u]\; r\; [\hat s, \hat p_d]^T\, m,
+\qquad P_{bulk} = \frac{Z_0k_0^2n|m|^2}{12\pi}
+$$
+
+(`hpfem.planar.dipole_above_stack`). For an isotropic stack and m ∥ ẑ it reduces to the
+Chance–Prock–Silbey integral $1 + \tfrac32\mathrm{Re}\int s^3/s_z\,r_p\,e^{2ik_1hs_z}ds$ (the
+stack's $r_{pp}$ has the convention $r_p = +1$ for a perfect conductor). The Gaussian dipole of
+ADR-0013 multiplies every spectral component by $e^{-\sigma^2k\cdot k} = e^{-(nk_0\sigma)^2}$,
+the factor of $P_{bulk}$, so the Purcell factor of the point dipole is that of the FEM emitter.
+The radial integral runs on the real axis ($s = n\sin t$, $s = n\cosh u$), the azimuth by the
+trapezoidal rule; guided modes of lossless stacks (poles on the real axis) are not covered.
+
 ## Verification
 
 `tests/unit/physics/test_anisotropic_stack.cpp`:
@@ -295,4 +318,11 @@ the incidence at φ + π).
   solver to $10^{-5}$ at p = 3 (with $|J_{ps}| = 0.056$; $1.3\cdot10^{-7}$ at p = 4); a grating
   on a substrate with a backward order −1 is refused with `bottom="pml"` and closes its energy
   balance with `bottom="modal"`;
+- `reflection_at` equals `response` inside the light cone and the Fresnel coefficients with
+  complex $k_z$ beyond it; `python/tests/test_planar_dipole.py`: `dipole_above_stack` equals the
+  1D Sommerfeld integrals with the Fresnel / Airy coefficients (glass half-space, absorbing layer
+  on glass) and with the closed-form $r_p = (\varepsilon_oq_1 - q_{2e})/(\varepsilon_oq_1 +
+  q_{2e})$, $q_{2e} = \sqrt{\varepsilon_o(1 - s^2/\varepsilon_e)}$, of a c-cut half-space, to
+  $10^{-9}$ (the glass case to $10^{-15}$); a tilted absorbing crystal layer gives the same F
+  when crystal and dipole are rotated together about the normal;
 - `python/tests/test_anisotropic_volume.py` checks the bindings.

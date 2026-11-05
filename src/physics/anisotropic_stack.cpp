@@ -286,29 +286,29 @@ namespace {
 /// The recursion of one (k0, angle, azimuth): subspaces, propagators, interface matrices and the
 /// incidence-medium waves.
 struct Solved {
-  Real k0 = 0, a = 0, b = 0, n0 = 1, cos_t = 0;
+  Real k0 = 0, a = 0, b = 0, n0 = 1;
+  Complex cos_t = 0;  ///< k_z / k0 of the incident wave (Im >= 0 for an evanescent one)
   Vec3 s_hat, k_down, k_up, p_down, p_up;
   std::vector<Subspaces> regions;
   std::vector<Eigen::Matrix2cd> pu, pd;       ///< per region (layers only)
   std::vector<Eigen::Matrix2cd> refl, trans;  ///< per interface
 };
 
-Solved solve_stack(const AnisotropicStack& stack, Real k0, Real angle, Real azimuth) {
+/// The recursion at the normalised in-plane wavevector (a, b) with the s vector `s_hat` of the
+/// incidence medium; the incident wave may be evanescent there (k_z / k0 = sqrt(n0^2 - a^2 - b^2)
+/// with Im >= 0, decaying away from the stack).
+Solved solve_stack_at(const AnisotropicStack& stack, Real k0, Real a, Real b, const Vec3& s_hat) {
   if (!(k0 > 0)) throw InvalidArgument(fmt::format("AnisotropicStack: k0 = {} <= 0", k0));
-  if (!(std::abs(angle) < std::numbers::pi / 2 - 1e-9)) {
-    throw InvalidArgument(
-        fmt::format("AnisotropicStack: angle {} must lie strictly between -pi/2 and pi/2", angle));
-  }
   Solved out;
   const int n_layers = stack.num_layers();
   const int n_regions = n_layers + 2;
   out.k0 = k0;
   out.n0 = std::sqrt(std::real(stack.material(0).eps_scalar()));
-  const Real sin_t = out.n0 * std::sin(angle);
-  out.a = sin_t * std::cos(azimuth);
-  out.b = sin_t * std::sin(azimuth);
-  out.cos_t = std::sqrt(std::max(0.0, out.n0 * out.n0 - sin_t * sin_t));
-  out.s_hat = Vec3(-std::sin(azimuth), std::cos(azimuth), 0.0);
+  out.a = a;
+  out.b = b;
+  out.cos_t = std::sqrt(Complex(out.n0 * out.n0 - a * a - b * b, 0.0));
+  if (std::imag(out.cos_t) < 0) out.cos_t = -out.cos_t;
+  out.s_hat = s_hat;
   out.k_down = Vec3(out.a, out.b, -out.cos_t);
   out.k_up = Vec3(out.a, out.b, out.cos_t);
   out.p_down = cross(out.s_hat, out.k_down) / out.n0;
@@ -344,6 +344,17 @@ Solved solve_stack(const AnisotropicStack& stack, Real k0, Real angle, Real azim
     out.trans[above] = x.bottomRows<2>();
   }
   return out;
+}
+
+Solved solve_stack(const AnisotropicStack& stack, Real k0, Real angle, Real azimuth) {
+  if (!(std::abs(angle) < std::numbers::pi / 2 - 1e-9)) {
+    throw InvalidArgument(
+        fmt::format("AnisotropicStack: angle {} must lie strictly between -pi/2 and pi/2", angle));
+  }
+  const Real n0 = std::sqrt(std::real(stack.material(0).eps_scalar()));
+  const Real sin_t = n0 * std::sin(angle);
+  return solve_stack_at(stack, k0, sin_t * std::cos(azimuth), sin_t * std::sin(azimuth),
+                        Vec3(-std::sin(azimuth), std::cos(azimuth), 0.0));
 }
 
 /// Amplitudes of every region for one incident tangential field: up at the region's bottom,
@@ -510,6 +521,22 @@ StackResponse AnisotropicStack::response(Real k0, Real angle, Real azimuth) cons
       out.channel_transmittance(m, pol) =
           std::norm(out.transmission(m, pol)) * -flux_z(modes.col(m)) / p_inc;
     }
+  }
+  return out;
+}
+
+Eigen::Matrix2cd AnisotropicStack::reflection_at(Real k0, Real a, Real b) const {
+  const Real par = std::hypot(a, b);
+  const Vec3 s_hat = par > 0 ? Vec3(-b / par, a / par, 0.0) : Vec3(0.0, 1.0, 0.0);
+  const Solved s = solve_stack_at(*this, k0, a, b, s_hat);
+  Mat42 reflected_basis;
+  reflected_basis.col(0) = plane_wave_field(s.s_hat, s.k_up);
+  reflected_basis.col(1) = plane_wave_field(s.p_up, s.k_up);
+  Eigen::Matrix2cd out;
+  for (int pol = 0; pol < 2; ++pol) {
+    const TangentialField psi_inc = plane_wave_field(pol == 0 ? s.s_hat : s.p_down, s.k_down);
+    const Amplitudes amp = amplitudes(s, psi_inc);
+    out.col(pol) = coefficients(reflected_basis, s.regions[0].wu * amp.up[0]);
   }
   return out;
 }

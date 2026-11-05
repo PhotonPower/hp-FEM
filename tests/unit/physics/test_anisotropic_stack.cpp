@@ -560,3 +560,31 @@ TEST_CASE("Anisotropic stack: mirror symmetry and reciprocity of the Jones matri
     }
   }
 }
+
+TEST_CASE("Anisotropic stack: reflection at any in-plane wavevector",
+          "[physics][stack][anisotropic]") {
+  // M19 S7a: the dipole spectrum needs r(a, b) also beyond the light cone of the cover
+  const Material crystal = Material::anisotropic(uniaxial(2.25, 3.1, Eigen::Vector3d(1, 0.4, 0.7)));
+  const AnisotropicStack stack(Material::dielectric(1.2), {{crystal, 0.2}},
+                               Material::dielectric(1.5));
+  // inside the light cone: the response at the matching angle
+  const Real angle = 0.6;
+  const Real azimuth = 0.9;
+  const Real s = 1.2 * std::sin(angle);
+  REQUIRE((stack.reflection_at(kK0, s * std::cos(azimuth), s * std::sin(azimuth)) -
+           stack.response(kK0, angle, azimuth).reflection)
+              .norm() < 1e-13);
+  // an isotropic half-space beyond the light cone: the Fresnel coefficients with complex k_z
+  const AnisotropicStack half(Material::vacuum(), {}, Material::dielectric(1.5));
+  for (const Real a : {1.2, 1.4, 2.0}) {
+    const Complex q1 = kI * std::sqrt(a * a - 1.0);
+    const Complex q2 =
+        a < 1.5 ? Complex(std::sqrt(2.25 - a * a), 0.0) : Complex(0.0, std::sqrt(a * a - 2.25));
+    const Eigen::Matrix2cd r = half.reflection_at(kK0, a, 0.0);
+    REQUIRE(std::abs(r(0, 0) - (q1 - q2) / (q1 + q2)) < 1e-12);
+    REQUIRE(std::abs(r(1, 1) - (2.25 * q1 - q2) / (2.25 * q1 + q2)) < 1e-12);
+    REQUIRE(std::abs(r(0, 1)) + std::abs(r(1, 0)) < 1e-12);
+  }
+  // the evanescent spectrum of a crystal stack
+  REQUIRE(stack.reflection_at(kK0, 2.0, -0.7).allFinite());
+}
