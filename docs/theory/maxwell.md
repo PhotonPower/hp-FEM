@@ -633,6 +633,69 @@ vacuum) with the in-plane block exactly zero, and the E_z lamellar grating (peri
 background converges to an RCWA written in the test (the Fourier modal method of the scalar
 equation, checked by energy conservation and truncation independence).
 
+### Crystals: full tensors in the conical forms
+
+Since M19 S3 (ADR-0015 §4) `ConicalForm` carries physical $3\times3$ tensors
+$\mu^{-1}$ and $\varepsilon$ in (x, y, z). Write the curl of the mode as $\nabla\times E = Dc$
+with
+$$
+c = \big(\partial_y v - \beta E_y,\ \partial_x v - \beta E_x,\ \nabla_t\times E_t\big),
+\qquad D = \operatorname{diag}(i, -i, 1),
+$$
+and that of the test function $V = (V_t, -iw)\,e^{-i\beta z}$ as $\bar D c_V$; the scaled field
+$\hat E = (E_x, E_y, v)$ is the physical one through $D' = \operatorname{diag}(1, 1, i)$, the
+test side through $D'' = \operatorname{diag}(1, 1, -i)$. The forms become
+$$
+a(E, V) = \int c_V^T\,\big(\bar D\mu^{-1}D\big)\,c_E\,dx\,dy, \qquad
+b(E, V) = \int \hat V^T\,\big(D''\varepsilon D'\big)\,\hat E\,dx\,dy ,
+$$
+i.e. the entries of the tensors are multiplied by
+$$
+\bar D\mu^{-1}D:\ \begin{pmatrix}1 & -1 & -i\\ -1 & 1 & i\\ i & -i & 1\end{pmatrix},\qquad
+D''\varepsilon D':\ \begin{pmatrix}1 & 1 & i\\ 1 & 1 & i\\ -i & -i & 1\end{pmatrix}
+$$
+(`assembly::conical_scaled_curl_tensor`, `conical_scaled_tensor`). Diagonal tensors reduce to
+the formulas above and keep their specialised assembly; full tensors take the general product
+$c^TKc$, $\hat u^TG\hat u$ per quadrature point. The interface conditions need no
+re-derivation: the tangential continuity (in-plane tangential component and $E_z$) is built
+into the Nédélec × H1 pair, the continuity of $n\cdot\varepsilon E$ and of tangential $H$ is
+natural, and the gradient kernel `conical_gradient` does not depend on the material.
+
+**Symmetry.** For a symmetric tensor the xz and yz entries enter as antisymmetric pairs, so
+$A(\beta) = S(\beta) - k_0^2M$ is complex-symmetric only for
+$\varepsilon_{xz} = \varepsilon_{yz} = 0$ (optic axis in the cross-section plane or along the
+lines). In general
+$$
+A(\beta)^T = \mathcal S\,A(-\beta)\,\mathcal S, \qquad \mathcal S = \operatorname{diag}(I, -I)
+$$
+on the (Nédélec, H1) blocks: reciprocity pairs β with −β. `Symmetry::kDetect` routes the
+non-symmetric matrices to the general LU. Every path that used $A^T = A$ now uses the
+transpose: the adjoint solves of `conical_adjoint_solution` (material and shape sensitivities)
+and of the goal-oriented estimate `conical_dwr_estimate` assemble $A^T$, and the kept
+factorisation solves with the transposed factors. Still refused for crystals: `ConicalSweep`
+(material groups by scalar ε) and the `hpfem.grating` entry points (emission by reciprocity at
+−β, layered crystals, M19 S4 onwards).
+
+**Scattered-field source.** With an isotropic background the source is the scaled contrast
+$k_0^2\,D''(\varepsilon - \varepsilon_bI)D'\,\hat E^{inc}$. **PML:** the stretch of the plane,
+$s_z = 1$, maps a tensor as $\tilde\varepsilon_{ij} = \varepsilon_{ij}\,s_xs_y/(s_is_j)$
+(`conical_pml_form`). **Scalar E_z path:** $\varepsilon_{xz}$, $\varepsilon_{yz}$ couple $E_z$
+to the in-plane field already at $\beta = 0$; `scalar_ez` refuses such a crystal
+(`AnisotropicUnsupported`), an $\varepsilon_{xy}$ crystal still decouples. The estimators work in
+physical components and apply the full tensors as matrix products.
+
+**Verification** (`tests/unit/physics/test_anisotropic_conical.cpp`,
+`tests/convergence/anisotropic_conical_vs_3d.cpp`): the general path equals the diagonal one
+for a diagonal tensor; the operator is symmetric with $\varepsilon_{xy}$ alone and satisfies
+$A(\beta)^T = \mathcal SA(-\beta)\mathcal S$ with $\varepsilon_{xz}, \varepsilon_{yz}$; at
+$\beta = 0$ an $\varepsilon_{xy}$ crystal reproduces the 2D in-plane solver to $10^{-10}$;
+$\varepsilon_rI$ as a tensor reproduces the scalar path; the material sensitivity of a coupling
+crystal in a Bloch cell by the adjoint matches finite differences (and fails without the
+transpose); the weighted residual of the estimator sums to $\ell(W) - a(E_h, W)$ with full
+$\varepsilon$ and $\mu^{-1}$. A uniaxial plate with the axis along (1, 1, 1) at conical incidence
+(θ = 0.5, φ = 0.7) gives the same reflected field in the conical and the 3D solver (Bloch cell,
+PML), the difference falling from $10^{-2}$ to $2\cdot10^{-5}$ for p = 2…4.
+
 ## Resonances (`physics/resonance.hpp`)
 
 An open structure (a micro-cavity between Bragg mirrors, a plasmonic particle, a ring) has no

@@ -557,6 +557,16 @@ last.
   A(β)ᵀ = S A(−β) S on the cell matrices, each transposed path against a forward solve, conical
   against 3D with the crystal and the grating rotated together, form-birefringent grating against
   the effective-medium plate (and L. Li 2003 where it applies)
+  - [x] S3a: full tensors in `ConicalForm` (both stages at once: diagonal tensors keep their
+    path, full ones the general product), PML and scattered-field source, estimators,
+    `scalar_ez` refusal, transposed adjoints of `conical_adjoint_solution` (sensitivities) and
+    `conical_dwr_estimate` (a latent error for coupling crystals, caught by the finite-difference
+    test), derivation in `maxwell.md`; tests: A(β)ᵀ = S A(−β) S, the 2D solver at β = 0, the
+    adjoint against finite differences, the estimator identity, a crystal plate conical against
+    3D (`anisotropic_conical_vs_3d`)
+  - [ ] S3b: `ConicalSweep` with tensor groups (power matrix on the kept factorisation), the
+    emission pattern by reciprocity at −β, crystals in `hpfem.grating`, the grating rotated with
+    the crystal against 3D, form birefringence against the effective-medium plate (L. Li 2003)
 - [ ] S4: anisotropic `LayerStack`: 4×4 system per layer (ε_zz ≠ 0), ordered complex Schur form
   and 2×2 block exponentials, stable S-matrix recursion on the up / down subspaces, substrate modes
   (o / e by the axis, biaxial by power orthogonality), Jones matrix, analytic stack field for the

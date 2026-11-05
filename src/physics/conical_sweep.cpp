@@ -24,10 +24,10 @@ Real seconds_since(Clock::time_point start) {
 }
 
 const assembly::ConicalTensorField kZeroTensor = [](const Point<2>&) {
-  return Eigen::Matrix<Complex, 3, 1>::Zero().eval();
+  return assembly::ConicalTensor::Zero().eval();
 };
 const assembly::ConicalTensorField kUnitTensor = [](const Point<2>&) {
-  return Eigen::Matrix<Complex, 3, 1>::Ones().eval();
+  return assembly::ConicalTensor::Identity().eval();
 };
 
 /// Position of every nonzero of `source` in the compressed `pattern` (both row major with
@@ -94,7 +94,7 @@ ConicalSweep::ConicalSweep(const fespace::NedelecDofMap<2>& transverse,
     assembly::ConicalForm form;
     const Complex inv_mu = 1.0 / base.materials.of_cell(mesh, c).mu_scalar();
     form.inverse_permeability = [inv_mu](const Point<2>&) {
-      return Eigen::Matrix<Complex, 3, 1>::Constant(inv_mu).eval();
+      return assembly::ConicalTensor(inv_mu * assembly::ConicalTensor::Identity());
     };
     form.permittivity = kZeroTensor;
     return form;

@@ -137,9 +137,13 @@ source of `physics::Thermal`. `BandStructure` requires a real tensor.
 form, so the divergence term and the jump of $n\cdot\varepsilon E$ use the tensor without
 further change.
 
-Still isotropic only (they refuse with `AnisotropicUnsupported`), among others: the conical and axisymmetric
-solvers, the layered background, `TimeDomain`, `ThermoOptical`, `PropagatingMode` and the
-modal ports.
+The conical solver takes crystals since M19 S3 (full tensors in `ConicalForm`, the loss of
+symmetry for $\varepsilon_{xz}, \varepsilon_{yz} \ne 0$ and the transposed adjoints:
+[maxwell.md](maxwell.md#crystals-full-tensors-in-the-conical-forms));
+`diagnostics.validate_scattering` checks conical setups for the scalar $E_z$ path and the PML condition (the
+3D condition, conservative). Still isotropic only (they refuse with `AnisotropicUnsupported`),
+among others: `ConicalSweep`, the `hpfem.grating` entry points, the axisymmetric solver, the
+layered background, `TimeDomain`, `ThermoOptical`, `PropagatingMode` and the modal ports.
 
 ## Python layer
 

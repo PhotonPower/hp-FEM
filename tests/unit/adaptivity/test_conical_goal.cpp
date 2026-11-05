@@ -49,8 +49,13 @@ Vector random_vector(Index n, unsigned seed) {
 /// A material with a source: eps = 2.5 + 0.3i, mu = 1, f = smooth vector.
 ConicalForm test_form() {
   ConicalForm form;
-  form.permittivity = [](const Point<2>&) { return ConicalVector::Constant(Complex{2.5, 0.3}); };
-  form.inverse_permeability = [](const Point<2>&) { return ConicalVector::Constant(1.0); };
+  form.permittivity = [](const Point<2>&) {
+    return hpfem::assembly::ConicalTensor(Complex{2.5, 0.3} *
+                                          hpfem::assembly::ConicalTensor::Identity());
+  };
+  form.inverse_permeability = [](const Point<2>&) {
+    return hpfem::assembly::ConicalTensor::Identity().eval();
+  };
   form.source = [](const Point<2>& x) {
     return ConicalVector(std::sin(x(0)) + 0.2, std::cos(x(1)) * x(0), Complex{0.3, 0.1} * x(1));
   };

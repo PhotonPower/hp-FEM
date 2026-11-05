@@ -55,11 +55,19 @@ def test_volume_diagnostics_for_crystals():
     )
     found = dg.validate_scattering(mesh, setup, 2)
     assert codes(found) == ["anisotropic_unsupported"] and "tag 2" in found[0].text
-    # the conical setup still takes isotropic materials only (M19 S3)
+    # the conical solver takes the coupling crystal (M19 S3), its scalar E_z path does not
     conical = hpfem.ConicalScatteringSetup()
     conical.omega = setup.omega
     conical.materials = setup.materials
-    assert codes(dg.validate_scattering(mesh, conical, 2))[0] == "anisotropic_unsupported"
+    assert "anisotropic_unsupported" not in codes(dg.validate_scattering(mesh, conical, 2))
+    conical.scalar_ez = True
+    assert codes(dg.validate_scattering(mesh, conical, 2)) == ["anisotropic_unsupported"]
+    # a tilted crystal in its PML: the 3D condition on the stretched axes x and y
+    conical.scalar_ez = False
+    conical.pml = setup.pml
+    conical.materials = hpfem.MaterialMap(hpfem.Material.anisotropic(coupled))
+    found = [d for d in dg.validate_scattering(mesh, conical, 2) if d.code == "pml_backward_wave"]
+    assert len(found) >= 1
 
 
 def test_pml_tensor_stretch_and_stability_condition():

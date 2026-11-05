@@ -14,6 +14,9 @@ hpfem_add_test(convergence_pml_reflection convergence
 hpfem_add_test(convergence_anisotropic_slab convergence
   anisotropic_slab.cpp)
 
+hpfem_add_test(convergence_anisotropic_conical_vs_3d convergence
+  anisotropic_conical_vs_3d.cpp)
+
 hpfem_add_test(convergence_flat_surface_fresnel convergence
   flat_surface_fresnel.cpp)
 

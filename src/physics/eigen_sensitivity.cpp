@@ -300,9 +300,11 @@ ResonanceDerivative conical_resonance_material_derivative(const ConicalResonance
                                        2 * nd.cell_order(c) + setup.pml_extra_quadrature_order)
                     : conical_material_form(unit);
     } else {
-      form.permittivity = [](const Point<2>&) { return ConicalVector::Zero().eval(); };
+      form.permittivity = [](const Point<2>&) { return assembly::ConicalTensor::Zero().eval(); };
     }
-    form.inverse_permeability = [](const Point<2>&) { return ConicalVector::Zero().eval(); };
+    form.inverse_permeability = [](const Point<2>&) {
+      return assembly::ConicalTensor::Zero().eval();
+    };
     return form;
   };
   const auto system =

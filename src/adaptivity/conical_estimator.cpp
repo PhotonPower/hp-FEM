@@ -87,9 +87,8 @@ class CellSampler {
     Sample s;
     s.x = g.x;
     s.inverse_transpose = g.inverse_transpose;
-    s.w = form_.inverse_permeability ? Vec3(form_.inverse_permeability(g.x).cwiseProduct(curl))
-                                     : curl;
-    s.d = k_squared_ * (form_.permittivity ? Vec3(form_.permittivity(g.x).cwiseProduct(e)) : e);
+    s.w = form_.inverse_permeability ? Vec3(form_.inverse_permeability(g.x) * curl) : curl;
+    s.d = k_squared_ * (form_.permittivity ? Vec3(form_.permittivity(g.x) * e) : e);
     if (form_.source) {
       const Vec3 f = form_.source(g.x);  // scaled: (f_x, f_y, f_v = -i f_z)
       s.d += Vec3(f(0), f(1), kI * f(2));

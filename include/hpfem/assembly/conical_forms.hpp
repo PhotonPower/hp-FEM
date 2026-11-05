@@ -7,7 +7,7 @@
 /// mode is @f$ \nabla\times E = \big(\partial_yE_z - i\beta E_y,\ i\beta E_x - \partial_xE_z,
 /// \ \partial_xE_y - \partial_yE_x\big) = \big(i(\partial_y v - \beta E_y),\ -i(\partial_x v -
 /// \beta E_x),\ \nabla_t\times E_t\big) @f$, so that with diagonal tensors in (x, y, z) the
-/// bilinear forms read (test functions not conjugated)
+/// bilinear forms read (test functions not conjugated; full tensors below)
 /// @f[ a(E, V) = \int \Big[ \mu_x^{-1}(\partial_y v - \beta E_y)(\partial_y w - \beta V_y)
 ///     + \mu_y^{-1}(\partial_x v - \beta E_x)(\partial_x w - \beta V_x)
 ///     + \mu_z^{-1}(\nabla_t\times E_t)(\nabla_t\times V_t) \Big] dx\,dy , @f]
@@ -19,8 +19,20 @@
 /// E_z block @f$ \int \mu_t^{-1}\nabla v\cdot\nabla w - k_0^2\varepsilon_z vw @f$. The gradient
 /// of a potential, @f$ \nabla(\psi e^{i\beta z}) = (\nabla_t\psi,\ v = \beta\psi) @f$, is exactly
 /// representable: @f$ K_\beta = [G;\ \beta I] @f$ spans the kernel of a(·,·). Sources are paired
-/// as @f$ \int f_xV_x + f_yV_y + f_v w @f$ with the scaled @f$ f_v = -if_z @f$. Convention
-/// exp(-iωt). See docs/theory/maxwell.md#conical-incidence.
+/// as @f$ \int f_xV_x + f_yV_y + f_v w @f$ with the scaled @f$ f_v = -if_z @f$.
+///
+/// **Full tensors** (crystals, ADR-0015 §4): with @f$ c = (\partial_y v - \beta E_y,
+/// \ \partial_x v - \beta E_x,\ \nabla_t\times E_t) @f$ the curl is @f$ D c @f$,
+/// @f$ D = \mathrm{diag}(i, -i, 1) @f$, that of the test function @f$ \bar D c_V @f$, and the
+/// scaled field @f$ (E_x, E_y, v) @f$ maps to the physical one by @f$ D' = \mathrm{diag}(1, 1, i)
+/// @f$ (test side @f$ D'' = \mathrm{diag}(1, 1, -i) @f$). The forms are
+/// @f$ \int c_V^T(\bar D\mu^{-1}D)\,c_E @f$ and @f$ \int \hat V^T(D''\varepsilon D')\,\hat E @f$
+/// (`conical_scaled_curl_tensor`, `conical_scaled_tensor`): the xz and yz entries of a symmetric
+/// tensor enter as an antisymmetric pair (factors ∓i), so the matrix is complex-symmetric only for
+/// @f$ \varepsilon_{xz} = \varepsilon_{yz} = 0 @f$; in general @f$ A(\beta)^T = S A(-\beta) S @f$,
+/// @f$ S = \mathrm{diag}(I, -I) @f$ on the (Nédélec, H1) blocks. Diagonal tensors keep the
+/// specialised path of the formulas above. Convention exp(-iωt). See
+/// docs/theory/maxwell.md#conical-incidence.
 #include <functional>
 #include <optional>
 #include <span>
@@ -37,21 +49,35 @@
 
 namespace hpfem::assembly {
 
-/// Diagonal tensor in Cartesian components (x, y, z) as a function of the point.
-using ConicalTensorField = std::function<Eigen::Matrix<Complex, 3, 1>(const Point<2>&)>;
+/// Physical 3×3 tensor in Cartesian components (x, y, z).
+using ConicalTensor = Eigen::Matrix<Complex, 3, 3>;
+/// Tensor as a function of the point.
+using ConicalTensorField = std::function<ConicalTensor(const Point<2>&)>;
+/// Vector in the scaled components (x, y, v) as a function of the point (sources).
+using ConicalSourceField = std::function<Eigen::Matrix<Complex, 3, 1>(const Point<2>&)>;
 
-/// Coefficients of one cell: diagonal tensors @f$ \mu^{-1} @f$ and @f$ \varepsilon @f$ in
-/// (x, y, z), e.g. the stretched tensors of the PML; an empty function means the identity.
+/// Coefficients of one cell: physical tensors @f$ \mu^{-1} @f$ and @f$ \varepsilon @f$ in
+/// (x, y, z), diagonal (isotropic media, the stretched tensors of the PML) or full (crystals);
+/// an empty function means the identity.
 struct ConicalForm {
   ConicalTensorField inverse_permeability;
   ConicalTensorField permittivity;
   /// Volume source @f$ (f_x,\ f_y,\ f_v = -if_z) @f$ in the scaled components; empty means zero.
-  ConicalTensorField source;
+  ConicalSourceField source;
   /// Total degree of the quadrature rule for this cell; overrides `2p + extra_order`.
   std::optional<int> quadrature_order;
 };
 
 using ConicalFormFactory = std::function<ConicalForm(Index)>;
+
+/// The tensors of the conical forms in the scaled components: @f$ \bar D\mu^{-1}D @f$ acting on
+/// @f$ c @f$ (entries times @f$ [[1,-1,-i],[-1,1,i],[i,-i,1]] @f$) and @f$ D''\varepsilon D' @f$
+/// acting on @f$ (E_x, E_y, v) @f$ (entries times @f$ [[1,1,i],[1,1,i],[-i,-i,1]] @f$); the latter
+/// also maps a physical contrast @f$ \Delta\varepsilon\,E @f$ to the scaled source.
+[[nodiscard]] ConicalTensor conical_scaled_curl_tensor(const ConicalTensor& inverse_permeability);
+[[nodiscard]] ConicalTensor conical_scaled_tensor(const ConicalTensor& permittivity);
+/// True if the off-diagonal entries are exactly zero.
+[[nodiscard]] bool is_diagonal(const ConicalTensor& tensor) noexcept;
 
 /// Element stiffness, mass and load of one cell in the block order (Nédélec functions, then
 /// H1 functions of the cell).

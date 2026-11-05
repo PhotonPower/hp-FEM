@@ -3,6 +3,18 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Crystals in the conical solver (M19 S3a, ADR-0015 §4): `assembly::ConicalForm` carries
+  physical 3×3 tensors (`ConicalTensorField` now returns a matrix; sources have their own
+  `ConicalSourceField`); diagonal tensors keep the specialised assembly, full tensors enter as
+  c_Vᵀ(D̄μ⁻¹D)c_E and V̂ᵀ(D''εD')Ê (`conical_scaled_curl_tensor`, `conical_scaled_tensor`). The
+  operator loses its symmetry for ε_xz, ε_yz ≠ 0 and satisfies A(β)ᵀ = S A(−β) S. Crystals in
+  `ConicalScattering` and `ConicalResonance` with PML (ε_ij s_x s_y/(s_i s_j)) and the
+  scattered-field source; `scalar_ez` refuses coupling crystals; the conical estimators apply full
+  tensors; `diagnostics.validate_scattering` takes crystals in conical setups (scalar E_z check,
+  PML condition). New convergence test `anisotropic_conical_vs_3d`: a crystal plate with the axis
+  along (1, 1, 1) at conical incidence agrees with the 3D solver, the difference falling
+  exponentially in p. `ConicalSweep` and the `hpfem.grating` entry points still refuse crystals.
+  **Breaking (C++):** `ConicalTensorField` returns `ConicalTensor` (3×3) instead of a diagonal.
 - Crystals in the 2D / 3D volume solvers (M19 S2, ADR-0015 §2): `Scattering`, `Resonance` and
   `BandStructure` take tensor materials by tag, as background and per cell
   (`physics::set_material_tensors`; 3D the full tensor, 2D the in-plane block via
@@ -306,6 +318,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   side-wall angle tolerances of a silicon grating propagated to its reflectance spectrum.
 
 ### Fixed
+- The adjoint solves of the conical solver (`conical_adjoint_solution` without a kept
+  factorisation, `conical_dwr_estimate`) used A instead of Aᵀ, which is correct only for
+  symmetric systems; they now assemble the transpose (no change for isotropic media).
 - The PML of `grating` was designed with the smaller of the cover and substrate indices, even
   with `bottom="pec"`, where there is no bottom PML, and even for a metal substrate with
   Re n ≈ 0. Now the substrate counts only with a bottom PML and when waves propagate in it
