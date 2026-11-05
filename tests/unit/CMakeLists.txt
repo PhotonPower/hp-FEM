@@ -67,6 +67,7 @@ hpfem_add_test(test_physics unit
   physics/test_grating_postprocessing.cpp
   physics/test_mie.cpp
   physics/test_layer_stack.cpp
+  physics/test_anisotropic_stack.cpp
 
   physics/test_mie_sphere.cpp
   physics/test_farfield.cpp

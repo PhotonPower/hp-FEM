@@ -577,6 +577,16 @@ last.
   scattered-field source; tests: independent eigenvector 4×4 transfer matrix (thin layers), closed
   forms at normal incidence, isotropic layers between anisotropic ones, axis along z and 10⁻⁶ rad
   off, a Voigt direction of an absorbing biaxial layer, R+T+A=1
+  - [x] S4a: `physics::AnisotropicStack` (laboratory frame, Python `AnisotropicStack`): Berreman
+    4×4, two ordered Schur forms per region, triangular 2×2 exponentials, S-matrix recursion,
+    Jones reflection, substrate transmission, R/T/A; tests: `LayerStack` for isotropic stacks,
+    an eigenvector-free transfer reference (expm; the eigenvector one fails already on a
+    degenerate isotropic layer), the closed forms at normal incidence, the axis along z and
+    10⁻⁶ rad off, a Voigt point found by Newton, energy balance, a 100-λ absorbing crystal;
+    `docs/theory/anisotropic-stack.md`
+  - [ ] S4b: o / e labelling of uniaxial substrate modes, power-orthogonal biaxial modes, the
+    analytic stack field per layer and the stack as the background of the solvers (crystal
+    substrates in `Scattering<3>` and the conical solver, `hpfem.grating`)
 - [ ] S5: post-processing: mode-resolved diffraction orders in anisotropic half-spaces, modal
   transparent substrate boundary for gratings over tilted crystals, absorption and Poynting flux
   with tensors, Jones / Mueller output with the s/p convention of `conical_polarisation`; tests:

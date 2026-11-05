@@ -3,6 +3,17 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Anisotropic layer stacks (M19 S4a, ADR-0015 §5): `physics::AnisotropicStack` (Python
+  `hpfem.AnisotropicStack`, `StackResponse`) computes the Jones reflection matrix, the
+  transmission into the substrate modes and R, T, A of planar stacks with crystal layers and a
+  crystal substrate (laboratory frame, z the normal). The Berreman 4×4 system is never
+  diagonalised: two ordered complex Schur forms per region give the upward and downward
+  subspaces, layers are crossed with closed-form 2×2 triangular exponentials and the reflection
+  matrices come from a stable S-matrix recursion, so degenerate regions, an optic axis along z
+  and Voigt (exceptional) points of absorbing biaxial media are exact. Verified against
+  `LayerStack`, an eigenvector-free transfer-matrix reference, closed forms at normal incidence,
+  a Voigt point and the energy balance; `docs/theory/anisotropic-stack.md`. Not yet used as the
+  background of the solvers (S4b).
 - Crystals in the conical solver (M19 S3a, ADR-0015 §4): `assembly::ConicalForm` carries
   physical 3×3 tensors (`ConicalTensorField` now returns a matrix; sources have their own
   `ConicalSourceField`); diagonal tensors keep the specialised assembly, full tensors enter as

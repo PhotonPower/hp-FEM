@@ -40,6 +40,7 @@ nav:
       - Multiphysics: theory/multiphysics.md
       - Axisymmetric (2.5D): theory/axisymmetric.md
       - Materials and anisotropy: theory/materials.md
+      - Anisotropic layer stacks: theory/anisotropic-stack.md
   - Python API: python.md
   - Applications: applications.md
   - Validation: validation.md
