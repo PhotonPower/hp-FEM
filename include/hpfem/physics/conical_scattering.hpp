@@ -78,6 +78,20 @@ using ConicalField = std::function<ConicalVector(const Point<2>&)>;
                                                      const materials::Material& material,
                                                      std::optional<int> quadrature_order = {});
 
+/// Modal transparent boundary of a periodic conical problem (ADR-0015 §2, M19 S5b): a straight
+/// boundary line along the period in a homogeneous, possibly anisotropic, non-magnetic medium,
+/// where the unknown field consists of outgoing waves only (the scattered field below a
+/// structure on a half-space background, or above it). The boundary term
+/// @f$ \oint (n\times\nabla\times E)\cdot F\,ds @f$ is written with the Dirichlet-to-Neumann
+/// map of the half-space modes of every Fourier order (`conical_modal_boundary_matrix`), so it
+/// truncates the domain where a PML is unstable (a tilted crystal substrate, `pml-backward-wave`).
+struct ConicalModalBoundary {
+  mesh::Tag facet_tag = mesh::kNoTag;
+  /// Fourier orders m = −M..M about the Bloch wavenumber in the first Brillouin zone; −1: the
+  /// resolution of the trace, @f$ M = \lceil n_f p/2\rceil + 2 @f$ with the n_f facets of order p.
+  int max_order = -1;
+};
+
 /// Description of a conical scattering problem.
 struct ConicalScatteringSetup {
   Real omega = 0;                    ///< angular frequency [rad/s]
@@ -86,6 +100,10 @@ struct ConicalScatteringSetup {
   std::vector<mesh::Tag> pec_tags;   ///< facets with n × E = 0
   std::optional<pml::PmlBox<2>> pml;
   std::vector<assembly::PeriodicPair<2>> periodic;  ///< Bloch-periodic directions
+  /// Modal transparent boundaries (need exactly one periodic pair; the medium of the cells along
+  /// the line must be homogeneous and outside the PML). Not used by the estimators, the
+  /// resonance and sweep solvers.
+  std::vector<ConicalModalBoundary> modal_boundaries;
   /// Layered background (normal along y, ADR-0009): the incident field is then the stack
   /// wave (`layered_conical_wave(...).field`), the scattered-field source lives only where a
   /// cell's permittivity deviates from the stack at the cell centroid. Layer interfaces must
@@ -273,6 +291,24 @@ class ConicalScattering {
                                          const Vector& v, Real beta, Real omega,
                                          const materials::MaterialMap& materials,
                                          const Surface<2>& surface, int order = 8);
+
+/// Dirichlet-to-Neumann matrix of a modal transparent boundary in the full block indices
+/// (Nédélec, then H1, as `assemble_conical`): with the outward normal n, the tangent t along the
+/// period vector `shift` and the right-handed local frame (t, n × t, n) (rows of R), the
+/// tangential trace @f$ E_t = (E\cdot t, E\cdot(n\times t)) @f$ of the trial and test functions
+/// is expanded in the orders @f$ k_m = k_{t0} + 2\pi m/a @f$, m = −M..M, and
+/// @f$ B_{ij} = ik_0\sum_m \hat F_{i,m}^T J Y_m \hat E_{j,m} @f$ with
+/// @f$ \hat E_{j,m} = \tfrac1a\int E_t(\phi_j)e^{-ik_ms}ds @f$,
+/// @f$ \hat F_{i,m} = \int F_t(\phi_i)e^{ik_ms}ds @f$ (test functions in the physical components
+/// @f$ (V_x, V_y, -iw) @f$), @f$ J = [[0,-1],[1,0]] @f$ (n × ·) and the admittance
+/// @f$ Y_m = W_HW_E^{-1} @f$ of the two outgoing modes of `half_space_modes(R ε Rᵀ, k_m/k_0,
+/// β (n×t)_z/k_0, true)`, @f$ \tilde H_t = Y_mE_t @f$ (@f$ \tilde H = Z_0H @f$, curl E = i k0 H̃).
+/// The matrix is dense on the DoFs of the line. @throws InvalidArgument for an empty or curved
+/// line, a line not along `shift`, or grazing propagation of an order (a Rayleigh anomaly).
+[[nodiscard]] SparseMatrix conical_modal_boundary_matrix(
+    const fespace::NedelecDofMap<2>& transverse, const fespace::DofMap<2>& longitudinal,
+    const Surface<2>& line, const materials::Tensor3& eps, Real k0, Real beta,
+    const Point<2>& shift, Real kt0, int max_order);
 
 /// Plane wave on a layered background for the conical solver (the stack normal is y, as for
 /// `Scattering<2>`): the 3D stack field restricted to the (x, y) plane with the invariant

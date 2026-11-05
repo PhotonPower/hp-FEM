@@ -1,6 +1,7 @@
 """Crystals in the 2D / 3D volume solver through the bindings (ADR-0015 §2, M19 S2)."""
 
 import numpy as np
+import pytest
 from conftest import mie_problem
 
 import hpfem
@@ -220,3 +221,19 @@ def test_mode_resolved_orders_binding():
     assert abs(zeroth.channels[0].amplitude - 0.7) < 1e-10
     assert abs(zeroth.channels[1].amplitude) < 1e-10
     assert abs(zeroth.efficiency - 0.49 * modes.flux[0] / 0.9) < 1e-10
+
+
+def test_modal_boundary_binding():
+    """M19 S5b: a modal transparent boundary is set on the conical setup; it needs one periodic
+    pair (the accuracy checks are the C++ convergence tests)."""
+    k0 = 2 * np.pi
+    mesh = hpfem.rectangle(2, 2)
+    nd = hpfem.NedelecDofMap2D(mesh, 2)
+    h1 = hpfem.DofMap2D(mesh, 2)
+    setup = hpfem.ConicalScatteringSetup()
+    setup.omega = k0 * hpfem.constants.c0
+    setup.current = lambda x: np.array([0.0, 0.0, 1.0 + 0j])
+    setup.modal_boundaries = [hpfem.ConicalModalBoundary(hpfem.box_tag.Y_MIN)]
+    assert setup.modal_boundaries[0].max_order == -1
+    with pytest.raises(ValueError, match="periodic pair"):
+        hpfem.ConicalScattering(nd, h1, setup)

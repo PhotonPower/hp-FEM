@@ -223,6 +223,17 @@ hence symmetric (§3). Orientation conventions, fixed here:
 The refractiveindex.info loader reads the separate ordinary / extraordinary entries of uniaxial
 materials where the database has them.
 
+*Amendment (S5b, 2026-11-05):* in a periodic problem only the discrete in-plane wave vectors
+of the orders reach the PML, so the instability needs an outgoing propagating order that is a
+backward wave. In a tilted uniaxial crystal this happens in a narrow window of the tangential
+wavenumber just inside the cutoff of the extraordinary sheet (for ε_o = 2.4, ε_e = 3.4, axis
+0.7 rad from the normal: a ≈ −1.71…−1.68), i.e. for diffracted orders, not for the zeroth order
+of incidence from air. There the PML stalls at a fixed error (the energy balance of a lossless
+grating at 10⁻⁴ for every p) and the modal boundary converges (`anisotropic_modal_boundary`).
+The modal boundary is implemented for the conical solver as a per-order Dirichlet-to-Neumann
+term (`ConicalScatteringSetup::modal_boundaries`, `docs/theory/anisotropic-stack.md`); the 3D
+solver keeps the diagnostic.
+
 ### 7. Post-processing
 
 - **Diffraction orders in an anisotropic half-space** are decomposed on the two modes of that
