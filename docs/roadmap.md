@@ -598,6 +598,18 @@ last.
   with tensors, Jones / Mueller output with the s/p convention of `conical_polarisation`; tests:
   mirror symmetry in the azimuth (r_sp odd, r_ss / r_pp even), reciprocity
   r_ps(k_in → k_out) = −r_sp(−k_out → −k_in) on a rotated crystal (stack and conical)
+  - [x] S5a: `half_space_modes` (upward / downward modes of a crystal half-space with kinds, k_z,
+    flux), `conical_mode_orders` (orders on any line decomposed on the outgoing modes: o / e,
+    biaxial or s / p channels with efficiencies); tests: modes against K and closed forms, the
+    mirror symmetry and the reciprocity r_ps(φ) = −r_sp(φ + π) of the stack Jones matrix (also
+    for a tilted axis), a known-mode field recovered on a line, the transmitted o / e channels of
+    the conical FEM field against the stack (`anisotropic_stack_background`)
+  - [ ] S5b: modal transparent boundary (DtN of the half-space modes per Fourier order) for the
+    substrate side of the conical solver, where a PML over a tilted crystal is unstable; test
+    against the stack with a tilted substrate axis
+  - [ ] S5c: Jones / Mueller matrix of every order (`conical_polarisation` s / p in isotropic
+    media, mode channels in crystals), crystal stacks in `hpfem.grating`, reciprocity of the
+    conical solver on a rotated crystal
 - [ ] S6: axisymmetric solver with diagonal (r, φ, z) tensors, rejection of tilted axes
 - [ ] S7: dipole emitters above anisotropic stacks (ADR-0013 amendment, β ↔ −β reciprocity), after
   S4 / S5 are validated

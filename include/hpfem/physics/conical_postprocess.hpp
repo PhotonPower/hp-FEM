@@ -14,6 +14,8 @@
 #include <vector>
 
 #include "hpfem/core/types.hpp"
+#include "hpfem/materials/material.hpp"
+#include "hpfem/physics/anisotropic_stack.hpp"
 #include "hpfem/physics/conical_scattering.hpp"
 #include "hpfem/physics/diffraction.hpp"
 #include "hpfem/physics/postprocess.hpp"
@@ -47,6 +49,51 @@ using ConicalFieldFunction = std::function<ConicalVector(const Point<2>&)>;
     const ConicalFieldFunction& field, const OrderLine& line, Real k0, Real index_line, Real kt0,
     Real beta, Real kn_incident, const ConicalFieldFunction& incident = {}, int max_order = 3,
     int num_points = 0, Real incident_amplitude = 1.0);
+
+/// One channel of a diffraction order in a (possibly anisotropic) half-space: the amplitude on
+/// one of the two outgoing modes of `half_space_modes`.
+struct ModeChannel {
+  SubstrateMode kind = SubstrateMode::kS;
+  Complex kn;                ///< normal wavenumber along `OrderLine::normal` [1/m]
+  Complex amplitude;         ///< amplitude of the unit-|E| mode, phase reference at the line origin
+  ConicalVector field;       ///< E of the unit mode in the solver frame
+  bool propagating = false;  ///< |Im k_n| < |Re k_n| (exact in a lossless medium)
+  Real efficiency = 0;       ///< |amplitude|² × mode flux on the line / incident flux
+};
+
+/// A diffraction order resolved into the two modes of the medium on the line.
+struct ModeResolvedOrder {
+  int order = 0;
+  Real k_tangential = 0;    ///< k_t + 2π m / period [1/m]
+  ConicalVector amplitude;  ///< @f$ A_m @f$ (solver frame), as `conical_diffraction_orders`
+  std::array<ModeChannel, 2> channels;
+  bool propagating = false;  ///< at least one channel propagates
+  /// Power flux of the order through the line (both channels with their cross terms) over the
+  /// incident power; equals the sum of the channel efficiencies when the modes are
+  /// power-orthogonal (always in a lossless medium with distinct modes).
+  Real efficiency = 0;
+};
+
+/// Diffraction orders of `field - incident` (or of `field`) on the line, decomposed on the two
+/// outgoing modes (along `line.normal`) of the medium of permittivity `eps_line` (solver frame,
+/// any symmetric tensor) at the tangential wavenumber
+/// @f$ k_{t,m} = k_{t0} + 2\pi m/a @f$ and the longitudinal β (ADR-0015 §7). The local frame
+/// (t̂, n̂ × t̂, n̂) is right-handed, so the modes are those of `half_space_modes(R ε Rᵀ,
+/// k_{t,m}/k_0, β (n̂ × t̂)_z / k_0, upward)` with the rows t̂, n̂ × t̂, n̂ of R: s / p in an
+/// isotropic medium, ordinary / extraordinary in a uniaxial one, the two eigenmodes in a biaxial
+/// one. The tangential @f$ E @f$ of @f$ A_m @f$ fixes both amplitudes (only outgoing waves on
+/// the line); the efficiency of a channel is @f$ |c|^2 S_n / S_n^{inc} @f$ with the incident
+/// flux @f$ |E_0|^2 k_n^{inc}/k_0 @f$ in units of 2 Z0; evanescent channels of a lossless
+/// medium carry none. In a lossy medium the efficiencies are the powers through the line (they
+/// decay with its distance from the structure). In an isotropic lossless medium the order
+/// efficiency equals that of `conical_diffraction_orders`. Arguments as there.
+/// @throws InvalidArgument for a degenerate line, a normal not perpendicular to the tangent, or
+///         grazing propagation of an order (a Rayleigh anomaly, k_n = 0).
+[[nodiscard]] std::vector<ModeResolvedOrder> conical_mode_orders(
+    const ConicalFieldFunction& field, const OrderLine& line, Real k0,
+    const materials::Tensor3& eps_line, Real kt0, Real beta, Real kn_incident,
+    const ConicalFieldFunction& incident = {}, int max_order = 3, int num_points = 0,
+    Real incident_amplitude = 1.0);
 
 /// Flux-based energy balance of a periodic conical problem (scattered-field formulation):
 /// the incident power per period @f$ \tfrac12|E_0|^2\,k_n^{inc}/(k_0Z_0)\,a @f$, the power of

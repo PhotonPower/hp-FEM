@@ -1,5 +1,6 @@
 // Crystals in the conical (2.5D) solver (ADR-0015 §4, M19 S3). Convention exp(-iωt).
 #include <cmath>
+#include <numbers>
 #include <random>
 
 #include <catch2/catch_test_macros.hpp>
@@ -16,6 +17,7 @@
 #include "hpfem/mesh/generators.hpp"
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/physics/conical_goal.hpp"
+#include "hpfem/physics/conical_postprocess.hpp"
 #include "hpfem/physics/conical_resonance.hpp"
 #include "hpfem/physics/conical_scattering.hpp"
 #include "hpfem/physics/eigen_sensitivity.hpp"
@@ -467,4 +469,108 @@ TEST_CASE("Anisotropic conical: a crystal stack as the layered background",
   const auto solution = ConicalScattering(nd, h1, setup).solve();
   REQUIRE(solution.transverse.norm() == 0.0);
   REQUIRE(solution.longitudinal.norm() == 0.0);
+}
+
+TEST_CASE("Conical solver: diffraction orders resolved into crystal modes",
+          "[physics][conical][anisotropic][orders]") {
+  // ADR-0015 §7: a field of known outgoing modes below a line in a tilted crystal; the orders
+  // recover the mode amplitudes, and the field is a Maxwell solution of the crystal in the
+  // solver frame (checked by finite differences, independent of the frame bookkeeping)
+  using hpfem::physics::conical_mode_orders;
+  using hpfem::physics::half_space_modes;
+  using hpfem::physics::OrderLine;
+  using hpfem::physics::SubstrateMode;
+  const Real k0 = 2.0 * std::numbers::pi;
+  const Real period = 0.8;
+  const Real kt0 = 0.3 * k0;
+  const Real beta = 0.25 * k0;
+  const Eigen::Vector3d axis = Eigen::Vector3d(0.3, -0.7, 0.6).normalized();  // solver frame
+  const Tensor3 eps = 2.2 * Tensor3::Identity() + 0.8 * (axis * axis.transpose()).cast<Complex>();
+  // the line y = -0.2 with the substrate below: tangent x, normal -y; the local frame is
+  // (x, n x t, n) = (x, z, -y)
+  const OrderLine line{Point<2>(0.1, -0.2), Point<2>(1.0, 0.0), Point<2>(0.0, -1.0), period};
+  Eigen::Matrix3d r;
+  r << 1, 0, 0, 0, 0, 1, 0, -1, 0;
+  const Tensor3 eps_lab = r.cast<Complex>() * eps * r.transpose().cast<Complex>();
+  struct Wave {
+    int order;
+    std::size_t mode;
+    Complex c;
+  };
+  const std::vector<Wave> waves{{0, 0, {0.7, 0.2}},
+                                {0, 1, {-0.3, 0.5}},
+                                {-1, 1, {0.4, -0.1}},
+                                {2, 0, {0.2, 0.3}}};  // order 2 is evanescent
+  const auto field = [&](const Point<2>& x) {
+    ConicalVector e = ConicalVector::Zero();
+    for (const Wave& w : waves) {
+      const Real kt = kt0 + 2.0 * std::numbers::pi * w.order / period;
+      const auto m = half_space_modes(eps_lab, kt / k0, beta / k0, true);
+      const Eigen::Vector3cd f = r.transpose().cast<Complex>() * m.fields[w.mode];
+      // lab z = -y: exp(i k0 kz z_lab) about the line
+      e += w.c * f * std::exp(hpfem::kI * (kt * (x(0) - 0.1) - k0 * m.kz[w.mode] * (x(1) + 0.2)));
+    }
+    return e;
+  };
+  // Maxwell in the solver frame: curl curl E = k0^2 eps E
+  const Real step = 1e-4;
+  const auto curl = [&](const Point<2>& x) {
+    return hpfem::physics::conical_curl_of(field, x, beta, step);
+  };
+  const Point<2> x0(0.23, -0.31);
+  const ConicalVector cc = hpfem::physics::conical_curl_of(curl, x0, beta, step);
+  REQUIRE((cc - k0 * k0 * eps * field(x0)).norm() < 1e-5 * k0 * k0 * field(x0).norm());
+  const Real kn_inc = 0.9 * k0;
+  const auto orders = conical_mode_orders(field, line, k0, eps, kt0, beta, kn_inc, {}, 2);
+  REQUIRE(orders.size() == 5);
+  for (const auto& o : orders) {
+    const auto m = half_space_modes(eps_lab, o.k_tangential / k0, beta / k0, true);
+    for (std::size_t j = 0; j < 2; ++j) {
+      Complex expected = 0;
+      for (const Wave& w : waves) {
+        if (w.order == o.order && w.mode == j) expected = w.c;
+      }
+      REQUIRE(std::abs(o.channels[j].amplitude - expected) < 1e-10);
+      REQUIRE(std::abs(o.channels[j].kn - k0 * m.kz[j]) < 1e-12 * k0);
+      REQUIRE(o.channels[j].kind ==
+              (j == 0 ? SubstrateMode::kOrdinary : SubstrateMode::kExtraordinary));
+      REQUIRE(o.channels[j].propagating == (std::imag(m.kz[j]) < 1e-12));
+      const Real eff =
+          o.channels[j].propagating ? std::norm(expected) * m.flux[j] / (kn_inc / k0) : 0.0;
+      REQUIRE(std::abs(o.channels[j].efficiency - eff) < 1e-10);
+    }
+    // a lossless crystal with distinct modes: power-orthogonal channels
+    REQUIRE(std::abs(o.efficiency - o.channels[0].efficiency - o.channels[1].efficiency) < 1e-10);
+  }
+  REQUIRE(!orders[4].propagating);
+  REQUIRE(orders[2].propagating);
+  REQUIRE(orders[2].efficiency > 0.1);
+  // an isotropic medium: the order efficiencies of conical_diffraction_orders
+  const Real n = 1.5;
+  const auto iso = [&](const Point<2>& x) {
+    ConicalVector e = ConicalVector::Zero();
+    for (int m = -1; m <= 1; ++m) {
+      const Real kt = kt0 + 2.0 * std::numbers::pi * m / period;
+      const auto modes = half_space_modes(n * n * Tensor3::Identity(), kt / k0, beta / k0, true);
+      e += (0.3 + 0.2 * m) * r.transpose().cast<Complex>() *
+           (modes.fields[0] + Complex(0.4, 0.3 * m) * modes.fields[1]) *
+           std::exp(hpfem::kI * (kt * x(0) - k0 * modes.kz[0] * x(1)));
+    }
+    return e;
+  };
+  const auto a =
+      conical_mode_orders(iso, line, k0, n * n * Tensor3::Identity(), kt0, beta, kn_inc, {}, 2);
+  const auto b =
+      hpfem::physics::conical_diffraction_orders(iso, line, k0, n, kt0, beta, kn_inc, {}, 2);
+  for (std::size_t i = 0; i < a.size(); ++i) {
+    REQUIRE(a[i].channels[0].kind == SubstrateMode::kS);
+    REQUIRE(a[i].propagating == b[i].propagating);
+    REQUIRE(std::abs(a[i].efficiency - b[i].efficiency) < 1e-12);
+  }
+  REQUIRE(b[1].efficiency > 0.01);
+  // a normal not perpendicular to the tangent is refused
+  REQUIRE_THROWS_AS(conical_mode_orders(
+                        iso, OrderLine{Point<2>(0, 0), Point<2>(1, 0), Point<2>(0.6, -0.8), period},
+                        k0, eps, kt0, beta, kn_inc),
+                    hpfem::InvalidArgument);
 }

@@ -5,6 +5,7 @@
 #include <memory>
 #include <numbers>
 #include <optional>
+#include <string>
 
 #include <Eigen/Eigenvalues>
 #include <Eigen/LU>
@@ -135,7 +136,10 @@ struct Subspaces {
   Eigen::Matrix2cd tu, td;
 };
 
+/// `region` < 0 names a half-space in the messages.
 Subspaces subspaces(const Eigen::Matrix4cd& k, int region) {
+  const std::string where =
+      region < 0 ? std::string("the half-space") : fmt::format("region {}", region);
   // up / down per eigenvalue: Im q for decaying modes, the flux S_z for propagating ones
   const Eigen::ComplexEigenSolver<Eigen::Matrix4cd> eig(k);
   std::array<bool, 4> up{};
@@ -154,10 +158,10 @@ Subspaces subspaces(const Eigen::Matrix4cd& k, int region) {
       const Real flux = flux_z(eig.eigenvectors().col(m));
       const Real scale = eig.eigenvectors().col(m).squaredNorm();
       if (std::abs(flux) < 1e-10 * scale || std::abs(eig.eigenvalues()(m)) < 1e-8) {
-        throw InvalidArgument(fmt::format(
-            "AnisotropicStack: grazing propagation in region {} (k_z = {} k0, no power flux "
-            "along z)",
-            region, std::real(eig.eigenvalues()(m))));
+        throw InvalidArgument(
+            fmt::format("AnisotropicStack: grazing propagation in {} (k_z = {} k0, no power flux "
+                        "along z)",
+                        where, std::real(eig.eigenvalues()(m))));
       }
       is_up = flux > 0;
     }
@@ -165,10 +169,10 @@ Subspaces subspaces(const Eigen::Matrix4cd& k, int region) {
     n_up += is_up ? 1 : 0;
   }
   if (n_up != 2) {
-    throw InvalidArgument(fmt::format(
-        "AnisotropicStack: region {} has {} upward modes instead of 2 (grazing or degenerate "
-        "propagation)",
-        region, n_up));
+    throw InvalidArgument(
+        fmt::format("AnisotropicStack: {} has {} upward modes instead of 2 (grazing or degenerate "
+                    "propagation)",
+                    where, n_up));
   }
   // classify the Schur diagonal by the nearest eigenvalue of the classification
   const auto is_up = [&](Complex lambda) {
@@ -385,7 +389,87 @@ std::optional<Eigen::Vector3d> optic_axis(const materials::Tensor3& eps) {
   return Eigen::Vector3d(eig.eigenvectors().col(low ? 2 : 0));
 }
 
+/// The modes of a half-space (see `half_space_modes`) from its subspaces; `s_hat` is the s vector
+/// of an isotropic medium.
+HalfSpaceModes modes_of(const materials::Tensor3& eps, Real a, Real b, bool upward,
+                        const Vec3& s_hat, const Subspaces& sub) {
+  HalfSpaceModes out;
+  const Real sin2 = a * a + b * b;
+  const Real sign = upward ? 1.0 : -1.0;
+  Mat42 modes;
+  std::array<Complex, 2> q{};
+  if ((eps - eps(0, 0) * materials::Tensor3::Identity()).cwiseAbs().maxCoeff() == 0) {
+    const Complex n = std::sqrt(eps(0, 0));
+    Complex kz = std::sqrt(eps(0, 0) - sin2);
+    if (std::imag(kz) < 0 || (std::imag(kz) == 0 && std::real(kz) < 0)) kz = -kz;
+    const Vec3 k(a, b, sign * kz);
+    modes.col(0) = plane_wave_field(s_hat, k);
+    modes.col(1) = plane_wave_field(Vec3(cross(s_hat, k) / n), k);
+    q = {sign * kz, sign * kz};
+    out.kinds = {SubstrateMode::kS, SubstrateMode::kP};
+  } else {
+    const Mat42& w = upward ? sub.wu : sub.wd;
+    const Eigen::Matrix2cd& t = upward ? sub.tu : sub.td;
+    const Complex l1 = t(0, 0);
+    const Complex l2 = t(1, 1);
+    Eigen::Matrix2cd v = Eigen::Matrix2cd::Identity();
+    q = {l1, l2};
+    if (std::abs(l1 - l2) > 1e-8 * std::max(1.0, std::abs(l1))) {
+      v(0, 1) = t(0, 1);  // eigenvectors of the triangular block: e1 and (t12, l2 - l1)
+      v(1, 1) = l2 - l1;
+    } else {
+      // coinciding modes: the basis that diagonalises the cross power flux
+      Eigen::Matrix2cd p;
+      for (int i = 0; i < 2; ++i) {
+        for (int j = 0; j < 2; ++j) p(i, j) = cross_flux(w.col(i), w.col(j));
+      }
+      const Eigen::SelfAdjointEigenSolver<Eigen::Matrix2cd> eig(p);
+      v = eig.eigenvectors();
+      q = {l1, l1};
+    }
+    for (int m = 0; m < 2; ++m) modes.col(m) = w * v.col(m);
+    const std::optional<Eigen::Vector3d> axis = optic_axis(eps);
+    out.kinds = {SubstrateMode::kBiaxial, SubstrateMode::kBiaxial};
+    if (axis) {
+      // ordinary: D = eps E perpendicular to the optic axis; it goes first
+      const Vec3 c = axis->cast<Complex>();
+      std::array<Real, 2> along{};
+      for (int m = 0; m < 2; ++m) {
+        Vec3 e;
+        Vec3 h;
+        full_fields(eps, a, b, modes.col(m), e, h);
+        const Vec3 d = eps * e;
+        along[static_cast<std::size_t>(m)] = std::abs(c.dot(d)) / d.norm();
+      }
+      if (along[1] < along[0]) {
+        modes.col(0).swap(modes.col(1));
+        std::swap(q[0], q[1]);
+      }
+      out.kinds = {SubstrateMode::kOrdinary, SubstrateMode::kExtraordinary};
+    }
+  }
+  for (int m = 0; m < 2; ++m) {
+    const auto idx = static_cast<std::size_t>(m);
+    Vec3 e;
+    Vec3 h;
+    full_fields(eps, a, b, modes.col(m), e, h);
+    out.modes[idx] = modes.col(m) / e.norm();
+    out.fields[idx] = e / e.norm();
+    out.kz[idx] = q[idx];
+    out.flux[idx] = std::max(0.0, sign * flux_z(out.modes[idx]));
+  }
+  return out;
+}
+
 }  // namespace
+
+HalfSpaceModes half_space_modes(const materials::Tensor3& eps, Real a, Real b, bool upward) {
+  check_material(materials::Material::anisotropic(eps), "the half-space");
+  const Real sin2 = a * a + b * b;
+  const Vec3 s_hat = sin2 > 0 ? Vec3(Vec3(-b, a, 0.0) / std::sqrt(sin2)) : Vec3(0.0, 1.0, 0.0);
+  return modes_of(eps, a, b, upward, s_hat,
+                  subspaces(AnisotropicStack::berreman_matrix(eps, a, b), -1));
+}
 
 LayerStack<3> AnisotropicStack::layer_stack() const {
   return LayerStack<3>(incidence_, layers_, substrate_, top_);
@@ -401,71 +485,16 @@ StackResponse AnisotropicStack::response(Real k0, Real angle, Real azimuth) cons
   const std::array<TangentialField, 2> incident{plane_wave_field(s.s_hat, s.k_down),
                                                 plane_wave_field(s.p_down, s.k_down)};
   // downward substrate modes
-  const materials::Tensor3 eps_sub = substrate_.eps_tensor();
-  const Real sin2 = s.a * s.a + s.b * s.b;
+  const HalfSpaceModes sub_modes =
+      modes_of(substrate_.eps_tensor(), s.a, s.b, false, s.s_hat, s.regions[sub]);
   Mat42 modes;
-  const bool scalar_substrate =
-      substrate_.is_isotropic() ||
-      (eps_sub - eps_sub(0, 0) * materials::Tensor3::Identity()).cwiseAbs().maxCoeff() == 0;
-  if (scalar_substrate) {
-    const Complex eps = eps_sub(0, 0);
-    const Complex n_sub = std::sqrt(eps);
-    Complex kz = std::sqrt(eps - sin2);
-    if (std::imag(kz) < 0 || (std::imag(kz) == 0 && std::real(kz) < 0)) kz = -kz;
-    const Vec3 k_sub(s.a, s.b, -kz);
-    modes.col(0) = plane_wave_field(s.s_hat, k_sub);
-    modes.col(1) = plane_wave_field(Vec3(cross(s.s_hat, k_sub) / n_sub), k_sub);
-    out.substrate_kz = {-kz * k0, -kz * k0};
-    out.substrate_mode_kinds = {SubstrateMode::kS, SubstrateMode::kP};
-  } else {
-    const Mat42& wd = s.regions[sub].wd;
-    const Eigen::Matrix2cd& td = s.regions[sub].td;
-    const Complex l1 = td(0, 0);
-    const Complex l2 = td(1, 1);
-    Eigen::Matrix2cd v = Eigen::Matrix2cd::Identity();
-    std::array<Complex, 2> q{l1, l2};
-    if (std::abs(l1 - l2) > 1e-8 * std::max(1.0, std::abs(l1))) {
-      v(0, 1) = td(0, 1);  // eigenvectors of the triangular block: e1 and (t12, l2 - l1)
-      v(1, 1) = l2 - l1;
-    } else {
-      // coinciding modes: the basis that diagonalises the cross power flux
-      Eigen::Matrix2cd p;
-      for (int i = 0; i < 2; ++i) {
-        for (int j = 0; j < 2; ++j) p(i, j) = cross_flux(wd.col(i), wd.col(j));
-      }
-      const Eigen::SelfAdjointEigenSolver<Eigen::Matrix2cd> eig(p);
-      v = eig.eigenvectors();
-      q = {l1, l1};
-    }
-    for (int m = 0; m < 2; ++m) modes.col(m) = wd * v.col(m);
-    const std::optional<Eigen::Vector3d> axis = optic_axis(eps_sub);
-    out.substrate_mode_kinds = {SubstrateMode::kBiaxial, SubstrateMode::kBiaxial};
-    if (axis) {
-      // ordinary: D = eps E perpendicular to the optic axis; it goes first
-      const Vec3 c = axis->cast<Complex>();
-      std::array<Real, 2> along{};
-      for (int m = 0; m < 2; ++m) {
-        Vec3 e;
-        Vec3 h;
-        full_fields(eps_sub, s.a, s.b, modes.col(m), e, h);
-        const Vec3 d = eps_sub * e;
-        along[static_cast<std::size_t>(m)] = std::abs(c.dot(d)) / d.norm();
-      }
-      if (along[1] < along[0]) {
-        modes.col(0).swap(modes.col(1));
-        std::swap(q[0], q[1]);
-      }
-      out.substrate_mode_kinds = {SubstrateMode::kOrdinary, SubstrateMode::kExtraordinary};
-    }
-    out.substrate_kz = {q[0] * k0, q[1] * k0};
-  }
   for (int m = 0; m < 2; ++m) {
-    Vec3 e;
-    Vec3 h;
-    full_fields(eps_sub, s.a, s.b, modes.col(m), e, h);
-    modes.col(m) /= e.norm();
-    out.substrate_modes[static_cast<std::size_t>(m)] = modes.col(m);
+    const auto idx = static_cast<std::size_t>(m);
+    modes.col(m) = sub_modes.modes[idx];
+    out.substrate_modes[idx] = sub_modes.modes[idx];
+    out.substrate_kz[idx] = sub_modes.kz[idx] * k0;
   }
+  out.substrate_mode_kinds = sub_modes.kinds;
   for (int pol = 0; pol < 2; ++pol) {
     const TangentialField& psi_inc = incident[static_cast<std::size_t>(pol)];
     const Amplitudes amp = amplitudes(s, psi_inc);

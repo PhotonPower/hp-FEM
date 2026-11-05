@@ -64,6 +64,29 @@ struct StackResponse {
   Eigen::Vector2d absorptance;
 };
 
+/// The two upward or the two downward plane-wave modes of a homogeneous half-space at the
+/// normalised in-plane wavevector (a, b) = (k_x, k_y)/k0, labelled as the substrate modes of
+/// `StackResponse` (s / p, ordinary / extraordinary, biaxial, power-orthogonal where they
+/// coincide). Each mode has unit |E|; the isotropic s vector is @f$ \hat z\times\hat k_\parallel
+/// @f$ (ŷ at a = b = 0) and p = s × k̂ / n.
+struct HalfSpaceModes {
+  std::array<TangentialField, 2> modes;
+  /// The full E of each mode (unit norm, laboratory frame).
+  std::array<Eigen::Matrix<Complex, 3, 1>, 2> fields;
+  std::array<SubstrateMode, 2> kinds{};
+  /// k_z / k0 of the modes (Im ≥ 0 upward, ≤ 0 downward).
+  std::array<Complex, 2> kz;
+  /// Power flux 2 Z0 S_z of each mode along its direction (≥ 0; 0 for an evanescent mode of a
+  /// lossless medium), in units of |E|² = 1.
+  std::array<Real, 2> flux{};
+};
+
+/// Modes of a half-space of permittivity `eps` (laboratory frame, z the normal) travelling or
+/// decaying towards +z (`upward`) or −z. @throws InvalidArgument for ε_zz ≈ 0, a gain medium or
+/// grazing propagation (k_z = 0, a Rayleigh anomaly).
+[[nodiscard]] HalfSpaceModes half_space_modes(const materials::Tensor3& eps, Real a, Real b,
+                                              bool upward);
+
 /// Plane wave on an `AnisotropicStack`: the piecewise analytic total field (value, curl and the
 /// value of a given region's branch, usable as `ScatteringSetup<3>::incident` with
 /// `AnisotropicStack::layer_stack()` as background), the incident wave alone and the response.

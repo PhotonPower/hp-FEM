@@ -145,10 +145,49 @@ components and its physical curl $\det(P)\,P\,\nabla\times E = -P\,\nabla\times 
 pseudovector and P a reflection). The angles and the s / p vectors coincide with
 `layered_conical_wave`.
 
-**Not yet:** diffraction orders and the power balance in a crystal substrate (mode-resolved
-orders, M19 S5), and therefore crystal stacks in `hpfem.grating`; a PML in a substrate with a
-tilted axis fails the stability condition (`pml-backward-wave`), the modal transparent boundary
-of ADR-0015 §2 is S5 as well.
+## Mode-resolved diffraction orders
+
+`half_space_modes(eps, a, b, upward)` gives the two upward or downward modes of a homogeneous
+half-space at the normalised in-plane wavevector $(a, b)$, labelled as the substrate modes above,
+with unit $|E|$, their $k_z/k_0$, the full $E$ and the flux $2Z_0S_z$ along their direction. The
+substrate modes of `response` are the downward ones.
+
+`conical_mode_orders` (ADR-0015 §7) decomposes the orders of a conical field on an `OrderLine` in
+a crystal on these modes. With the unit tangent $\hat t$ and the normal $\hat n$ away from the
+structure, the local frame $(\hat t, \hat n\times\hat t, \hat n)$ is right-handed in the solver
+coordinates; with R the matrix of its rows the order $m$ sees the medium $R\varepsilon R^T$ at
+$a = k_{t,m}/k_0$, $b = \beta\,(\hat n\times\hat t)_z/k_0$, and only outgoing waves (along
+$\hat n$) on the line. The tangential part of $R A_m$ then fixes both amplitudes $c_{1,2}$ by a
+2×2 solve, and
+
+$$
+\eta_{m,j} = \frac{|c_j|^2 S_j}{|E_0|^2 k_n^{inc}/k_0}, \qquad
+\eta_m = \frac{S(c_1\psi_1 + c_2\psi_2)}{|E_0|^2 k_n^{inc}/k_0}
+$$
+
+with the fluxes $S$ in units of $2Z_0$. In a lossless medium with distinct modes the channels are
+power-orthogonal and $\eta_m = \eta_{m,1} + \eta_{m,2}$; in an isotropic one the channels are s and
+p and $\eta_m$ equals `conical_diffraction_orders`. In a lossy medium the efficiencies are the
+powers through the line. A channel propagates when $|\operatorname{Im}k_n| < |\operatorname{Re}k_n|$.
+
+**Jones convention and reciprocity.** The reflection Jones matrix uses $\hat s = \hat z\times\hat
+k_\parallel$ for both waves and $\hat p = \hat s\times\hat k/n$; since s and p of both waves flip
+together against `conical_polarisation` ($\hat s = \hat k\times\hat n$), the Jones matrices agree.
+Reversing the specular path at the azimuth φ is the incidence at φ + π, and for every symmetric
+tensor
+
+$$
+r_{ss}(\phi + \pi) = r_{ss}(\phi),\quad r_{pp}(\phi + \pi) = r_{pp}(\phi),\quad
+r_{ps}(\phi) = -r_{sp}(\phi + \pi).
+$$
+
+A plate with its axis in the layer plane at the azimuth α against the plane of incidence is
+mirrored by α → −α: $r_{ss}, r_{pp}$ are even, $r_{sp}, r_{ps}$ odd in α (and zero for the axis
+in or perpendicular to the plane of incidence).
+
+**Not yet:** a PML in a substrate with a tilted axis fails the stability condition
+(`pml-backward-wave`); the modal transparent boundary of ADR-0015 §2 is M19 S5b. The Jones /
+Mueller matrices of every order and crystal stacks in `hpfem.grating` are S5c.
 
 ## Verification
 
@@ -183,4 +222,16 @@ of ADR-0015 §2 is S5 as well.
   scattered field (exactly zero), in both solvers;
 - `anisotropic_conical_wave` of an isotropic stack equals `layered_conical_wave` (field, curl,
   β, R), and its curl matches the field by finite differences for a crystal stack;
+- half-space modes: s / p with $k_z = \pm\sqrt{\varepsilon - a^2 - b^2}$ and flux $\operatorname{Re}k_z$,
+  eigenvectors of K and the closed-form ordinary $k_z$ of a tilted crystal, both directions, and
+  the substrate modes of `response`; the mirror symmetry in α and the reciprocity relation above
+  (also for an axis tilted out of the plane) to $10^{-12}$;
+- `conical_mode_orders` (`test_anisotropic_conical.cpp`): a field of known ordinary and
+  extraordinary waves (one evanescent) in a tilted crystal, verified to solve Maxwell's equations
+  in the solver frame by finite differences, gives back its amplitudes to $10^{-10}$; in an
+  isotropic medium the order efficiencies equal `conical_diffraction_orders`;
+- `anisotropic_stack_background` (convergence): on a lossless c-cut substrate the ordinary and
+  extraordinary channels of the transmitted zeroth order of the conical FEM field converge to the
+  per-mode transmittances of the stack ($1.5\cdot10^{-4} \to 3.5\cdot10^{-7}$ for p = 2…5; the
+  error of these quadratic quantities alternates in sign, so it falls in pairs of p);
 - `python/tests/test_anisotropic_volume.py` checks the bindings.

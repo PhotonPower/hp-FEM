@@ -191,3 +191,32 @@ def test_anisotropic_stack_as_background():
     cw = hpfem.anisotropic_conical_wave(stack, k0, 0.4, 0.3, hpfem.Polarisation.P)
     assert abs(cw.wave.beta - k0 * np.sin(0.4) * np.sin(0.3)) < 1e-12
     assert not cw.background.substrate.is_isotropic
+
+
+def test_mode_resolved_orders_binding():
+    """M19 S5a: half-space modes and the orders resolved into them are bound; an ordinary wave
+    below the line comes back as the ordinary channel of order 0."""
+    k0 = 2 * np.pi
+    eps = uniaxial(1.5, 1.7, [0.3, -0.7, 0.6])  # solver frame
+    up = hpfem.half_space_modes(np.eye(3) * 2.25, 0.3, 0.2, True)
+    assert up.kinds[0] == hpfem.SubstrateMode.S
+    assert abs(up.kz[0] - np.sqrt(2.25 - 0.13)) < 1e-13
+    # local frame of the line with normal -y: (x, z, -y)
+    r = np.array([[1.0, 0, 0], [0, 0, 1.0], [0, -1.0, 0]])
+    kt0, beta, period = 0.3 * k0, 0.25 * k0, 0.8
+    modes = hpfem.half_space_modes(r @ eps @ r.T, kt0 / k0, beta / k0, True)
+    assert modes.kinds[0] == hpfem.SubstrateMode.ORDINARY
+    e0 = r.T @ np.asarray(modes.fields[0])
+
+    def field(x):
+        return 0.7 * e0 * np.exp(1j * (kt0 * x[0] - k0 * modes.kz[0] * x[1]))
+
+    line = hpfem.OrderLine(
+        np.array([0.0, 0.0]), np.array([1.0, 0.0]), np.array([0.0, -1.0]), period
+    )
+    orders = hpfem.conical_mode_orders(field, line, k0, eps, kt0, beta, 0.9 * k0, max_order=1)
+    zeroth = orders[1]
+    assert zeroth.order == 0
+    assert abs(zeroth.channels[0].amplitude - 0.7) < 1e-10
+    assert abs(zeroth.channels[1].amplitude) < 1e-10
+    assert abs(zeroth.efficiency - 0.49 * modes.flux[0] / 0.9) < 1e-10

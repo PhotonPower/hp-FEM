@@ -3,6 +3,14 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Mode-resolved diffraction orders in crystal half-spaces (M19 S5a, ADR-0015 §7):
+  `half_space_modes` gives the upward or downward modes of a half-space (s / p, ordinary /
+  extraordinary, biaxial; k_z, full E and flux) and `conical_mode_orders` decomposes the orders of
+  a conical field on any line on the outgoing modes of the medium there, with per-channel
+  amplitudes and efficiencies (Python `half_space_modes`, `conical_mode_orders`). Tests of the
+  mirror symmetry and the reciprocity r_ps(φ) = −r_sp(φ + π) of the stack Jones matrix; the
+  transmitted ordinary / extraordinary channels of the conical FEM field converge to the stack
+  (`anisotropic_stack_background`).
 - Crystal layer stacks as the background of the solvers (M19 S4b, ADR-0015 §5):
   `AnisotropicStack::plane_wave` (Python `AnisotropicStack.plane_wave`) gives the analytic field
   in every region (value, curl, the branch of a region) with layer-local amplitudes;
