@@ -160,6 +160,22 @@ derivation is short and goes into the conical section of `docs/theory/maxwell.md
 
 The conical estimators follow §2. Checked against the 3D solver (§9, item 5).
 
+*Amendment (S3, 2026-11-05):* **frame of the grating module.** `hpfem.materials` and every
+Python entry point take tensors in the laboratory frame of §1 (x across the lines, y along them,
+z the layer normal). The conical solver computes in its own frame (x across the lines, y the
+layer normal, z along the lines); `hpfem.grating` maps a crystal given in a dict by
+`ε_conical = P ε_lab Pᵀ` with P swapping y and z, so that the azimuth φ runs from x towards the
+lines in both frames (P is a reflection; harmless for a symmetric tensor). A `MaterialMap` with
+crystals is refused by `hpfem.grating` (its frame would be ambiguous); the C++
+`ConicalScatteringSetup` takes the conical frame. **Staging:** both stages of §4 came at once
+(diagonal tensors keep their assembly, full tensors take the general product). The transposed
+paths found two latent errors that only crystals with ε_xz, ε_yz expose: the assembling
+`conical_adjoint_solution` and `conical_dwr_estimate` solved with A instead of Aᵀ, and
+`conical_resonance_adjoint` took y = x without constraints; both are fixed and checked against
+finite differences. The reciprocity paths of `hpfem.grating` (emission pattern, array scan)
+still refuse crystals: their mirrored cell for the substrate directions would need the mirrored
+tensor.
+
 ### 5. Anisotropic layer stack
 
 `LayerStack` layers and the substrate may carry anisotropic materials; the incidence medium stays

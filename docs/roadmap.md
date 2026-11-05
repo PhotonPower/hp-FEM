@@ -564,9 +564,13 @@ last.
     test), derivation in `maxwell.md`; tests: A(β)ᵀ = S A(−β) S, the 2D solver at β = 0, the
     adjoint against finite differences, the estimator identity, a crystal plate conical against
     3D (`anisotropic_conical_vs_3d`)
-  - [ ] S3b: `ConicalSweep` with tensor groups (power matrix on the kept factorisation), the
-    emission pattern by reciprocity at −β, crystals in `hpfem.grating`, the grating rotated with
-    the crystal against 3D, form birefringence against the effective-medium plate (L. Li 2003)
+  - [x] S3b: `ConicalSweep` with tensor groups (six mass parts per crystal), the left vector of
+    `conical_resonance_adjoint` for non-symmetric pencils (a latent error, checked against finite
+    differences), crystals in `hpfem.grating.solve` / `validate` in the laboratory frame
+    (y ↔ z to the conical frame, ADR-0015 S3 amendment)
+  - [ ] S3c: the emission pattern and the array scan by reciprocity with crystals (mirrored
+    tensor for the substrate directions), the grating rotated with the crystal against 3D, form
+    birefringence against the effective-medium plate (L. Li 2003)
 - [ ] S4: anisotropic `LayerStack`: 4×4 system per layer (ε_zz ≠ 0), ordered complex Schur form
   and 2×2 block exponentials, stable S-matrix recursion on the up / down subspaces, substrate modes
   (o / e by the axis, biaxial by power orthogonality), Jones matrix, analytic stack field for the

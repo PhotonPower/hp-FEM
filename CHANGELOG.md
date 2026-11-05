@@ -13,7 +13,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   tensors; `diagnostics.validate_scattering` takes crystals in conical setups (scalar E_z check,
   PML condition). New convergence test `anisotropic_conical_vs_3d`: a crystal plate with the axis
   along (1, 1, 1) at conical incidence agrees with the 3D solver, the difference falling
-  exponentially in p. `ConicalSweep` and the `hpfem.grating` entry points still refuse crystals.
+  exponentially in p. `ConicalSweep` takes crystal groups (six mass parts, one per independent
+  tensor entry); `hpfem.grating.solve` / `validate` take crystals in the structured parts, given
+  in the laboratory frame of `hpfem.materials` (z the layer normal) and turned into the conical
+  frame by swapping y and z (ADR-0015 S3 amendment; a `MaterialMap` with crystals is refused
+  there); the automatic scalar E_z path steps aside for coupling crystals. The reciprocity paths
+  (`emission_pattern`, the array scan) still refuse crystals.
   **Breaking (C++):** `ConicalTensorField` returns `ConicalTensor` (3×3) instead of a diagonal.
 - Crystals in the 2D / 3D volume solvers (M19 S2, ADR-0015 §2): `Scattering`, `Resonance` and
   `BandStructure` take tensor materials by tag, as background and per cell
@@ -321,6 +326,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - The adjoint solves of the conical solver (`conical_adjoint_solution` without a kept
   factorisation, `conical_dwr_estimate`) used A instead of Aᵀ, which is correct only for
   symmetric systems; they now assemble the transpose (no change for isotropic media).
+- `conical_resonance_adjoint` took the left eigenvector equal to the mode whenever there were no
+  constraints; it now checks the pencil's symmetry and otherwise computes the left vector by
+  transposed inverse iteration (no change for isotropic media).
 - The PML of `grating` was designed with the smaller of the cover and substrate indices, even
   with `bottom="pec"`, where there is no bottom PML, and even for a metal substrate with
   Re n ≈ 0. Now the substrate counts only with a bottom PML and when waves propagate in it

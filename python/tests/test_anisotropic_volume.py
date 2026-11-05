@@ -92,3 +92,64 @@ def test_pml_tensor_stretch_and_stability_condition():
     crystal = hpfem.Material.anisotropic(np.diag([2.25, 2.25, 4.0]))
     assert abs(crystal.max_real_index - 2.0) < 1e-12
     assert abs(hpfem.Material.dielectric(1.5).max_real_index - 1.5) < 1e-12
+
+
+def test_grating_with_a_crystal_ridge():
+    """M19 S3: a lossy crystal ridge with a tilted axis (eps_xz, eps_yz) on glass at conical
+    incidence: orders, absorption and the flux balance close; the automatic scalar path steps
+    aside for the coupling crystal; the reciprocity paths still refuse crystals."""
+    from test_grating_solve import OMEGA, RIDGE_TAG, SUB, unit_cell
+
+    from hpfem import grating, materials, units
+
+    mesh, pml = unit_cell()
+    glass = hpfem.Material.dielectric(1.5)
+    stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)
+    eps = uniaxial(1.6, 1.9, [1.0, 0.5, 0.8]) + 0.05j * np.eye(3)
+    crystal = hpfem.Material.anisotropic(eps)
+    common = dict(order=3, pml={"top": pml, "bottom": pml}, orders_max=2)
+    for pol, theta, phi in (("p", 40.0, 30.0), ("s", 30.0, 0.0)):
+        result = grating.solve(mesh, {SUB: glass, RIDGE_TAG: crystal}, stack, pol,
+                               theta * units.deg, phi * units.deg, OMEGA, **common)  # fmt: skip
+        assert not result.scalar
+        assert result.A > 1e-3
+        assert abs(result.power_balance_residual) < 3e-3, result.power_balance_residual
+        fb = result.flux_balance
+        assert fb is not None and abs(fb["relative_residual"]) < 5e-3
+    # the same crystal as a dispersive model
+    model = materials.Anisotropic([2.5 + 0.05j, 3.6 + 0.05j, 3.0 + 0.05j],
+                                  materials.axis_rotation(theta=0.6, phi=0.4))  # fmt: skip
+    result = grating.solve(mesh, {SUB: glass, RIDGE_TAG: model}, stack, "p", 40 * units.deg,
+                           30 * units.deg, OMEGA, **common)  # fmt: skip
+    assert abs(result.power_balance_residual) < 3e-3
+    assert "anisotropic_unsupported" not in codes(
+        grating.validate(
+            mesh,
+            {SUB: glass, RIDGE_TAG: crystal},
+            stack,
+            "p",
+            40 * units.deg,
+            30 * units.deg,
+            OMEGA,
+            **common,
+        )  # fmt: skip
+    )
+
+
+def test_grating_takes_crystals_in_the_laboratory_frame():
+    """hpfem.materials gives z as the layer normal; the conical solver has y as the normal and z
+    along the lines: a c-cut crystal (axis along the normal) has its axis along y there, an
+    axis along the lines (lab y) lies along z."""
+    from hpfem import grating, materials
+
+    c_cut = grating._to_conical_frame(materials.Uniaxial(2.0, 3.0, theta=0.0).at(1e15))
+    assert np.allclose(np.asarray(c_cut.eps_tensor), np.diag([2.0, 3.0, 2.0]))
+    along = materials.Uniaxial(2.0, 3.0, theta=np.pi / 2, phi=np.pi / 2).at(1e15)
+    lines = grating._to_conical_frame(along)
+    assert np.allclose(np.asarray(lines.eps_tensor), np.diag([2.0, 2.0, 3.0]), atol=1e-12)
+    stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], hpfem.Material.dielectric(1.5))
+    tensor_map = hpfem.MaterialMap(hpfem.Material.dielectric(1.0)).set(3, along)
+    import pytest
+
+    with pytest.raises(grating.GratingError, match="laboratory frame"):
+        grating._material_map(tensor_map, stack, 1e15)

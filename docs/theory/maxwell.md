@@ -672,9 +672,12 @@ on the (Nédélec, H1) blocks: reciprocity pairs β with −β. `Symmetry::kDete
 non-symmetric matrices to the general LU. Every path that used $A^T = A$ now uses the
 transpose: the adjoint solves of `conical_adjoint_solution` (material and shape sensitivities)
 and of the goal-oriented estimate `conical_dwr_estimate` assemble $A^T$, and the kept
-factorisation solves with the transposed factors. Still refused for crystals: `ConicalSweep`
-(material groups by scalar ε) and the `hpfem.grating` entry points (emission by reciprocity at
-−β, layered crystals, M19 S4 onwards).
+factorisation solves with the transposed factors; the left eigenvector of
+`conical_resonance_adjoint` is computed by transposed inverse iteration whenever the pencil is
+not symmetric (not only with constraints). `ConicalSweep` gives a crystal group six mass parts,
+one per independent tensor entry ($M(\varepsilon) = \sum_{i\le j}\varepsilon_{ij}M^{ij}$).
+Still refused for crystals: the reciprocity paths of `hpfem.grating` (emission pattern, array
+scan) and crystals in the layer stack (M19 S4 onwards).
 
 **Scattered-field source.** With an isotropic background the source is the scaled contrast
 $k_0^2\,D''(\varepsilon - \varepsilon_bI)D'\,\hat E^{inc}$. **PML:** the stretch of the plane,

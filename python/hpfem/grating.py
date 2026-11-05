@@ -114,17 +114,55 @@ def _polarisation(pol):
     raise GratingError(f"polarisation {pol!r}: use 's' (E_z at phi = 0) or 'p' (H_z at phi = 0)")
 
 
+# laboratory frame (x across the lines, y along them, z the layer normal; ADR-0015 §1, the frame
+# of hpfem.materials) -> frame of the conical solver (x across, y the normal, z along the lines)
+_LAB_TO_CONICAL = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0]])
+
+
+def _to_conical_frame(material):
+    """A crystal given in the laboratory frame as the tensor ``Material`` of the conical solver:
+    ``P eps P^T`` with ``P`` swapping y and z (the azimuth phi of the incidence runs from x
+    towards the lines in both frames; for a symmetric tensor the reflection is harmless).
+    Isotropic materials are returned as they are."""
+    if material.is_isotropic:
+        return material
+    eps = np.asarray(material.eps_tensor)
+    return hpfem.Material.anisotropic(_LAB_TO_CONICAL @ eps @ _LAB_TO_CONICAL.T,
+                                      complex(material.mu_r))  # fmt: skip
+
+
 def _material_map(materials, stack, omega: float) -> hpfem.MaterialMap:
     """``MaterialMap`` as given, or a dict of ``Material`` / dispersive models (evaluated at
-    ``omega`` through their ``at``) with the incidence medium as background."""
+    ``omega`` through their ``at``) with the incidence medium as background. Crystals in a dict
+    are given in the laboratory frame and turned into the conical frame (`_to_conical_frame`);
+    a ``MaterialMap`` with crystals is refused, its frame would be ambiguous."""
     if isinstance(materials, hpfem.MaterialMap):
+        if not materials.is_isotropic:
+            raise GratingError(
+                "give crystals as a dict tag -> material in the laboratory frame (x across the "
+                "lines, y along them, z the layer normal), not as a MaterialMap"
+            )
         return materials
     out = hpfem.MaterialMap(stack.incidence_medium)
     for tag, material in dict(materials).items():
         if hasattr(material, "at") and not isinstance(material, hpfem.Material):
             material = material.at(omega)
-        out.set(int(tag), material)
+        out.set(int(tag), _to_conical_frame(material))
     return out
+
+
+def _couples_ez(mesh, material_map) -> bool:
+    """A crystal with eps_xz or eps_yz in the map: E_z couples to the in-plane field already at
+    beta = 0, so the scalar E_z path does not apply (ADR-0015 §4)."""
+    if material_map.is_isotropic:
+        return False
+    for c in range(mesh.num_cells):
+        m = material_map.of_cell(mesh, c)
+        if not m.is_isotropic:
+            eps = np.asarray(m.eps_tensor)
+            if eps[0, 2] != 0 or eps[1, 2] != 0:
+                return True
+    return False
 
 
 def _snap_interfaces(mesh, stack, tolerance: float) -> int:
@@ -165,7 +203,9 @@ def _structure_extent(mesh, material_map, stack):
         centroid = np.mean([mesh.vertex(int(v)) for v in mesh.cell_vertices(c)], axis=0)
         material = material_map.of_cell(mesh, c)
         background = stack.material_at([float(centroid[0]), float(centroid[1])])
-        if material.eps_r != background.eps_r or material.mu_r != background.mu_r:
+        if material.mu_r != background.mu_r or not np.array_equal(
+            np.asarray(material.eps_tensor), np.asarray(background.eps_tensor)
+        ):
             ys = [float(mesh.vertex(int(v))[1]) for v in mesh.cell_vertices(c)]
             lo, hi = min(lo, min(ys)), max(hi, max(ys))
     if lo > hi:
@@ -1192,7 +1232,8 @@ def validate(
     (straddling cells, bad options) is reported as the single error ``setup``."""
     from hpfem import diagnostics as dg
 
-    found = dg.validate_isotropic(materials, "hpfem.grating", stack)
+    # crystals in the structured parts are solved (M19 S3); the layer stack is still isotropic
+    found = dg.validate_isotropic(None, "hpfem.grating", stack)
     if found:
         return found
     try:
@@ -1297,7 +1338,7 @@ def solve(
     t0 = time.perf_counter()
     timing: dict[str, float] = {}
     if check:
-        found = dg.validate_isotropic(materials, "hpfem.grating.solve", stack)
+        found = dg.validate_isotropic(None, "hpfem.grating.solve", stack)
         if found:
             raise GratingError("; ".join(str(d) for d in found))
     pr = _prepare(
@@ -1333,7 +1374,11 @@ def solve(
     nd = hpfem.NedelecDofMap2D(mesh, orders)
     h1 = hpfem.DofMap2D(mesh, orders)
     if scalar == "auto":
-        scalar = _polarisation(polarisation) == hpfem.Polarisation.S and float(phi) == 0.0
+        scalar = (
+            _polarisation(polarisation) == hpfem.Polarisation.S
+            and float(phi) == 0.0
+            and not _couples_ez(mesh, material_map)
+        )
     elif scalar not in (True, False):
         raise GratingError(f"scalar={scalar!r}: use 'auto', True or False")
     setup = _conical_setup(
@@ -1777,6 +1822,12 @@ def _reciprocity_means(mesh, materials, stack, position, sigma: float, omega: fl
     jumps; along z the factor exp(−σ²β²/2)), in the frame of the given cell, shape
     (num_directions, num_pol, 3); and the index of the medium of every direction. dP/dΩ of a
     moment p is n k0² Z0 |p · mean|² / (32π²)."""
+    from hpfem import diagnostics as dg
+
+    found = dg.validate_isotropic(materials, f"hpfem.grating.{who}", stack)
+    if found:
+        # the cell mirrored for the substrate directions would need the mirrored tensor
+        raise hpfem.AnisotropicUnsupported("; ".join(str(d) for d in found))
     materials = _completed_material_map(mesh, materials, stack, omega)
     frames = {"up": (mesh, stack, pml, position)}
     if any(side == "down" for _t, _f, side in directions):

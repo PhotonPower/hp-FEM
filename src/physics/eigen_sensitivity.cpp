@@ -238,14 +238,25 @@ ModeAdjoint conical_resonance_adjoint(const ConicalResonance& problem,
       setup.extra_quadrature_order);
   ModeAdjoint out;
   const auto& constraints = problem.constraints();
-  if (!constraints) {
+  // a crystal with eps_xz or eps_yz makes the pencil non-symmetric (ADR-0015 §4): then the
+  // left vector is computed as with constraints, never taken as y = x
+  const bool symmetric =
+      solvers::asymmetry(system.stiffness) <= 1e-12 && solvers::asymmetry(system.mass) <= 1e-12;
+  if (!constraints && symmetric) {
     out.field = x;  // complex symmetric pencil: y = x
     out.normalisation = pair(x, system.mass * x);
     return out;
   }
   const auto& free = problem.free_dofs();
   const Complex lambda = lambda_of(mode.omega);
-  out.mode_reduced = to_reduced(*constraints, free, x);
+  if (constraints) {
+    out.mode_reduced = to_reduced(*constraints, free, x);
+  } else {
+    out.mode_reduced.resize(static_cast<Index>(free.size()));
+    for (std::size_t j = 0; j < free.size(); ++j) {
+      out.mode_reduced(static_cast<Index>(j)) = x(free[j]);
+    }
+  }
   const auto& [a, b] = problem.reduced_pencil();
   // transposed inverse iteration at a shift next to lambda: (A - sigma B)^T y = B^T y_old
   const Complex sigma = lambda * Complex{1.0 + 1e-10, 0.0};
@@ -266,8 +277,9 @@ ModeAdjoint conical_resonance_adjoint(const ConicalResonance& problem,
   }
   out.residual = Vector(at * y).norm() / scale;
   out.reduced = y;
-  const SparseMatrix p_bar = constraints->prolongation().conjugate();
-  out.field = to_full(Vector(p_bar * y), free, x.size());
+  out.field = constraints
+                  ? to_full(Vector(constraints->prolongation().conjugate() * y), free, x.size())
+                  : to_full(y, free, x.size());
   out.normalisation = pair(out.field, system.mass * x);
   log().info("conical_resonance_adjoint: left vector residual {:.2e} ({} unknowns)", out.residual,
              y.size());

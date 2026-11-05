@@ -141,9 +141,14 @@ The conical solver takes crystals since M19 S3 (full tensors in `ConicalForm`, t
 symmetry for $\varepsilon_{xz}, \varepsilon_{yz} \ne 0$ and the transposed adjoints:
 [maxwell.md](maxwell.md#crystals-full-tensors-in-the-conical-forms));
 `diagnostics.validate_scattering` checks conical setups for the scalar $E_z$ path and the PML condition (the
-3D condition, conservative). Still isotropic only (they refuse with `AnisotropicUnsupported`),
-among others: `ConicalSweep`, the `hpfem.grating` entry points, the axisymmetric solver, the
-layered background, `TimeDomain`, `ThermoOptical`, `PropagatingMode` and the modal ports.
+3D condition, conservative). `ConicalSweep` and `hpfem.grating.solve` / `validate` take crystals
+in the structured parts; `hpfem.grating` expects them in the laboratory frame of this page and
+turns them into the conical frame (x across the lines, y the layer normal, z along the lines) by
+swapping y and z (ADR-0015 S3 amendment); a `MaterialMap` with crystals is refused there. Still
+isotropic only (they refuse with `AnisotropicUnsupported`), among others: the reciprocity paths
+of `hpfem.grating` (emission pattern, array scan), the dipole host medium, the axisymmetric
+solver, the layered background, `TimeDomain`, `ThermoOptical`, `PropagatingMode` and the modal
+ports.
 
 ## Python layer
 

@@ -15,7 +15,9 @@
 #include "hpfem/mesh/generators.hpp"
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/physics/conical_goal.hpp"
+#include "hpfem/physics/conical_resonance.hpp"
 #include "hpfem/physics/conical_scattering.hpp"
+#include "hpfem/physics/eigen_sensitivity.hpp"
 #include "hpfem/physics/scattering.hpp"
 #include "hpfem/physics/sensitivity.hpp"
 #include "hpfem/physics/sources.hpp"
@@ -329,4 +331,56 @@ TEST_CASE("Anisotropic conical: the estimator's residual matches the full-tensor
   Complex sum = 0;
   for (const Complex c : r) sum += c;
   REQUIRE(std::abs(sum - (l - a)) < 1e-8 * (std::abs(a) + std::abs(l)));
+}
+
+TEST_CASE("Anisotropic conical: resonance derivative with the left vector of a crystal",
+          "[physics][conical][anisotropic][resonance][sensitivity]") {
+  // a closed cavity (PEC all round: no constraints) with a coupling crystal block at beta != 0:
+  // the pencil is not symmetric, so the left eigenvector differs from the mode; the derivative
+  // for eps + delta I must match finite differences of the eigenvalue
+  Mesh<2> mesh = hpfem::mesh::rectangle(6, 6);
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    const Point<2> x = hpfem::mesh::affine_map(mesh, c).centroid();
+    if (x(0) > 0.3 && x(0) < 0.8 && x(1) > 0.2 && x(1) < 0.6) mesh.set_cell_tag(c, 5);
+  }
+  const NedelecDofMap<2> nd(mesh, 3);
+  const DofMap<2> h1(mesh, 3);
+  const Tensor3 eps = crystal(Complex{0.8, 0.05});
+  const auto setup = [&](Complex delta) {
+    hpfem::physics::ConicalResonanceSetup s;
+    s.target_omega = 4.0 * hpfem::constants::c0;
+    s.beta = 1.1;
+    s.materials.set(5, Material::anisotropic(Tensor3(eps + delta * Tensor3::Identity())));
+    s.pec_tags = kSides;
+    s.num_modes = 3;
+    s.krylov_dimension = 30;
+    return s;
+  };
+  const auto lambda_of = [](Complex omega) {
+    const Complex k = omega / hpfem::constants::c0;
+    return k * k;
+  };
+  const hpfem::physics::ConicalResonance problem(nd, h1, setup(0.0));
+  REQUIRE_FALSE(problem.constraints());
+  const auto modes = problem.solve().modes;
+  REQUIRE(!modes.empty());
+  const auto& mode = modes.front();
+  const Complex lambda = lambda_of(mode.omega);
+  const auto adjoint = hpfem::physics::conical_resonance_adjoint(problem, mode);
+  INFO("left vector residual " << adjoint.residual);
+  REQUIRE(adjoint.residual < 1e-9);
+  const auto derivative =
+      hpfem::physics::conical_resonance_material_derivative(problem, mode, adjoint, 5);
+  const auto closest = [&](Complex delta) {
+    Complex best{1e300, 0.0};
+    for (const auto& m : hpfem::physics::ConicalResonance(nd, h1, setup(delta)).solve().modes) {
+      if (std::abs(lambda_of(m.omega) - lambda) < std::abs(best - lambda))
+        best = lambda_of(m.omega);
+    }
+    return best;
+  };
+  const Complex h{1e-4, 0.0};
+  const Complex fd = (closest(h) - closest(-h)) / (2.0 * h);
+  INFO("adjoint " << derivative.dlambda << " FD " << fd);
+  REQUIRE(std::abs(derivative.dlambda - fd) < 1e-5 * std::abs(fd));
 }

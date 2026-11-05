@@ -1,6 +1,7 @@
 #include "hpfem/physics/conical_sweep.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <map>
 #include <utility>
@@ -29,6 +30,26 @@ const assembly::ConicalTensorField kZeroTensor = [](const Point<2>&) {
 const assembly::ConicalTensorField kUnitTensor = [](const Point<2>&) {
   return assembly::ConicalTensor::Identity().eval();
 };
+
+/// The independent entries of a symmetric permittivity tensor, in the order of the mass parts
+/// of a crystal group.
+constexpr std::array<std::pair<int, int>, 6> kTensorEntries{
+    {{0, 0}, {1, 1}, {2, 2}, {0, 1}, {0, 2}, {1, 2}}};
+
+/// Grouping key of a bulk material: its kind, the permittivity (scalar or the six tensor
+/// entries) and the permeability.
+std::vector<Real> material_key(const materials::Material& m) {
+  std::vector<Real> key{m.is_isotropic() ? 0.0 : 1.0, m.mu_scalar().real(), m.mu_scalar().imag()};
+  if (m.is_isotropic()) {
+    key.insert(key.end(), {m.eps_scalar().real(), m.eps_scalar().imag()});
+  } else {
+    const materials::Tensor3 eps = m.eps_tensor();
+    for (const auto& [i, j] : kTensorEntries) {
+      key.insert(key.end(), {eps(i, j).real(), eps(i, j).imag()});
+    }
+  }
+  return key;
+}
 
 /// Position of every nonzero of `source` in the compressed `pattern` (both row major with
 /// sorted columns); empty if an entry of `source` is missing from the pattern.
@@ -68,7 +89,7 @@ ConicalSweep::ConicalSweep(const fespace::NedelecDofMap<2>& transverse,
   base_free_ = problem.free_dofs().size();
   beta_scale_ = problem.wavenumber();
   // cells: PML (assembled per point), bulk (cached), sources (load per point)
-  std::map<std::pair<Real, Real>, std::map<std::pair<Real, Real>, std::size_t>> group_of;
+  std::map<std::vector<Real>, std::size_t> group_of;
   for (Index c = 0; c < mesh.num_cells(); ++c) {
     const Point<2> centroid = mesh::affine_map(mesh, c).centroid();
     if (base.pml && base.pml->in_layer(centroid)) {
@@ -76,13 +97,10 @@ ConicalSweep::ConicalSweep(const fespace::NedelecDofMap<2>& transverse,
     } else {
       bulk_cells_.push_back(c);
       const materials::Material& m = base.materials.of_cell(mesh, c);
-      const std::pair<Real, Real> eps{m.eps_scalar().real(), m.eps_scalar().imag()};
-      const std::pair<Real, Real> mu{m.mu_scalar().real(), m.mu_scalar().imag()};
-      auto& by_mu = group_of[eps];
-      auto it = by_mu.find(mu);
-      if (it == by_mu.end()) {
-        it = by_mu.emplace(mu, groups_.size()).first;
-        groups_.push_back(Group{c, {}, {}});
+      auto it = group_of.find(material_key(m));
+      if (it == group_of.end()) {
+        it = group_of.emplace(material_key(m), groups_.size()).first;
+        groups_.push_back(Group{c, {}, !m.is_isotropic(), {}});
       }
       groups_[it->second].cells.push_back(c);
     }
@@ -122,9 +140,26 @@ ConicalSweep::ConicalSweep(const fespace::NedelecDofMap<2>& transverse,
     return form;
   };
   for (Group& group : groups_) {
-    group.mass =
-        assembly::assemble_conical(transverse, longitudinal, 0.0, mass_form, extra, group.cells)
-            .mass;
+    if (!group.tensor) {
+      group.masses.push_back(
+          assembly::assemble_conical(transverse, longitudinal, 0.0, mass_form, extra, group.cells)
+              .mass);
+      continue;
+    }
+    // a crystal: the mass is linear in the tensor entries, one part per independent entry
+    for (const auto& [i, j] : kTensorEntries) {
+      assembly::ConicalTensor unit = assembly::ConicalTensor::Zero();
+      unit(i, j) = unit(j, i) = 1.0;
+      const auto entry_form = [unit](Index) {
+        assembly::ConicalForm form;
+        form.inverse_permeability = kZeroTensor;
+        form.permittivity = [unit](const Point<2>&) { return unit; };
+        return form;
+      };
+      group.masses.push_back(
+          assembly::assemble_conical(transverse, longitudinal, 0.0, entry_form, extra, group.cells)
+              .mass);
+    }
   }
   solver_ = solvers::make_direct_solver(base.solver, solvers::Symmetry::kDetect);
   timings_.setup = seconds_since(start);
@@ -132,6 +167,17 @@ ConicalSweep::ConicalSweep(const fespace::NedelecDofMap<2>& transverse,
       "ConicalSweep: {} bulk cells in {} material groups, {} PML cells, {} source cells, affine "
       "parts assembled in {:.2f} s",
       bulk_cells_.size(), groups_.size(), pml_cells_.size(), source_cells_.size(), timings_.setup);
+}
+
+std::vector<Complex> ConicalSweep::weights(const Group& group,
+                                           const ConicalScatteringSetup& setup) const {
+  const materials::Material& m = setup.materials.of_cell(transverse_->mesh(), group.representative);
+  if (!group.tensor) return {m.eps_scalar()};
+  const materials::Tensor3 eps = m.eps_tensor();
+  std::vector<Complex> out;
+  out.reserve(kTensorEntries.size());
+  for (const auto& [i, j] : kTensorEntries) out.push_back(eps(i, j));
+  return out;
 }
 
 ConicalSweep::Rows ConicalSweep::reduction_rows(const ConicalScattering& problem) const {
@@ -160,7 +206,9 @@ void ConicalSweep::build_cache(const ConicalScattering& problem, const Rows& row
   Cache cache;
   // the union pattern of every part (a sparse sum keeps the structure of both operands)
   SparseMatrix u = s0_ + s1_ + s2_;
-  for (const Group& group : groups_) u = u + group.mass;
+  for (const Group& group : groups_) {
+    for (const SparseMatrix& mass : group.masses) u = u + mass;
+  }
   const SparseMatrix pml_pattern = pml.stiffness + pml.mass;
   u = u + pml_pattern;
   u.makeCompressed();
@@ -175,7 +223,9 @@ void ConicalSweep::build_cache(const ConicalScattering& problem, const Rows& row
   cache.parts.push_back(part_of(s0_));
   cache.parts.push_back(part_of(s1_));
   cache.parts.push_back(part_of(s2_));
-  for (const Group& group : groups_) cache.parts.push_back(part_of(group.mass));
+  for (const Group& group : groups_) {
+    for (const SparseMatrix& mass : group.masses) cache.parts.push_back(part_of(mass));
+  }
   cache.pml_outer.assign(pml_pattern.outerIndexPtr(),
                          pml_pattern.outerIndexPtr() + pml_pattern.outerSize() + 1);
   cache.pml_inner.assign(pml_pattern.innerIndexPtr(),
@@ -278,9 +328,8 @@ assembly::ConicalSystem ConicalSweep::pml_system(const ConicalScattering& proble
     key.push_back(setup.pml->sigma_max(side));
   }
   for (const Index c : pml_cells_) {
-    const materials::Material& m = setup.materials.of_cell(mesh, c);
-    key.insert(key.end(), {m.eps_scalar().real(), m.eps_scalar().imag(), m.mu_scalar().real(),
-                           m.mu_scalar().imag()});
+    const std::vector<Real> material = material_key(setup.materials.of_cell(mesh, c));
+    key.insert(key.end(), material.begin(), material.end());
   }
   const auto form = [&problem](Index c) {
     assembly::ConicalForm f = problem.form_of_cell(c);
@@ -333,7 +382,6 @@ Vector ConicalSweep::factor_point(const ConicalScatteringSetup& setup, bool asse
                     "changed)",
                     problem.free_dofs().size(), base_free_));
   }
-  const auto& mesh = transverse_->mesh();
   const Real k0 = problem.wavenumber();
   const Real t = setup.beta / beta_scale_;
   const int extra = setup.extra_quadrature_order;
@@ -380,8 +428,8 @@ Vector ConicalSweep::factor_point(const ConicalScatteringSetup& setup, bool asse
     // the generic path (first point, or a point whose structure differs), then the cache
     SparseMatrix a_full = s0_ + t * s1_ + (t * t) * s2_;
     for (const Group& group : groups_) {
-      const Complex eps = setup.materials.of_cell(mesh, group.representative).eps_scalar();
-      a_full -= (k0 * k0 * eps) * group.mass;
+      const std::vector<Complex> w = weights(group, setup);
+      for (std::size_t k = 0; k < w.size(); ++k) a_full -= (k0 * k0 * w[k]) * group.masses[k];
     }
     a_full += pml_point;
     timings_.combine += seconds_since(start);
@@ -408,9 +456,9 @@ Vector ConicalSweep::factor_point(const ConicalScatteringSetup& setup, bool asse
   }
   // the cached path: values only
   Vector values = cache_.parts[0] + t * cache_.parts[1] + (t * t) * cache_.parts[2];
-  for (std::size_t g = 0; g < groups_.size(); ++g) {
-    const Complex eps = setup.materials.of_cell(mesh, groups_[g].representative).eps_scalar();
-    values -= (k0 * k0 * eps) * cache_.parts[3 + g];
+  std::size_t part = 3;
+  for (const Group& group : groups_) {
+    for (const Complex w : weights(group, setup)) values -= (k0 * k0 * w) * cache_.parts[part++];
   }
   for (Index k = 0; k < pml_point.nonZeros(); ++k) {
     values(cache_.pml_map[as_size(k)]) += pml_point.valuePtr()[k];

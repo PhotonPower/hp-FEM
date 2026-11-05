@@ -232,3 +232,34 @@ TEST_CASE("ConicalSweep with complex Bloch phases reproduces the dipole cell pro
   REQUIRE_THROWS_AS(fresh.point(), hpfem::InvalidArgument);
   REQUIRE_THROWS_AS(fresh.solve_loads(hpfem::Matrix::Zero(3, 1)), hpfem::InvalidArgument);
 }
+
+TEST_CASE("ConicalSweep with a dispersive crystal ridge reproduces the per-point solves",
+          "[physics][conical][sweep][anisotropic]") {
+  // M19 S3b: a crystal group carries six mass parts (one per independent tensor entry); the
+  // tensor has eps_xz, eps_yz, so the operator is not symmetric
+  const Grating g;
+  const auto crystal_setup = [&](Real wavelength, Real angle, Real azimuth) {
+    auto s = g.setup(wavelength, angle, azimuth);
+    const Real lam = wavelength / kUm;
+    hpfem::materials::Tensor3 eps;
+    eps << Complex{4.0 + lam, 0.2}, 0.3, Complex{0.4 * lam, 0.02}, 0.3, 3.5, 0.25,
+        Complex{0.4 * lam, 0.02}, 0.25, Complex{5.0 - lam, 0.1};
+    s.materials.set(3, Material::anisotropic(eps));
+    return s;
+  };
+  ConicalSweep sweep(g.nd, g.h1, crystal_setup(0.6 * kUm, 0.4, 0.3));
+  REQUIRE(sweep.num_groups() == 3);
+  for (const Real wavelength : {0.6 * kUm, 0.65 * kUm}) {
+    for (const auto& [angle, azimuth] : {std::pair{0.4, 0.3}, std::pair{0.7, 1.1}}) {
+      const auto setup = crystal_setup(wavelength, angle, azimuth);
+      const auto direct = ConicalScattering(g.nd, g.h1, setup).solve();
+      const auto swept = sweep.solve(setup);
+      INFO("wavelength " << wavelength << " angle " << angle << " azimuth " << azimuth);
+      const Real scale = std::hypot(direct.transverse.norm(), direct.longitudinal.norm());
+      REQUIRE(scale > 0);
+      REQUIRE((swept.transverse - direct.transverse).norm() < 1e-7 * scale);
+      REQUIRE((swept.longitudinal - direct.longitudinal).norm() < 1e-7 * scale);
+    }
+  }
+  REQUIRE(sweep.cached());
+}
