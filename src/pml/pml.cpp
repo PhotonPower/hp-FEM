@@ -201,6 +201,19 @@ assembly::PermittivityTensor<Dim> PmlBox<Dim>::permittivity(Complex eps_r,
 }
 
 template <int Dim>
+assembly::PermittivityTensor<Dim> PmlBox<Dim>::permittivity(
+    const assembly::PermittivityTensor<Dim>& eps, const Point<Dim>& x) const {
+  const ComplexCoordinates<Dim> s = stretch(x);
+  Complex det = 1.0;
+  for (int d = 0; d < Dim; ++d) det *= s(d);
+  assembly::PermittivityTensor<Dim> out;
+  for (int i = 0; i < Dim; ++i) {
+    for (int j = 0; j < Dim; ++j) out(i, j) = eps(i, j) * det / (s(i) * s(j));
+  }
+  return out;
+}
+
+template <int Dim>
 assembly::InversePermeabilityTensor<Dim> PmlBox<Dim>::inverse_permeability(
     Complex mu_r, const Point<Dim>& x) const {
   const ComplexCoordinates<Dim> s = stretch(x);

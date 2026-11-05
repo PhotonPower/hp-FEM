@@ -58,7 +58,7 @@ Scattering<Dim>::Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringS
           size = std::max(size, (mesh.vertex(vertices[i]) - mesh.vertex(vertices[j])).norm());
         }
       }
-      const Real index = std::sqrt(material(c).eps_scalar()).real();
+      const Real index = materials::max_real_index(material(c));
       const Real resolution = setup_.pml->max_resolution(size, index);
       const Real limit = pml::PmlBox<Dim>::resolution_limit(dofs_->cell_order(c));
       if (resolution / limit > worst / std::max(worst_limit, 1e-300)) {
@@ -74,7 +74,7 @@ Scattering<Dim>::Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringS
           "background_index needs a thicker layer or a milder profile "
           "(PmlBox::recommended_thickness with the profile), or use a layered background "
           "with a PEC wall for a substrate",
-          worst, worst_cell, std::sqrt(material(worst_cell).eps_scalar()).real(),
+          worst, worst_cell, materials::max_real_index(material(worst_cell)),
           dofs_->cell_order(worst_cell), worst_limit);
     }
   }
@@ -148,7 +148,12 @@ assembly::MaxwellForm<Dim> Scattering<Dim>::form_of_cell(Index cell) const {
   const materials::Material& b = background_material(cell);
   assembly::MaxwellForm<Dim> form;
   const Complex inv_mu = 1.0 / m.mu_scalar();
-  const Complex eps = m.eps_scalar();
+  // isotropic cells keep the scalar path; a tensor material goes through the full tensor
+  // (ADR-0015 §2), which equals the scalar path for eps = eps_r I up to round-off
+  const bool tensor = !m.is_isotropic();
+  const assembly::PermittivityTensor<Dim> eps_t =
+      tensor ? materials::permittivity_tensor<Dim>(m) : assembly::PermittivityTensor<Dim>{};
+  const Complex eps = tensor ? Complex{} : m.eps_scalar();
   if (setup_.pml) {
     // stretched tensors; identity inside the interior box, so every cell may use them, but
     // the rational tensors of the layer cells need the raised quadrature order
@@ -159,24 +164,46 @@ assembly::MaxwellForm<Dim> Scattering<Dim>::form_of_cell(Index cell) const {
     form.inverse_permeability = [mu, pml = *setup_.pml](const Point<Dim>& x) {
       return pml.inverse_permeability(mu, x);
     };
-    form.permittivity = [eps, pml = *setup_.pml](const Point<Dim>& x) {
-      return pml.permittivity(eps, x);
-    };
+    if (tensor) {
+      form.permittivity = [eps_t, pml = *setup_.pml](const Point<Dim>& x) {
+        return pml.permittivity(eps_t, x);
+      };
+    } else {
+      form.permittivity = [eps, pml = *setup_.pml](const Point<Dim>& x) {
+        return pml.permittivity(eps, x);
+      };
+    }
   } else {
     form.inverse_permeability = [inv_mu](const Point<Dim>&) {
       return assembly::InversePermeabilityTensor<Dim>(
           inv_mu * assembly::InversePermeabilityTensor<Dim>::Identity());
     };
-    form.permittivity = [eps](const Point<Dim>&) {
-      return assembly::PermittivityTensor<Dim>(eps * assembly::PermittivityTensor<Dim>::Identity());
-    };
+    if (tensor) {
+      form.permittivity = [eps_t](const Point<Dim>&) { return eps_t; };
+    } else {
+      form.permittivity = [eps](const Point<Dim>&) {
+        return assembly::PermittivityTensor<Dim>(eps *
+                                                 assembly::PermittivityTensor<Dim>::Identity());
+      };
+    }
   }
   if (setup_.formulation == Formulation::kScatteredField) {
-    const Complex contrast = k0_ * k0_ * (m.eps_scalar() - b.eps_scalar());
-    if (contrast != Complex{0.0, 0.0}) {
+    // k0^2 (eps_c - eps_b) E_inc as a matrix product; the background stays isotropic
+    // (the anisotropic stack is M19 S4)
+    const Complex eps_b = b.eps_scalar();
+    if (tensor) {
+      const assembly::PermittivityTensor<Dim> contrast =
+          k0_ * k0_ * (eps_t - eps_b * assembly::PermittivityTensor<Dim>::Identity());
       form.source = [contrast, value = setup_.incident.value](const Point<Dim>& x) {
         return ComplexVector<Dim>(contrast * value(x));
       };
+    } else {
+      const Complex contrast = k0_ * k0_ * (eps - eps_b);
+      if (contrast != Complex{0.0, 0.0}) {
+        form.source = [contrast, value = setup_.incident.value](const Point<Dim>& x) {
+          return ComplexVector<Dim>(contrast * value(x));
+        };
+      }
     }
     const Complex mu_contrast = 1.0 / m.mu_scalar() - 1.0 / b.mu_scalar();
     if (mu_contrast != Complex{0.0, 0.0}) {

@@ -76,8 +76,16 @@ void bind_pml_dim(py::module_& m) {
       .def("in_layer", &Box::in_layer, py::arg("x"))
       .def("stretch", &Box::stretch, py::arg("x"), "stretch factors s = 1 + i sigma/omega per axis")
       .def("stretched_coordinate", &Box::stretched_coordinate, py::arg("x"))
-      .def("permittivity", &Box::permittivity, py::arg("eps_r"), py::arg("x"),
+      .def("permittivity",
+           py::overload_cast<Complex, const Point<Dim>&>(&Box::permittivity, py::const_),
+           py::arg("eps_r"), py::arg("x"),
            "effective permittivity tensor of an isotropic material at x")
+      .def("permittivity",
+           py::overload_cast<const assembly::PermittivityTensor<Dim>&, const Point<Dim>&>(
+               &Box::permittivity, py::const_),
+           py::arg("eps"), py::arg("x"),
+           "effective permittivity tensor eps_ij det(L)/(s_i s_j) of an anisotropic material at x "
+           "(in 2D the in-plane block)")
       .def("inverse_permeability", &Box::inverse_permeability, py::arg("mu_r"), py::arg("x"));
 }
 

@@ -114,6 +114,12 @@ class PmlBox {
   /// isotropic material (diagonal).
   [[nodiscard]] assembly::PermittivityTensor<Dim> permittivity(Complex eps_r,
                                                                const Point<Dim>& x) const;
+  /// Effective permittivity tensor of an anisotropic material,
+  /// @f$ 	ildearepsilon_{ij} = arepsilon_{ij}\det\Lambda/(s_i s_j) @f$ (ADR-0015 §2); in 2D
+  /// `eps` is the in-plane block and @f$ s_z = 1 @f$. Equals the scalar overload for
+  /// @f$ arepsilon = arepsilon_r I @f$.
+  [[nodiscard]] assembly::PermittivityTensor<Dim> permittivity(
+      const assembly::PermittivityTensor<Dim>& eps, const Point<Dim>& x) const;
   /// Effective inverse permeability acting on curls: @f$ \mu_r^{-1}\Lambda^2/\det\Lambda @f$
   /// (3D, diagonal) or the scalar @f$ 1/(\mu_r s_x s_y) @f$ (2D, out-of-plane curl).
   [[nodiscard]] assembly::InversePermeabilityTensor<Dim> inverse_permeability(

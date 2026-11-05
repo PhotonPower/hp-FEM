@@ -97,6 +97,34 @@ class Material {
   std::shared_ptr<const Tensor3> eps_tensor_;  ///< set for a tensor material only
 };
 
+/// Largest real part of the principal refractive indices @f$ \sqrt{\lambda_k\mu_r} @f$ over the
+/// eigenvalues @f$ \lambda_k @f$ of the permittivity (the plain Re n for an isotropic medium): the
+/// index that sets the shortest wavelength in the medium, e.g. for mesh and PML resolution.
+[[nodiscard]] Real max_real_index(const Material& material);
+
+/// Throws the `AnisotropicUnsupported` of `permittivity_tensor<2>` for a tensor that couples
+/// the plane to z.
+[[noreturn]] void throw_in_plane_coupling();
+
+/// Permittivity tensor seen by the Dim-dimensional in-plane Nédélec space: the full tensor in 3D,
+/// the x–y block in 2D (the in-plane fields E_x, E_y with ∂_z = 0).
+/// @throws AnisotropicUnsupported in 2D if the tensor couples the plane to z
+///         (@f$ \varepsilon_{xz} \ne 0 @f$ or @f$ \varepsilon_{yz} \ne 0 @f$): the in-plane field
+///         then drives E_z, which the 2D space does not carry (use the conical solver).
+template <int Dim>
+[[nodiscard]] Eigen::Matrix<Complex, Dim, Dim> permittivity_tensor(const Material& material) {
+  static_assert(Dim == 2 || Dim == 3);
+  const Tensor3 eps = material.eps_tensor();
+  if constexpr (Dim == 3) {
+    return eps;
+  } else {
+    if (eps(0, 2) != Complex{0.0, 0.0} || eps(1, 2) != Complex{0.0, 0.0}) {
+      throw_in_plane_coupling();
+    }
+    return eps.template topLeftCorner<2, 2>();
+  }
+}
+
 /// Materials by cell tag; cells whose tag is not listed (including untagged cells) get the
 /// background material. Individual cells may override their tag's material (`set_cell`),
 /// e.g. for a temperature-dependent permittivity that varies from cell to cell.
