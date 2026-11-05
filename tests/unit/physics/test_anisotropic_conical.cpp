@@ -237,6 +237,11 @@ TEST_CASE("Anisotropic conical: isotropic limit and the scalar E_z path",
   REQUIRE_NOTHROW(ConicalScattering(nd, h1, ez));
   ez.materials.set(2, Material::anisotropic(crystal(Complex{0.3, 0.0})));
   REQUIRE_THROWS_AS(ConicalScattering(nd, h1, ez), hpfem::AnisotropicUnsupported);
+  // the same crystal as the substrate of the background stack (every cell below its top)
+  ez.materials.set(2, Material::anisotropic(crystal(0.0)));
+  ez.background = hpfem::physics::LayerStack<2>(
+      Material::vacuum(), {}, Material::anisotropic(crystal(Complex{0.3, 0.0})), 1.0);
+  REQUIRE_THROWS_AS(ConicalScattering(nd, h1, ez), hpfem::AnisotropicUnsupported);
 }
 
 TEST_CASE("Anisotropic conical: the adjoint solves the transposed system",

@@ -200,8 +200,8 @@ def test_materials_stack_orders_and_bottom_wall():
 
 
 def test_anisotropic_material_is_refused_with_a_diagnostic():
-    # ADR-0015: crystals in the structured parts of a grating are solved since M19 S3; a crystal
-    # in the layer stack (M19 S4) and the reciprocity paths are still refused up front
+    # ADR-0015: crystals in the structured parts of a grating are solved since M19 S3, crystal
+    # stacks since S5c (as AnisotropicStack); the reciprocity paths are still refused up front
     mesh, pml = unit_cell()
     crystal = {SUB: GLASS, RIDGE_TAG: materials.Uniaxial(2.25, 2.4, theta=0.3)}
     args = (mesh, crystal, STACK, "p", 50 * units.deg, 30 * units.deg, OMEGA)
