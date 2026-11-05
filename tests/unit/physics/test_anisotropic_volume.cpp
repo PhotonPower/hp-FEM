@@ -17,6 +17,7 @@
 #include "hpfem/physics/scattering.hpp"
 #include "hpfem/physics/sources.hpp"
 #include "hpfem/pml/pml.hpp"
+#include "hpfem/solvers/linear_solver.hpp"
 
 using Catch::Approx;
 using hpfem::Complex;
@@ -67,11 +68,12 @@ ScatteringSetup<Dim> pml_setup(const Material& scatterer) {
   typename PmlBox<Dim>::Thickness thickness;
   thickness.fill(0.25);
   setup.pml = PmlBox<Dim>(Point<Dim>::Constant(0.25), Point<Dim>::Constant(0.75), thickness, kK0);
+  // E_sc = 0 behind the PML
   if constexpr (Dim == 2) {
-    setup.pec_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin, box_tag::kYMax};
+    setup.incident_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin, box_tag::kYMax};
   } else {
-    setup.pec_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin,
-                      box_tag::kYMax, box_tag::kZMin, box_tag::kZMax};
+    setup.incident_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin,
+                           box_tag::kYMax, box_tag::kZMin, box_tag::kZMax};
   }
   return setup;
 }
@@ -179,4 +181,34 @@ TEST_CASE("Anisotropic volume: largest principal index", "[materials][anisotropi
   Tensor3 eps = Tensor3::Zero();
   eps.diagonal() << 2.25, 2.25, 4.0;
   REQUIRE(hpfem::materials::max_real_index(Material::anisotropic(eps)) == Approx(2.0));
+}
+
+TEST_CASE("Anisotropic volume: a symmetric tensor keeps the operator complex-symmetric",
+          "[physics][scattering][anisotropic]") {
+  using hpfem::solvers::detect_symmetry;
+  using hpfem::solvers::Symmetry;
+  const Mesh<3> m = with_scatterer(hpfem::mesh::box(3, 3, 3));
+  const NedelecDofMap<3> dofs(m, 2);
+  // absorbing crystal with a tilted axis, inside the PML: eps~ stays symmetric
+  Tensor3 eps;
+  eps << Complex{2.5, 0.1}, 0.4, Complex{0.2, 0.02}, 0.4, 3.0, 0.3, Complex{0.2, 0.02}, 0.3,
+      Complex{3.5, 0.05};
+  const Scattering<3> problem(dofs, pml_setup<3>(Material::anisotropic(eps)));
+  const auto symmetric = hpfem::assembly::assemble_maxwell_operator<3>(
+      dofs, [&](Index c) { return problem.form_of_cell(c); }, 9.0);
+  REQUIRE(detect_symmetry(symmetric.matrix) == Symmetry::kComplexSymmetric);
+  // a non-symmetric (gyrotropic) tensor, which Material refuses, would break it
+  Tensor3 gyro = eps;
+  gyro(0, 1) += Complex{0.0, 0.2};
+  gyro(1, 0) -= Complex{0.0, 0.2};
+  REQUIRE_THROWS_AS(Material::anisotropic(gyro), hpfem::InvalidArgument);
+  const auto general = hpfem::assembly::assemble_maxwell_operator<3>(
+      dofs,
+      [&](Index c) {
+        auto form = problem.form_of_cell(c);
+        if (m.cell_tag(c) == 2) form.permittivity = [gyro](const Point<3>&) { return gyro; };
+        return form;
+      },
+      9.0);
+  REQUIRE(detect_symmetry(general.matrix) == Symmetry::kGeneral);
 }
