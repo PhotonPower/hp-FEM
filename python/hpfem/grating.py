@@ -204,11 +204,50 @@ def _backward_orders(eps_conical, kx, beta, k0, period, orders_max) -> list[int]
     return out
 
 
+class _SolverFrameMap:
+    """A ``MaterialMap`` already in the solver frame (crystals included), passed on by the
+    reciprocity paths to :func:`solve`, which takes crystals otherwise only as a dict in the
+    laboratory frame."""
+
+    def __init__(self, material_map):
+        self.map = material_map
+
+
+_MIRROR_Y = np.diag([1.0, -1.0, 1.0])  # y -> -y in the solver frame
+_MIRROR_Z = np.diag([1.0, 1.0, -1.0])  # z -> -z in the laboratory frame
+
+
+def _mirrored_material(material, mirror=_MIRROR_Y):
+    """A material under a mirror M: M ε Mᵀ (isotropic materials unchanged)."""
+    if material.is_isotropic:
+        return material
+    eps = np.asarray(material.eps_tensor)
+    return hpfem.Material.anisotropic(mirror @ eps @ mirror, complex(material.mu_r))
+
+
+def _solver_frame_stack(stack):
+    """The ``LayerStack2D`` of the solver frame: an ``AnisotropicStack`` (laboratory frame) with
+    its tensors swapped y <-> z; a ``LayerStack2D`` as it is."""
+    if not isinstance(stack, hpfem.AnisotropicStack):
+        return stack
+    geometry = stack.layer_stack()
+    layers = [
+        hpfem.Layer(_to_conical_frame(stack.material(i + 1)),
+                    float(geometry.interface(i) - geometry.interface(i + 1)))
+        for i in range(stack.num_layers)
+    ]  # fmt: skip
+    return hpfem.LayerStack2D(stack.material(0), layers,
+                              _to_conical_frame(stack.material(stack.num_layers + 1)),
+                              float(stack.top))  # fmt: skip
+
+
 def _material_map(materials, stack, omega: float) -> hpfem.MaterialMap:
     """``MaterialMap`` as given, or a dict of ``Material`` / dispersive models (evaluated at
     ``omega`` through their ``at``) with the incidence medium as background. Crystals in a dict
     are given in the laboratory frame and turned into the conical frame (`_to_conical_frame`);
     a ``MaterialMap`` with crystals is refused, its frame would be ambiguous."""
+    if isinstance(materials, _SolverFrameMap):
+        return materials.map
     if isinstance(materials, hpfem.MaterialMap):
         if not materials.is_isotropic:
             raise GratingError(
@@ -615,7 +654,11 @@ def _prepare(
 def _diagnostics(mesh, pr: _Prepared, stack, materials, order, bottom, orders_max, omega):
     from hpfem import diagnostics as dg
 
-    given = pr.material_map if isinstance(materials, hpfem.MaterialMap) else materials
+    given = (
+        pr.material_map
+        if isinstance(materials, (hpfem.MaterialMap, _SolverFrameMap))
+        else materials
+    )
     stack = pr.stack if pr.stack is not None else stack
     out = dg.validate_mesh(mesh, given)
     out += dg.validate_stack(stack)
@@ -624,7 +667,8 @@ def _diagnostics(mesh, pr: _Prepared, stack, materials, order, bottom, orders_ma
     p = int(order) if np.isscalar(order) else int(np.median(order))
     out += dg.validate_pml(mesh, pr.box, p, min(pr.n_cover.real, max(pr.n_sub.real, 1.0)))
     out += dg.validate_resolution(mesh, pr.material_map, omega, order)
-    out += dg.validate_materials(materials, omega)
+    if not isinstance(materials, _SolverFrameMap):
+        out += dg.validate_materials(materials, omega)
     out += dg.validate_orders(
         pr.k0,
         pr.wave.kx,
@@ -2179,31 +2223,50 @@ def _reciprocity_means(mesh, materials, stack, position, sigma: float, omega: fl
     jumps; along z the factor exp(−σ²β²/2)), in the frame of the given cell, shape
     (num_directions, num_pol, 3); and the index of the medium of every direction. dP/dΩ of a
     moment p is n k0² Z0 |p · mean|² / (32π²)."""
-    from hpfem import diagnostics as dg
-
-    found = dg.validate_isotropic(materials, f"hpfem.grating.{who}", stack)
-    if found:
-        # the cell mirrored for the substrate directions would need the mirrored tensor
-        raise hpfem.AnisotropicUnsupported("; ".join(str(d) for d in found))
-    materials = _completed_material_map(mesh, materials, stack, omega)
-    frames = {"up": (mesh, stack, pml, position)}
+    layers = _solver_frame_stack(stack)
+    materials = _completed_material_map(mesh, materials, layers, omega)
+    crystal = not materials.is_isotropic or bool(_stack_crystals(layers))
+    frames = {"up": (mesh, stack, pml, position, materials)}
     if any(side == "down" for _t, _f, side in directions):
+        if not layers.substrate.is_isotropic:
+            raise GratingError(
+                f"{who}: directions into a crystal substrate need a plane wave incident from the "
+                "crystal, which is not available (M19 S7d); use the 'up' directions"
+            )
         if solve_kwargs.get("bottom", "pml") != "pml":
             raise GratingError(f"{who}: directions into the substrate need bottom='pml'")
         if pml is not None and not isinstance(pml, Mapping):
             raise GratingError(f"{who}: give the PML as None or {{'top', 'bottom'}}")
         mirrored_pml = None if pml is None else {"top": pml.get("bottom", 0.0),
                                                  "bottom": pml.get("top", 0.0)}  # fmt: skip
-        frames["down"] = (_mirrored_cell(mesh), _mirrored_stack(stack), mirrored_pml,
-                          position * np.array([1.0, -1.0]))  # fmt: skip
+        mirrored_mesh = _mirrored_cell(mesh)
+        if crystal:
+            # the mirror y -> -y maps a solution of ε onto one of M ε M (M = diag(1, -1, 1)):
+            # every cell's tensor mirrored, the stack mirrored as an AnisotropicStack (z -> -z)
+            down_map = hpfem.MaterialMap(layers.substrate)
+            for c in range(mesh.num_cells):
+                down_map.set_cell(c, _mirrored_material(materials.of_cell(mesh, c)))
+            lab = [
+                hpfem.Layer(
+                    _mirrored_material(_to_conical_frame(layers.material(n_l)), _MIRROR_Z),
+                    float(layers.interface(n_l - 1) - layers.interface(n_l)),
+                )
+                for n_l in range(int(layers.num_layers), 0, -1)
+            ]  # _to_conical_frame is its own inverse (y <-> z)
+            down_stack = hpfem.AnisotropicStack(layers.substrate, lab, layers.incidence_medium,
+                                                -float(layers.bottom))  # fmt: skip
+        else:
+            down_map, down_stack = materials, _mirrored_stack(layers)
+        frames["down"] = (mirrored_mesh, down_stack, mirrored_pml,
+                          position * np.array([1.0, -1.0]), down_map)  # fmt: skip
     flip = {"up": np.ones(3), "down": np.array([1.0, -1.0, 1.0])}
     means = np.zeros((len(directions), len(pol), 3), dtype=complex)
     n_dir = np.zeros(len(directions))
     nodes_cache = {}
     count = 0
     for i, (theta, phi, side) in enumerate(directions):
-        cell_mesh, cell_stack, cell_pml, x0 = frames[side]
-        n_medium = complex(cell_stack.incidence_medium.refractive_index)
+        cell_mesh, cell_stack, cell_pml, x0, cell_map = frames[side]
+        n_medium = complex(_solver_frame_stack(cell_stack).incidence_medium.refractive_index)
         if abs(n_medium.imag) > 1e-12:
             raise GratingError(f"{who}: the medium of the {side} directions is lossy")
         n_dir[i] = n_medium.real
@@ -2217,8 +2280,9 @@ def _reciprocity_means(mesh, materials, stack, position, sigma: float, omega: fl
             if progress is not None:
                 progress(count, len(directions) * len(pol))
             count += 1
-            result = solve(cell_mesh, materials, cell_stack, polarisation, theta, phi + np.pi,
-                           omega, order, pml=cell_pml, **solve_kwargs)  # fmt: skip
+            result = solve(cell_mesh, _SolverFrameMap(cell_map), cell_stack, polarisation,
+                           theta, phi + np.pi, omega, order, pml=cell_pml,
+                           **solve_kwargs)  # fmt: skip
             mean = hpfem.conical_gaussian_average(
                 result.problem, result.solution, [float(x0[0]), float(x0[1])], sigma
             )
@@ -2303,13 +2367,16 @@ def emission_pattern(
         if not 0.0 <= theta < 0.5 * np.pi:
             raise GratingError("emission_pattern: theta must lie in [0, pi/2)")
     # the host medium of the dipole (for P_bulk)
-    material_map = _material_map(materials, stack, float(omega))
+    layers = _solver_frame_stack(stack)
+    material_map = _material_map(materials, layers, float(omega))
     locator = hpfem.PointLocator2D(mesh)
     located = locator.locate([float(position[0]), float(position[1])])
     if located is None:
         raise GratingError("dipole: the position lies outside the mesh")
     tag = int(mesh.cell_tag(int(located.cell)))
-    host = material_map.at(tag) if material_map.has(tag) else stack.material_at(list(position))
+    host = material_map.at(tag) if material_map.has(tag) else layers.material_at(list(position))
+    if not host.is_isotropic:
+        raise GratingError("dipole: the emitter must lie in an isotropic medium (ADR-0015 S7)")
     n_host = complex(host.refractive_index)
     if abs(n_host.imag) > 1e-12:
         raise GratingError("dipole: the emitter must lie in a lossless medium (ADR-0013)")
@@ -3158,12 +3225,14 @@ def _emission_plan(cell: _DipoleCell, k0: float, *, nodes: int, kx_nodes: int, d
                            beta_breaks=beta_breaks)  # fmt: skip
     directions = []
     if channels:
+        crystal = not cell.material_map.is_isotropic or bool(_stack_crystals(cell.pr.stack))
+        scalar = [n_cover] + ([cell.pr.n_sub.real] if down_side else [])
         for side, n_side in (("up", n_cover), ("down", cell.pr.n_sub.real)):
             if side == "down" and not down_side:
                 continue
-            critical = [math.asin(n / n_side) for n in indices if n < n_side - 1e-12]
+            critical = [math.asin(n / n_side) for n in scalar if n < n_side - 1e-12]
             directions += [(th, ph, side, w) for th, ph, w in _hemisphere_directions(
-                angle_nodes[0], angle_nodes[1], symmetric, True, critical)]  # fmt: skip
+                angle_nodes[0], angle_nodes[1], symmetric, not crystal, critical)]  # fmt: skip
     return rule, directions, indices
 
 
@@ -3316,7 +3385,18 @@ def emission_cone(mesh, materials, stack, dipole, omega: float, aperture: float,
     sigma = float(dipole["sigma"])
     if position.shape != (2,) or not sigma > 0:
         raise GratingError("dipole: position (x0, y0) and sigma > 0 needed")
-    medium = stack.incidence_medium if side == "up" else stack.substrate
+    layers = _solver_frame_stack(stack)
+    crystal = (
+        bool(_stack_crystals(layers))
+        or not _material_map(materials, layers, float(omega)).is_isotropic
+    )
+    if crystal and symmetric:
+        raise GratingError("symmetric=True assumes a mirror-symmetric cell; not with crystals")
+    medium = layers.incidence_medium if side == "up" else layers.substrate
+    if not medium.is_isotropic:
+        raise GratingError(
+            f"emission_cone: the {side} medium is a crystal (M19 S7d: not available)"
+        )
     n_side = complex(medium.refractive_index)
     if abs(n_side.imag) > 1e-12:
         raise GratingError(f"emission_cone: the medium of the {side} side is lossy")
@@ -3324,12 +3404,13 @@ def emission_cone(mesh, materials, stack, dipole, omega: float, aperture: float,
     if not 0.0 < float(aperture) <= n_side:
         raise GratingError(f"emission_cone: aperture {aperture} must lie in (0, n = {n_side}]")
     theta_max = math.asin(min(1.0, float(aperture) / n_side))
-    other = (stack.substrate if side == "up" else stack.incidence_medium).refractive_index
-    critical = [math.asin(complex(other).real / n_side)] if complex(other).real < n_side else []
+    other = _substrate_index(layers.substrate if side == "up" else layers.incidence_medium)
+    critical = [math.asin(other.real / n_side)] if other.real < n_side else []
     if theta_max >= 0.5 * math.pi - 1e-9:
         theta_max = 0.5 * math.pi
     directions = [(th, ph, side, w) for th, ph, w in _hemisphere_directions(
-        angle_nodes[0], angle_nodes[1], symmetric, True, critical, theta_max)]  # fmt: skip
+        angle_nodes[0], angle_nodes[1], symmetric, not crystal, critical,
+        theta_max)]  # fmt: skip
     means, n_dir = _reciprocity_means(mesh, materials, stack, position, sigma, omega,
                                       [(th, ph, sd) for th, ph, sd, _w in directions],
                                       ("s", "p"), quadrature_points, order, pml, solve_kwargs,
@@ -3338,9 +3419,10 @@ def emission_cone(mesh, materials, stack, dipole, omega: float, aperture: float,
     scale /= 32 * np.pi**2
     r = np.einsum("d,dpi,dpj->ij", scale, np.conj(means), means)
     odd = np.zeros((3, 3), dtype=bool)
-    odd[0, 2] = odd[2, 0] = odd[1, 2] = odd[2, 1] = True
-    if symmetric:
-        odd[0, 1] = odd[1, 0] = True
+    if not crystal:  # a crystal breaks both mirrors: every entry counts
+        odd[0, 2] = odd[2, 0] = odd[1, 2] = odd[2, 1] = True
+        if symmetric:
+            odd[0, 1] = odd[1, 0] = True
     r[odd] = 0.0
 
     def quadratic(p) -> float:
@@ -3402,9 +3484,11 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     **Crystals** (in the cells or an ``AnisotropicStack``, M19 S7c, ADR-0015 S7 amendment): the
     integrand is not even in β or kx, so β runs over (−beta_max, beta_max) and kx over the full
     zone, every entry of the power matrix counts, and the light lines of a crystal half-space
-    come from its Fresnel quartic; the emitter lies in an isotropic, lossless medium,
-    ``symmetric``, ``channels`` (S7d) and the guided-mode poles are not available (a lossless
-    crystal structure that may guide modes is refused).
+    come from its Fresnel quartic; the emitter lies in an isotropic, lossless medium. The
+    ``channels`` by reciprocity (S7d) take every azimuth (no z mirror) and, into the substrate,
+    the cell with mirrored tensors; a crystal substrate has no down channel yet (refused).
+    ``symmetric`` and the guided-mode poles are not available (a lossless crystal structure that
+    may guide modes is refused).
 
     ``workers`` > 1 solves the cell problems of the scan in that many threads (the β pre-pass,
     the first pass over all β nodes and the second pass of the guided bumps as one batch each;
@@ -3439,10 +3523,10 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
         # M19 S7c: no β / kx symmetry, no channels by reciprocity (S7d), no pole subtraction
         if symmetric:
             raise GratingError("symmetric=True assumes a mirror-symmetric cell; not with crystals")
-        if channels:
+        if channels and cell.pr.transmitted and cell.pr.substrate_eps is not None:
             raise GratingError(
-                "channels by reciprocity are not available with crystals yet (M19 S7d): pass "
-                "channels=False"
+                "channels into a crystal substrate need a plane wave incident from the crystal, "
+                "which is not available (M19 S7d): pass channels=False"
             )
         if guided is True:
             raise GratingError(

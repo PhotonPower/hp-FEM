@@ -284,9 +284,20 @@ group velocity $v_x = -F_{k_x}/F_{k_0}$ (a small loss moves the root into the up
 when $v_x > 0$), its complex roots the branch points of the evanescent sheets; β is split at the
 turning points of the two sheets, the largest $k\sin t$ of the generalised eigenvalues
 $\det(k_0^2\varepsilon - k^2(I - uu^T)) = 0$, $u = (\cos t, 0, \sin t)$. The Wood-anomaly
-pinch breaks are kept for the isotropic media only. Channels by reciprocity (S7d), the
-guided-mode poles and `symmetric` are not available with crystals; a lossless crystal structure
-that may guide modes is refused.
+pinch breaks are kept for the isotropic media only. The guided-mode poles and `symmetric`
+are not available with crystals; a lossless crystal structure that may guide modes is refused.
+
+**Emission by reciprocity (S7d).** dP/dΩ into the direction r̂ is
+$n k_0^2Z_0|p\cdot\langle E_{pw}\rangle|^2/(32\pi^2)$ with the plane wave incident from r̂ (ADR-0013
+§6); reciprocity needs only a symmetric ε, so it holds for crystals. A direction into the
+substrate is computed on the cell mirrored at y = 0: the mirror maps a solution for ε onto one
+for $M\varepsilon M$, $M = \operatorname{diag}(1, -1, 1)$ (solver frame), so every cell's
+tensor is mirrored and the stack becomes the `AnisotropicStack` of the reversed layers with
+$M_z\varepsilon M_z$ (laboratory frame), the former substrate as its incidence medium. A crystal
+substrate would become a crystal incidence medium, which the stack does not take: no down
+directions there yet. The Gaussian average at the dipole carries $e^{-(n_{host}k_0\sigma)^2}$
+for every direction (the plane wave at the dipole lives in the host), the prefactor n is that of
+the direction's medium.
 
 ## Verification
 
@@ -362,6 +373,13 @@ that may guide modes is refused.
   turning points of a diagonal tensor equal the closed forms; the scan rule with the crystal
   light lines integrates the exact sample spectrum above a tilted lossless crystal half-space to
   the 2D reference ($10^{-4}$ at 6 nodes per panel, $2\cdot10^{-6}$ to $10^{-5}$ at 10);
+- the emission pattern of a dipole above a tilted crystal layer on a substrate of index 2, up
+  and down at azimuths without symmetry, equals $|p\cdot E_{pw}(x_0)|^2$ of
+  `AnisotropicStack.plane_wave` (and of the mirrored stack for the down directions) to
+  $6\cdot10^{-5}$ per polarisation (`test_planar_dipole.py`); the powers radiated into both
+  half-spaces (`emission_cone`, 8×16 directions each) add up to the total of
+  `dipole_above_stack` to $4.8\cdot10^{-5}$ (lossless, no guided modes;
+  `benchmarks/m19_crystal_emission_balance.py`, 15 min);
 - `benchmarks/m19_crystal_dipole_scan.py` (a long local run, 3840 cell problems, 32 min with 4
   workers): `dipole_emission` of a Gaussian dipole 0.32 µm above that half-space equals
   `dipole_above_stack` to $5\cdot10^{-4}$ for every orientation (x −5.3e-4, y −5.1e-4,

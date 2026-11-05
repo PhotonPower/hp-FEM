@@ -201,21 +201,14 @@ def test_materials_stack_orders_and_bottom_wall():
 
 def test_anisotropic_material_is_refused_with_a_diagnostic():
     # ADR-0015: crystals in the structured parts of a grating are solved since M19 S3, crystal
-    # stacks since S5c (as AnisotropicStack); the reciprocity paths are still refused up front
+    # stacks since S5c (as AnisotropicStack), the reciprocity paths since S7d
     mesh, pml = unit_cell()
     crystal = {SUB: GLASS, RIDGE_TAG: materials.Uniaxial(2.25, 2.4, theta=0.3)}
     args = (mesh, crystal, STACK, "p", 50 * units.deg, 30 * units.deg, OMEGA)
     found = grating.validate(*args, order=3, pml={"top": pml, "bottom": pml})
     assert "anisotropic_unsupported" not in codes(found)
     tensor = hpfem.Material.anisotropic(np.diag([2.25, 2.25, 2.4]))
-    with pytest.raises(hpfem.AnisotropicUnsupported):
-        dipole = {
-            "position": (0.0, 50 * units.nm),
-            "moment": (1.0, 0.0, 0.0),
-            "sigma": 5 * units.nm,
-        }
-        grating.emission_pattern(mesh, crystal, STACK, dipole, OMEGA, [(0.0, 0.0, "up")],
-                                 order=2, pml={"top": pml, "bottom": pml})  # fmt: skip
+    # the reciprocity paths take crystals since M19 S7d (test_planar_dipole.py)
     # a tensor Material in a MaterialMap, and the isotropic case
     material_map = hpfem.MaterialMap(GLASS).set(RIDGE_TAG, tensor)
     assert codes(dg.validate_isotropic(material_map, "test")) == ["anisotropic_unsupported"]

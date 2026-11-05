@@ -569,8 +569,9 @@ last.
     differences), crystals in `hpfem.grating.solve` / `validate` in the laboratory frame
     (y ↔ z to the conical frame, ADR-0015 S3 amendment)
   - [ ] S3c: the emission pattern and the array scan by reciprocity with crystals (mirrored
-    tensor for the substrate directions), the grating rotated with the crystal against 3D, form
-    birefringence against the effective-medium plate (L. Li 2003)
+    tensor for the substrate directions; done in S7d, except a crystal substrate), the grating
+    rotated with the crystal against 3D, form birefringence against the effective-medium plate
+    (L. Li 2003)
 - [ ] S4: anisotropic `LayerStack`: 4×4 system per layer (ε_zz ≠ 0), ordered complex Schur form
   and 2×2 block exponentials, stable S-matrix recursion on the up / down subspaces, substrate modes
   (o / e by the axis, biaxial by power orthogonality), Jones matrix, analytic stack field for the
@@ -641,8 +642,16 @@ last.
     against closed forms, the scan rule on the exact spectrum of a tilted crystal half-space
     (1e-4), the refusals; long run `benchmarks/m19_crystal_dipole_scan.py`: the FEM scan against
     S7a to 5e-4
-  - [ ] S7d: emission pattern / channels by reciprocity with crystals (mirrored tensors, with
-    S3c)
+  - [x] S7d: emission pattern / channels by reciprocity with crystals: `emission_pattern`,
+    `emission_cone` and the `channels` of `dipole_emission` take crystal cells and an
+    `AnisotropicStack`; the substrate directions mirror the cell with M ε M (M = diag(1, −1, 1))
+    and the stack as a mirrored `AnisotropicStack`; no z mirror of the directions and no odd-entry
+    zeroing with crystals; a crystal substrate has no down directions yet (refused: it would
+    need incidence from a crystal); tests: the pattern up and down against |p · E_pw(x0)|² of
+    the analytic stack field per polarisation (6e-5); local run
+    `benchmarks/m19_crystal_emission_balance.py`: the hemisphere powers up + down (8×16
+    directions each) against the total of S7a to 4.8e-5
+  - [ ] S7e (open): guided-mode poles above crystals, down channels into a crystal substrate
 - [ ] S8: GUI material editor (isotropic / uniaxial / biaxial / full, axis angles, per part and
   layer) and display of the Jones / Mueller elements (`GUI-hpFEM`)
 
