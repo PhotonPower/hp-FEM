@@ -99,7 +99,8 @@ SparseMatrix absorbing_matrix(const fespace::NedelecDofMap<Dim>& dofs,
       const LocalIndex k = mesh.facet_local_indices(f)[0];
       const auto& material = setup.materials.of_cell(mesh, c);
       const Real admittance =
-          std::sqrt(material.eps_r.real() / material.mu_r.real()) / constants::Z0;  // 1/Z
+          std::sqrt(material.eps_scalar().real() / material.mu_scalar().real()) /
+          constants::Z0;  // 1/Z
       const fespace::NedelecBasis<Dim> basis(dofs.cell_layout(c));
       const auto geometry = mesh::cell_geometry(mesh, c);
       const Point<Dim> centroid = mesh::affine_map(mesh, c).centroid();
@@ -155,7 +156,8 @@ TimeDomain<Dim>::TimeDomain(const fespace::NedelecDofMap<Dim>& dofs, TimeDomainS
   const auto& mesh = dofs.mesh();
   for (Index c = 0; c < mesh.num_cells(); ++c) {
     const auto& m = setup_.materials.of_cell(mesh, c);
-    if (m.eps_r.imag() != 0 || m.mu_r.imag() != 0 || m.eps_r.real() <= 0 || m.mu_r.real() <= 0) {
+    if (m.eps_scalar().imag() != 0 || m.mu_scalar().imag() != 0 || m.eps_scalar().real() <= 0 ||
+        m.mu_scalar().real() <= 0) {
       throw InvalidArgument(
           fmt::format("TimeDomain: cell {} needs real positive eps_r and mu_r", c));
     }
@@ -166,8 +168,8 @@ TimeDomain<Dim>::TimeDomain(const fespace::NedelecDofMap<Dim>& dofs, TimeDomainS
       [&](Index cell) {
         const auto& m = setup_.materials.of_cell(mesh, cell);
         assembly::MaxwellForm<Dim> form;
-        const Complex inv_mu = 1.0 / (constants::mu0 * m.mu_r.real());
-        const Complex eps = constants::eps0 * m.eps_r.real();
+        const Complex inv_mu = 1.0 / (constants::mu0 * m.mu_scalar().real());
+        const Complex eps = constants::eps0 * m.eps_scalar().real();
         form.inverse_permeability = [inv_mu](const Point<Dim>&) {
           return assembly::InversePermeabilityTensor<Dim>(
               inv_mu * assembly::InversePermeabilityTensor<Dim>::Identity());

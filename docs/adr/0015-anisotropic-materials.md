@@ -43,16 +43,24 @@ complex 3×3 `eps`), so that isotropic materials keep their size and speed. `is_
 `eps_tensor()` (returns `eps_r·I` for isotropic) and `mu_inv_tensor()` are the tensor-aware
 accessors. **Scalar access to an anisotropic material throws** (`eps_scalar()`, used by every path
 not yet migrated): an unsupported feature fails loudly instead of computing with a wrong scalar.
-Every such path also reports a `hpfem.diagnostics` entry `anisotropic-unsupported` with the feature
-name before it fails.
+Every such path also reports a `hpfem.diagnostics` entry `anisotropic_unsupported` with the
+feature name before it fails.
 
 A public data member cannot throw, so `eps_r` and `mu_r` become **private** with the accessors
 `eps_scalar()` / `mu_scalar()` and the constructors `Material::isotropic(eps, mu = 1)` and
-`Material::anisotropic(eps_tensor)`. This is a **breaking change** of the C++ and the Python API
-(`Material.eps_r`, aggregate initialisation `Material{eps, mu}`). Transition: S1 replaces all uses
-inside the repository in one change; the Python property `eps_r` stays for one release as a
-read-only alias of `eps_scalar()` with a `DeprecationWarning`, and the constructor
-`Material(eps_r, mu_r)` keeps working.
+`Material::anisotropic(eps_tensor)`. This is a **breaking change** of the C++ API (reads and
+writes of `Material::eps_r` / `mu_r`). Transition: S1 replaces all uses inside the repository in
+one change; the two-argument constructor `Material(eps_r, mu_r)` keeps `Material{eps, mu}`
+compiling.
+
+*Amendment (S1, 2026-11-01):* the Python API does not break. A Python property can raise, so
+`Material.eps_r` stays as the scalar property (it raises `hpfem.AnisotropicUnsupported` for a
+tensor material, and setting it makes the material isotropic) instead of becoming a deprecated
+alias. The diagnostic code is `anisotropic_unsupported`, in the snake_case of the existing
+codes. The diagnostic is reported by the Python entry points that run diagnostics
+(`grating.validate` / `solve`, `validate_scattering`); C++ paths and other Python paths fail
+with the exception. The isotropic-limit regression (§9 item 1) moves to S2, the first stage with
+a tensor path to compare.
 
 **μ stays scalar.** Optical crystals have μ = 1; the assembly keeps full μ⁻¹ tensors for the PML,
 but `Material` carries no μ tensor. This keeps the 4×4 system of §5 in its simple form and halves
@@ -248,8 +256,8 @@ stage** with its own ADR amendment once §5 and §7 are validated.
 
 - **Safe migration:** because scalar access throws, each of the ~50 files is either migrated or
   refuses anisotropic input with a diagnostic; there is no silent wrong answer. The price is a
-  breaking change of `Material` (private fields), absorbed in one change with a Python
-  deprecation alias. The migration order (stages in the roadmap, M19) follows the use: volume
+  breaking change of the C++ `Material` (private fields), absorbed in one change; the Python
+  API keeps `eps_r` as a property. The migration order (stages in the roadmap, M19) follows the use: volume
   solvers and the stack first, then the conical solver, then the rest.
 - **No cost for isotropic runs:** isotropic materials stay scalar; the tensor path is taken only
   when a cell carries a tensor. The solver symmetry is kept for non-gyrotropic crystals in the 3D

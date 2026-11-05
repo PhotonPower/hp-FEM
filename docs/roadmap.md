@@ -533,14 +533,17 @@ last.
   the ordered Schur form instead of eigenvectors (degenerate, near-degenerate and defective
   layers); the PML condition fails already for tilted ordinary crystals (diagnostic, modal
   substrate boundary for gratings); `Material` gets private scalar fields (breaking, Python alias)
-- [ ] S1: material model: optional 3×3 ε tensor in `materials::Material` (μ scalar), private
-  `eps_r` / `mu_r` with `eps_scalar()` throwing for tensors, `Material::isotropic` /
-  `anisotropic`, diagnostic `anisotropic-unsupported` on every unmigrated path, Python
-  `eps_r` alias with `DeprecationWarning`; `hpfem.materials.Anisotropic` / `Uniaxial(n_o, n_e,
-  theta, phi)` with the orientation conventions of ADR §6, ordinary / extraordinary data,
-  `docs/theory/materials.md`; regression test: ε·I reproduces all existing benchmarks to
-  round-off
-- [ ] S2: volume solvers 2D / 3D: tensors in `form_of_cell`, PML `ε̃_ij = ε_ij s_x s_y s_z/(s_i s_j)`
+- [x] S1: material model: optional symmetric 3×3 ε tensor in `materials::Material` (μ scalar),
+  private `eps_r` / `mu_r` with `eps_scalar()` / `refractive_index()` throwing
+  `AnisotropicUnsupported` for tensors (all uses in the repository migrated), `Material::isotropic`
+  / `anisotropic` (gyrotropic tensors refused), `MaterialMap::is_isotropic`; Python: `eps_r`
+  stays a property (raises for tensors, no API break), `Material.anisotropic` / `eps_tensor`,
+  `hpfem.AnisotropicUnsupported`, `hpfem.materials.Anisotropic` / `Uniaxial(o, e, theta, phi)` /
+  `axis_rotation` / `euler_rotation` (ADR §6), sapphire `Al2O3` with ordinary / extraordinary
+  data (Malitson & Dodge 1972), diagnostic `anisotropic_unsupported` in `grating.validate` /
+  `solve` and `validate_scattering`; `docs/theory/materials.md`
+- [ ] S2: volume solvers 2D / 3D: regression test first: ε·I through the tensor path reproduces
+  the existing benchmarks to round-off; tensors in `form_of_cell`, PML `ε̃_ij = ε_ij s_x s_y s_z/(s_i s_j)`
   with the `pml-backward-wave` diagnostic (geometric condition), estimators (divergence,
   `n·εE` jump), per-cell tensor overrides; tests: uniaxial slab in 3D, PML reflection with a full
   tensor (aligned and tilted axis), symmetry detection (non-gyrotropic crystals take the LDLᵀ

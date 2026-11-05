@@ -330,7 +330,7 @@ TEST_CASE("axisymmetric scattering on a layered background: bare stack, hole and
   REQUIRE(hole_cell >= 0);
   problem.setup.materials.set(kHole, Material::vacuum());
   const AxisymmetricScattering hole(*problem.meridian, *problem.azimuthal, problem.setup);
-  REQUIRE(hole.background_material(hole_cell).eps_r == Complex{2.25, 0.0});
+  REQUIRE(hole.background_material(hole_cell).eps_scalar() == Complex{2.25, 0.0});
   REQUIRE(static_cast<bool>(hole.form_of_cell(hole_cell).source));
   const auto scattered = hole.solve();
   REQUIRE(scattered.meridian.norm() > 0);

@@ -79,8 +79,8 @@ assembly::ConicalForm conical_pml_form(const pml::PmlBox<2>& box,
     return ConicalVector(s(1) / s(0), s(0) / s(1), s(0) * s(1));
   };
   assembly::ConicalForm form;
-  const Complex inv_mu = 1.0 / material.mu_r;
-  const Complex eps = material.eps_r;
+  const Complex inv_mu = 1.0 / material.mu_scalar();
+  const Complex eps = material.eps_scalar();
   form.inverse_permeability = [lambda, inv_mu](const Point<2>& x) {
     return ConicalVector(inv_mu * lambda(x).cwiseInverse());
   };
@@ -91,8 +91,8 @@ assembly::ConicalForm conical_pml_form(const pml::PmlBox<2>& box,
 
 assembly::ConicalForm conical_material_form(const materials::Material& material) {
   assembly::ConicalForm form;
-  const Complex inv_mu = 1.0 / material.mu_r;
-  const Complex eps = material.eps_r;
+  const Complex inv_mu = 1.0 / material.mu_scalar();
+  const Complex eps = material.eps_scalar();
   form.inverse_permeability = [inv_mu](const Point<2>&) { return ConicalVector::Constant(inv_mu); };
   form.permittivity = [eps](const Point<2>&) { return ConicalVector::Constant(eps); };
   return form;
@@ -118,7 +118,7 @@ ConicalScattering::ConicalScattering(const fespace::NedelecDofMap<2>& transverse
     }
     if (setup_.incident) {
       const auto& m = setup_.materials.of_cell(mesh, c);
-      if (m.mu_r != background_material(c).mu_r) {
+      if (m.mu_scalar() != background_material(c).mu_scalar()) {
         throw InvalidArgument(fmt::format(
             "ConicalScattering: cell {} has a permeability different from the background; the "
             "scattered-field formulation supports permittivity contrast only",
@@ -254,7 +254,8 @@ assembly::ConicalForm ConicalScattering::form_of_cell(Index cell) const {
     form.source = setup_.current;
     return form;
   }
-  const Complex contrast = k0_ * k0_ * (material.eps_r - background_material(cell).eps_r);
+  const Complex contrast =
+      k0_ * k0_ * (material.eps_scalar() - background_material(cell).eps_scalar());
   if (contrast != Complex{0.0, 0.0}) {
     form.source = [contrast, incident = setup_.incident](const Point<2>& x) {
       return ConicalVector(contrast * incident(x));
@@ -411,8 +412,8 @@ ConicalVector ConicalScattering::incident_curl(const Point<2>& x) const {
 }
 
 ConicalVector ConicalScattering::incident_h_field(const Point<2>& x) const {
-  const Complex mu = setup_.background ? setup_.background->incidence_medium().mu_r
-                                       : setup_.materials.background().mu_r;
+  const Complex mu = setup_.background ? setup_.background->incidence_medium().mu_scalar()
+                                       : setup_.materials.background().mu_scalar();
   return incident_curl(x) / (kI * setup_.omega * constants::mu0 * mu);
 }
 
@@ -431,7 +432,7 @@ ConicalVector ConicalScattering::h_field(const ConicalSolution& solution, Index 
   if (solution.scattered) {
     curl += incident_curl(mesh::cell_geometry(transverse_->mesh(), cell)->evaluate(xi).x);
   }
-  const Complex mu = setup_.materials.of_cell(transverse_->mesh(), cell).mu_r;
+  const Complex mu = setup_.materials.of_cell(transverse_->mesh(), cell).mu_scalar();
   return curl / (kI * setup_.omega * constants::mu0 * mu);
 }
 
@@ -505,7 +506,7 @@ Real conical_poynting_flux(const fespace::NedelecDofMap<2>& transverse,
     ConicalVector curl;
     const ConicalVector field =
         conical_field_at(transverse, longitudinal, e, v, beta, sp.cell, sp.xi, &curl);
-    const Complex mu = materials.of_cell(mesh, sp.cell).mu_r;
+    const Complex mu = materials.of_cell(mesh, sp.cell).mu_scalar();
     const ConicalVector h = curl / (kI * omega * constants::mu0 * mu);
     const ConicalVector h_conj = h.conjugate();
     // (E x H*) . n with n = (n_x, n_y, 0)
@@ -562,8 +563,8 @@ LayeredConicalWave layered_conical_wave(const LayerStack<2>& stack, Real k0, Rea
   }
   const LayerStack<3> stack3(stack.incidence_medium(), layers, stack.substrate(), stack.top());
   const LayeredPlaneWave<3> wave = stack3.plane_wave(k0, angle, pol, amplitude, azimuth);
-  const Real n_inc = stack.incidence_medium().eps_r.real() > 0
-                         ? std::sqrt(stack.incidence_medium().eps_r.real())
+  const Real n_inc = stack.incidence_medium().eps_scalar().real() > 0
+                         ? std::sqrt(stack.incidence_medium().eps_scalar().real())
                          : 1.0;
   LayeredConicalWave out;
   out.kx = k0 * n_inc * std::sin(angle) * std::cos(azimuth);

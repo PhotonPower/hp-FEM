@@ -39,6 +39,7 @@ nav:
       - Linear solvers: theory/solvers.md
       - Multiphysics: theory/multiphysics.md
       - Axisymmetric (2.5D): theory/axisymmetric.md
+      - Materials and anisotropy: theory/materials.md
   - Python API: python.md
   - Applications: applications.md
   - Validation: validation.md

@@ -1192,6 +1192,9 @@ def validate(
     (straddling cells, bad options) is reported as the single error ``setup``."""
     from hpfem import diagnostics as dg
 
+    found = dg.validate_isotropic(materials, "hpfem.grating", stack)
+    if found:
+        return found
     try:
         prepared = _prepare(
             mesh,
@@ -1293,6 +1296,10 @@ def solve(
 
     t0 = time.perf_counter()
     timing: dict[str, float] = {}
+    if check:
+        found = dg.validate_isotropic(materials, "hpfem.grating.solve", stack)
+        if found:
+            raise GratingError("; ".join(str(d) for d in found))
     pr = _prepare(
         mesh,
         materials,

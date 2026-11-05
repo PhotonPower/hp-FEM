@@ -58,7 +58,7 @@ Scattering<Dim>::Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringS
           size = std::max(size, (mesh.vertex(vertices[i]) - mesh.vertex(vertices[j])).norm());
         }
       }
-      const Real index = std::sqrt(material(c).eps_r).real();
+      const Real index = std::sqrt(material(c).eps_scalar()).real();
       const Real resolution = setup_.pml->max_resolution(size, index);
       const Real limit = pml::PmlBox<Dim>::resolution_limit(dofs_->cell_order(c));
       if (resolution / limit > worst / std::max(worst_limit, 1e-300)) {
@@ -74,7 +74,7 @@ Scattering<Dim>::Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringS
           "background_index needs a thicker layer or a milder profile "
           "(PmlBox::recommended_thickness with the profile), or use a layered background "
           "with a PEC wall for a substrate",
-          worst, worst_cell, std::sqrt(material(worst_cell).eps_r).real(),
+          worst, worst_cell, std::sqrt(material(worst_cell).eps_scalar()).real(),
           dofs_->cell_order(worst_cell), worst_limit);
     }
   }
@@ -147,15 +147,15 @@ assembly::MaxwellForm<Dim> Scattering<Dim>::form_of_cell(Index cell) const {
   const materials::Material& m = material(cell);
   const materials::Material& b = background_material(cell);
   assembly::MaxwellForm<Dim> form;
-  const Complex inv_mu = 1.0 / m.mu_r;
-  const Complex eps = m.eps_r;
+  const Complex inv_mu = 1.0 / m.mu_scalar();
+  const Complex eps = m.eps_scalar();
   if (setup_.pml) {
     // stretched tensors; identity inside the interior box, so every cell may use them, but
     // the rational tensors of the layer cells need the raised quadrature order
     if (setup_.pml->in_layer(mesh::affine_map(dofs_->mesh(), cell).centroid())) {
       form.quadrature_order = 2 * dofs_->cell_order(cell) + setup_.pml_extra_quadrature_order;
     }
-    const Complex mu = m.mu_r;
+    const Complex mu = m.mu_scalar();
     form.inverse_permeability = [mu, pml = *setup_.pml](const Point<Dim>& x) {
       return pml.inverse_permeability(mu, x);
     };
@@ -172,13 +172,13 @@ assembly::MaxwellForm<Dim> Scattering<Dim>::form_of_cell(Index cell) const {
     };
   }
   if (setup_.formulation == Formulation::kScatteredField) {
-    const Complex contrast = k0_ * k0_ * (m.eps_r - b.eps_r);
+    const Complex contrast = k0_ * k0_ * (m.eps_scalar() - b.eps_scalar());
     if (contrast != Complex{0.0, 0.0}) {
       form.source = [contrast, value = setup_.incident.value](const Point<Dim>& x) {
         return ComplexVector<Dim>(contrast * value(x));
       };
     }
-    const Complex mu_contrast = 1.0 / m.mu_r - 1.0 / b.mu_r;
+    const Complex mu_contrast = 1.0 / m.mu_scalar() - 1.0 / b.mu_scalar();
     if (mu_contrast != Complex{0.0, 0.0}) {
       form.curl_source = [mu_contrast, curl = setup_.incident.curl](const Point<Dim>& x) {
         return ComplexCurl<Dim>(-mu_contrast * curl(x));

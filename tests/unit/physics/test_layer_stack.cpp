@@ -46,8 +46,8 @@ void check_interface_conditions(const LayerStack<Dim>& stack, const LayeredPlane
                                 Real k0) {
   for (int i = 0; i <= stack.num_layers(); ++i) {
     const Real z = stack.interface(i);
-    const Complex eps_above = stack.material(i).eps_r;
-    const Complex eps_below = stack.material(i + 1).eps_r;
+    const Complex eps_above = stack.material(i).eps_scalar();
+    const Complex eps_below = stack.material(i + 1).eps_scalar();
     for (const Real lateral : {0.0, 0.37 / k0, -1.1 / k0}) {
       Point<Dim> above = Point<Dim>::Zero();
       above(0) = lateral;
@@ -176,7 +176,7 @@ TEST_CASE("LayerStack: multilayers - energy balance, quarter-wave stack, thick m
   REQUIRE(film.region(0.0) == 0);  // an interface belongs to the region above
   REQUIRE(film.region(-1e-9) == 1);
   REQUIRE(film.region(-500e-9) == 2);
-  REQUIRE(film.material_at(Point<3>(1.0, 2.0, -200e-9)).eps_r == ag);
+  REQUIRE(film.material_at(Point<3>(1.0, 2.0, -200e-9)).eps_scalar() == ag);
   // 3D azimuth: rotating the plane of incidence does not change R / T
   const auto w45 = film.plane_wave(k0, 0.2, Polarisation::kP, 1.0, 0.8);
   REQUIRE(w45.reflectance == Approx(w.reflectance).epsilon(1e-12));
@@ -235,9 +235,9 @@ TEST_CASE("Scattering with a layered background: no source without perturbation,
   setup.pec_tags = {box_tag::kYMin, box_tag::kYMax};
   const Scattering<2> problem(dofs, setup);
   // background material per cell follows the stack, the incidence medium is air
-  REQUIRE(problem.incidence_material().eps_r == Complex{1.0, 0.0});
+  REQUIRE(problem.incidence_material().eps_scalar() == Complex{1.0, 0.0});
   for (Index c = 0; c < mesh.num_cells(); ++c) {
-    REQUIRE(problem.background_material(c).eps_r == problem.material(c).eps_r);
+    REQUIRE(problem.background_material(c).eps_scalar() == problem.material(c).eps_scalar());
     REQUIRE_FALSE(problem.form_of_cell(c).source);  // no contrast anywhere, PML included
   }
   // without perturbation the scattered field in the interior is at the level of the PML

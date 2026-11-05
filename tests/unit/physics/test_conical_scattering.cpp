@@ -115,15 +115,15 @@ TEST_CASE("conical PML tensors follow the stretch factors", "[physics][conical]"
     const auto s = box.stretch(x);
     const ConicalVector eps = form.permittivity(x);
     const ConicalVector inv_mu = form.inverse_permeability(x);
-    REQUIRE(std::abs(eps(0) - material.eps_r * s(1) / s(0)) < 1e-12);
-    REQUIRE(std::abs(eps(1) - material.eps_r * s(0) / s(1)) < 1e-12);
-    REQUIRE(std::abs(eps(2) - material.eps_r * s(0) * s(1)) < 1e-12);
-    REQUIRE(std::abs(inv_mu(0) * eps(0) - material.eps_r / material.mu_r) < 1e-12);
-    REQUIRE(std::abs(inv_mu(2) * eps(2) - material.eps_r / material.mu_r) < 1e-12);
+    REQUIRE(std::abs(eps(0) - material.eps_scalar() * s(1) / s(0)) < 1e-12);
+    REQUIRE(std::abs(eps(1) - material.eps_scalar() * s(0) / s(1)) < 1e-12);
+    REQUIRE(std::abs(eps(2) - material.eps_scalar() * s(0) * s(1)) < 1e-12);
+    REQUIRE(std::abs(inv_mu(0) * eps(0) - material.eps_scalar() / material.mu_scalar()) < 1e-12);
+    REQUIRE(std::abs(inv_mu(2) * eps(2) - material.eps_scalar() / material.mu_scalar()) < 1e-12);
     if (box.in_layer(x)) {
-      REQUIRE(std::abs(eps(2) - material.eps_r) > 1e-3);  // stretched
+      REQUIRE(std::abs(eps(2) - material.eps_scalar()) > 1e-3);  // stretched
     } else {
-      REQUIRE(std::abs(eps(2) - material.eps_r) < 1e-12);  // identity inside
+      REQUIRE(std::abs(eps(2) - material.eps_scalar()) < 1e-12);  // identity inside
     }
   }
 }

@@ -86,7 +86,7 @@ TEST_CASE("dipole responses on the kept factorisation and the power matrix", "[p
   const Real sigma = 0.08;
   const Point<2> x0(0.47, 0.52);
   hpfem::materials::Material lossy;
-  lossy.eps_r = Complex{2.0, 0.4};
+  lossy.set_eps_scalar(Complex{2.0, 0.4});
   const auto make_setup = [&](const ConicalVector& p, bool keep) {
     hpfem::physics::ConicalScatteringSetup setup;
     setup.omega = omega;
@@ -149,7 +149,7 @@ TEST_CASE("power matrix of a complex Bloch phase is analytic in kx", "[physics][
   const Real sigma = 0.08;
   const Point<2> x0(0.47, 0.52);
   hpfem::materials::Material lossy;
-  lossy.eps_r = Complex{2.0, 0.4};
+  lossy.set_eps_scalar(Complex{2.0, 0.4});
   const auto power_matrix = [&](Complex kx) {
     hpfem::physics::ConicalScatteringSetup setup;
     setup.omega = omega;

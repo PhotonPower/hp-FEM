@@ -37,7 +37,7 @@ BandStructure<Dim>::BandStructure(const fespace::NedelecDofMap<Dim>& dofs,
   const auto& mesh = dofs.mesh();
   for (Index c = 0; c < mesh.num_cells(); ++c) {
     const auto& m = setup_.materials.of_cell(mesh, c);
-    if (m.eps_r.imag() != 0 || m.mu_r.imag() != 0) {
+    if (m.eps_scalar().imag() != 0 || m.mu_scalar().imag() != 0) {
       throw InvalidArgument(fmt::format("BandStructure: cell {} has a lossy material", c));
     }
   }
@@ -145,8 +145,8 @@ template <int Dim>
 assembly::MaxwellForm<Dim> BandStructure<Dim>::form_of_cell(Index cell) const {
   const auto& m = setup_.materials.of_cell(dofs_->mesh(), cell);
   assembly::MaxwellForm<Dim> form;
-  const Complex inv_mu = 1.0 / m.mu_r;
-  const Complex eps = m.eps_r;
+  const Complex inv_mu = 1.0 / m.mu_scalar();
+  const Complex eps = m.eps_scalar();
   form.inverse_permeability = [inv_mu](const Point<Dim>&) {
     return assembly::InversePermeabilityTensor<Dim>(
         inv_mu * assembly::InversePermeabilityTensor<Dim>::Identity());

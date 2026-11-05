@@ -7,7 +7,7 @@ from test_grating_solve import OMEGA, PERIOD, RIDGE_TAG, SUB, unit_cell
 
 import hpfem
 from hpfem import diagnostics as dg
-from hpfem import grating, units
+from hpfem import grating, materials, units
 
 NM = units.nm
 GLASS = hpfem.Material.dielectric(1.5)
@@ -197,3 +197,20 @@ def test_materials_stack_orders_and_bottom_wall():
     with pytest.raises(dg.ValidationError):
         dg.raise_on_errors([dg.Diagnostic("x", "error", "boom")])
     dg.raise_on_errors([dg.Diagnostic("x", "warning", "fine")])
+
+
+def test_anisotropic_material_is_refused_with_a_diagnostic():
+    # ADR-0015 S1: no solver takes tensors yet; the grating entry points report it up front
+    mesh, pml = unit_cell()
+    crystal = {SUB: GLASS, RIDGE_TAG: materials.Uniaxial(2.25, 2.4, theta=0.3)}
+    args = (mesh, crystal, STACK, "p", 50 * units.deg, 30 * units.deg, OMEGA)
+    found = grating.validate(*args, order=3, pml={"top": pml, "bottom": pml})
+    assert codes(found) == ["anisotropic_unsupported"]
+    assert f"tag {RIDGE_TAG}" in found[0].text and found[0].severity == "error"
+    with pytest.raises(grating.GratingError, match="anisotropic_unsupported"):
+        grating.solve(*args, order=3, pml={"top": pml, "bottom": pml})
+    # a tensor Material in a MaterialMap, and the isotropic case
+    tensor = hpfem.Material.anisotropic(np.diag([2.25, 2.25, 2.4]))
+    material_map = hpfem.MaterialMap(GLASS).set(RIDGE_TAG, tensor)
+    assert codes(dg.validate_isotropic(material_map, "test")) == ["anisotropic_unsupported"]
+    assert dg.validate_isotropic(MATERIALS, "test", STACK) == []

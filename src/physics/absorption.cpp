@@ -42,7 +42,7 @@ template <int Dim>
 Problem<Dim> access(const Scattering<Dim>& problem, const ScatteringSolution<Dim>& solution) {
   const auto& dofs = problem.dofs();
   return {dofs.mesh(), problem.setup().omega,
-          [&problem](Index c) { return std::imag(problem.material(c).eps_r); },
+          [&problem](Index c) { return std::imag(problem.material(c).eps_scalar()); },
           [&dofs](Index c) { return dofs.cell_order(c); },
           [&problem, &solution](Index c, const Point<Dim>& xi) {
             return problem.total_field(solution, c, xi).squaredNorm();
@@ -53,7 +53,7 @@ Problem<2> access(const ConicalScattering& problem, const ConicalSolution& solut
   const auto& mesh = problem.transverse_dofs().mesh();
   return {mesh, problem.setup().omega,
           [&problem, &mesh](Index c) {
-            return std::imag(problem.setup().materials.of_cell(mesh, c).eps_r);
+            return std::imag(problem.setup().materials.of_cell(mesh, c).eps_scalar());
           },
           [&problem](Index c) {
             return std::max(problem.transverse_dofs().cell_order(c),

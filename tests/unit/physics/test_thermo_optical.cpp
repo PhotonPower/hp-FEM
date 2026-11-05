@@ -138,13 +138,13 @@ TEST_CASE("per-cell material overrides and setup errors", "[physics][thermo_opti
   hpfem::materials::MaterialMap map(Material::vacuum());
   map.set(kBlock, Material::dielectric(2.0));
   const Mesh<2> mesh = rectangle(2, 1);
-  REQUIRE(map.of_cell(mesh, 0).eps_r == Complex{1.0, 0.0});
+  REQUIRE(map.of_cell(mesh, 0).eps_scalar() == Complex{1.0, 0.0});
   map.set_cell(0, Material::dielectric(3.0));
-  REQUIRE(map.of_cell(mesh, 0).eps_r == Complex{9.0, 0.0});
-  REQUIRE(map.of_cell(mesh, 1).eps_r == Complex{1.0, 0.0});
+  REQUIRE(map.of_cell(mesh, 0).eps_scalar() == Complex{9.0, 0.0});
+  REQUIRE(map.of_cell(mesh, 1).eps_scalar() == Complex{1.0, 0.0});
   REQUIRE(map.num_cell_overrides() == 1);
   map.clear_cells();
-  REQUIRE(map.of_cell(mesh, 0).eps_r == Complex{1.0, 0.0});
+  REQUIRE(map.of_cell(mesh, 0).eps_scalar() == Complex{1.0, 0.0});
   REQUIRE_THROWS_AS(map.set_cell(-1, Material::vacuum()), hpfem::InvalidArgument);
 
   Problem p;

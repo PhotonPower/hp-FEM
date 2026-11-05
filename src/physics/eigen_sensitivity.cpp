@@ -294,7 +294,7 @@ ResonanceDerivative conical_resonance_material_derivative(const ConicalResonance
     if (tagged[as_size(c)]) {
       // d/d eps: the (stretched) tensor of eps = 1 with the cell's permeability
       materials::Material unit = setup.materials.of_cell(mesh, c);
-      unit.eps_r = Complex{1.0, 0.0};
+      unit.set_eps_scalar(Complex{1.0, 0.0});
       const bool in_pml = setup.pml && setup.pml->in_layer(mesh::affine_map(mesh, c).centroid());
       form = in_pml ? conical_pml_form(*setup.pml, unit,
                                        2 * nd.cell_order(c) + setup.pml_extra_quadrature_order)

@@ -76,7 +76,7 @@ TEST_CASE("Scattering: setup validation, materials by tag and the assembled oper
   REQUIRE(problem.wavenumber() == Approx(3.0));
   for (Index c = 0; c < m.num_cells(); ++c) {
     const Real expected = m.cell_tag(c) == 2 ? 4.0 : 1.0;
-    REQUIRE(problem.material(c).eps_r.real() == Approx(expected));
+    REQUIRE(problem.material(c).eps_scalar().real() == Approx(expected));
   }
   // A = S - k0^2 M with the per-cell permittivity (no boundary conditions here)
   const auto a = problem.assemble();
@@ -84,7 +84,7 @@ TEST_CASE("Scattering: setup validation, materials by tag and the assembled oper
       dofs,
       [&](Index c) {
         MaxwellForm<2> f;
-        const Complex eps = problem.material(c).eps_r;
+        const Complex eps = problem.material(c).eps_scalar();
         f.permittivity = [eps](const Point<2>&) {
           return hpfem::assembly::PermittivityTensor<2>(
               eps * hpfem::assembly::PermittivityTensor<2>::Identity());

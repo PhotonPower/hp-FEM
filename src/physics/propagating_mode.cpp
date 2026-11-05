@@ -69,8 +69,8 @@ PropagatingMode<Dim>::PropagatingMode(const fespace::NedelecDofMap<2>& transvers
   k0_ = setup_.omega / constants::c0;
   max_index_ = setup_.max_index;
   const auto check = [&](const materials::Material& m) {
-    if (std::abs(m.eps_r.imag()) > 0 || std::abs(m.mu_r.imag()) > 0 || !(m.eps_r.real() > 0) ||
-        !(m.mu_r.real() > 0)) {
+    if (std::abs(m.eps_scalar().imag()) > 0 || std::abs(m.mu_scalar().imag()) > 0 ||
+        !(m.eps_scalar().real() > 0) || !(m.mu_scalar().real() > 0)) {
       throw InvalidArgument(
           "PropagatingMode: materials must be lossless with positive eps_r, mu_r");
     }
@@ -95,8 +95,8 @@ std::vector<WaveguideMode> PropagatingMode<Dim>::solve() const {
   const auto eps_form = [&](Index c) {
     const auto& m = setup_.materials.of_cell(mesh, c);
     assembly::MaxwellForm<2> f;
-    const Complex inv_mu = 1.0 / m.mu_r;
-    const Complex eps = m.eps_r;
+    const Complex inv_mu = 1.0 / m.mu_scalar();
+    const Complex eps = m.eps_scalar();
     f.inverse_permeability = [inv_mu](const Point<2>&) {
       return assembly::InversePermeabilityTensor<2>(
           inv_mu * assembly::InversePermeabilityTensor<2>::Identity());
@@ -109,14 +109,14 @@ std::vector<WaveguideMode> PropagatingMode<Dim>::solve() const {
   const auto mu_form = [&](Index c) {
     const auto& m = setup_.materials.of_cell(mesh, c);
     assembly::MaxwellForm<2> f;
-    const Complex inv_mu = 1.0 / m.mu_r;
+    const Complex inv_mu = 1.0 / m.mu_scalar();
     f.permittivity = [inv_mu](const Point<2>&) {
       return assembly::PermittivityTensor<2>(inv_mu * assembly::PermittivityTensor<2>::Identity());
     };
     return f;
   };
   const auto h1_form = [&](Index c) {
-    const Complex eps = setup_.materials.of_cell(mesh, c).eps_r;
+    const Complex eps = setup_.materials.of_cell(mesh, c).eps_scalar();
     assembly::ScalarForm<2> f;
     f.reaction = [eps](const Point<2>&) { return eps; };
     return f;

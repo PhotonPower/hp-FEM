@@ -85,6 +85,7 @@ database, CC0):
 | `Au`, `Ag` | Johnson & Christy 1972 | 0.188 – 1.94 µm |
 | `Al` | Rakić 1995 (Kramers–Kronig consistent) | 0.000124 – 200 µm |
 | `TiO2` | Devore 1951 Sellmeier, rutile, ordinary ray | 0.43 – 1.53 µm |
+| `Al2O3` | Malitson & Dodge 1972 Sellmeier, sapphire, ordinary / extraordinary (uniaxial, c-cut) | 0.2 – 5.0 µm |
 | `GaAs` | Aspnes et al. 1986 | 0.207 – 0.827 µm |
 | `MAPbI3` | Phillips et al. 2015, CH3NH3PbI3 perovskite film | 0.30 – 1.50 µm |
 | `water` | Daimon & Masumura 2007 Sellmeier | 0.2 – 2.0 µm |
@@ -104,6 +105,16 @@ warns once. `materials.fit_drude_lorentz(m, (lam0, lam1, count), oscillators=n)`
 passive Drude–Lorentz model to tabulated n, k over a wavelength range and returns the model
 with its maximal relative error of ε (silver over 350–800 nm with two poles: a few per cent);
 the fit is smooth in ω, for adaptive runs, resonances and sweeps beyond the samples.
+
+**Anisotropic crystals** (M19, ADR-0015; [theory](theory/materials.md)):
+`materials.Uniaxial(ordinary, extraordinary, theta, phi)` orients the optic axis by its polar
+angle from the layer normal z and its azimuth from x (radians; numbers are permittivities),
+`materials.Anisotropic((e1, e2, e3), materials.euler_rotation(a, b, c))` takes three principal
+models and a z-x-z Euler rotation; `eps_tensor(omega)` gives the 3×3 laboratory tensor and
+`at(omega)` a tensor `hpfem.Material` (also `hpfem.Material.anisotropic(eps)` directly). The
+scalar `eps_r` / `refractive_index` of a tensor material raise `hpfem.AnisotropicUnsupported`.
+**No solver takes tensor materials yet** (they are added stage by stage, roadmap M19):
+`grating.validate` / `solve` report the error `anisotropic_unsupported`.
 
 ## Project files and the command line
 

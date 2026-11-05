@@ -69,7 +69,7 @@ ResonanceSetup<2> cavity_setup(Complex eps) {
   ResonanceSetup<2> setup;
   setup.target_omega = 2.4 * c::c0;
   hpfem::materials::Material block;
-  block.eps_r = eps;
+  block.set_eps_scalar(eps);
   setup.materials.set(kBlock, block);
   setup.pml = hpfem::pml::PmlBox<2>::uniform(Point<2>(-0.6, -0.6), Point<2>(0.6, 0.6), 0.4, 2.4,
                                              1.0, hpfem::pml::PmlProfile{2, 1e-8});
@@ -186,7 +186,7 @@ ConicalResonanceSetup strip_setup(Complex eps, Real kx, Real beta) {
   setup.target_omega = 3.2 * c::c0;
   setup.beta = beta;
   hpfem::materials::Material block;
-  block.eps_r = eps;
+  block.set_eps_scalar(eps);
   setup.materials.set(kBlock, block);
   setup.pml = hpfem::pml::PmlBox<2>(Point<2>(0.0, -1.0), Point<2>(1.0, 1.0),
                                     hpfem::pml::PmlBox<2>::Thickness{0.0, 0.0, 0.5, 0.5}, 3.2, 1.0,

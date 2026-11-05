@@ -26,15 +26,15 @@ namespace {
 constexpr Real kMagneticTolerance = 1e-12;
 
 void check_material(const materials::Material& m, const char* what) {
-  if (std::abs(m.mu_r - Complex{1.0, 0.0}) > kMagneticTolerance) {
+  if (std::abs(m.mu_scalar() - Complex{1.0, 0.0}) > kMagneticTolerance) {
     throw InvalidArgument(fmt::format("LayerStack: {} must be non-magnetic (mu_r = {} + {}i)", what,
-                                      std::real(m.mu_r), std::imag(m.mu_r)));
+                                      std::real(m.mu_scalar()), std::imag(m.mu_scalar())));
   }
-  if (std::imag(m.eps_r) < 0) {
+  if (std::imag(m.eps_scalar()) < 0) {
     throw InvalidArgument(fmt::format(
         "LayerStack: {} has Im eps_r = {} < 0 (gain); the convention exp(-i omega t) needs "
         "Im eps_r >= 0 for absorption",
-        what, std::imag(m.eps_r)));
+        what, std::imag(m.eps_scalar())));
   }
 }
 
@@ -123,7 +123,7 @@ LayerStack<Dim>::LayerStack(materials::Material incidence_medium, std::vector<La
                             materials::Material substrate, Real top)
     : incidence_(incidence_medium), layers_(std::move(layers)), substrate_(substrate) {
   check_material(incidence_, "the incidence medium");
-  if (std::imag(incidence_.eps_r) != 0) {
+  if (std::imag(incidence_.eps_scalar()) != 0) {
     throw InvalidArgument("LayerStack: the incidence medium must be lossless");
   }
   check_material(substrate_, "the substrate");
@@ -199,7 +199,7 @@ LayeredPlaneWave<Dim> LayerStack<Dim>::plane_wave(Real k0, Real angle, Polarisat
   std::vector<Complex> q(static_cast<std::size_t>(n_regions));
   for (int j = 0; j < n_regions; ++j) {
     const auto idx = static_cast<std::size_t>(j);
-    data->eps[idx] = material(j).eps_r;
+    data->eps[idx] = material(j).eps_scalar();
     data->kz[idx] = vertical_wavenumber(data->eps[idx], k0, k_par);
     if (std::abs(data->kz[idx]) < 1e-12 * k0) {
       throw InvalidArgument(

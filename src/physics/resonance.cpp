@@ -30,8 +30,8 @@ template <int Dim>
 assembly::MaxwellForm<Dim> Resonance<Dim>::form_of_cell(Index cell) const {
   const materials::Material& m = setup_.materials.of_cell(dofs_->mesh(), cell);
   assembly::MaxwellForm<Dim> form;
-  const Complex eps = m.eps_r;
-  const Complex mu = m.mu_r;
+  const Complex eps = m.eps_scalar();
+  const Complex mu = m.mu_scalar();
   if (setup_.pml) {
     if (setup_.pml->in_layer(mesh::affine_map(dofs_->mesh(), cell).centroid())) {
       form.quadrature_order = 2 * dofs_->cell_order(cell) + setup_.pml_extra_quadrature_order;

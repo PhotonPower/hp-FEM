@@ -135,7 +135,7 @@ TEST_CASE("shape sensitivity of the conical solver: disc radius at beta != 0",
     setup.omega = kWavenumber * hpfem::constants::c0;
     setup.beta = beta;
     hpfem::materials::Material disc;
-    disc.eps_r = Complex{2.0, 0.1};
+    disc.set_eps_scalar(Complex{2.0, 0.1});
     setup.materials.set(kDisc, disc);
     const Point<3> k(kt, 0.0, beta);
     setup.incident = hpfem::physics::conical_plane_wave(

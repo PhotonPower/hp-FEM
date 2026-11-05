@@ -81,7 +81,7 @@ hpfem::physics::ScatteringSetup<2> disc_setup(bool keep) {
   hpfem::physics::ScatteringSetup<2> setup;
   setup.omega = kWavenumber * hpfem::constants::c0;
   hpfem::materials::Material disc;
-  disc.eps_r = Complex{2.25, 0.3};
+  disc.set_eps_scalar(Complex{2.25, 0.3});
   setup.materials.set(kDisc, disc);
   setup.incident =
       hpfem::physics::plane_wave<2>(ComplexVector<2>(0.0, 1.0), Point<2>(kWavenumber, 0.0));
@@ -154,7 +154,7 @@ TEST_CASE("kept factorisation of the conical solver: Bloch constraints and the s
   setup.omega = 4.0 * hpfem::constants::c0;
   setup.beta = 0.4;
   hpfem::materials::Material block;
-  block.eps_r = Complex{3.0, 0.5};
+  block.set_eps_scalar(Complex{3.0, 0.5});
   setup.materials.set(5, block);
   setup.pec_tags = {box_tag::kYMin, box_tag::kYMax};
   setup.periodic = {hpfem::assembly::PeriodicPair<2>{

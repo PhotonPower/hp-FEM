@@ -98,3 +98,63 @@ def test_pml_profile_for_angle_and_resolution():
     resolved = hpfem.PmlBox2D([0.0, 0.0], [1e-6, 1e-6], [0.0, thick, 0.0, 0.0], k0, 1.0,
                               hpfem.PmlProfile(2, 1e-16))  # fmt: skip
     assert resolved.max_resolution(h, 1.0) <= hpfem.PmlBox2D.resolution_limit(5) * (1 + 1e-12)
+
+
+def test_anisotropic_tensor_orientation_and_scalar_refusal():
+    # ADR-0015 §6: R diag(eps) R^T with the optic axis at (theta, phi)
+    omega = units.angular_frequency(wavelength=600 * units.nm)
+    crystal = materials.Uniaxial(2.0, 3.0, theta=np.pi / 2, phi=np.pi / 4)
+    axis = np.array([1.0, 1.0, 0.0]) / np.sqrt(2)
+    expected = 2.0 * np.eye(3) + (3.0 - 2.0) * np.outer(axis, axis)
+    assert np.allclose(crystal.eps_tensor(omega), expected)
+    tilted = materials.Uniaxial(2.0, 3.0, theta=0.4, phi=1.1)
+    eps = tilted.eps_tensor(omega)
+    assert np.allclose(eps, eps.T)  # symmetric
+    direction = materials.axis_rotation(0.4, 1.1) @ np.array([0.0, 0.0, 1.0])
+    assert np.allclose(eps @ direction, 3.0 * direction)  # the axis is the e eigenvector
+    assert np.allclose(
+        direction, [np.sin(0.4) * np.cos(1.1), np.sin(0.4) * np.sin(1.1), np.cos(0.4)]
+    )
+    # Euler z-x-z: columns are the principal axes; beta = 0 is a turn about z only
+    r = materials.euler_rotation(0.3, 0.0, 0.2)
+    assert np.allclose(r, materials.axis_rotation(0.0, 0.5))
+    biaxial = materials.Anisotropic((2.0, 2.5, 3.0), materials.euler_rotation(0.3, 0.7, -0.2))
+    values = np.linalg.eigvals(biaxial.eps_tensor(omega))
+    assert np.allclose(np.sort(values.real), [2.0, 2.5, 3.0])
+    # the core material is a tensor; the scalar accessors raise
+    material = tilted.at(omega)
+    assert not material.is_isotropic
+    assert np.allclose(material.eps_tensor, eps)
+    with pytest.raises(hpfem.AnisotropicUnsupported):
+        _ = material.eps_r
+    with pytest.raises(NotImplementedError):
+        _ = material.refractive_index
+    with pytest.raises(hpfem.AnisotropicUnsupported):
+        tilted.eps_r(omega)
+    assert materials.is_anisotropic(tilted) and materials.is_anisotropic(material)
+    assert not materials.is_anisotropic(materials.get("SiO2"))
+    # setting the scalar makes it isotropic again; gyrotropic tensors are refused
+    material.eps_r = 2.25
+    assert material.is_isotropic and material.eps_r == 2.25
+    with pytest.raises(ValueError):
+        hpfem.Material.anisotropic(np.array([[2, 0.1j, 0], [-0.1j, 2, 0], [0, 0, 2]]))
+    with pytest.raises(ValueError):
+        materials.Anisotropic((2.0, 2.0, 3.0), np.diag([1.0, 2.0, 1.0]))
+
+
+def test_sapphire_ordinary_and_extraordinary():
+    # Malitson & Dodge 1972 at the sodium D line: n_o = 1.7681, n_e = 1.7600
+    sapphire = materials.get("Al2O3")
+    omega = units.angular_frequency(wavelength=589.3 * units.nm)
+    n = np.sqrt(sapphire.principal_values(omega))
+    assert np.allclose(n.real, [1.7681, 1.7681, 1.7600], atol=1e-4)
+    assert sapphire.range == pytest.approx((0.2 * units.um, 5.0 * units.um))
+    a_cut = sapphire.rotated(materials.axis_rotation(np.pi / 2, 0.0))
+    eps = a_cut.eps_tensor(omega)
+    assert np.isclose(eps[0, 0], n[2] ** 2) and np.isclose(eps[2, 2], n[0] ** 2)
+    # DispersiveMap takes models and tensor materials and freezes them per frequency
+    dmap = materials.DispersiveMap("SiO2").set(1, sapphire).set(2, a_cut.at(omega))
+    frozen = dmap.at(omega)
+    assert not frozen.is_isotropic
+    assert np.allclose(frozen.at(2).eps_tensor, eps)
+    assert materials.is_anisotropic(dmap)

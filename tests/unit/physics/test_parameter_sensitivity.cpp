@@ -50,7 +50,7 @@ ConicalScatteringSetup strip_setup(Real t, bool scalar) {
   setup.omega = (4.0 + 0.5 * t) * hpfem::constants::c0;
   setup.beta = scalar ? 0.0 : 0.4 + 0.3 * t;
   hpfem::materials::Material block;
-  block.eps_r = Complex{3.0, 0.5};
+  block.set_eps_scalar(Complex{3.0, 0.5});
   setup.materials.set(kBlock, block);
   setup.pec_tags = {box_tag::kYMin, box_tag::kYMax};
   setup.periodic = {hpfem::assembly::PeriodicPair<2>{box_tag::kXMin, box_tag::kXMax,
