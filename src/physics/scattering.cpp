@@ -4,6 +4,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -14,6 +15,7 @@
 #include "hpfem/core/log.hpp"
 #include "hpfem/core/progress.hpp"
 #include "hpfem/mesh/geometry.hpp"
+#include "hpfem/physics/material_form.hpp"
 #include "hpfem/physics/sweep.hpp"
 #include "hpfem/pml/pml.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
@@ -58,7 +60,7 @@ Scattering<Dim>::Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringS
           size = std::max(size, (mesh.vertex(vertices[i]) - mesh.vertex(vertices[j])).norm());
         }
       }
-      const Real index = std::sqrt(material(c).eps_scalar()).real();
+      const Real index = materials::max_real_index(material(c));
       const Real resolution = setup_.pml->max_resolution(size, index);
       const Real limit = pml::PmlBox<Dim>::resolution_limit(dofs_->cell_order(c));
       if (resolution / limit > worst / std::max(worst_limit, 1e-300)) {
@@ -74,8 +76,34 @@ Scattering<Dim>::Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringS
           "background_index needs a thicker layer or a milder profile "
           "(PmlBox::recommended_thickness with the profile), or use a layered background "
           "with a PEC wall for a substrate",
-          worst, worst_cell, std::sqrt(material(worst_cell).eps_scalar()).real(),
+          worst, worst_cell, materials::max_real_index(material(worst_cell)),
           dofs_->cell_order(worst_cell), worst_limit);
+    }
+    // geometric stability condition of the stretch for every crystal meshed inside a layer,
+    // once per material and stretched axis (ADR-0015 §2, diagnostic pml-backward-wave)
+    std::set<std::pair<const materials::Material*, int>> checked;
+    for (Index c = 0; c < mesh.num_cells(); ++c) {
+      const materials::Material& m = material(c);
+      if (m.is_isotropic()) continue;
+      const Point<Dim> x = mesh::affine_map(mesh, c).centroid();
+      if (!setup_.pml->in_layer(x)) continue;
+      const auto s = setup_.pml->stretch(x);
+      for (int d = 0; d < Dim; ++d) {
+        if (s(d) == Complex{1.0, 0.0} || !checked.emplace(&m, d).second) continue;
+        const auto wave = pml::backward_wave<Dim>(materials::permittivity_tensor<Dim>(m), d);
+        if (!wave) continue;
+        log().warn(
+            "Scattering: pml-backward-wave: the crystal of cell {} (tag {}) violates the PML "
+            "stability condition along axis {}: a wave with phase direction {} carries its "
+            "energy against the stretch (k_d v_d = {:.3g}) and is amplified instead of "
+            "absorbed; align a principal axis of the crystal with the layer normal or truncate "
+            "the crystal before the layer",
+            c, mesh.cell_tag(c), d,
+            Dim == 2 ? fmt::format("({:.3f}, {:.3f})", wave->direction(0), wave->direction(1))
+                     : fmt::format("({:.3f}, {:.3f}, {:.3f})", wave->direction(0),
+                                   wave->direction(1), wave->direction(Dim - 1)),
+            wave->worst);
+      }
     }
   }
   if (setup_.background) {
@@ -147,36 +175,31 @@ assembly::MaxwellForm<Dim> Scattering<Dim>::form_of_cell(Index cell) const {
   const materials::Material& m = material(cell);
   const materials::Material& b = background_material(cell);
   assembly::MaxwellForm<Dim> form;
-  const Complex inv_mu = 1.0 / m.mu_scalar();
-  const Complex eps = m.eps_scalar();
-  if (setup_.pml) {
-    // stretched tensors; identity inside the interior box, so every cell may use them, but
-    // the rational tensors of the layer cells need the raised quadrature order
-    if (setup_.pml->in_layer(mesh::affine_map(dofs_->mesh(), cell).centroid())) {
-      form.quadrature_order = 2 * dofs_->cell_order(cell) + setup_.pml_extra_quadrature_order;
-    }
-    const Complex mu = m.mu_scalar();
-    form.inverse_permeability = [mu, pml = *setup_.pml](const Point<Dim>& x) {
-      return pml.inverse_permeability(mu, x);
-    };
-    form.permittivity = [eps, pml = *setup_.pml](const Point<Dim>& x) {
-      return pml.permittivity(eps, x);
-    };
-  } else {
-    form.inverse_permeability = [inv_mu](const Point<Dim>&) {
-      return assembly::InversePermeabilityTensor<Dim>(
-          inv_mu * assembly::InversePermeabilityTensor<Dim>::Identity());
-    };
-    form.permittivity = [eps](const Point<Dim>&) {
-      return assembly::PermittivityTensor<Dim>(eps * assembly::PermittivityTensor<Dim>::Identity());
-    };
+  const bool tensor = !m.is_isotropic();
+  // the rational tensors of the PML cells need the raised quadrature order
+  if (setup_.pml && setup_.pml->in_layer(mesh::affine_map(dofs_->mesh(), cell).centroid())) {
+    form.quadrature_order = 2 * dofs_->cell_order(cell) + setup_.pml_extra_quadrature_order;
   }
+  set_material_tensors<Dim>(form, m, setup_.pml ? &*setup_.pml : nullptr);
   if (setup_.formulation == Formulation::kScatteredField) {
-    const Complex contrast = k0_ * k0_ * (m.eps_scalar() - b.eps_scalar());
-    if (contrast != Complex{0.0, 0.0}) {
+    // k0^2 (eps_c - eps_b) E_inc as a matrix product; the background stays isotropic
+    // (the anisotropic stack is M19 S4)
+    const Complex eps_b = b.eps_scalar();
+    if (tensor) {
+      const assembly::PermittivityTensor<Dim> contrast =
+          k0_ * k0_ *
+          (materials::permittivity_tensor<Dim>(m) -
+           eps_b * assembly::PermittivityTensor<Dim>::Identity());
       form.source = [contrast, value = setup_.incident.value](const Point<Dim>& x) {
         return ComplexVector<Dim>(contrast * value(x));
       };
+    } else {
+      const Complex contrast = k0_ * k0_ * (m.eps_scalar() - eps_b);
+      if (contrast != Complex{0.0, 0.0}) {
+        form.source = [contrast, value = setup_.incident.value](const Point<Dim>& x) {
+          return ComplexVector<Dim>(contrast * value(x));
+        };
+      }
     }
     const Complex mu_contrast = 1.0 / m.mu_scalar() - 1.0 / b.mu_scalar();
     if (mu_contrast != Complex{0.0, 0.0}) {

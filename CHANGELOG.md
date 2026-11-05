@@ -3,6 +3,24 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Crystals in the 2D / 3D volume solvers (M19 S2, ADR-0015 §2): `Scattering`, `Resonance` and
+  `BandStructure` take tensor materials by tag, as background and per cell
+  (`physics::set_material_tensors`; 3D the full tensor, 2D the in-plane block via
+  `materials::permittivity_tensor<Dim>`, which refuses tensors coupling the plane to z). The
+  scattered-field source is the matrix product k0²(ε − ε_b I)E_inc; the PML stretches a full
+  tensor as ε_ij s_x s_y s_z/(s_i s_j) (`PmlBox::permittivity(tensor, x)`) and keeps the
+  operator complex-symmetric (LDLᵀ paths); Joule heating is ½ωε0 Eᴴ Im(ε) E
+  (`materials::loss_density`) in the absorbed power, the absorption by tag and density and the
+  `Thermal` source; the estimators take εE from the form. New `pml::backward_wave`: the
+  geometric PML stability condition (Bécache, Fauqueux & Joly 2003) per crystal and stretched
+  axis, logged as `pml-backward-wave` by `Scattering` and reported as `pml_backward_wave` by
+  `diagnostics.validate_scattering`; it fails for tilted uniaxial crystals and, as the S2
+  amendment of ADR-0015 records, for aligned biaxial crystals along the intermediate axis.
+  `materials::max_real_index` (Python `Material.max_real_index`) for the resolution checks.
+  Tests: the isotropic limit ε_r I through the tensor path (solution, estimate, absorbed power)
+  to round-off, convergence test `anisotropic_slab` (uniaxial plate in 3D, Jones r_xx / r_yx
+  against two Fabry–Pérot problems, exponential in p), crystal eigenwaves through the PML in
+  `pml_reflection` (2D with ε_xy, 3D full tensor), symmetry detection, per-cell overrides.
 - Anisotropic material model (M19 S1, ADR-0015): `materials::Material` takes a symmetric complex
   3×3 permittivity tensor (`Material::anisotropic`, gyrotropic tensors refused) next to the
   isotropic scalars, with `eps_tensor()` / `mu_inv_tensor()` for both kinds and

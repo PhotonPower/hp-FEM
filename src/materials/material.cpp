@@ -1,7 +1,9 @@
 #include "hpfem/materials/material.hpp"
 
+#include <algorithm>
 #include <cmath>
 
+#include <Eigen/Eigenvalues>
 #include <fmt/format.h>
 
 #include "hpfem/core/error.hpp"
@@ -37,6 +39,23 @@ void Material::throw_anisotropic(const char* accessor) {
       "Material::{}: the material is anisotropic (permittivity tensor), and this feature takes "
       "isotropic materials only (ADR-0015); tensor-aware code uses eps_tensor()",
       accessor));
+}
+
+Real max_real_index(const Material& material) {
+  if (material.is_isotropic()) return material.refractive_index().real();
+  const Eigen::ComplexEigenSolver<Tensor3> eig(material.eps_tensor(), false);
+  Real out = 0;
+  for (int k = 0; k < 3; ++k) {
+    out = std::max(out, std::sqrt(eig.eigenvalues()(k) * material.mu_scalar()).real());
+  }
+  return out;
+}
+
+void throw_in_plane_coupling() {
+  throw AnisotropicUnsupported(
+      "permittivity_tensor<2>: the permittivity tensor couples the x-y plane to z "
+      "(eps_xz or eps_yz nonzero); the in-plane 2D solver has no E_z, use the conical solver "
+      "(ADR-0015)");
 }
 
 bool MaterialMap::is_isotropic() const {

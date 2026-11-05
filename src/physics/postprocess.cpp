@@ -269,8 +269,8 @@ std::vector<Real> absorbed_power_per_cell(const fespace::NedelecDofMap<Dim>& dof
   const auto& mesh = dofs.mesh();
   std::vector<Real> power(as_size(mesh.num_cells()), 0.0);
   parallel_for(mesh.num_cells(), [&](Index c, int) {
-    const Real loss = materials.of_cell(mesh, c).eps_scalar().imag();
-    if (loss == 0) return;
+    const materials::Material& material = materials.of_cell(mesh, c);
+    if (materials::is_lossless(material)) return;
     const int p = dofs.cell_order(c);
     const auto geometry = mesh::cell_geometry(mesh, c);
     const auto rule =
@@ -279,9 +279,10 @@ std::vector<Real> absorbed_power_per_cell(const fespace::NedelecDofMap<Dim>& dof
     for (std::size_t q = 0; q < rule.size(); ++q) {
       const auto g = geometry->evaluate(rule.points[q]);
       integral += rule.weights[q] * std::abs(g.det) *
-                  assembly::evaluate_hcurl(dofs, e_h, c, rule.points[q]).squaredNorm();
+                  materials::loss_density<Dim>(
+                      material, assembly::evaluate_hcurl(dofs, e_h, c, rule.points[q]));
     }
-    power[as_size(c)] = 0.5 * omega * constants::eps0 * loss * integral;
+    power[as_size(c)] = 0.5 * omega * constants::eps0 * integral;
   });
   return power;
 }
@@ -310,17 +311,21 @@ Real absorbed_power(const Scattering<Dim>& problem, const ScatteringSolution<Dim
   const Real omega = problem.setup().omega;
   std::vector<Real> partial(as_size(num_threads()), 0.0);
   parallel_for(mesh.num_cells(), [&](Index c, int thread) {
-    const Real loss = std::imag(problem.material(c).eps_scalar());
-    if (!(loss > 0)) return;
+    const materials::Material& material = problem.material(c);
+    if (material.is_isotropic() ? !(material.eps_scalar().imag() > 0)
+                                : materials::is_lossless(material)) {
+      return;
+    }
     const auto rule = assembly::simplex_quadrature<Dim>(2 * dofs.cell_order(c) + extra_order);
     const auto geometry = mesh::cell_geometry(mesh, c);
     Real integral = 0;
     for (std::size_t q = 0; q < rule.size(); ++q) {
       const Real det = std::abs(geometry->evaluate(rule.points[q]).det);
       integral +=
-          rule.weights[q] * det * problem.total_field(solution, c, rule.points[q]).squaredNorm();
+          rule.weights[q] * det *
+          materials::loss_density<Dim>(material, problem.total_field(solution, c, rule.points[q]));
     }
-    partial[as_size(thread)] += 0.5 * omega * constants::eps0 * loss * integral;
+    partial[as_size(thread)] += 0.5 * omega * constants::eps0 * integral;
   });
   Real total = 0;
   for (const Real p : partial) total += p;

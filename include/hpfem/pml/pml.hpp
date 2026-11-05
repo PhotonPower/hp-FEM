@@ -12,6 +12,7 @@
 
 #include <array>
 #include <cstddef>
+#include <optional>
 
 #include <Eigen/Core>
 
@@ -114,6 +115,12 @@ class PmlBox {
   /// isotropic material (diagonal).
   [[nodiscard]] assembly::PermittivityTensor<Dim> permittivity(Complex eps_r,
                                                                const Point<Dim>& x) const;
+  /// Effective permittivity tensor of an anisotropic material,
+  /// @f$ 	ildearepsilon_{ij} = arepsilon_{ij}\det\Lambda/(s_i s_j) @f$ (ADR-0015 §2); in 2D
+  /// `eps` is the in-plane block and @f$ s_z = 1 @f$. Equals the scalar overload for
+  /// @f$ arepsilon = arepsilon_r I @f$.
+  [[nodiscard]] assembly::PermittivityTensor<Dim> permittivity(
+      const assembly::PermittivityTensor<Dim>& eps, const Point<Dim>& x) const;
   /// Effective inverse permeability acting on curls: @f$ \mu_r^{-1}\Lambda^2/\det\Lambda @f$
   /// (3D, diagonal) or the scalar @f$ 1/(\mu_r s_x s_y) @f$ (2D, out-of-plane curl).
   [[nodiscard]] assembly::InversePermeabilityTensor<Dim> inverse_permeability(
@@ -131,6 +138,37 @@ class PmlBox {
   Real k0_ = 0;
   std::array<Real, kNumSides> sigma_max_{};
 };
+
+/// A wave that violates the geometric stability condition of the coordinate-stretching PML.
+template <int Dim>
+struct BackwardWave {
+  /// Unit wave vector (phase direction) of the worst sampled wave.
+  Point<Dim> direction = Point<Dim>::Zero();
+  /// @f$ \min \hat k_d\,\hat v_d @f$ over the sampled waves (unit phase and group directions):
+  /// negative where the phase travels into the layer and the energy out of it (or back).
+  Real worst = 0;
+};
+
+/// Geometric stability condition of a PML that stretches along `axis` in a homogeneous medium
+/// of relative permittivity `eps` (Bécache, Fauqueux & Joly 2003; ADR-0015 §2): every
+/// propagating wave must have the components of its phase and its group velocity along the
+/// stretching direction of the same sign, @f$ k_d\,v_{g,d} \ge 0 @f$, otherwise the stretch
+/// amplifies it. Checks the real part of `eps` (in 2D the in-plane block, waves with in-plane k
+/// and E, slowness curve @f$ k^T R^T\varepsilon^{-1}R\,k = k_0^2 @f$; in 3D both sheets of the
+/// Fresnel surface, group velocity along the Poynting vector
+/// @f$ \hat k|E|^2 - E(\hat k\cdot E) @f$) on `samples` wave directions (a half circle in 2D, a
+/// Fibonacci hemisphere in 3D; k and −k give the same product). Isotropic media and uniaxial
+/// crystals with the optic axis along `axis` or perpendicular to it never fail; a tilted axis
+/// does, already for an ordinary uniaxial crystal, and so does an aligned **biaxial** crystal
+/// along its intermediate principal axis (near the optic axes the group velocity sweeps the cone
+/// of internal conical refraction). Directions with no propagating wave (metals, evanescent
+/// sheets) are skipped. A tilt below the sampling resolution (about @f$ \pi/\text{samples} @f$ in
+/// 2D) may go unnoticed; its amplification is correspondingly small.
+/// @returns the worst wave if the condition fails (`worst` < −1e-9), nothing otherwise.
+/// @throws InvalidArgument for an axis outside [0, Dim) or fewer than 8 samples.
+template <int Dim>
+[[nodiscard]] std::optional<BackwardWave<Dim>> backward_wave(
+    const assembly::PermittivityTensor<Dim>& eps, int axis, int samples = 2048);
 
 extern template class PmlBox<2>;
 extern template class PmlBox<3>;

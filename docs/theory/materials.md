@@ -76,6 +76,71 @@ $\gamma$ about the principal $z$ axis, then by $\beta$ about the new $x$ axis, t
 about the laboratory $z$ axis. With $\beta = 0$ the rotation is a turn by $\alpha + \gamma$ about
 $z$.
 
+## Volume solvers (2D / 3D)
+
+Since M19 S2 the volume solvers `physics::Scattering`, `physics::Resonance` and
+`physics::BandStructure` take tensor materials (by tag, as background, or per cell with
+`MaterialMap::set_cell`, e.g. for graded or strained crystals). All three get their coefficients
+from `physics::set_material_tensors` (`include/hpfem/physics/material_form.hpp`); isotropic cells
+keep the scalar path, a tensor cell enters the Maxwell forms through
+`materials::permittivity_tensor<Dim>`:
+
+- **3D:** the full tensor.
+- **2D:** the in-plane block $\varepsilon_{\alpha\beta}$, $\alpha, \beta \in \{x, y\}$. The 2D
+  space carries the in-plane field $(E_x, E_y)$ with $\partial_z = 0$; a tensor with
+  $\varepsilon_{xz} \ne 0$ or $\varepsilon_{yz} \ne 0$ makes the in-plane field drive $E_z$, which
+  that space does not have, and is refused with `AnisotropicUnsupported` (use the conical solver,
+  M19 S3, or the 3D solver). $\varepsilon_{zz}$ does not enter.
+
+**Scattered-field source.** With an isotropic background $\varepsilon_b$ the source is the
+matrix product $k_0^2(\varepsilon_c - \varepsilon_b I)E^{inc}$; the anisotropic layered
+background is M19 S4.
+
+**PML.** The coordinate stretch maps any tensor like a coordinate transformation,
+$$\tilde\varepsilon_{ij} = \varepsilon_{ij}\,\frac{s_x s_y s_z}{s_i s_j}$$
+(`PmlBox::permittivity(tensor, x)`, in 2D with $s_z = 1$ on the in-plane block); $\tilde\varepsilon$
+stays symmetric, so the operator stays complex-symmetric and `detect_symmetry` keeps the LDLᵀ
+paths. The PML resolution check uses the largest principal index (`materials::max_real_index`).
+
+**Stability of the PML in a crystal.** The stretch absorbs a wave only if its phase and its group
+velocity point into the layer together, $k_d\,v_{g,d} \ge 0$ for the stretched axis $d$ (Bécache,
+Fauqueux & Joly 2003). `pml::backward_wave<Dim>(eps, axis)` checks this on sampled wave directions
+(2D: slowness curve $k^TR^T\varepsilon^{-1}Rk = k_0^2$ of the in-plane waves, group velocity
+$R^T\varepsilon^{-1}Rk$; 3D: both sheets of the Fresnel surface, group velocity along the
+Poynting vector $\hat k|E|^2 - E(\hat k\cdot E)$ of the eigenwave). The result:
+
+| medium in the layer | condition |
+|---|---|
+| isotropic | holds |
+| uniaxial, optic axis along the layer normal or perpendicular to it | holds |
+| uniaxial, optic axis tilted against the normal (also an ordinary crystal) | fails |
+| biaxial, principal axes aligned: normal along the largest or smallest axis | holds |
+| biaxial, principal axes aligned: normal along the intermediate axis | fails (weakly) |
+
+The last row is the cone of internal conical refraction: near the optic axes, which lie in the
+plane of the largest and the smallest principal axis, the group velocity of one sheet sweeps a
+cone that contains $v_{g,y} < 0$ for $k_y > 0$ ($\min k_y v_y \approx -0.01$ for
+$\varepsilon = \operatorname{diag}(2, 3, 4.5)$, confirmed by the gradient of $\omega(k)$).
+`Scattering` logs the warning `pml-backward-wave` for every crystal and stretched axis that
+fails, and `diagnostics.validate_scattering` reports `pml_backward_wave`. A wave that is not
+excited is not amplified: an eigenwave along the normal of a tilted crystal is absorbed as usual
+(`tests/convergence/pml_reflection.cpp`); the failure matters for grazing and scattered waves.
+
+**Losses.** The time-averaged Joule heating of a symmetric tensor is
+$$p = \tfrac12\,\omega\varepsilon_0\,E^H\,\operatorname{Im}(\varepsilon)\,E,$$
+because the Hermitian part $(\varepsilon - \varepsilon^H)/2i$ of a symmetric $\varepsilon$ is the
+real matrix $\operatorname{Im}\varepsilon$ (`materials::loss_density`); it is used by
+`absorbed_power`, the per-cell and per-tag absorption, the absorption density and the heat
+source of `physics::Thermal`. `BandStructure` requires a real tensor.
+
+**Estimators.** The residual and goal-oriented estimators already took $\varepsilon E$ from the
+form, so the divergence term and the jump of $n\cdot\varepsilon E$ use the tensor without
+further change.
+
+Still isotropic only (they refuse with `AnisotropicUnsupported`), among others: the conical and axisymmetric
+solvers, the layered background, `TimeDomain`, `ThermoOptical`, `PropagatingMode` and the
+modal ports.
+
 ## Python layer
 
 `hpfem.materials.Anisotropic(principal, rotation)` holds three dispersive models (numbers and
@@ -110,3 +175,17 @@ the principal values of a biaxial tensor, the sapphire indices at 589.3 nm, `Dis
 tensors. `python/tests/test_diagnostics.py`: the error `anisotropic_unsupported` of
 `grating.validate` / `solve` and of `validate_isotropic`. The migration itself (private scalar
 fields, accessors at every former use) is covered by the whole existing test suite.
+
+Volume solvers (S2): `tests/unit/physics/test_anisotropic_volume.cpp` — $\varepsilon_r I$
+through the tensor path reproduces the scalar path to round-off in 2D and 3D (solution, residual
+estimate, absorbed power), $\varepsilon_{zz}$ does not enter 2D and $\varepsilon_{xx}$ does, the
+refusal of plane-to-$z$ coupling in 2D, the PML stretch of a full tensor, per-cell overrides,
+the complex symmetry of the operator with an absorbing tilted crystal in the PML (and its loss
+with a gyrotropic form), and the stability condition of the table above.
+`tests/convergence/pml_reflection.cpp` — eigenwaves of a crystal with a tilted axis (2D with
+$\varepsilon_{xy} \ne 0$, 3D full tensor, both sheets) through the PML converge exponentially in
+$p$ with no reflection floor. `tests/convergence/anisotropic_slab.cpp` — a uniaxial plate in 3D
+(axis in the plane at 30°) at normal incidence: the reflected Jones entries $r_{xx}$, $r_{yx}$
+converge exponentially in $p$ to the two Fabry–Pérot problems with $n_e$ and $n_o$.
+`python/tests/test_anisotropic_volume.py` — the bound pipeline and the diagnostics
+`pml_backward_wave` and `anisotropic_unsupported` of `validate_scattering`.

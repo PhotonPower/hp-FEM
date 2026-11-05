@@ -10,7 +10,7 @@ Codes: ``mesh_invalid_cells``, ``mesh_poor_angles``, ``mesh_untagged_cells``,
 ``periodic_partner_missing``, ``periodic_faces_differ``, ``pml_under_resolved``, ``pml_thin``,
 ``pml_missing``, ``too_few_elements_per_wavelength``, ``material_out_of_range``,
 ``lossy_incidence_medium``, ``grazing_order``, ``pec_wall_too_close``,
-``anisotropic_unsupported``, ``setup``.
+``anisotropic_unsupported``, ``pml_backward_wave``, ``setup``.
 """
 
 from __future__ import annotations
@@ -76,6 +76,11 @@ def _material_of(material_map, mesh, c):
 
 def _index(material) -> complex:
     return complex(material.refractive_index)
+
+
+def _max_index(material) -> float:
+    """Re n, for a crystal the largest principal index (resolution and PML checks)."""
+    return float(material.max_real_index)
 
 
 # --- individual checks -----------------------------------------------------------------------
@@ -337,7 +342,7 @@ def validate_resolution(
             # resolve through any cell of the tag
             c = next(i for i in range(mesh.num_cells) if int(mesh.cell_tag(i)) == tag)
             material = material_map.of_cell(mesh, c)
-        n = max(_index(material).real, 1.0)
+        n = max(_max_index(material), 1.0)
         h = float(np.median(hs))
         p = int(np.median(p_by_tag[tag]))
         per_wavelength = wavelength / (n * h)
@@ -407,6 +412,65 @@ def validate_isotropic(materials, feature: str, stack=None) -> list[Diagnostic]:
             "anisotropic materials are being added in stages (ADR-0015, roadmap M19)",
         )
     ]
+
+
+def validate_volume_anisotropic(mesh, setup) -> list[Diagnostic]:
+    """Crystals in the 2D / 3D volume solver (ADR-0015 §2, M19 S2): a 2D tensor that couples the
+    plane to z (error ``anisotropic_unsupported``: the in-plane solver has no E_z, use the conical
+    solver) and a crystal inside the PML that violates the geometric stability condition along
+    a stretched axis (warning ``pml_backward_wave``, :func:`hpfem.pml_backward_wave_2d`)."""
+    materials = setup.materials
+    if materials.is_isotropic:
+        return []
+    dim = 2 if isinstance(setup, hpfem.ScatteringSetup2D) else 3
+    box = getattr(setup, "pml", None)
+    first: dict[int, int] = {}
+    in_layer: dict[int, set[int]] = {}
+    for c in range(mesh.num_cells):
+        material = materials.of_cell(mesh, c)
+        if material.is_isotropic:
+            continue
+        tag = int(mesh.cell_tag(c))
+        first.setdefault(tag, c)
+        if box is not None:
+            x = np.mean(_cell_vertices(mesh, c), axis=0)
+            if box.in_layer(x):
+                s = np.asarray(box.stretch(x))
+                in_layer.setdefault(tag, set()).update(int(d) for d in np.nonzero(s != 1)[0])
+    out = []
+    for tag, c in sorted(first.items()):
+        eps = np.asarray(materials.of_cell(mesh, c).eps_tensor)
+        if dim == 2 and (eps[0, 2] != 0 or eps[1, 2] != 0):
+            out.append(
+                Diagnostic(
+                    "anisotropic_unsupported",
+                    "error",
+                    f"tag {tag}: the permittivity tensor couples the x-y plane to z "
+                    "(eps_xz or eps_yz nonzero), which the in-plane 2D solver cannot represent",
+                    "use the conical solver (M19 S3) or the 3D solver",
+                )
+            )
+            continue
+        check = hpfem.pml_backward_wave_2d if dim == 2 else hpfem.pml_backward_wave_3d
+        block = eps[:2, :2] if dim == 2 else eps
+        for d in sorted(in_layer.get(tag, ())):
+            wave = check(block, d)
+            if wave is None:
+                continue
+            direction, worst = wave
+            out.append(
+                Diagnostic(
+                    "pml_backward_wave",
+                    "warning",
+                    f"tag {tag}: the crystal in the PML violates the stability condition along "
+                    f"axis {d}: the wave with phase direction "
+                    f"{np.array2string(np.asarray(direction), precision=3)} carries its energy "
+                    f"against the stretch (k_d v_d = {worst:.3g}) and is amplified",
+                    "align a principal axis with the layer normal (uniaxial crystals), or end the "
+                    "crystal before the layer",
+                )
+            )
+    return out
 
 
 def validate_stack(stack) -> list[Diagnostic]:
@@ -495,7 +559,12 @@ def validate_scattering(mesh, setup, orders, materials=None) -> list[Diagnostic]
     (:func:`validate_mesh`), the stack interfaces, the periodic pairs, the PML and the
     resolution per tag; ``materials`` (dict) adds the range check of dispersive data and the
     tags-without-material check."""
-    out = validate_isotropic(materials if materials is not None else setup.materials, "scattering")
+    if isinstance(setup, hpfem.ConicalScatteringSetup):
+        out = validate_isotropic(
+            materials if materials is not None else setup.materials, "scattering"
+        )
+    else:
+        out = validate_volume_anisotropic(mesh, setup)
     if errors(out):
         return out
     out += validate_mesh(mesh, materials if materials is not None else setup.materials)
@@ -541,4 +610,5 @@ __all__ = [
     "validate_resolution",
     "validate_scattering",
     "validate_stack",
+    "validate_volume_anisotropic",
 ]

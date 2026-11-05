@@ -14,6 +14,7 @@
 #include "hpfem/core/log.hpp"
 #include "hpfem/fespace/constraints.hpp"
 #include "hpfem/mesh/geometry.hpp"
+#include "hpfem/physics/material_form.hpp"
 
 namespace hpfem::physics {
 
@@ -30,28 +31,10 @@ template <int Dim>
 assembly::MaxwellForm<Dim> Resonance<Dim>::form_of_cell(Index cell) const {
   const materials::Material& m = setup_.materials.of_cell(dofs_->mesh(), cell);
   assembly::MaxwellForm<Dim> form;
-  const Complex eps = m.eps_scalar();
-  const Complex mu = m.mu_scalar();
-  if (setup_.pml) {
-    if (setup_.pml->in_layer(mesh::affine_map(dofs_->mesh(), cell).centroid())) {
-      form.quadrature_order = 2 * dofs_->cell_order(cell) + setup_.pml_extra_quadrature_order;
-    }
-    form.inverse_permeability = [mu, pml = *setup_.pml](const Point<Dim>& x) {
-      return pml.inverse_permeability(mu, x);
-    };
-    form.permittivity = [eps, pml = *setup_.pml](const Point<Dim>& x) {
-      return pml.permittivity(eps, x);
-    };
-  } else {
-    const Complex inv_mu = 1.0 / mu;
-    form.inverse_permeability = [inv_mu](const Point<Dim>&) {
-      return assembly::InversePermeabilityTensor<Dim>(
-          inv_mu * assembly::InversePermeabilityTensor<Dim>::Identity());
-    };
-    form.permittivity = [eps](const Point<Dim>&) {
-      return assembly::PermittivityTensor<Dim>(eps * assembly::PermittivityTensor<Dim>::Identity());
-    };
+  if (setup_.pml && setup_.pml->in_layer(mesh::affine_map(dofs_->mesh(), cell).centroid())) {
+    form.quadrature_order = 2 * dofs_->cell_order(cell) + setup_.pml_extra_quadrature_order;
   }
+  set_material_tensors<Dim>(form, m, setup_.pml ? &*setup_.pml : nullptr);
   return form;
 }
 

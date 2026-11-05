@@ -28,40 +28,48 @@ Real AbsorptionDensity<Dim>::total() const noexcept {
 
 namespace {
 
+/// Cells counted as absorbing: Im eps_r > 0 for an isotropic medium (gain media are left out),
+/// any imaginary part for a tensor.
+bool absorbs(const materials::Material& m) {
+  return m.is_isotropic() ? m.eps_scalar().imag() > 0 : !materials::is_lossless(m);
+}
+
 /// What the two solvers have in common for the quadrature of the Joule heating.
 template <int Dim>
 struct Problem {
   const mesh::Mesh<Dim>& mesh;
   Real omega;
-  std::function<Real(Index)> loss;  ///< Im(eps_r) of the cell's material
-  std::function<int(Index)> order;  ///< polynomial order of the field in the cell
-  std::function<Real(Index, const Point<Dim>&)> squared_norm;  ///< |E_total(xi)|^2
+  std::function<bool(Index)> lossy;  ///< the cell's material absorbs (see `absorbs`)
+  std::function<int(Index)> order;   ///< polynomial order of the field in the cell
+  /// E_total^H Im(eps) E_total at xi (materials::loss_density)
+  std::function<Real(Index, const Point<Dim>&)> loss_density;
 };
 
 template <int Dim>
 Problem<Dim> access(const Scattering<Dim>& problem, const ScatteringSolution<Dim>& solution) {
   const auto& dofs = problem.dofs();
   return {dofs.mesh(), problem.setup().omega,
-          [&problem](Index c) { return std::imag(problem.material(c).eps_scalar()); },
+          [&problem](Index c) { return absorbs(problem.material(c)); },
           [&dofs](Index c) { return dofs.cell_order(c); },
           [&problem, &solution](Index c, const Point<Dim>& xi) {
-            return problem.total_field(solution, c, xi).squaredNorm();
+            return materials::loss_density<Dim>(problem.material(c),
+                                                problem.total_field(solution, c, xi));
           }};
 }
 
 Problem<2> access(const ConicalScattering& problem, const ConicalSolution& solution) {
   const auto& mesh = problem.transverse_dofs().mesh();
-  return {mesh, problem.setup().omega,
-          [&problem, &mesh](Index c) {
-            return std::imag(problem.setup().materials.of_cell(mesh, c).eps_scalar());
-          },
-          [&problem](Index c) {
-            return std::max(problem.transverse_dofs().cell_order(c),
-                            problem.longitudinal_dofs().cell_order(c));
-          },
-          [&problem, &solution](Index c, const Point<2>& xi) {
-            return problem.total_field(solution, c, xi).squaredNorm();
-          }};
+  return {
+      mesh, problem.setup().omega,
+      [&problem, &mesh](Index c) { return absorbs(problem.setup().materials.of_cell(mesh, c)); },
+      [&problem](Index c) {
+        return std::max(problem.transverse_dofs().cell_order(c),
+                        problem.longitudinal_dofs().cell_order(c));
+      },
+      [&problem, &mesh, &solution](Index c, const Point<2>& xi) {
+        return materials::loss_density<3>(problem.setup().materials.of_cell(mesh, c),
+                                          problem.total_field(solution, c, xi));
+      }};
 }
 
 template <int Dim>
@@ -70,21 +78,20 @@ AbsorbedPower by_tag(const Problem<Dim>& p, int extra_order) {
   AbsorbedPower result;
   result.per_cell.assign(as_size(mesh.num_cells()), 0.0);
   parallel_for(mesh.num_cells(), [&](Index c, int) {
-    const Real loss = p.loss(c);
-    if (!(loss > 0)) return;
+    if (!p.lossy(c)) return;
     const auto rule = assembly::simplex_quadrature<Dim>(2 * p.order(c) + extra_order);
     const auto geometry = mesh::cell_geometry(mesh, c);
     Real integral = 0;
     for (std::size_t q = 0; q < rule.size(); ++q) {
       const Real det = std::abs(geometry->evaluate(rule.points[q]).det);
-      integral += rule.weights[q] * det * p.squared_norm(c, rule.points[q]);
+      integral += rule.weights[q] * det * p.loss_density(c, rule.points[q]);
     }
-    result.per_cell[as_size(c)] = 0.5 * p.omega * constants::eps0 * loss * integral;
+    result.per_cell[as_size(c)] = 0.5 * p.omega * constants::eps0 * integral;
   });
   std::map<mesh::Tag, Real> tags;
   for (Index c = 0; c < mesh.num_cells(); ++c) {
     const Real power = result.per_cell[as_size(c)];
-    if (power == 0.0 && !(p.loss(c) > 0)) continue;
+    if (power == 0.0 && !p.lossy(c)) continue;
     tags[mesh.cell_tag(c)] += power;
     result.total += power;
   }
@@ -100,8 +107,7 @@ AbsorptionDensity<Dim> density(const Problem<Dim>& p, int extra_order) {
   for (Index c = 0; c < mesh.num_cells(); ++c) {
     offsets[as_size(c) + 1] =
         offsets[as_size(c)] +
-        (p.loss(c) > 0 ? assembly::simplex_quadrature<Dim>(2 * p.order(c) + extra_order).size()
-                       : 0);
+        (p.lossy(c) ? assembly::simplex_quadrature<Dim>(2 * p.order(c) + extra_order).size() : 0);
   }
   AbsorptionDensity<Dim> result;
   result.points.resize(offsets.back());
@@ -109,8 +115,7 @@ AbsorptionDensity<Dim> density(const Problem<Dim>& p, int extra_order) {
   result.density.resize(offsets.back());
   result.cell.resize(offsets.back());
   parallel_for(mesh.num_cells(), [&](Index c, int) {
-    const Real loss = p.loss(c);
-    if (!(loss > 0)) return;
+    if (!p.lossy(c)) return;
     const auto rule = assembly::simplex_quadrature<Dim>(2 * p.order(c) + extra_order);
     const auto geometry = mesh::cell_geometry(mesh, c);
     for (std::size_t q = 0; q < rule.size(); ++q) {
@@ -118,8 +123,7 @@ AbsorptionDensity<Dim> density(const Problem<Dim>& p, int extra_order) {
       const std::size_t i = offsets[as_size(c)] + q;
       result.points[i] = g.x;
       result.weights[i] = rule.weights[q] * std::abs(g.det);
-      result.density[i] =
-          0.5 * p.omega * constants::eps0 * loss * p.squared_norm(c, rule.points[q]);
+      result.density[i] = 0.5 * p.omega * constants::eps0 * p.loss_density(c, rule.points[q]);
       result.cell[i] = c;
     }
   });

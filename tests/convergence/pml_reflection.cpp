@@ -12,17 +12,29 @@
 // quadratic profile (|k s| h < 3 at h = 1/8 keeps the stretched field resolved) and a strong
 // target reflection, because the PEC behind the layer sees the one-way attenuated field,
 // which at 60° incidence is only R0^(cos 60° / 2).
+//
+// Anisotropic media (ADR-0015 §2, M19 S2): the stretch maps any tensor as
+// eps~ = det(Lambda) Lambda^-1 eps Lambda^-1, so Lambda E(x~) stays exact for an eigenwave of a
+// homogeneous crystal. Along x the eigenwaves have E_x = -(eps_xy E_y + eps_xz E_z) / eps_xx and
+// k^2 = k0^2 lambda with lambda an eigenvalue of the Schur complement
+// S = eps_tt - eps_tx eps_xt / eps_xx (t = y, z); the tilted optic axis gives them a
+// longitudinal component, which only the off-diagonal tensor entries produce. For this wave
+// phase and group velocity both point into the layer, so it is absorbed; the geometric PML
+// condition fails for other (grazing) directions of a tilted crystal, which this wave does not
+// excite (the solver logs pml-backward-wave).
 #include <algorithm>
 #include <cmath>
 #include <numbers>
 #include <vector>
 
+#include <Eigen/Eigenvalues>
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/format.h>
 
 #include "hpfem/assembly/maxwell_forms.hpp"
 #include "hpfem/core/constants.hpp"
 #include "hpfem/fespace/dof_map.hpp"
+#include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/generators.hpp"
 #include "hpfem/physics/scattering.hpp"
 #include "hpfem/physics/sources.hpp"
@@ -37,6 +49,8 @@ using hpfem::assembly::ComplexCurl;
 using hpfem::assembly::ComplexVector;
 using hpfem::assembly::HcurlErrorNorms;
 using hpfem::fespace::NedelecDofMap;
+using hpfem::materials::Material;
+using hpfem::materials::Tensor3;
 using hpfem::mesh::box;
 using hpfem::mesh::Mesh;
 using hpfem::mesh::rectangle;
@@ -91,10 +105,10 @@ IncidentField<Dim> stretched_plane_wave(const ComplexVector<Dim>& e0, const Poin
 }
 
 template <int Dim>
-PmlBox<Dim> pml_in_x() {
+PmlBox<Dim> pml_in_x(Real index = 1.0) {
   typename PmlBox<Dim>::Thickness t{};
   t[1] = kThickness;  // +x side only
-  return PmlBox<Dim>(Point<Dim>::Zero(), Point<Dim>::Ones(), t, kWavenumber, 1.0, kProfile);
+  return PmlBox<Dim>(Point<Dim>::Zero(), Point<Dim>::Ones(), t, kWavenumber, index, kProfile);
 }
 
 /// Mesh of the interior unit box plus the layer, n cells per unit length.
@@ -118,11 +132,12 @@ struct Errors {
 /// PEC-terminated far end of the layer.
 template <int Dim>
 Errors solve_and_measure(const Mesh<Dim>& mesh, int p, const ComplexVector<Dim>& e0,
-                         const Point<Dim>& k) {
-  const PmlBox<Dim> pml = pml_in_x<Dim>();
+                         const Point<Dim>& k, const Material& medium = Material::vacuum()) {
+  const PmlBox<Dim> pml = pml_in_x<Dim>(k.norm() / kWavenumber);
   const IncidentField<Dim> exact = stretched_plane_wave<Dim>(e0, k, pml);
   const NedelecDofMap<Dim> dofs(mesh, p);
   ScatteringSetup<Dim> setup;
+  setup.materials = hpfem::materials::MaterialMap(medium);
   setup.omega = kWavenumber * hpfem::constants::c0;
   setup.incident = exact;
   setup.formulation = Formulation::kTotalField;
@@ -162,6 +177,33 @@ void print_header(const std::string& title) {
 Real rate(const std::vector<Real>& errors, const std::vector<Real>& hs) {
   const auto i = errors.size() - 1;
   return std::log(errors[i - 1] / errors[i]) / std::log(hs[i - 1] / hs[i]);
+}
+
+/// Uniaxial crystal (ordinary index 1.5, extraordinary 2.0) with the optic axis `axis`.
+Tensor3 uniaxial(const Eigen::Vector3d& axis) {
+  constexpr Real kNo = 1.5;
+  constexpr Real kNe = 2.0;
+  const Eigen::Vector3d a = axis.normalized();
+  return (kNo * kNo * Eigen::Matrix3d::Identity() + (kNe * kNe - kNo * kNo) * a * a.transpose())
+      .cast<Complex>();
+}
+
+/// Eigenwave travelling along +x in the crystal eps (real): polarisation and wave vector, the
+/// extraordinary one (larger index) if `extraordinary`.
+struct Eigenwave {
+  ComplexVector<3> e0;
+  Point<3> k;
+};
+Eigenwave eigenwave_along_x(const Tensor3& eps, bool extraordinary) {
+  const Eigen::Matrix3d e = eps.real();
+  const Eigen::Matrix2d schur =
+      e.bottomRightCorner<2, 2>() - e.block<2, 1>(1, 0) * e.block<1, 2>(0, 1) / e(0, 0);
+  const Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> eig(schur);
+  const int m = extraordinary ? 1 : 0;  // ascending eigenvalues
+  const Eigen::Vector2d t = eig.eigenvectors().col(m);
+  const Real ex = -(e(0, 1) * t(0) + e(0, 2) * t(1)) / e(0, 0);
+  return {ComplexVector<3>(ex, t(0), t(1)),
+          Point<3>(kWavenumber * std::sqrt(eig.eigenvalues()(m)), 0.0, 0.0)};
 }
 
 }  // namespace
@@ -218,5 +260,50 @@ TEST_CASE("PML: interior error below 1e-6 under p-refinement at normal and 60 de
       previous = last;
     }
     REQUIRE(last < 1e-6);
+  }
+}
+
+TEST_CASE("PML: crystal with a tilted optic axis, eigenwave along the layer normal",
+          "[convergence][pml][anisotropic]") {
+  // 2D: axis in the x-y plane at 30 deg to the normal; the in-plane eigenwave couples E_x and
+  // E_y through eps_xy (2D carries the in-plane block of the tensor)
+  {
+    const Tensor3 eps = uniaxial(
+        Eigen::Vector3d(std::cos(std::numbers::pi / 6), std::sin(std::numbers::pi / 6), 0.0));
+    const Eigenwave w = eigenwave_along_x(eps, true);
+    REQUIRE(std::abs(w.e0(2)) < 1e-14);  // the in-plane wave, E_z = 0
+    REQUIRE(std::abs(w.e0(0)) > 0.1);    // with a longitudinal component
+    const Material crystal = Material::anisotropic(eps);
+    const Index n = 8;
+    fmt::print(
+        "\nPML, 2D crystal, axis at 30 deg, n_eff = {:.4f}, h = 1/{}\n"
+        "{:>4} {:>8} {:>12} {:>12}\n",
+        w.k(0) / kWavenumber, n, "p", "DoF", "interior", "layer");
+    Real previous = 1.0;
+    Real last = 1.0;
+    for (int p = 1; p <= 6; ++p) {
+      const Errors e = solve_and_measure<2>(layered_mesh<2>(n), p, w.e0.head<2>(),
+                                            Point<2>(w.k(0), 0.0), crystal);
+      fmt::print("{:>4} {:>8} {:>12.3e} {:>12.3e}\n", p, e.dofs, e.interior, e.layer);
+      last = e.interior;
+      REQUIRE(last < 0.5 * previous);  // exponential: no reflection floor
+      previous = last;
+    }
+    REQUIRE(last < 1e-6);
+  }
+  // 3D: axis along (1, 1, 1), a full tensor; both eigenwaves along x
+  const Tensor3 eps = uniaxial(Eigen::Vector3d(1.0, 1.0, 1.0));
+  const Material crystal = Material::anisotropic(eps);
+  for (const bool extraordinary : {false, true}) {
+    const Eigenwave w = eigenwave_along_x(eps, extraordinary);
+    fmt::print("\nPML, 3D crystal, axis (1,1,1), n_eff = {:.4f}\n{:>4} {:>8} {:>12} {:>12}\n",
+               w.k(0) / kWavenumber, "p", "DoF", "interior", "layer");
+    std::vector<Real> errors;
+    for (int p = 1; p <= 4; ++p) {
+      const Errors e = solve_and_measure<3>(layered_mesh<3>(3), p, w.e0, w.k, crystal);
+      fmt::print("{:>4} {:>8} {:>12.3e} {:>12.3e}\n", p, e.dofs, e.interior, e.layer);
+      if (!errors.empty()) REQUIRE(e.interior < 0.6 * errors.back());
+      errors.push_back(e.interior);
+    }
   }
 }

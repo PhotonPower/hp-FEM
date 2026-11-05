@@ -61,6 +61,7 @@ hpfem_add_test(test_pml unit
 hpfem_add_test(test_physics unit
   physics/test_sources.cpp
   physics/test_scattering.cpp
+  physics/test_anisotropic_volume.cpp
   physics/test_postprocess.cpp
   physics/test_grating_postprocessing.cpp
   physics/test_mie.cpp

@@ -97,6 +97,52 @@ class Material {
   std::shared_ptr<const Tensor3> eps_tensor_;  ///< set for a tensor material only
 };
 
+/// Largest real part of the principal refractive indices @f$ \sqrt{\lambda_k\mu_r} @f$ over the
+/// eigenvalues @f$ \lambda_k @f$ of the permittivity (the plain Re n for an isotropic medium): the
+/// index that sets the shortest wavelength in the medium, e.g. for mesh and PML resolution.
+[[nodiscard]] Real max_real_index(const Material& material);
+
+/// Throws the `AnisotropicUnsupported` of `permittivity_tensor<2>` for a tensor that couples
+/// the plane to z.
+[[noreturn]] void throw_in_plane_coupling();
+
+/// Permittivity tensor seen by the Dim-dimensional in-plane Nédélec space: the full tensor in 3D,
+/// the x–y block in 2D (the in-plane fields E_x, E_y with ∂_z = 0).
+/// @throws AnisotropicUnsupported in 2D if the tensor couples the plane to z
+///         (@f$ \varepsilon_{xz} \ne 0 @f$ or @f$ \varepsilon_{yz} \ne 0 @f$): the in-plane field
+///         then drives E_z, which the 2D space does not carry (use the conical solver).
+template <int Dim>
+[[nodiscard]] Eigen::Matrix<Complex, Dim, Dim> permittivity_tensor(const Material& material) {
+  static_assert(Dim == 2 || Dim == 3);
+  const Tensor3 eps = material.eps_tensor();
+  if constexpr (Dim == 3) {
+    return eps;
+  } else {
+    if (eps(0, 2) != Complex{0.0, 0.0} || eps(1, 2) != Complex{0.0, 0.0}) {
+      throw_in_plane_coupling();
+    }
+    return eps.template topLeftCorner<2, 2>();
+  }
+}
+
+/// True if the permittivity is real (no loss and no gain), isotropic or tensor.
+[[nodiscard]] inline bool is_lossless(const Material& material) {
+  return material.is_isotropic() ? material.eps_scalar().imag() == 0
+                                 : material.eps_tensor().imag().isZero(0.0);
+}
+
+/// Dimensionless loss density @f$ E^H\,\mathrm{Im}(\varepsilon)\,E @f$ of the field `e` with N = 2
+/// (in-plane components, `permittivity_tensor<2>`) or N = 3 components; the time-averaged Joule
+/// heating is @f$ \tfrac12\omega\varepsilon_0 @f$ times it. For a symmetric ε the Hermitian part
+/// @f$ (\varepsilon - \varepsilon^H)/2i @f$ is the real matrix @f$ \mathrm{Im}\,\varepsilon @f$, so
+/// this is real; it reduces to @f$ \mathrm{Im}(\varepsilon_r)|E|^2 @f$ for an isotropic medium.
+template <int N>
+[[nodiscard]] Real loss_density(const Material& material, const Eigen::Matrix<Complex, N, 1>& e) {
+  if (material.is_isotropic()) return material.eps_scalar().imag() * e.squaredNorm();
+  const Eigen::Matrix<Real, N, N> loss = permittivity_tensor<N>(material).imag();
+  return (e.adjoint() * loss.template cast<Complex>() * e)(0, 0).real();
+}
+
 /// Materials by cell tag; cells whose tag is not listed (including untagged cells) get the
 /// background material. Individual cells may override their tag's material (`set_cell`),
 /// e.g. for a temperature-dependent permittivity that varies from cell to cell.
