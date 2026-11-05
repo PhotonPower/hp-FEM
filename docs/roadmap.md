@@ -633,8 +633,14 @@ last.
     of a flat stack: the plane-wave spectrum on the orders); tests: a tilted absorbing crystal
     layer (6e-8 inside the light cone, 2e-5 beyond it), a tilted lossless crystal substrate with
     the modal bottom (1e-5, P_cell = up + down)
-  - [ ] S7c: `dipole_emission` for crystals (full β and kx ranges, all power-matrix entries,
-    crystal light lines) against S7a
+  - [x] S7c: `dipole_emission` for crystals (an `AnisotropicStack` or crystal cells): β over
+    (−β_max, β_max), the full kx zone, every power-matrix entry, the light lines and branch
+    points of crystal half-spaces from their Fresnel quartic and the β turning points of their
+    sheets; refused with crystals: `symmetric`, `channels` (S7d), the guided-mode poles (a
+    lossless crystal structure that may guide modes), `bottom="modal"`; tests: the light lines
+    against closed forms, the scan rule on the exact spectrum of a tilted crystal half-space
+    (1e-4), the refusals; long run `benchmarks/m19_crystal_dipole_scan.py`: the FEM scan against
+    S7a to 5e-4
   - [ ] S7d: emission pattern / channels by reciprocity with crystals (mirrored tensors, with
     S3c)
 - [ ] S8: GUI material editor (isotropic / uniaxial / biaxial / full, axis angles, per part and

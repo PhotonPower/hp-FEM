@@ -2376,12 +2376,97 @@ def _breaks(lo: float, hi: float, points) -> list[float]:
     return [lo, *inner, hi]
 
 
+def _is_tensor(medium) -> bool:
+    """A semi-infinite medium of the array scanning given as a 3×3 permittivity (solver frame)."""
+    return np.ndim(medium) == 2
+
+
+def _fresnel_quartic(eps, k0: float, beta: float) -> np.ndarray:
+    """Coefficients (ascending) of F(kx) = det(k0² ε + k kᵀ − |k|² I), k = (kx, 0, β): the
+    wave vectors of a crystal (solver frame, y the normal) with k_y = 0, its light line."""
+    poly = np.polynomial.polynomial
+    e = np.asarray(eps, dtype=complex).real
+    m = [[None] * 3 for _ in range(3)]
+    for i in range(3):
+        for j in range(3):
+            m[i][j] = np.array([k0 * k0 * e[i, j]], dtype=float)
+    # k kᵀ − |k|² I with k = (kx, 0, β), coefficients in kx
+    m[0][0] = poly.polyadd(m[0][0], [-(beta**2)])
+    m[0][2] = poly.polyadd(m[0][2], [0.0, beta])
+    m[2][0] = poly.polyadd(m[2][0], [0.0, beta])
+    m[1][1] = poly.polyadd(m[1][1], [-(beta**2), 0.0, -1.0])
+    m[2][2] = poly.polyadd(m[2][2], [0.0, 0.0, -1.0])
+
+    def minor(a, b, c, d):
+        return poly.polysub(poly.polymul(a, d), poly.polymul(b, c))
+
+    det = poly.polymul(m[0][0], minor(m[1][1], m[1][2], m[2][1], m[2][2]))
+    det = poly.polysub(det, poly.polymul(m[0][1], minor(m[1][0], m[1][2], m[2][0], m[2][2])))
+    det = poly.polyadd(det, poly.polymul(m[0][2], minor(m[1][0], m[1][1], m[2][0], m[2][1])))
+    return det
+
+
+def _crystal_kx_roots(eps, k0: float, beta: float):
+    """Light-line crossings of a lossless crystal at β: the real roots kx of the Fresnel quartic
+    with the sign of the group velocity along x (the side of the bump of ADR-0013 §3a: a small
+    loss moves the root to the upper half plane where it travels along +x), and the complex
+    roots (branch points of the evanescent sheets)."""
+    coefficients = _fresnel_quartic(eps, k0, beta)
+    roots = np.polynomial.polynomial.polyroots(coefficients)
+    real, branch = [], []
+    for r in roots:
+        if abs(r.imag) < 1e-9 * k0:
+            kx = float(r.real)
+            dfdk = np.polynomial.polynomial.polyval(kx, np.polynomial.polynomial.polyder(
+                coefficients))  # fmt: skip
+            h = 1e-6 * k0
+            dfdw = np.polynomial.polynomial.polyval(
+                kx, _fresnel_quartic(eps, k0 + h, beta)
+            ) - np.polynomial.polynomial.polyval(kx, _fresnel_quartic(eps, k0 - h, beta))
+            # v_x = -F_kx / F_k0
+            real.append((kx, 1.0 if -dfdk / dfdw > 0 else -1.0))
+        else:
+            branch.append(complex(r))
+    return real, branch
+
+
+def _crystal_beta_extrema(eps, k0: float) -> list[float]:
+    """|β| where the light line of a lossless crystal (k_y = 0) has a turning point: the largest
+    k_z = k sin t on each sheet of its slowness curve in the plane k_y = 0 (solver frame)."""
+    from scipy.linalg import eigvals
+    from scipy.optimize import minimize_scalar
+
+    a = k0 * k0 * np.asarray(eps, dtype=complex).real
+
+    def sheets(t):
+        u = np.array([math.cos(t), 0.0, math.sin(t)])
+        lam = eigvals(a, np.eye(3) - np.outer(u, u))
+        # the singular (I - u uᵀ) gives one infinite (or, by rounding, huge) eigenvalue
+        lam = np.sort(lam[np.isfinite(lam)].real)[:2]
+        return np.sqrt(np.maximum(lam, 0.0)) * math.sin(t)
+
+    out = []
+    grid = np.linspace(1e-3, math.pi - 1e-3, 721)
+    for sheet in range(2):
+        values = np.array([sheets(t)[sheet] for t in grid])
+        i = int(np.argmax(values))
+        lo, hi = grid[max(i - 1, 0)], grid[min(i + 1, len(grid) - 1)]
+        res = minimize_scalar(lambda t, s=sheet: -sheets(t)[s], bounds=(lo, hi),
+                              method="bounded", options={"xatol": 1e-13})  # fmt: skip
+        out.append(float(-res.fun))
+    return out
+
+
 def _light_line_crossings(period: float, k0: float, indices, beta: float):
     """The light-line crossings (c, s) of one β, folded into one period of kx: c = q (s = +1,
     the orders travelling along +x) and c = −q (s = −1) modulo 2π/P for every index."""
     g = 2 * math.pi / period
     out = []
     for n in indices:
+        if _is_tensor(n):
+            for c, s in _crystal_kx_roots(n, k0, beta)[0]:
+                out.append((c - g * math.floor(c / g + 0.5), s))
+            continue
         q2 = (k0 * n) ** 2 - beta**2
         if q2 > 0:
             q = math.sqrt(q2)
@@ -2488,11 +2573,23 @@ _GRADE_NODES = 4  # β points per graded panel (None: as the other panels)
 
 def _scan_slices(period: float, k0: float, indices, beta_max: float, nodes: int,
                  symmetric: bool, beta_breaks=(), pinch_breaks: bool = True) -> list:  # fmt: skip
-    """The β nodes of :func:`array_scan_rule` with their kx windows (see there)."""
+    """The β nodes of :func:`array_scan_rule` with their kx windows (see there). With a crystal
+    among the media (a 3×3 tensor, solver frame) the integrand is not even in β: β runs over
+    (−beta_max, beta_max) with half the weight, split at ± the turning points of the crystal light
+    lines (M19 S7c); the Wood-anomaly pinch breaks are taken for the isotropic media only."""
     g = 2 * math.pi / period
+    tensors = [np.asarray(n, dtype=complex) for n in indices if _is_tensor(n)]
+    full = bool(tensors)
+    if full and symmetric:
+        raise GratingError("symmetric=True assumes a mirror-symmetric cell; not with crystals")
     factor = (period / (2 * math.pi)) * (1 / math.pi) * (2.0 if symmetric else 1.0)
-    indices = sorted({round(float(n), 12) for n in indices if n > 0})
+    if full:
+        factor *= 0.5
+    indices = sorted({round(float(n), 12) for n in indices if not _is_tensor(n) and n > 0})
     b_points = [k0 * n for n in indices] + [complex(b).real for b in beta_breaks]
+    for eps in tensors:
+        b_points += _crystal_beta_extrema(eps, k0)
+    media = list(indices) + tensors
     # a lossy pinch β_r + iδ (the pole pair of a lossy mode meeting at kx = 0 or π/P) makes a
     # peak of width δ: panels graded geometrically towards β_r, δ, 2δ, 4δ, ... up to
     # _GRADE_TOP k0, with _GRADE_NODES points each; a panel is graded when both its ends are
@@ -2510,6 +2607,7 @@ def _scan_slices(period: float, k0: float, indices, beta_max: float, nodes: int,
                 graded |= {b.real - step, b.real + step}
                 step *= 2
     b_points = [b for b in b_points + sorted(graded) if 0.0 < b < beta_max]
+    n_top = max([*indices, *(max(_crystal_beta_extrema(e, k0)) / k0 for e in tensors)], default=0.0)
     if pinch_breaks:
         # where a +q and a −q crossing meet at kx = 0 or π/P (q = j·π/P, a Wood anomaly of the
         # cell): the kx integrand pinches there and the β integrand has a square-root point
@@ -2521,13 +2619,15 @@ def _scan_slices(period: float, k0: float, indices, beta_max: float, nodes: int,
     # beyond the last break every medium is evanescent and the integrand decays like
     # exp(−2βd) with the distance d of the dipole from the nearest interface: panels of width
     # k0·max(n), so that an explicit beta_max for the near field of a metal is resolved
-    if indices:
-        start, step = max(b_points), k0 * max(indices)
+    if indices or tensors:
+        start, step = max(b_points), k0 * max(n_top, max(indices, default=0.0))
         while start + step < beta_max * (1 - 1e-9):
             start += step
             b_points.append(start)
     out = []
-    b_edges = _breaks(0.0, beta_max, b_points)
+    if full:
+        b_points = b_points + [-b for b in b_points] + [0.0]
+    b_edges = _breaks(-beta_max if full else 0.0, beta_max, b_points)
     for b0, b1 in zip(b_edges[:-1], b_edges[1:], strict=True):
         if b0 in graded and b1 in graded:
             t, w = np.polynomial.legendre.leggauss(_GRADE_NODES or nodes)
@@ -2535,7 +2635,7 @@ def _scan_slices(period: float, k0: float, indices, beta_max: float, nodes: int,
         else:
             betas, wb = _mapped_gauss(b0, b1, nodes)
         for beta, w_beta in zip(betas, wb, strict=True):
-            crossings = _light_line_crossings(period, k0, indices, float(beta))
+            crossings = _light_line_crossings(period, k0, media, float(beta))
             if symmetric:
                 lo, hi = 0.0, 0.5 * g
                 inside = [(c, s) for c, s in crossings if 1e-12 * g < c < hi - 1e-12 * g]
@@ -2549,8 +2649,12 @@ def _scan_slices(period: float, k0: float, indices, beta_max: float, nodes: int,
             else:
                 lo, hi, inside = -0.5 * g, 0.5 * g, []
             branch = []
+            for eps in tensors:
+                for r in _crystal_kx_roots(eps, k0, float(beta))[1]:
+                    for m in range(math.floor(lo / g) - 1, math.ceil(hi / g) + 2):
+                        branch.append(r + g * m)
             for n in indices:
-                if beta > k0 * n:
+                if abs(beta) > k0 * n:
                     kappa = math.sqrt(beta**2 - (k0 * n) ** 2)
                     for m in range(math.floor(lo / g) - 1, math.ceil(hi / g) + 2):
                         branch += [complex(g * m, kappa), complex(g * m, -kappa)]
@@ -2719,12 +2823,18 @@ def _dipole_cell(mesh, materials, stack, position, sigma: float, omega: float, o
     designed for the 80° cap (ADR-0013 §3a: a profile that follows Re kx would make the
     integrand non-analytic in kx), the cells without a material from the stack, the checks of
     :func:`emit` on the dipole."""
+    if bottom not in ("pml", "pec"):
+        raise GratingError(
+            f"bottom={bottom!r}: the array scan takes 'pml' or 'pec' (the modal boundary needs a "
+            "real Bloch wavenumber)"
+        )
     pr = _prepare(
         mesh, materials, stack, "s", 80 * units.deg, 0.0, omega, pml=pml, bottom=bottom,
         orders_max=0, snap_tolerance=snap_tolerance, pml_target=pml_target,
         pml_wavelengths=pml_wavelengths, cover_line=None, substrate_line=None,
+        allow_crystal_stack=True,
     )  # fmt: skip
-    material_map = _completed_material_map(mesh, materials, stack, omega)
+    material_map = _completed_material_map(mesh, materials, pr.stack, omega)
     x0, y0 = float(position[0]), float(position[1])
     if not (pr.x_min + 6 * sigma <= x0 <= pr.x_min + pr.period - 6 * sigma):
         raise GratingError("dipole: the Gaussian must lie 6 sigma inside the cell along x")
@@ -2734,15 +2844,19 @@ def _dipole_cell(mesh, materials, stack, position, sigma: float, omega: float, o
     if located is None:
         raise GratingError("dipole: the position lies outside the mesh")
     host = material_map.of_cell(mesh, int(located.cell))
+    if not host.is_isotropic:
+        raise GratingError(
+            "dipole: the emitter must lie in an isotropic medium (ADR-0015 S7 amendment)"
+        )
     if abs(complex(host.eps_r).imag) > 1e-12:
         raise GratingError("dipole: the emitter must lie in a lossless medium (ADR-0013)")
-    lossy = abs(pr.n_sub.imag) > 1e-12 or any(
-        abs(complex(material_map.of_cell(mesh, c).eps_r).imag) > 1e-12
-        for c in range(mesh.num_cells)
-    )
-    eps = [complex(material_map.of_cell(mesh, c).eps_r) for c in range(mesh.num_cells)]
-    n_max = max(np.sqrt(e).real for e in eps)
-    metal = any(e.real < 0 for e in eps)
+    # tensors throughout (crystals in the cells or the stack)
+    tensors = [np.asarray(material_map.of_cell(mesh, c).eps_tensor, dtype=complex)
+               for c in range(mesh.num_cells)]  # fmt: skip
+    lossy = abs(pr.n_sub.imag) > 1e-12 or any(np.abs(t.imag).max() > 1e-12 for t in tensors)
+    principal = [np.linalg.eigvalsh(0.5 * (t.real + t.real.T)) for t in tensors]
+    n_max = max(math.sqrt(max(float(v.max()), 0.0)) for v in principal)
+    metal = any(float(v.min()) < 0 for v in principal)
     orders = [int(order)] * mesh.num_cells if np.isscalar(order) else [int(p) for p in order]
     return _DipoleCell(pr, material_map, hpfem.NedelecDofMap2D(mesh, orders),
                        hpfem.DofMap2D(mesh, orders), np.array([x0, y0]), float(sigma),
@@ -3034,9 +3148,11 @@ def _emission_plan(cell: _DipoleCell, k0: float, *, nodes: int, kx_nodes: int, d
     indices of the semi-infinite media."""
     n_cover = cell.pr.n_cover.real
     down_side = cell.pr.transmitted
-    indices = [n_cover] + ([cell.pr.n_sub.real] if down_side else [])
+    substrate = cell.pr.n_sub.real if cell.pr.substrate_eps is None else cell.pr.substrate_eps
+    indices = [n_cover] + ([substrate] if down_side else [])
     # guided modes live up to k0 times the largest index of the cell (ADR-0013 §4a)
-    beta_max = k0 * max(max(indices), cell.n_max) if beta_max is None else float(beta_max)
+    n_media = max(n_cover, cell.pr.n_sub.real if down_side else 0.0)
+    beta_max = k0 * max(n_media, cell.n_max) if beta_max is None else float(beta_max)
     rule = array_scan_rule(cell.pr.period, k0, indices, beta_max=beta_max, nodes=nodes,
                            symmetric=symmetric, depth=depth, kx_nodes=kx_nodes,
                            beta_breaks=beta_breaks)  # fmt: skip
@@ -3283,6 +3399,13 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     metal). **Limits:** the evanescent range β > k0 n_max, where near-field absorption by nearby
     metals lives, needs an explicit ``beta_max``; lossy hosts are excluded.
 
+    **Crystals** (in the cells or an ``AnisotropicStack``, M19 S7c, ADR-0015 S7 amendment): the
+    integrand is not even in β or kx, so β runs over (−beta_max, beta_max) and kx over the full
+    zone, every entry of the power matrix counts, and the light lines of a crystal half-space
+    come from its Fresnel quartic; the emitter lies in an isotropic, lossless medium,
+    ``symmetric``, ``channels`` (S7d) and the guided-mode poles are not available (a lossless
+    crystal structure that may guide modes is refused).
+
     ``workers`` > 1 solves the cell problems of the scan in that many threads (the β pre-pass,
     the first pass over all β nodes and the second pass of the guided bumps as one batch each;
     the samples are independent, ADR-0013 §5), each with an equal share of the OpenMP threads;
@@ -3311,6 +3434,28 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
                         extra_quadrature_order=extra_quadrature_order, solver=solver,
                         sweep=sweep)  # fmt: skip
     n_semi = max([cell.pr.n_cover.real] + ([cell.pr.n_sub.real] if cell.pr.transmitted else []))
+    crystal = not cell.material_map.is_isotropic or bool(_stack_crystals(cell.pr.stack))
+    if crystal:
+        # M19 S7c: no β / kx symmetry, no channels by reciprocity (S7d), no pole subtraction
+        if symmetric:
+            raise GratingError("symmetric=True assumes a mirror-symmetric cell; not with crystals")
+        if channels:
+            raise GratingError(
+                "channels by reciprocity are not available with crystals yet (M19 S7d): pass "
+                "channels=False"
+            )
+        if guided is True:
+            raise GratingError(
+                "the guided-mode poles of crystal structures are not treated yet (M19 S7c): use "
+                "absorbing layers or a structure without guided modes, guided=False"
+            )
+        if not cell.lossy and cell.n_max > n_semi + 1e-12:
+            raise GratingError(
+                "a lossless crystal structure with a layer of higher index than the half-spaces "
+                "may guide modes (poles on the real axis), which the scan does not treat yet "
+                "(M19 S7c)"
+            )
+        guided = False
     guided_on = _guided_wanted(cell, guided)
     beta_top = k0 * max(n_semi, cell.n_max) if beta_max is None else float(beta_max)
     breaks, n_prepass = [], 0
@@ -3335,9 +3480,10 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     # the rule and the direction sets use the mirror symmetries (β → −β always, kx → −kx for a
     # symmetric cell); the matrix entries odd under them integrate to zero over the full ranges
     odd = np.zeros((3, 3), dtype=bool)
-    odd[0, 2] = odd[2, 0] = odd[1, 2] = odd[2, 1] = True
-    if symmetric:
-        odd[0, 1] = odd[1, 0] = True
+    if not crystal:  # a crystal breaks both mirrors: every entry counts
+        odd[0, 2] = odd[2, 0] = odd[1, 2] = odd[2, 1] = True
+        if symmetric:
+            odd[0, 1] = odd[1, 0] = True
 
     def quadratic(matrix, p) -> float:
         return float(np.real(np.conj(p) @ matrix @ p))

@@ -274,6 +274,20 @@ test). The Gaussian must stay 6σ clear of the stack interfaces (`emit` warns ot
 reaching into the next medium is no longer the point dipole of the reference (the first
 comparison missed by 2.5 % for σ = 0.05 µm at 0.12 µm until the dipole was raised to 0.32 µm).
 
+**The array scan above crystals (S7c).** The (kx, β) integrand of `grating.dipole_emission` is
+even in β and in kx only for mirror-symmetric media. With a crystal in the cell or the stack, β
+runs over (−β_max, β_max) with half the weight, kx over the full zone, and every entry of the
+power matrix counts. The light line of a crystal half-space (k_y = 0 in the solver frame) is
+the zero set of the Fresnel quartic $F(k_x) = \det(k_0^2\varepsilon + kk^T - |k|^2I)$,
+$k = (k_x, 0, \beta)$: its real roots are the crossings of the kx contour, on the side of the
+group velocity $v_x = -F_{k_x}/F_{k_0}$ (a small loss moves the root into the upper half plane
+when $v_x > 0$), its complex roots the branch points of the evanescent sheets; β is split at the
+turning points of the two sheets, the largest $k\sin t$ of the generalised eigenvalues
+$\det(k_0^2\varepsilon - k^2(I - uu^T)) = 0$, $u = (\cos t, 0, \sin t)$. The Wood-anomaly
+pinch breaks are kept for the isotropic media only. Channels by reciprocity (S7d), the
+guided-mode poles and `symmetric` are not available with crystals; a lossless crystal structure
+that may guide modes is refused.
+
 ## Verification
 
 `tests/unit/physics/test_anisotropic_stack.cpp`:
@@ -344,4 +358,13 @@ comparison missed by 2.5 % for σ = 0.05 µm at 0.12 µm until the dipole was ra
   absorbing crystal layer equals `array_sample_above_stack` to $6\cdot10^{-8}$ inside and
   $2\cdot10^{-5}$ beyond the light cone of the cover, above a tilted lossless crystal substrate
   with the modal bottom to $10^{-5}$ with $P_{cell} = $ up + down;
+- the crystal light lines (`test_planar_dipole.py`): the roots of the Fresnel quartic and the
+  turning points of a diagonal tensor equal the closed forms; the scan rule with the crystal
+  light lines integrates the exact sample spectrum above a tilted lossless crystal half-space to
+  the 2D reference ($10^{-4}$ at 6 nodes per panel, $2\cdot10^{-6}$ to $10^{-5}$ at 10);
+- `benchmarks/m19_crystal_dipole_scan.py` (a long local run, 3840 cell problems, 32 min with 4
+  workers): `dipole_emission` of a Gaussian dipole 0.32 µm above that half-space equals
+  `dipole_above_stack` to $5\cdot10^{-4}$ for every orientation (x −5.3e-4, y −5.1e-4,
+  z +2.9e-5; the rule alone contributes 1–2e-4), `benchmarks/results/2026-11-05-validation-
+  m19-crystal-scan.json`;
 - `python/tests/test_anisotropic_volume.py` checks the bindings.
