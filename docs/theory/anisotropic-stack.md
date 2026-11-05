@@ -258,6 +258,22 @@ the factor of $P_{bulk}$, so the Purcell factor of the point dipole is that of t
 The radial integral runs on the real axis ($s = n\sin t$, $s = n\cosh u$), the azimuth by the
 trapezoidal rule; guided modes of lossless stacks (poles on the real axis) are not covered.
 
+**One sample of the array scan.** The cell problem of `grating.emit` (a Bloch array of
+Gaussian dipoles with $e^{ik_xP}$ and $e^{i\beta z}$) samples the same spectrum on the orders
+$k_m = k_x + 2\pi m/P$ at $k_y^{lab} = \beta$: with $\iint d^2k = \sum_m\int_{BZ}dk_x\int d\beta$ and
+the array-scan weight $P/(4\pi^2)$,
+
+$$
+P_{cell}(k_x, \beta) = \frac{\omega\mu_0}{4P}\sum_m \mathrm{Re}\Big[\frac{1}{k_z}\Big(
+\tfrac12\textstyle\sum_\pm|m_\perp^\pm|^2\,[k_z\ \text{real}] + e^{2ik_zh}\,m^HM_mm\Big)\Big]
+e^{-(nk_0\sigma)^2}
+$$
+
+(`hpfem.planar.array_sample_above_stack`; the homogeneous term is the closed form of the M17 S1
+test). The Gaussian must stay 6σ clear of the stack interfaces (`emit` warns otherwise): a source
+reaching into the next medium is no longer the point dipole of the reference (the first
+comparison missed by 2.5 % for σ = 0.05 µm at 0.12 µm until the dipole was raised to 0.32 µm).
+
 ## Verification
 
 `tests/unit/physics/test_anisotropic_stack.cpp`:
@@ -324,5 +340,8 @@ trapezoidal rule; guided modes of lossless stacks (poles on the real axis) are n
   on glass) and with the closed-form $r_p = (\varepsilon_oq_1 - q_{2e})/(\varepsilon_oq_1 +
   q_{2e})$, $q_{2e} = \sqrt{\varepsilon_o(1 - s^2/\varepsilon_e)}$, of a c-cut half-space, to
   $10^{-9}$ (the glass case to $10^{-15}$); a tilted absorbing crystal layer gives the same F
-  when crystal and dipole are rotated together about the normal;
+  when crystal and dipole are rotated together about the normal; `grating.emit` above a tilted
+  absorbing crystal layer equals `array_sample_above_stack` to $6\cdot10^{-8}$ inside and
+  $2\cdot10^{-5}$ beyond the light cone of the cover, above a tilted lossless crystal substrate
+  with the modal bottom to $10^{-5}$ with $P_{cell} = $ up + down;
 - `python/tests/test_anisotropic_volume.py` checks the bindings.

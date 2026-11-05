@@ -31,7 +31,7 @@ from scipy.integrate import quad
 
 import hpfem
 
-__all__ = ["dipole_above_stack"]
+__all__ = ["dipole_above_stack", "array_sample_above_stack"]
 
 
 def _vectors(a: float, b: float, n: float):
@@ -99,3 +99,48 @@ def dipole_above_stack(stack, k0: float, height: float, moment, *, azimuths: int
         total += radial
     total *= 2.0 * math.pi / azimuths
     return 1.0 + 3.0 / (4.0 * math.pi * n * float(np.vdot(m, m).real)) * total
+
+
+def array_sample_above_stack(stack, k0: float, kx: float, beta: float, period: float,
+                             height: float, moment, sigma: float = 0.0,
+                             orders: int | None = None) -> float:  # fmt: skip
+    """Power per period [W/m, per unit β] delivered by the Bloch-periodic array of Gaussian
+    dipoles of ``grating.emit`` (one cell problem of the array scanning, ADR-0013) at the height
+    ``height`` above the top of the ``hpfem.AnisotropicStack`` ``stack``: the homogeneous part
+    and the reflected part of the plane-wave spectrum on the orders k_m = kx + 2πm/P at the
+    longitudinal β,
+
+        P_cell = ω μ0 / (4P) Σ_m Re[(1/k_z) (|m_⊥|² (propagating) + e^{2ik_zh} m^H M_m m)]
+                 · e^{−σ² n² k0²},
+
+    with M_m the reflection dyad of :func:`dipole_above_stack`. ``moment`` is the current moment
+    in the solver frame of the conical solver (x across the lines, y the normal, z along them);
+    ``orders``: orders −N..N (default: until e^{−2|k_z|h} < 1e-17)."""
+    from hpfem import constants
+
+    m_solver = np.asarray(moment, dtype=complex).reshape(3)
+    m = np.array([m_solver[0], m_solver[2], m_solver[1]])  # laboratory frame: y <-> z
+    n = complex(stack.material(0).refractive_index).real
+    k = n * k0
+    omega = k0 * constants.c0
+    mu0 = constants.Z0 / constants.c0
+    if orders is None:
+        reach = math.sqrt(k * k + (37.0 / (2.0 * height)) ** 2) + abs(kx)
+        orders = int(math.ceil(reach * period / (2 * math.pi))) + 1
+    total = 0.0
+    for j in range(-orders, orders + 1):
+        km = kx + 2 * math.pi * j / period
+        a, b = km / k0, beta / k0
+        s, p_d, p_u, q = _vectors(a, b, n)
+        kz = k0 * q
+        if abs(q.imag) < 1e-14 and q.real > 0:
+            for k_hat in (np.array([a, b, q]) / n, np.array([a, b, -q]) / n):
+                perp = m - k_hat * (k_hat @ m)
+                total += 0.5 * float(np.vdot(perp, perp).real) / kz.real
+        try:
+            r = np.asarray(stack.reflection_at(k0, a, b), dtype=complex)
+        except hpfem.InvalidArgument:  # grazing in a medium
+            continue
+        dyad = np.column_stack([s, p_u]) @ r @ np.column_stack([s, p_d]).T
+        total += ((m.conj() @ dyad @ m) * np.exp(2j * kz * height) / kz).real
+    return omega * mu0 / (4 * period) * total * math.exp(-((sigma * k) ** 2))

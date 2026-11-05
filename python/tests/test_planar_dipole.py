@@ -131,3 +131,81 @@ def test_tilted_crystal_rotational_covariance():
     fx = dipole_above_stack(stack_at(0.0), K0, H, [1, 0, 0], azimuths=48)
     fy = dipole_above_stack(stack_at(0.0), K0, H, [0, 1, 0], azimuths=48)
     assert abs(fx - fy) > 1e-3
+
+
+UM = 1e-6
+OMEGA = 2 * math.pi * hpfem.constants.c0 / UM  # vacuum wavelength 1 um, K0 above
+PERIOD, SIGMA = 1.0 * UM, 0.05 * UM
+
+
+def emitter_cell(d, bottom=-2 * UM, top=2 * UM, h=0.1 * UM):
+    ny = round((top - bottom) / h)
+    mesh = hpfem.rectangle(10, ny, [-PERIOD / 2, bottom], [PERIOD / 2, top])
+    for c in range(mesh.num_cells):
+        y = np.mean([mesh.vertex(int(v))[1] for v in mesh.cell_vertices(c)])
+        if -d < y < 0:
+            mesh.set_cell_tag(c, 4)
+        elif y < -d:
+            mesh.set_cell_tag(c, 5)
+    return mesh
+
+
+@pytest.mark.parametrize(
+    "kx, beta, moment, tol",
+    [
+        (0.3, 0.2, [1, 0, 0], 1e-6),
+        (0.3, 0.2, [0, 1, 0], 1e-6),
+        (0.1, 1.3, [0, 1, 0], 1e-4),  # beyond the light cone of the cover: evanescent coupling
+        (0.1, 1.3, [0, 0, 1], 1e-4),
+    ],
+)
+def test_emitter_sample_above_a_crystal_layer(kx, beta, moment, tol):
+    """M19 S7b: one Bloch sample of grating.emit above a tilted absorbing crystal layer on glass
+    (AnisotropicStack) against the plane-wave spectrum on the orders."""
+    from hpfem import grating
+    from hpfem.planar import array_sample_above_stack
+
+    d, height = 0.2 * UM, 0.32 * UM
+    axis = np.array([0.8, 0.0, 0.6])
+    crystal = hpfem.Material.anisotropic(
+        2.25 * np.eye(3) + 1.2 * np.outer(axis, axis) + 0.15j * np.eye(3)
+    )
+    glass = hpfem.Material.dielectric(1.5)
+    stack = hpfem.AnisotropicStack(hpfem.Material.dielectric(1.0), [hpfem.Layer(crystal, d)], glass)
+    dipole = {"position": (0.05 * UM, height), "moment": moment, "sigma": SIGMA}
+    result = grating.emit(emitter_cell(d), {4: crystal, 5: glass}, stack, dipole, OMEGA,
+                          kx * K0, beta * K0, order=4, pml={"top": UM, "bottom": UM})  # fmt: skip
+    reference = array_sample_above_stack(stack, K0, kx * K0, beta * K0, PERIOD, height, moment,
+                                         SIGMA)  # fmt: skip
+    assert result.P_cell / reference - 1 == pytest.approx(0.0, abs=tol)
+    assert not result.warnings
+
+
+def test_emitter_above_a_tilted_crystal_substrate_with_the_modal_bottom():
+    """A lossless crystal half-space with a tilted axis, truncated by the modal boundary: the
+    delivered power against the spectrum, the transmitted power resolved into the ordinary and
+    extraordinary channels, and the balance P_cell = up + down (nothing absorbed or guided)."""
+    from hpfem import grating
+    from hpfem.planar import array_sample_above_stack
+
+    axis = np.array([np.sin(0.7), 0.3, np.cos(0.7)])
+    crystal = hpfem.Material.anisotropic(2.4 * np.eye(3) + 1.0 * np.outer(axis, axis) / 1.09)
+    stack = hpfem.AnisotropicStack(hpfem.Material.dielectric(1.0), [], crystal)
+    height = 0.32 * UM
+    mesh = emitter_cell(0.0, bottom=-1.0 * UM)
+    dipole = {"position": (0.05 * UM, height), "moment": [0.6, 0.5, 0.4], "sigma": SIGMA}
+    kx, beta = 0.3 * K0, 0.4 * K0
+    result = grating.emit(mesh, {5: crystal}, stack, dipole, OMEGA, kx, beta, order=4,
+                          pml={"top": UM}, bottom="modal")  # fmt: skip
+    reference = array_sample_above_stack(stack, K0, kx, beta, PERIOD, height, dipole["moment"],
+                                         SIGMA)  # fmt: skip
+    assert result.P_cell / reference - 1 == pytest.approx(0.0, abs=1e-5)
+    zeroth = next(o for o in result.orders_down if o.m == 0)
+    assert set(zeroth.channel_power) == {"ordinary", "extraordinary"}
+    assert sum(zeroth.channel_power.values()) == pytest.approx(zeroth.power, rel=1e-9)
+    assert result.up + result.down == pytest.approx(result.P_cell, rel=1e-4)
+    # the Gaussian reaching into the substrate is reported
+    close = dict(dipole, position=(0.05 * UM, 0.15 * UM))
+    near = grating.emit(mesh, {5: crystal}, stack, close, OMEGA, kx, beta, order=2,
+                        pml={"top": UM}, bottom="modal")  # fmt: skip
+    assert any("reaches across" in w for w in near.warnings)

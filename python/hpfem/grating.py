@@ -1662,6 +1662,9 @@ class EmissionOrder:
     kt: float
     kn: complex
     propagating: bool
+    channel_power: dict | None = None
+    """in a crystal substrate the power of the order per mode channel (``"ordinary"``,
+    ``"extraordinary"``, ``"biaxial"``) [W/m, per unit β]; ``None`` in isotropic media"""
 
 
 @dataclass
@@ -1870,6 +1873,31 @@ def _emission_orders(problem, solution, locator, k0, n_line, period, x_min, line
     return out
 
 
+def _emission_mode_orders(problem, solution, locator, k0, eps, period, x_min, line, kx, beta,
+                          orders_max, fourier_points):  # fmt: skip
+    """The downward orders in a crystal substrate (solver-frame tensor ``eps``), resolved into
+    its outgoing modes; the power of an order is its flux through the line."""
+    raw = hpfem.conical_mode_orders(
+        lambda x: np.asarray(problem.total_field(solution, locator, x)),
+        hpfem.OrderLine(np.array([x_min, line]), np.array([1.0, 0.0]), np.array([0.0, -1.0]),
+                        period),
+        k0, np.asarray(eps), kx, beta, k0, max_order=orders_max, num_points=fourier_points,
+    )  # fmt: skip
+    # with kn_incident = k0 and |E0| = 1 an efficiency is the flux 2 Z0 S_n of the order
+    scale = period / (2 * hpfem.constants.Z0)
+    out = []
+    for o in raw:
+        power = scale * float(o.efficiency) if o.propagating else 0.0
+        channels = {
+            _MODE_KINDS[ch.kind.name]: scale * float(ch.efficiency) if ch.propagating else 0.0
+            for ch in o.channels
+        }
+        out.append(EmissionOrder(int(o.order), "down", power, np.asarray(o.amplitude, complex),
+                                 float(o.k_tangential), complex(o.channels[0].kn),
+                                 bool(o.propagating), channels))  # fmt: skip
+    return out
+
+
 def emit(
     mesh,
     materials,
@@ -1907,13 +1935,19 @@ def emit(
     medium. The cell, the materials, the stack, the PML and the measurement lines are those of
     :func:`solve` (same arguments); cells whose tag is not in ``materials`` take the stack
     material at their centroid (a given ``hpfem.MaterialMap`` is used as it is). The PML is
-    designed for the direction of (kx, β) in the cover, up to 80 degrees. Returns an
+    designed for the direction of (kx, β) in the cover, up to 80 degrees. ``stack`` may be an
+    ``hpfem.AnisotropicStack`` (laboratory frame, M19 S7b) with the emitter in an isotropic,
+    lossless medium; the downward orders in a crystal substrate then carry ``channel_power``,
+    and ``bottom="modal"`` truncates it by the modal boundary. Returns an
     :class:`EmissionResult`; powers in W/m per unit β (the integrand of the array scanning).
     Raises ``GratingError`` for an invalid dipole or geometry."""
     t0 = time.perf_counter()
     timing: dict[str, float] = {}
     k0 = float(units.vacuum_wavenumber(omega))
-    n_cover = complex(stack.incidence_medium.refractive_index)
+    cover_medium = (
+        stack.material(0) if isinstance(stack, hpfem.AnisotropicStack) else stack.incidence_medium
+    )
+    n_cover = complex(cover_medium.refractive_index)
     position = np.asarray(dipole["position"], dtype=float)
     moment = np.asarray(dipole["moment"], dtype=complex)
     sigma = float(dipole["sigma"])
@@ -1927,10 +1961,11 @@ def emit(
             mesh, materials, stack, "s", math.asin(s), math.atan2(beta, kx), omega, pml=pml,
             bottom=bottom, orders_max=orders_max, snap_tolerance=snap_tolerance,
             pml_target=pml_target, pml_wavelengths=pml_wavelengths, cover_line=cover,
-            substrate_line=substrate,
+            substrate_line=substrate, allow_crystal_stack=True,
         )  # fmt: skip
 
     pr = prepare(cover_line, substrate_line)
+    layers = pr.stack  # the LayerStack2D of the solver frame (also for an AnisotropicStack)
     # the measurement lines must see only outgoing waves: 6 sigma beyond the Gaussian
     reach_top, reach_bottom = float(position[1]) + 6 * sigma, float(position[1]) - 6 * sigma
     new_cover, new_substrate = cover_line, substrate_line
@@ -1950,7 +1985,7 @@ def emit(
             if not material_map.has(int(mesh.cell_tag(c))):
                 centroid = np.mean([mesh.vertex(int(v)) for v in mesh.cell_vertices(c)], axis=0)
                 material_map.set_cell(
-                    c, stack.material_at([float(centroid[0]), float(centroid[1])])
+                    c, layers.material_at([float(centroid[0]), float(centroid[1])])
                 )
     x0, y0 = float(position[0]), float(position[1])
     if not (pr.x_min + 6 * sigma <= x0 <= pr.x_min + pr.period - 6 * sigma):
@@ -1962,7 +1997,11 @@ def emit(
     if located is None:
         raise GratingError("dipole: the position lies outside the mesh")
     tag = int(mesh.cell_tag(int(located.cell)))
-    host = material_map.at(tag) if material_map.has(tag) else stack.material_at([x0, y0])
+    host = material_map.at(tag) if material_map.has(tag) else layers.material_at([x0, y0])
+    if not host.is_isotropic:
+        raise GratingError(
+            "dipole: the emitter must lie in an isotropic medium (ADR-0015 S7 amendment)"
+        )
     if abs(complex(host.eps_r).imag) > 1e-12:
         raise GratingError("dipole: the emitter must lie in a lossless medium (ADR-0013)")
     orders = [int(order)] * mesh.num_cells if np.isscalar(order) else [int(p) for p in order]
@@ -1977,6 +2016,9 @@ def emit(
     )
     setup.pml = pr.box
     setup.pec_tags = [hpfem.box_tag.Y_MIN, hpfem.box_tag.Y_MAX]
+    if pr.bottom == "modal":
+        setup.pec_tags = [hpfem.box_tag.Y_MAX]
+        setup.modal_boundaries = [hpfem.ConicalModalBoundary(hpfem.box_tag.Y_MIN)]
     setup.periodic = [
         hpfem.PeriodicPair2D(hpfem.box_tag.X_MIN, hpfem.box_tag.X_MAX, [pr.period, 0.0],
                              hpfem.bloch_phase([float(kx), 0.0], [pr.period, 0.0]))
@@ -2004,7 +2046,11 @@ def emit(
                                  pr.x_min, pr.cover_line, kx, beta, orders_max, fourier_points,
                                  "up")  # fmt: skip
     orders_down = []
-    if pr.transmitted:
+    if pr.transmitted and pr.substrate_eps is not None:
+        orders_down = _emission_mode_orders(problem, solution, locator, k0, pr.substrate_eps,
+                                            pr.period, pr.x_min, pr.substrate_line, kx, beta,
+                                            orders_max, fourier_points)  # fmt: skip
+    elif pr.transmitted:
         orders_down = _emission_orders(problem, solution, locator, k0, n_sub.real, pr.period,
                                        pr.x_min, pr.substrate_line, kx, beta, orders_max,
                                        fourier_points, "down")  # fmt: skip
@@ -2021,7 +2067,7 @@ def emit(
     try:
         flux_up = flux(hpfem.Surface2D.plane(mesh, 1, pr.y_max - pr.t_top, 1))
         flux_down = 0.0
-        if bottom == "pml":
+        if bottom in ("pml", "modal"):
             flux_down = flux(hpfem.Surface2D.plane(mesh, 1, pr.y_min + pr.t_bottom, -1))
     except (hpfem.InvalidArgument, ValueError, RuntimeError):
         flux_up = flux_down = None
@@ -2031,6 +2077,14 @@ def emit(
     guided = p_cell - up - down - float(absorbed.total)
     pml_leak = None
     warnings_out: list[str] = []
+    interfaces = [layers.interface(i) for i in range(layers.num_layers + 1)]
+    near = [z for z in interfaces if abs(y0 - z) < 6 * sigma]
+    if near:
+        warnings_out.append(
+            f"the dipole's Gaussian reaches across the stack interface at y = {near[0]:.4g} m "
+            "(less than 6 sigma away): part of the source lies in the neighbouring medium, unlike "
+            "a point dipole in the host"
+        )
     if flux_up is not None:
         pml_leak = (flux_up - up) + ((flux_down - down) if pr.transmitted else 0.0)
         if abs(pml_leak) > 1e-3 * abs(p_cell):
