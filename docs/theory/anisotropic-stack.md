@@ -259,7 +259,7 @@ The radial integral runs on the real axis ($s = n\sin t$, $s = n\cosh u$), the a
 trapezoidal rule. Guided modes of lossless stacks are poles on the real axis (S7e-2a,
 `depth` > 0): bound modes are evanescent in both half-spaces, so beyond the largest principal
 index $s_b$ of the cover and the substrate the radial path leaves the axis,
-$s = s_b + (S - s_b)	au - i\,	ext{depth}\,\sin\pi	au$ up to S beyond all indices (a small loss
+$s = s_b + (S - s_b)\tau - i\,\text{depth}\,\sin\pi\tau$ up to S beyond all indices (a small loss
 moves the poles above the axis, exp(−iωt), so the path passes them on the causal side), with the
 stack at complex in-plane wavevectors (`reflection_at`; ŝ normalised by the non-conjugating norm,
 the two modes with the largest Im k_z upward, unambiguous where both half-spaces are
