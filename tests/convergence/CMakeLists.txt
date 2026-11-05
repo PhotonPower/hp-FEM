@@ -21,6 +21,8 @@ hpfem_add_test(convergence_anisotropic_stack_background convergence
   anisotropic_stack_background.cpp)
 hpfem_add_test(convergence_anisotropic_modal_boundary convergence
   anisotropic_modal_boundary.cpp)
+hpfem_add_test(convergence_axisymmetric_anisotropic convergence
+  axisymmetric_anisotropic.cpp)
 
 hpfem_add_test(convergence_flat_surface_fresnel convergence
   flat_surface_fresnel.cpp)

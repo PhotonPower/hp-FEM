@@ -147,10 +147,12 @@ turns them into the conical frame (x across the lines, y the layer normal, z alo
 swapping y and z (ADR-0015 S3 amendment); a `MaterialMap` with crystals is refused there.
 Crystal layer stacks are `AnisotropicStack` (M19 S4) and, in the laboratory frame as well, the
 stack of `hpfem.grating.solve` / `validate` / `jones` (S5c, with mode-resolved transmitted
-orders and the modal bottom boundary). Still isotropic only (they refuse with `AnisotropicUnsupported`), among others: the reciprocity paths
-of `hpfem.grating` (emission pattern, array scan), the dipole host medium, the axisymmetric
-solver, the layered background, `TimeDomain`, `ThermoOptical`, `PropagatingMode` and the modal
-ports.
+orders and the modal bottom boundary). The emission paths of `hpfem.grating` take crystals as
+well (S7, the emitter in an isotropic host), the axisymmetric solver diagonal tensors in
+(r, φ, z) (S6: an optic axis along z, or radially / azimuthally anisotropic media; tilted axes
+are refused). Still isotropic only (they refuse with `AnisotropicUnsupported`), among others:
+the dipole host medium, the background and the layered background of the axisymmetric solver,
+`TimeDomain`, `ThermoOptical`, `PropagatingMode` and the modal ports.
 
 ## Python layer
 

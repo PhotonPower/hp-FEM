@@ -82,6 +82,29 @@ AxisymmetricDofSets axisymmetric_dof_sets(const fespace::NedelecDofMap<2>& merid
   return sets;
 }
 
+Eigen::Matrix<Complex, 3, 1> axisymmetric_permittivity(const materials::Material& material) {
+  if (material.is_isotropic()) {
+    return Eigen::Matrix<Complex, 3, 1>::Constant(material.eps_scalar());
+  }
+  const materials::Tensor3 eps = material.eps_tensor();
+  const Real scale = eps.cwiseAbs().maxCoeff();
+  Real off = 0;
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      if (i != j) off = std::max(off, std::abs(eps(i, j)));
+    }
+  }
+  if (off > 1e-12 * scale) {
+    throw AnisotropicUnsupported(fmt::format(
+        "axisymmetric solver: the permittivity tensor has off-diagonal entries (largest {:.3g} "
+        "of {:.3g}) in the cylindrical components (r, phi, z); an optic axis tilted against the "
+        "symmetry axis z breaks the rotational symmetry (ADR-0015 §8). Give the axis along z "
+        "(eps_xx = eps_yy) or a diagonal (eps_r, eps_phi, eps_z) tensor",
+        off, scale));
+  }
+  return eps.diagonal();
+}
+
 assembly::AxisymmetricForm axisymmetric_pml_form(const pml::PmlBox<2>& box,
                                                  const materials::Material& material,
                                                  std::optional<int> quadrature_order) {
@@ -99,12 +122,12 @@ assembly::AxisymmetricForm axisymmetric_pml_form(const pml::PmlBox<2>& box,
   };
   assembly::AxisymmetricForm form;
   const Complex inv_mu = 1.0 / material.mu_scalar();
-  const Complex eps = material.eps_scalar();
+  const Eigen::Matrix<Complex, 3, 1> eps = axisymmetric_permittivity(material);
   form.inverse_permeability = [lambda, inv_mu](const Point<2>& x) {
     return Eigen::Matrix<Complex, 3, 1>(inv_mu * lambda(x).cwiseInverse());
   };
   form.permittivity = [lambda, eps](const Point<2>& x) {
-    return Eigen::Matrix<Complex, 3, 1>(eps * lambda(x));
+    return Eigen::Matrix<Complex, 3, 1>(eps.cwiseProduct(lambda(x)));
   };
   form.quadrature_order = quadrature_order;
   return form;
@@ -115,13 +138,11 @@ namespace {
 assembly::AxisymmetricForm material_form(const materials::Material& material) {
   assembly::AxisymmetricForm form;
   const Complex inv_mu = 1.0 / material.mu_scalar();
-  const Complex eps = material.eps_scalar();
+  const Eigen::Matrix<Complex, 3, 1> eps = axisymmetric_permittivity(material);
   form.inverse_permeability = [inv_mu](const Point<2>&) {
     return Eigen::Matrix<Complex, 3, 1>::Constant(inv_mu);
   };
-  form.permittivity = [eps](const Point<2>&) {
-    return Eigen::Matrix<Complex, 3, 1>::Constant(eps);
-  };
+  form.permittivity = [eps](const Point<2>&) { return eps; };
   return form;
 }
 
@@ -188,7 +209,8 @@ AxisymmetricCavity::AxisymmetricCavity(const fespace::NedelecDofMap<2>& meridian
   const auto& mesh = meridian.mesh();
   for (Index c = 0; c < mesh.num_cells(); ++c) {
     const auto& material = setup_.materials.of_cell(mesh, c);
-    if (material.eps_scalar().imag() != 0 || material.mu_scalar().imag() != 0) {
+    if (axisymmetric_permittivity(material).imag().cwiseAbs().maxCoeff() != 0 ||
+        material.mu_scalar().imag() != 0) {
       throw InvalidArgument(fmt::format("AxisymmetricCavity: cell {} has a lossy material", c));
     }
   }
@@ -421,7 +443,28 @@ AxisymmetricScattering::AxisymmetricScattering(const fespace::NedelecDofMap<2>& 
         "thickness must be 0)");
   }
   k0_ = setup_.omega / constants::c0;
-  if (setup_.background) check_background();
+  // crystals in the body (diagonal in r, phi, z) are taken; the media of the incident field are
+  // isotropic (ADR-0015 §8)
+  if (!setup_.materials.background().is_isotropic()) {
+    throw AnisotropicUnsupported(
+        "AxisymmetricScattering: the background medium must be isotropic (the incident and the "
+        "far fields are those of an isotropic medium); crystals go into the tagged cells");
+  }
+  if (setup_.background) {
+    for (int region = 0; region <= setup_.background->num_layers() + 1; ++region) {
+      if (!setup_.background->material(region).is_isotropic()) {
+        throw AnisotropicUnsupported(fmt::format(
+            "AxisymmetricScattering: region {} of the layered background is a crystal; the "
+            "axisymmetric layered background takes isotropic media (ADR-0015 §8)",
+            region));
+      }
+    }
+    check_background();
+  }
+  const auto& cells_mesh = meridian.mesh();
+  for (Index c = 0; c < cells_mesh.num_cells(); ++c) {
+    (void)axisymmetric_permittivity(setup_.materials.of_cell(cells_mesh, c));  // tilted axes
+  }
   sets_ = axisymmetric_dof_sets(meridian, azimuthal, setup_.pec_tags, setup_.axis_tag,
                                 setup_.azimuthal_order);
   log().info(
@@ -439,7 +482,12 @@ bool materials_differ(const materials::Material& a, const materials::Material& b
   const auto close = [](Complex x, Complex y) {
     return std::abs(x - y) <= 1e-12 * std::max(1.0, std::abs(y));
   };
-  return !close(a.eps_scalar(), b.eps_scalar()) || !close(a.mu_scalar(), b.mu_scalar());
+  const Eigen::Matrix<Complex, 3, 1> ea = axisymmetric_permittivity(a);
+  const Eigen::Matrix<Complex, 3, 1> eb = axisymmetric_permittivity(b);
+  for (int k = 0; k < 3; ++k) {
+    if (!close(ea(k), eb(k))) return true;
+  }
+  return !close(a.mu_scalar(), b.mu_scalar());
 }
 
 }  // namespace
@@ -479,10 +527,12 @@ void AxisymmetricScattering::check_background() const {
       if (materials_differ(material, layer)) {
         throw InvalidArgument(fmt::format(
             "AxisymmetricScattering: cell {} (tag {}) in the PML deviates from the layered "
-            "background (eps_r {} + {}i against {} + {}i of stack region {}); the body must stay "
+            "background (eps_zz {} + {}i against {} + {}i of stack region {}); the body must stay "
             "out of the PML and the layer cells must carry the stack's materials",
-            c, mesh.cell_tag(c), std::real(material.eps_scalar()), std::imag(material.eps_scalar()),
-            std::real(layer.eps_scalar()), std::imag(layer.eps_scalar()), region));
+            c, mesh.cell_tag(c), std::real(axisymmetric_permittivity(material)(2)),
+            std::imag(axisymmetric_permittivity(material)(2)),
+            std::real(axisymmetric_permittivity(layer)(2)),
+            std::imag(axisymmetric_permittivity(layer)(2)), region));
       }
     }
   }
@@ -509,10 +559,13 @@ assembly::AxisymmetricForm AxisymmetricScattering::form_of_cell(Index cell) cons
     form.source = setup_.current;
     return form;
   }
-  const Complex contrast = k0_ * k0_ * (material.eps_scalar() - background.eps_scalar());
-  if (contrast != Complex{0.0, 0.0}) {
+  // diagonal (r, phi, z) contrast: componentwise on the scaled (E_r, v, E_z) of the incident
+  // field (the scaling v = -i r E_phi is per component)
+  const Eigen::Matrix<Complex, 3, 1> contrast =
+      k0_ * k0_ * (axisymmetric_permittivity(material) - axisymmetric_permittivity(background));
+  if (contrast.cwiseAbs().maxCoeff() != 0) {
     form.source = [contrast, incident = setup_.incident](const Point<2>& x) {
-      return Eigen::Matrix<Complex, 3, 1>(contrast * incident(x));
+      return Eigen::Matrix<Complex, 3, 1>(contrast.cwiseProduct(incident(x)));
     };
   }
   return form;
@@ -764,15 +817,17 @@ AbsorbedPower axisymmetric_absorbed_power(
     throw InvalidArgument("axisymmetric_absorbed_power: coefficients do not match the maps");
   }
   const auto& mesh = meridian.mesh();
-  const auto loss = [&](Index c) {
-    if (pml && pml->in_layer(mesh::affine_map(mesh, c).centroid())) return 0.0;
-    return std::imag(materials.of_cell(mesh, c).eps_scalar());
+  // Im of the diagonal (r, phi, z) permittivity; the loss density is sum_k Im eps_k |E_k|^2
+  const auto loss_vector = [&](Index c) -> Eigen::Vector3d {
+    if (pml && pml->in_layer(mesh::affine_map(mesh, c).centroid())) return Eigen::Vector3d::Zero();
+    return axisymmetric_permittivity(materials.of_cell(mesh, c)).imag();
   };
+  const auto loss = [&](Index c) { return loss_vector(c).maxCoeff(); };
   AbsorbedPower result;
   result.per_cell.assign(as_size(mesh.num_cells()), 0.0);
   parallel_for(mesh.num_cells(), [&](Index c, int) {
-    const Real im_eps = loss(c);
-    if (!(im_eps > 0)) return;
+    const Eigen::Vector3d im_eps = loss_vector(c);
+    if (!(im_eps.maxCoeff() > 0)) return;
     const int p = std::max(meridian.cell_order(c), azimuthal.cell_order(c));
     const auto rule = assembly::simplex_quadrature<2>(2 * p + extra_order);
     const auto geometry = mesh::cell_geometry(mesh, c);
@@ -790,10 +845,11 @@ AbsorbedPower axisymmetric_absorbed_power(
         f.e_phi += kI * e(1) / r;
         f.e_z += e(2);
       }
-      const Real norm2 = std::norm(f.e_r) + std::norm(f.e_phi) + std::norm(f.e_z);
-      integral += rule.weights[q] * std::abs(g.det) * 2 * constants::pi * r * norm2;
+      const Real density = im_eps(0) * std::norm(f.e_r) + im_eps(1) * std::norm(f.e_phi) +
+                           im_eps(2) * std::norm(f.e_z);
+      integral += rule.weights[q] * std::abs(g.det) * 2 * constants::pi * r * density;
     }
-    result.per_cell[as_size(c)] = 0.5 * omega * constants::eps0 * im_eps * integral;
+    result.per_cell[as_size(c)] = 0.5 * omega * constants::eps0 * integral;
   });
   std::map<mesh::Tag, Real> tags;
   for (Index c = 0; c < mesh.num_cells(); ++c) {
