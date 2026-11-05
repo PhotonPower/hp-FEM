@@ -3,6 +3,14 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Crystal stacks and Jones / Mueller matrices in `hpfem.grating` (M19 S5c, ADR-0015 §7):
+  `solve` / `validate` take an `AnisotropicStack` (laboratory frame) as the stack, transmitted
+  orders in a crystal substrate carry the mode `channels`, `bottom="modal"` uses the modal
+  transparent boundary (a bottom PML over a backward transmitted order is refused), and
+  `grating.jones` returns the power-normalised Jones and Mueller matrices of every propagating
+  order from the solves for s and p (`grating.mueller`). Tests: a flat crystal stack against the
+  stack's Jones matrix and channels, the reciprocity of the specular order of a tilted crystal
+  ridge in the conical solver.
 - Modal transparent boundary of the conical solver (M19 S5b, ADR-0015 §2):
   `ConicalScatteringSetup::modal_boundaries` (Python `ConicalModalBoundary`) truncates a
   periodic problem on a straight line in a homogeneous, possibly tilted-crystal medium with the
@@ -362,6 +370,8 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   side-wall angle tolerances of a silicon grating propagated to its reflectance spectrum.
 
 ### Fixed
+- `ConicalScattering` with `scalar_ez` now also refuses a background stack whose crystal couples
+  E_z to the in-plane field (only the cells' own materials were checked).
 - The adjoint solves of the conical solver (`conical_adjoint_solution` without a kept
   factorisation, `conical_dwr_estimate`) used A instead of Aᵀ, which is correct only for
   symmetric systems; they now assemble the transpose (no change for isotropic media).

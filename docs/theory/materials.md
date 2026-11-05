@@ -144,8 +144,10 @@ symmetry for $\varepsilon_{xz}, \varepsilon_{yz} \ne 0$ and the transposed adjoi
 3D condition, conservative). `ConicalSweep` and `hpfem.grating.solve` / `validate` take crystals
 in the structured parts; `hpfem.grating` expects them in the laboratory frame of this page and
 turns them into the conical frame (x across the lines, y the layer normal, z along the lines) by
-swapping y and z (ADR-0015 S3 amendment); a `MaterialMap` with crystals is refused there. Still
-isotropic only (they refuse with `AnisotropicUnsupported`), among others: the reciprocity paths
+swapping y and z (ADR-0015 S3 amendment); a `MaterialMap` with crystals is refused there.
+Crystal layer stacks are `AnisotropicStack` (M19 S4) and, in the laboratory frame as well, the
+stack of `hpfem.grating.solve` / `validate` / `jones` (S5c, with mode-resolved transmitted
+orders and the modal bottom boundary). Still isotropic only (they refuse with `AnisotropicUnsupported`), among others: the reciprocity paths
 of `hpfem.grating` (emission pattern, array scan), the dipole host medium, the axisymmetric
 solver, the layered background, `TimeDomain`, `ThermoOptical`, `PropagatingMode` and the modal
 ports.

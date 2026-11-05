@@ -344,7 +344,19 @@ index `min(n_cover, n_substrate)`, thickness half a local wavelength rounded to 
 or `pml={"top": t, "bottom": t}`), places the measurement lines between the structure and
 the PML, and raises `GratingError` with a hint for cells straddling an interface or bad
 options. `bottom="pec"` ends a thick lossy substrate on the PEC wall without a bottom PML
-(no transmitted orders).
+(no transmitted orders); `bottom="modal"` truncates the substrate at the mesh bottom by the
+modal transparent boundary (no bottom PML).
+
+**Crystal stacks and Jones matrices (M19 S5).** `stack` may be an `hpfem.AnisotropicStack` of
+crystal layers and substrate in the laboratory frame (x across the lines, y along them, z the
+normal), like the crystals in `materials`. Transmitted orders in a crystal substrate carry
+`channels` (`Channel`: `kind` ordinary / extraordinary / biaxial, efficiency, amplitude, k_n);
+a substrate whose transmitted orders include a backward wave needs `bottom="modal"`.
+`grating.jones(mesh, materials, stack, theta, phi, omega, order, **options)` solves for s and p
+and returns a `JonesResult` with `R_orders` / `T_orders` of `JonesOrder` (`jones`: the
+power-normalised 2×2 Jones matrix in the `conical_polarisation` s / p basis, or with the mode
+channels as rows in a crystal substrate; `mueller`: its 4×4 Mueller matrix,
+`grating.mueller(J)`); `result.order(m, "R")` picks one (docs/theory/anisotropic-stack.md).
 
 ```python
 stack = hpfem.LayerStack2D(hpfem.Material.dielectric(1.0), [], glass, 0.0)   # air over glass

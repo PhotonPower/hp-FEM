@@ -246,15 +246,19 @@ ConicalScattering::ConicalScattering(const fespace::NedelecDofMap<2>& transverse
     }
     // a crystal with eps_xz or eps_yz couples E_z to the in-plane field already at beta = 0
     for (Index c = 0; c < mesh.num_cells(); ++c) {
-      const materials::Material& m = setup_.materials.of_cell(mesh, c);
-      if (m.is_isotropic()) continue;
-      const materials::Tensor3 eps = m.eps_tensor();
-      if (eps(0, 2) != Complex{0.0, 0.0} || eps(1, 2) != Complex{0.0, 0.0}) {
-        throw AnisotropicUnsupported(fmt::format(
-            "ConicalScattering: scalar_ez with the crystal of cell {} (tag {}): eps_xz or eps_yz "
-            "couples E_z to the in-plane field, so the polarisations do not decouple; solve "
-            "the full block system (ADR-0015 §4)",
-            c, mesh.cell_tag(c)));
+      // the cell's own material and, for the scattered field, the layer of the background
+      for (const materials::Material* mp :
+           {&setup_.materials.of_cell(mesh, c), &background_material(c)}) {
+        const materials::Material& m = *mp;
+        if (m.is_isotropic()) continue;
+        const materials::Tensor3 eps = m.eps_tensor();
+        if (eps(0, 2) != Complex{0.0, 0.0} || eps(1, 2) != Complex{0.0, 0.0}) {
+          throw AnisotropicUnsupported(fmt::format(
+              "ConicalScattering: scalar_ez with the crystal of cell {} (tag {}): eps_xz or eps_yz "
+              "couples E_z to the in-plane field, so the polarisations do not decouple; solve "
+              "the full block system (ADR-0015 §4)",
+              c, mesh.cell_tag(c)));
+        }
       }
     }
   }

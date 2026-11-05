@@ -593,7 +593,7 @@ last.
     stacks, a crystal plate on a c-cut half-space against the full stack in 3D and conical
     (`anisotropic_stack_background`). Crystal stacks in `hpfem.grating` need the mode-resolved
     orders of S5
-- [ ] S5: post-processing: mode-resolved diffraction orders in anisotropic half-spaces, modal
+- [x] S5: post-processing: mode-resolved diffraction orders in anisotropic half-spaces, modal
   transparent substrate boundary for gratings over tilted crystals, absorption and Poynting flux
   with tensors, Jones / Mueller output with the s/p convention of `conical_polarisation`; tests:
   mirror symmetry in the azimuth (r_sp odd, r_ss / r_pp even), reciprocity
@@ -610,9 +610,14 @@ last.
     symmetry of the DtN matrix, a crystal plate on a tilted substrate against the stack, a
     lossless grating with a backward order −1 (energy balance converges, the PML stalls)
     (`anisotropic_modal_boundary`)
-  - [ ] S5c: Jones / Mueller matrix of every order (`conical_polarisation` s / p in isotropic
-    media, mode channels in crystals), crystal stacks in `hpfem.grating`, reciprocity of the
-    conical solver on a rotated crystal
+  - [x] S5c: `grating.jones` (Jones / Mueller matrix of every propagating order,
+    `conical_polarisation` s / p in isotropic media, mode channels in crystal substrates,
+    power-normalised and referred to the stack interfaces), crystal stacks in `hpfem.grating`
+    as `AnisotropicStack` (laboratory frame) with mode-resolved transmitted orders
+    (`Order.channels`) and `bottom="modal"`, the refusal of a bottom PML over backward orders;
+    `scalar_ez` also checks crystals of the background stack; tests: a flat crystal stack
+    against the stack Jones matrix (J = D r D) and channels, reciprocity of the specular order
+    of a tilted crystal ridge (`test_grating_jones.py`)
 - [ ] S6: axisymmetric solver with diagonal (r, φ, z) tensors, rejection of tilted axes
 - [ ] S7: dipole emitters above anisotropic stacks (ADR-0013 amendment, β ↔ −β reciprocity), after
   S4 / S5 are validated

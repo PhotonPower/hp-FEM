@@ -170,9 +170,13 @@ power-orthogonal and $\eta_m = \eta_{m,1} + \eta_{m,2}$; in an isotropic one the
 p and $\eta_m$ equals `conical_diffraction_orders`. In a lossy medium the efficiencies are the
 powers through the line. A channel propagates when $|\operatorname{Im}k_n| < |\operatorname{Re}k_n|$.
 
-**Jones convention and reciprocity.** The reflection Jones matrix uses $\hat s = \hat z\times\hat
-k_\parallel$ for both waves and $\hat p = \hat s\times\hat k/n$; since s and p of both waves flip
-together against `conical_polarisation` ($\hat s = \hat k\times\hat n$), the Jones matrices agree.
+**Jones convention and reciprocity.** The reflection Jones matrix of the stack uses
+$\hat s = \hat z\times\hat k_\parallel$ for both waves and $\hat p = \hat s\times\hat k/n$ in the
+laboratory frame. `hpfem.grating.jones` uses `conical_polarisation` in the solver frame,
+$\hat s = \hat k\times\hat n$, $\hat p = \hat s\times\hat k$; mapped back by the reflection P
+(y ↔ z), cross products change sign, so its ŝ is the stack's and its p̂ the negative of the
+stack's for both waves: $J = D\,r\,D$ with $D = \operatorname{diag}(1, -1)$, i.e. equal
+diagonals and opposite off-diagonal elements (checked to $10^{-8}$ on a flat crystal stack).
 Reversing the specular path at the azimuth φ is the incidence at φ + π, and for every symmetric
 tensor
 
@@ -216,8 +220,20 @@ Like the volume operator, B satisfies $B(\beta, k_t)^T = S\,B(-\beta, -k_t)\,S$
 homogeneous non-magnetic medium outside the PML; the estimators, the resonance and the sweep
 solvers do not take the term.
 
-**Not yet:** the Jones / Mueller matrices of every order and crystal stacks in `hpfem.grating`
-(M19 S5c).
+## Crystal stacks in `hpfem.grating`
+
+`grating.solve` / `validate` / `jones` take the stack as an `AnisotropicStack` in the laboratory
+frame (as the crystals of the structured parts); it is turned into the solver frame with
+`anisotropic_conical_wave`. A `LayerStack2D` with crystals is refused (its frame would be
+ambiguous). In a crystal substrate the transmitted orders are measured with
+`conical_mode_orders` and carry `channels`; `bottom="modal"` truncates the substrate by the
+modal transparent boundary, and `bottom="pml"` is refused when a transmitted order is a backward
+wave. `grating.jones` solves for s and p and returns per propagating order the power-normalised
+Jones matrix (amplitudes referred to the top / bottom interface of the stack, rows s / p or the
+mode channels) and its Mueller matrix $M = A(J\otimes\bar J)A^{-1}$ (Stokes vectors
+(I, Q, U, V), $Q = |E_s|^2 - |E_p|^2$; $M_{00}$ is the efficiency for unpolarised light). The
+reciprocity relation above holds for the specular order of a grating too (the reversed path is
+the incidence at φ + π).
 
 ## Verification
 
@@ -273,4 +289,10 @@ solvers do not take the term.
   the energy balance R + T = 1 to $1.6\cdot10^{-4} \to 3.3\cdot10^{-8}$, while a PML in the
   same substrate stalls at $1.1\cdot10^{-4}$ for every p. (The plate alone is no test of the
   PML: only its zeroth order propagates, a forward wave, and the PML there converges as well.)
+- `python/tests/test_grating_jones.py`: a flat crystal stack through `grating.jones` gives the
+  stack's reflection Jones matrix ($J = DrD$) and its o / e channels to $10^{-8}$; a tilted
+  crystal ridge on glass satisfies the reciprocity relation of the specular order in the conical
+  solver to $10^{-5}$ at p = 3 (with $|J_{ps}| = 0.056$; $1.3\cdot10^{-7}$ at p = 4); a grating
+  on a substrate with a backward order −1 is refused with `bottom="pml"` and closes its energy
+  balance with `bottom="modal"`;
 - `python/tests/test_anisotropic_volume.py` checks the bindings.
