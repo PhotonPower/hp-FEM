@@ -1,5 +1,6 @@
 // Anisotropic layer stack (ADR-0015 §5, §9 items 2-4; M19 S4). Convention exp(-iωt).
 #include <cmath>
+#include <functional>
 #include <numbers>
 #include <vector>
 
@@ -351,4 +352,110 @@ TEST_CASE("Anisotropic stack: a Voigt (exceptional) point of an absorbing biaxia
     REQUIRE((near.reflectance - at.reflectance).norm() < 1e-4);
   }
   REQUIRE((at.reflectance + at.transmittance - Eigen::Vector2d::Ones()).norm() < 1e-10);
+}
+
+namespace {
+
+using Vec3c = Eigen::Matrix<Complex, 3, 1>;
+
+/// Curl of a vector field by central differences of step h.
+Vec3c fd_curl(const std::function<Vec3c(const hpfem::Point<3>&)>& f, const hpfem::Point<3>& x,
+              Real h) {
+  Eigen::Matrix<Complex, 3, 3> d;  // d(i, j) = d f_i / d x_j
+  for (int j = 0; j < 3; ++j) {
+    hpfem::Point<3> p = x;
+    hpfem::Point<3> m = x;
+    p(j) += h;
+    m(j) -= h;
+    d.col(j) = (f(p) - f(m)) / (2 * h);
+  }
+  return {d(2, 1) - d(1, 2), d(0, 2) - d(2, 0), d(1, 0) - d(0, 1)};
+}
+
+}  // namespace
+
+TEST_CASE("Anisotropic stack: the analytic plane-wave field solves Maxwell's equations",
+          "[physics][stack][anisotropic]") {
+  const Material cover = Material::dielectric(1.2);
+  const Material plate =
+      Material::anisotropic(uniaxial(Complex{2.25, 0.05}, 3.4, Eigen::Vector3d(1, 1, 1)));
+  const Material film = Material::dielectric(1.7);
+  const Material substrate =
+      Material::anisotropic(biaxial(2.0, 2.7, Complex{3.3, 0.02}, Eigen::Vector3d(1, 0, 2), 0.6));
+  const AnisotropicStack stack(cover, {{plate, 0.21}, {film, 0.13}}, substrate, 0.05);
+  const auto wave = stack.plane_wave(kK0, 0.6, hpfem::physics::Polarisation::kP, 2.0, 0.8);
+  const auto value = [&](const hpfem::Point<3>& x) { return Vec3c(wave.field.value(x)); };
+  // curl, and curl curl E = k0^2 eps E, in every region
+  const std::vector<std::pair<Real, Tensor3>> probes{{0.4, cover.eps_tensor()},
+                                                     {-0.05, plate.eps_tensor()},
+                                                     {-0.22, film.eps_tensor()},
+                                                     {-0.6, substrate.eps_tensor()}};
+  for (const auto& [z, eps] : probes) {
+    const hpfem::Point<3> x(0.13, -0.27, z);
+    const Vec3c e = value(x);
+    const Vec3c curl = wave.field.curl(x);
+    INFO("z = " << z);
+    REQUIRE((fd_curl(value, x, 1e-5) - curl).norm() < 1e-6 * curl.norm());
+    const auto curl_of = [&](const hpfem::Point<3>& y) { return Vec3c(wave.field.curl(y)); };
+    REQUIRE((fd_curl(curl_of, x, 1e-5) - kK0 * kK0 * eps * e).norm() < 1e-6 * kK0 * kK0 * e.norm());
+  }
+  // tangential E and H continuous at every interface
+  const auto geometry = stack.layer_stack();
+  for (int i = 0; i <= stack.num_layers(); ++i) {
+    const hpfem::Point<3> x(0.31, 0.07, geometry.interface(i));
+    const Vec3c above = wave.field.value_in_region(x, i);
+    const Vec3c below = wave.field.value_in_region(x, i + 1);
+    REQUIRE((above.head<2>() - below.head<2>()).norm() < 1e-12 * above.norm());
+  }
+  // above the stack: incident plus the reflected s / p waves of the response
+  const hpfem::Point<3> x(0.2, 0.1, 0.3);
+  const Vec3c reflected = value(x) - Vec3c(wave.incident_wave.value(x));
+  REQUIRE(reflected.norm() > 1e-3);
+  // isotropic stacks: the same field as LayerStack
+  const std::vector<Layer> layers{{Material::isotropic(Complex{4.0, 0.3}), 0.13}};
+  const auto iso = AnisotropicStack(cover, layers, Material::dielectric(1.5))
+                       .plane_wave(kK0, 0.4, hpfem::physics::Polarisation::kS, 1.0, 0.3);
+  const auto ref = hpfem::physics::LayerStack<3>(cover, layers, Material::dielectric(1.5))
+                       .plane_wave(kK0, 0.4, hpfem::physics::Polarisation::kS, 1.0, 0.3);
+  for (const Real z : {0.2, -0.05, -0.4}) {
+    const hpfem::Point<3> y(0.11, 0.23, z);
+    REQUIRE((Vec3c(iso.field.value(y)) - Vec3c(ref.field.value(y))).norm() < 1e-12);
+    REQUIRE((Vec3c(iso.field.curl(y)) - Vec3c(ref.field.curl(y))).norm() < 1e-10 * kK0);
+  }
+  // the scalar plane wave refuses a crystal stack
+  REQUIRE_THROWS_AS(geometry.plane_wave(kK0, 0.4), hpfem::AnisotropicUnsupported);
+}
+
+TEST_CASE("Anisotropic stack: ordinary and extraordinary substrate modes",
+          "[physics][stack][anisotropic]") {
+  // uniaxial substrate, axis tilted out of the plane of incidence: the ordinary mode has
+  // D perpendicular to the axis and k_z = -k0 sqrt(eps_o - sin^2)
+  const Eigen::Vector3d axis = Eigen::Vector3d(0.4, 0.8, 0.5).normalized();
+  const Material sub = Material::anisotropic(uniaxial(2.25, 3.1, axis));
+  const AnisotropicStack stack(Material::vacuum(), {}, sub);
+  const Real angle = 0.7;
+  const StackResponse r = stack.response(kK0, angle, 0.2);
+  REQUIRE(r.substrate_mode_kinds[0] == hpfem::physics::SubstrateMode::kOrdinary);
+  REQUIRE(r.substrate_mode_kinds[1] == hpfem::physics::SubstrateMode::kExtraordinary);
+  const Real sin2 = std::sin(angle) * std::sin(angle);
+  REQUIRE(std::abs(r.substrate_kz[0] + kK0 * std::sqrt(2.25 - sin2)) < 1e-10 * kK0);
+  REQUIRE(std::abs(r.substrate_kz[1] + kK0 * std::sqrt(2.25 - sin2)) > 1e-3 * kK0);
+  // lossless: power-orthogonal channels add up to the transmittance
+  REQUIRE((r.channel_transmittance.colwise().sum().transpose() - r.transmittance).norm() < 1e-12);
+  REQUIRE(r.channel_transmittance.minCoeff() > 1e-4);
+  // isotropic and biaxial kinds
+  REQUIRE(AnisotropicStack(Material::vacuum(), {}, Material::dielectric(1.5))
+              .response(kK0, 0.3)
+              .substrate_mode_kinds[0] == hpfem::physics::SubstrateMode::kS);
+  REQUIRE(
+      AnisotropicStack(Material::vacuum(), {},
+                       Material::anisotropic(biaxial(2.0, 2.5, 3.0, Eigen::Vector3d(1, 1, 0), 0.4)))
+          .response(kK0, 0.3)
+          .substrate_mode_kinds[1] == hpfem::physics::SubstrateMode::kBiaxial);
+  // the axis along the normal at normal incidence: coinciding modes, power-orthogonal basis
+  const StackResponse c =
+      AnisotropicStack(Material::vacuum(), {},
+                       Material::anisotropic(uniaxial(2.25, 3.1, Eigen::Vector3d(0, 0, 1))))
+          .response(kK0, 0.0);
+  REQUIRE((c.channel_transmittance.colwise().sum().transpose() - c.transmittance).norm() < 1e-12);
 }

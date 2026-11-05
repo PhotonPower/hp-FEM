@@ -30,7 +30,8 @@ void check_material(const materials::Material& m, const char* what) {
     throw InvalidArgument(fmt::format("LayerStack: {} must be non-magnetic (mu_r = {} + {}i)", what,
                                       std::real(m.mu_scalar()), std::imag(m.mu_scalar())));
   }
-  if (std::imag(m.eps_scalar()) < 0) {
+  // crystals (ADR-0015 §5) are checked by AnisotropicStack; here only the scalar case
+  if (m.is_isotropic() && std::imag(m.eps_scalar()) < 0) {
     throw InvalidArgument(fmt::format(
         "LayerStack: {} has Im eps_r = {} < 0 (gain); the convention exp(-i omega t) needs "
         "Im eps_r >= 0 for absorption",
@@ -123,6 +124,10 @@ LayerStack<Dim>::LayerStack(materials::Material incidence_medium, std::vector<La
                             materials::Material substrate, Real top)
     : incidence_(incidence_medium), layers_(std::move(layers)), substrate_(substrate) {
   check_material(incidence_, "the incidence medium");
+  if (!incidence_.is_isotropic()) {
+    throw AnisotropicUnsupported(
+        "LayerStack: the incidence medium must be isotropic (ADR-0015 §5)");
+  }
   if (std::imag(incidence_.eps_scalar()) != 0) {
     throw InvalidArgument("LayerStack: the incidence medium must be lossless");
   }
@@ -171,6 +176,14 @@ LayeredPlaneWave<Dim> LayerStack<Dim>::plane_wave(Real k0, Real angle, Polarisat
   if (Dim == 2 && pol == Polarisation::kS) {
     throw InvalidArgument(
         "LayerStack::plane_wave: in 2D only the in-plane E (p) polarisation exists");
+  }
+  for (int j = 0; j < num_layers() + 2; ++j) {
+    if (!material(j).is_isotropic()) {
+      throw AnisotropicUnsupported(fmt::format(
+          "LayerStack::plane_wave: region {} is a crystal; use AnisotropicStack::plane_wave "
+          "(ADR-0015 §5)",
+          j));
+    }
   }
   const int n_regions = num_layers() + 2;
   const Real n0 = std::real(incidence_.refractive_index());

@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <numbers>
+#include <optional>
 
 #include <Eigen/Eigenvalues>
 #include <Eigen/LU>
@@ -275,113 +277,283 @@ Eigen::Matrix4cd AnisotropicStack::berreman_matrix(const materials::Tensor3& eps
   return k;
 }
 
-StackResponse AnisotropicStack::response(Real k0, Real angle, Real azimuth) const {
-  if (!(k0 > 0)) throw InvalidArgument(fmt::format("AnisotropicStack::response: k0 = {} <= 0", k0));
-  if (!(std::abs(angle) < std::numbers::pi / 2 - 1e-9)) {
-    throw InvalidArgument(fmt::format(
-        "AnisotropicStack::response: angle {} must lie strictly between -pi/2 and pi/2", angle));
-  }
-  const int n_regions = num_layers() + 2;
-  const Real n0 = std::sqrt(std::real(incidence_.eps_scalar()));
-  const Real sin_t = n0 * std::sin(angle);
-  const Real a = sin_t * std::cos(azimuth);
-  const Real b = sin_t * std::sin(azimuth);
+namespace {
+
+/// The recursion of one (k0, angle, azimuth): subspaces, propagators, interface matrices and the
+/// incidence-medium waves.
+struct Solved {
+  Real k0 = 0, a = 0, b = 0, n0 = 1, cos_t = 0;
+  Vec3 s_hat, k_down, k_up, p_down, p_up;
   std::vector<Subspaces> regions;
-  regions.reserve(static_cast<std::size_t>(n_regions));
+  std::vector<Eigen::Matrix2cd> pu, pd;       ///< per region (layers only)
+  std::vector<Eigen::Matrix2cd> refl, trans;  ///< per interface
+};
+
+Solved solve_stack(const AnisotropicStack& stack, Real k0, Real angle, Real azimuth) {
+  if (!(k0 > 0)) throw InvalidArgument(fmt::format("AnisotropicStack: k0 = {} <= 0", k0));
+  if (!(std::abs(angle) < std::numbers::pi / 2 - 1e-9)) {
+    throw InvalidArgument(
+        fmt::format("AnisotropicStack: angle {} must lie strictly between -pi/2 and pi/2", angle));
+  }
+  Solved out;
+  const int n_layers = stack.num_layers();
+  const int n_regions = n_layers + 2;
+  out.k0 = k0;
+  out.n0 = std::sqrt(std::real(stack.material(0).eps_scalar()));
+  const Real sin_t = out.n0 * std::sin(angle);
+  out.a = sin_t * std::cos(azimuth);
+  out.b = sin_t * std::sin(azimuth);
+  out.cos_t = std::sqrt(std::max(0.0, out.n0 * out.n0 - sin_t * sin_t));
+  out.s_hat = Vec3(-std::sin(azimuth), std::cos(azimuth), 0.0);
+  out.k_down = Vec3(out.a, out.b, -out.cos_t);
+  out.k_up = Vec3(out.a, out.b, out.cos_t);
+  out.p_down = cross(out.s_hat, out.k_down) / out.n0;
+  out.p_up = cross(out.s_hat, out.k_up) / out.n0;
   for (int j = 0; j < n_regions; ++j) {
-    regions.push_back(subspaces(berreman_matrix(material(j).eps_tensor(), a, b), j));
+    out.regions.push_back(subspaces(
+        AnisotropicStack::berreman_matrix(stack.material(j).eps_tensor(), out.a, out.b), j));
   }
-  // propagators across layer j (1..N): up amplitudes from the bottom to the top, down ones from
-  // the top to the bottom; both decay (or keep their modulus)
-  std::vector<Eigen::Matrix2cd> pu(static_cast<std::size_t>(n_regions), Eigen::Matrix2cd::Zero());
-  std::vector<Eigen::Matrix2cd> pd(static_cast<std::size_t>(n_regions), Eigen::Matrix2cd::Zero());
-  for (int j = 1; j <= num_layers(); ++j) {
+  // propagators across layer j: up amplitudes from the bottom to the top, down ones from the top
+  // to the bottom; both decay (or keep their modulus)
+  out.pu.assign(static_cast<std::size_t>(n_regions), Eigen::Matrix2cd::Zero());
+  out.pd.assign(static_cast<std::size_t>(n_regions), Eigen::Matrix2cd::Zero());
+  for (int j = 1; j <= n_layers; ++j) {
     const auto idx = static_cast<std::size_t>(j);
-    const Real d = layers_[idx - 1].thickness;
-    pu[idx] = exp_triangular(Eigen::Matrix2cd(kI * k0 * d * regions[idx].tu));
-    pd[idx] = exp_triangular(Eigen::Matrix2cd(-kI * k0 * d * regions[idx].td));
+    const Real d = stack.layers()[idx - 1].thickness;
+    out.pu[idx] = exp_triangular(Eigen::Matrix2cd(kI * k0 * d * out.regions[idx].tu));
+    out.pd[idx] = exp_triangular(Eigen::Matrix2cd(-kI * k0 * d * out.regions[idx].td));
   }
-  // S-matrix recursion from the substrate upwards: at interface i (region i above, i + 1
-  // below) alpha_i = R_i delta_i and delta_{i+1} = tau_i delta_i, amplitudes at the interface
-  std::vector<Eigen::Matrix2cd> refl(static_cast<std::size_t>(num_layers() + 1));
-  std::vector<Eigen::Matrix2cd> trans(refl.size());
-  for (int i = num_layers(); i >= 0; --i) {
+  // S-matrix recursion from the substrate upwards: at interface i (region i above, i + 1 below)
+  // alpha_i = R_i delta_i and delta_{i+1} = tau_i delta_i, amplitudes at the interface
+  out.refl.resize(static_cast<std::size_t>(n_layers + 1));
+  out.trans.resize(out.refl.size());
+  for (int i = n_layers; i >= 0; --i) {
     const auto above = static_cast<std::size_t>(i);
     const auto below = above + 1;
     Eigen::Matrix2cd gamma = Eigen::Matrix2cd::Zero();  // alpha_{i+1} = gamma delta_{i+1}
-    if (i < num_layers()) gamma = pu[below] * refl[below] * pd[below];
+    if (i < n_layers) gamma = out.pu[below] * out.refl[below] * out.pd[below];
     Eigen::Matrix4cd m;
-    m.leftCols<2>() = regions[above].wu;
-    m.rightCols<2>() = -(regions[below].wu * gamma + regions[below].wd);
-    const Mat42 x = m.partialPivLu().solve(Mat42(-regions[above].wd));
-    refl[above] = x.topRows<2>();
-    trans[above] = x.bottomRows<2>();
+    m.leftCols<2>() = out.regions[above].wu;
+    m.rightCols<2>() = -(out.regions[below].wu * gamma + out.regions[below].wd);
+    const Mat42 x = m.partialPivLu().solve(Mat42(-out.regions[above].wd));
+    out.refl[above] = x.topRows<2>();
+    out.trans[above] = x.bottomRows<2>();
   }
+  return out;
+}
 
+/// Amplitudes of every region for one incident tangential field: up at the region's bottom,
+/// down at its top (region 0: both at the top interface; substrate: down at its top, no up).
+struct Amplitudes {
+  std::vector<Eigen::Vector2cd> up, down;
+};
+
+Amplitudes amplitudes(const Solved& s, const TangentialField& psi_inc) {
+  const std::size_t n = s.regions.size();
+  Amplitudes out;
+  out.up.assign(n, Eigen::Vector2cd::Zero());
+  out.down.assign(n, Eigen::Vector2cd::Zero());
+  out.down[0] = s.regions[0].wd.adjoint() * psi_inc;
+  out.up[0] = s.refl[0] * out.down[0];
+  Eigen::Vector2cd delta = out.down[0];
+  for (std::size_t i = 0; i + 1 < n; ++i) {
+    delta = s.trans[i] * delta;  // top of region i + 1
+    out.down[i + 1] = delta;
+    if (i + 2 < n) {
+      delta = s.pd[i + 1] * delta;            // its bottom
+      out.up[i + 1] = s.refl[i + 1] * delta;  // up amplitude at its bottom
+    }
+  }
+  return out;
+}
+
+/// Cross power flux of two tangential fields, P_ij = (psi_i^H J psi_j + conj) / 2 with
+/// P_ii = flux_z(psi_i).
+Complex cross_flux(const TangentialField& u, const TangentialField& v) {
+  return 0.5 * (std::conj(u(0)) * v(3) + std::conj(u(3)) * v(0) - std::conj(u(1)) * v(2) -
+                std::conj(u(2)) * v(1));
+}
+
+/// Optic axis of a uniaxial tensor (two equal principal values of Re eps), or nothing.
+std::optional<Eigen::Vector3d> optic_axis(const materials::Tensor3& eps) {
+  const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(eps.real());
+  const Eigen::Vector3d l = eig.eigenvalues();
+  const Real tol = 1e-9 * std::max(1.0, l.cwiseAbs().maxCoeff());
+  const bool low = std::abs(l(1) - l(0)) <= tol;
+  const bool high = std::abs(l(2) - l(1)) <= tol;
+  if (low == high) return std::nullopt;  // biaxial, or isotropic in its real part
+  return Eigen::Vector3d(eig.eigenvectors().col(low ? 2 : 0));
+}
+
+}  // namespace
+
+LayerStack<3> AnisotropicStack::layer_stack() const {
+  return LayerStack<3>(incidence_, layers_, substrate_, top_);
+}
+
+StackResponse AnisotropicStack::response(Real k0, Real angle, Real azimuth) const {
+  const Solved s = solve_stack(*this, k0, angle, azimuth);
+  const std::size_t sub = s.regions.size() - 1;
   StackResponse out;
-  // incident and reflected s / p waves of the incidence medium (unit |E|)
-  const Real cos_t = std::sqrt(std::max(0.0, n0 * n0 - sin_t * sin_t));  // n0 cos(theta)
-  const Vec3 s_hat(-std::sin(azimuth), std::cos(azimuth), 0.0);
-  const Vec3 k_down(a, b, -cos_t);
-  const Vec3 k_up(a, b, cos_t);
-  const Vec3 p_down = cross(s_hat, k_down) / n0;
-  const Vec3 p_up = cross(s_hat, k_up) / n0;
   Mat42 reflected_basis;
-  reflected_basis.col(0) = plane_wave_field(s_hat, k_up);
-  reflected_basis.col(1) = plane_wave_field(p_up, k_up);
-  const std::array<TangentialField, 2> incident{plane_wave_field(s_hat, k_down),
-                                                plane_wave_field(p_down, k_down)};
-  // downward substrate modes with unit |E|
-  const auto sub = static_cast<std::size_t>(n_regions - 1);
+  reflected_basis.col(0) = plane_wave_field(s.s_hat, s.k_up);
+  reflected_basis.col(1) = plane_wave_field(s.p_up, s.k_up);
+  const std::array<TangentialField, 2> incident{plane_wave_field(s.s_hat, s.k_down),
+                                                plane_wave_field(s.p_down, s.k_down)};
+  // downward substrate modes
   const materials::Tensor3 eps_sub = substrate_.eps_tensor();
+  const Real sin2 = s.a * s.a + s.b * s.b;
   Mat42 modes;
-  if (substrate_.is_isotropic()) {
-    const Complex n_sub = std::sqrt(substrate_.eps_scalar());
-    Complex kz = std::sqrt(substrate_.eps_scalar() - sin_t * sin_t);
+  const bool scalar_substrate =
+      substrate_.is_isotropic() ||
+      (eps_sub - eps_sub(0, 0) * materials::Tensor3::Identity()).cwiseAbs().maxCoeff() == 0;
+  if (scalar_substrate) {
+    const Complex eps = eps_sub(0, 0);
+    const Complex n_sub = std::sqrt(eps);
+    Complex kz = std::sqrt(eps - sin2);
     if (std::imag(kz) < 0 || (std::imag(kz) == 0 && std::real(kz) < 0)) kz = -kz;
-    const Vec3 k_sub(a, b, -kz);
-    modes.col(0) = plane_wave_field(s_hat, k_sub);
-    modes.col(1) = plane_wave_field(Vec3(cross(s_hat, k_sub) / n_sub), k_sub);
+    const Vec3 k_sub(s.a, s.b, -kz);
+    modes.col(0) = plane_wave_field(s.s_hat, k_sub);
+    modes.col(1) = plane_wave_field(Vec3(cross(s.s_hat, k_sub) / n_sub), k_sub);
     out.substrate_kz = {-kz * k0, -kz * k0};
+    out.substrate_mode_kinds = {SubstrateMode::kS, SubstrateMode::kP};
   } else {
-    const Eigen::Matrix2cd& td = regions[sub].td;
+    const Mat42& wd = s.regions[sub].wd;
+    const Eigen::Matrix2cd& td = s.regions[sub].td;
     const Complex l1 = td(0, 0);
     const Complex l2 = td(1, 1);
     Eigen::Matrix2cd v = Eigen::Matrix2cd::Identity();
+    std::array<Complex, 2> q{l1, l2};
     if (std::abs(l1 - l2) > 1e-8 * std::max(1.0, std::abs(l1))) {
-      // eigenvectors of the triangular block: e1 and (t12, l2 - l1)
-      v(0, 1) = td(0, 1);
+      v(0, 1) = td(0, 1);  // eigenvectors of the triangular block: e1 and (t12, l2 - l1)
       v(1, 1) = l2 - l1;
-    }  // else: coinciding modes, the orthonormal Schur basis of the subspace
-    for (int m = 0; m < 2; ++m) modes.col(m) = regions[sub].wd * v.col(m);
-    out.substrate_kz = {l1 * k0, l2 * k0};
+    } else {
+      // coinciding modes: the basis that diagonalises the cross power flux
+      Eigen::Matrix2cd p;
+      for (int i = 0; i < 2; ++i) {
+        for (int j = 0; j < 2; ++j) p(i, j) = cross_flux(wd.col(i), wd.col(j));
+      }
+      const Eigen::SelfAdjointEigenSolver<Eigen::Matrix2cd> eig(p);
+      v = eig.eigenvectors();
+      q = {l1, l1};
+    }
+    for (int m = 0; m < 2; ++m) modes.col(m) = wd * v.col(m);
+    const std::optional<Eigen::Vector3d> axis = optic_axis(eps_sub);
+    out.substrate_mode_kinds = {SubstrateMode::kBiaxial, SubstrateMode::kBiaxial};
+    if (axis) {
+      // ordinary: D = eps E perpendicular to the optic axis; it goes first
+      const Vec3 c = axis->cast<Complex>();
+      std::array<Real, 2> along{};
+      for (int m = 0; m < 2; ++m) {
+        Vec3 e;
+        Vec3 h;
+        full_fields(eps_sub, s.a, s.b, modes.col(m), e, h);
+        const Vec3 d = eps_sub * e;
+        along[static_cast<std::size_t>(m)] = std::abs(c.dot(d)) / d.norm();
+      }
+      if (along[1] < along[0]) {
+        modes.col(0).swap(modes.col(1));
+        std::swap(q[0], q[1]);
+      }
+      out.substrate_mode_kinds = {SubstrateMode::kOrdinary, SubstrateMode::kExtraordinary};
+    }
+    out.substrate_kz = {q[0] * k0, q[1] * k0};
   }
   for (int m = 0; m < 2; ++m) {
     Vec3 e;
     Vec3 h;
-    full_fields(eps_sub, a, b, modes.col(m), e, h);
+    full_fields(eps_sub, s.a, s.b, modes.col(m), e, h);
     modes.col(m) /= e.norm();
     out.substrate_modes[static_cast<std::size_t>(m)] = modes.col(m);
   }
-
   for (int pol = 0; pol < 2; ++pol) {
     const TangentialField& psi_inc = incident[static_cast<std::size_t>(pol)];
-    // down amplitudes of the incidence medium at the top interface; then the recursion
-    Eigen::Vector2cd delta = regions[0].wd.adjoint() * psi_inc;
-    const TangentialField psi_ref = regions[0].wu * (refl[0] * delta);
-    for (int i = 0; i <= num_layers(); ++i) {
-      const auto idx = static_cast<std::size_t>(i);
-      delta = trans[idx] * delta;                              // top of region i + 1
-      if (i + 1 <= num_layers()) delta = pd[idx + 1] * delta;  // its bottom
-    }
-    const TangentialField psi_t = regions[sub].wd * delta;
+    const Amplitudes amp = amplitudes(s, psi_inc);
+    const TangentialField psi_ref = s.regions[0].wu * amp.up[0];
+    const TangentialField psi_t = s.regions[sub].wd * amp.down[sub];
     out.reflection.col(pol) = coefficients(reflected_basis, psi_ref);
     out.transmission.col(pol) = coefficients(modes, psi_t);
     const Real p_inc = -flux_z(psi_inc);
     out.reflectance(pol) = flux_z(psi_ref) / p_inc;
     out.transmittance(pol) = -flux_z(psi_t) / p_inc;
     out.absorptance(pol) = 1.0 - out.reflectance(pol) - out.transmittance(pol);
+    for (int m = 0; m < 2; ++m) {
+      out.channel_transmittance(m, pol) =
+          std::norm(out.transmission(m, pol)) * -flux_z(modes.col(m)) / p_inc;
+    }
   }
+  return out;
+}
+
+AnisotropicPlaneWave AnisotropicStack::plane_wave(Real k0, Real angle, Polarisation pol,
+                                                  Real amplitude, Real azimuth) const {
+  struct Data {
+    Solved s;
+    Amplitudes amp;
+    std::vector<materials::Tensor3> eps;
+    std::vector<Real> z_top, z_bottom;  ///< per region (semi-infinite ones: the interface)
+    LayerStack<3> geometry;
+    Vec3 e_inc;
+  };
+  auto data = std::make_shared<Data>(
+      Data{solve_stack(*this, k0, angle, azimuth), {}, {}, {}, {}, layer_stack(), Vec3::Zero()});
+  const Solved& s = data->s;
+  data->e_inc = amplitude * (pol == Polarisation::kS ? s.s_hat : s.p_down);
+  data->amp = amplitudes(s, plane_wave_field(data->e_inc, s.k_down));
+  const int n_regions = num_layers() + 2;
+  for (int j = 0; j < n_regions; ++j) {
+    data->eps.push_back(material(j).eps_tensor());
+    const Real top_j = j == 0 ? top_ : data->geometry.interface(j - 1);
+    const Real bottom_j = j == n_regions - 1 ? data->geometry.bottom()
+                                             : (j == 0 ? top_ : data->geometry.interface(j));
+    data->z_top.push_back(top_j);
+    data->z_bottom.push_back(bottom_j);
+  }
+  // E and Z0 H of region j at x
+  const auto fields = [](const Data& d, const Point<3>& x, int j, Vec3& e, Vec3& h) {
+    const auto idx = static_cast<std::size_t>(j);
+    const Real kk = d.s.k0;
+    const Complex lateral = std::exp(kI * kk * (d.s.a * x(0) + d.s.b * x(1)));
+    const Subspaces& r = d.s.regions[idx];
+    const Eigen::Vector2cd up =
+        exp_triangular(Eigen::Matrix2cd(kI * kk * (x(2) - d.z_bottom[idx]) * r.tu)) * d.amp.up[idx];
+    const Eigen::Vector2cd down =
+        exp_triangular(Eigen::Matrix2cd(kI * kk * (x(2) - d.z_top[idx]) * r.td)) * d.amp.down[idx];
+    const TangentialField psi = lateral * (r.wu * up + r.wd * down);
+    full_fields(d.eps[idx], d.s.a, d.s.b, psi, e, h);
+  };
+  AnisotropicPlaneWave out;
+  out.response = response(k0, angle, azimuth);
+  out.field.value = [data, fields](const Point<3>& x) {
+    Vec3 e;
+    Vec3 h;
+    fields(*data, x, data->geometry.region(x(2)), e, h);
+    return assembly::ComplexVector<3>(e);
+  };
+  out.field.curl = [data, fields](const Point<3>& x) {
+    Vec3 e;
+    Vec3 h;
+    fields(*data, x, data->geometry.region(x(2)), e, h);
+    return assembly::ComplexCurl<3>(kI * data->s.k0 * h);  // curl E = i k0 Z0 H
+  };
+  out.field.value_in_region = [data, fields](const Point<3>& x, int region) {
+    Vec3 e;
+    Vec3 h;
+    fields(*data, x, region, e, h);
+    return assembly::ComplexVector<3>(e);
+  };
+  // the incident plane wave alone, continued everywhere
+  out.incident_wave.value = [data](const Point<3>& x) {
+    const Vec3 k = data->s.k0 * data->s.k_down;
+    return assembly::ComplexVector<3>(
+        data->e_inc * std::exp(kI * (k(0) * x(0) + k(1) * x(1) + k(2) * (x(2) - data->z_top[0]))));
+  };
+  out.incident_wave.curl = [data](const Point<3>& x) {
+    const Vec3 k = data->s.k0 * data->s.k_down;
+    const Complex phase =
+        std::exp(kI * (k(0) * x(0) + k(1) * x(1) + k(2) * (x(2) - data->z_top[0])));
+    return assembly::ComplexCurl<3>(kI * cross(k, data->e_inc) * phase);
+  };
   return out;
 }
 

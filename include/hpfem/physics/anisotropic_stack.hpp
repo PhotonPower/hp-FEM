@@ -31,6 +31,10 @@ namespace hpfem::physics {
 /// Tangential field @f$ (E_x, E_y, Z_0H_x, Z_0H_y) @f$ of a plane wave or a mode.
 using TangentialField = Eigen::Matrix<Complex, 4, 1>;
 
+/// Kind of a downward substrate mode: s / p of an isotropic substrate, ordinary (D ⊥ optic axis)
+/// / extraordinary of a uniaxial one, or one of the two eigenmodes of a biaxial one.
+enum class SubstrateMode { kS, kP, kOrdinary, kExtraordinary, kBiaxial };
+
 /// Plane-wave response of an `AnisotropicStack` for the two incident polarisations s, p of unit
 /// |E| (s: E along @f$ \hat s = \hat z\times\hat k_\parallel @f$, p: E along
 /// @f$ \hat s\times\hat k @f$, so that H is along +ŝ as in `LayerStack`).
@@ -41,10 +45,16 @@ struct StackResponse {
   /// Transmission into the two downward modes of the substrate (amplitudes at the bottom
   /// interface; column = incident s, p; row = mode, see `substrate_modes`).
   Eigen::Matrix2cd transmission;
-  /// Tangential fields of the downward substrate modes, each with unit |E| (s and p of an
-  /// isotropic substrate; the eigenmodes of the downward block of a crystal, or an orthonormal
-  /// basis of the subspace where the two modes coincide).
+  /// Tangential fields of the downward substrate modes, each with unit |E|: s and p of an
+  /// isotropic substrate; ordinary then extraordinary of a uniaxial one; the eigenmodes of the
+  /// downward block of a biaxial one. Where the two modes coincide (k along an optic axis) the
+  /// basis of the subspace that diagonalises the cross power flux (power-orthogonal modes).
   std::array<TangentialField, 2> substrate_modes;
+  std::array<SubstrateMode, 2> substrate_mode_kinds{};
+  /// Power transmitted into each substrate mode, |t_m|² times the mode's flux over the incident
+  /// flux (rows mode, columns incident s, p); sums to `transmittance` when the modes are
+  /// power-orthogonal (always for a lossless substrate with distinct modes).
+  Eigen::Matrix2d channel_transmittance;
   /// Vertical wavenumbers k_z of the downward substrate modes [1/m] (Im ≤ 0).
   std::array<Complex, 2> substrate_kz;
   /// Reflectance, transmittance (power flux into the substrate) and absorptance
@@ -52,6 +62,15 @@ struct StackResponse {
   Eigen::Vector2d reflectance;
   Eigen::Vector2d transmittance;
   Eigen::Vector2d absorptance;
+};
+
+/// Plane wave on an `AnisotropicStack`: the piecewise analytic total field (value, curl and the
+/// value of a given region's branch, usable as `ScatteringSetup<3>::incident` with
+/// `AnisotropicStack::layer_stack()` as background), the incident wave alone and the response.
+struct AnisotropicPlaneWave {
+  IncidentField<3> field;
+  IncidentField<3> incident_wave;
+  StackResponse response;
 };
 
 /// A planar stack of possibly anisotropic layers (laboratory frame, z the normal): isotropic,
@@ -66,6 +85,11 @@ class AnisotropicStack {
 
   [[nodiscard]] int num_layers() const noexcept { return static_cast<int>(layers_.size()); }
   [[nodiscard]] const materials::Material& material(int region) const;
+  [[nodiscard]] const std::vector<Layer>& layers() const noexcept { return layers_; }
+  [[nodiscard]] Real top() const noexcept { return top_; }
+  /// The geometry and materials as a `LayerStack<3>`, the layered background of
+  /// `Scattering<3>` (its scalar `plane_wave` refuses crystals; use `plane_wave` here).
+  [[nodiscard]] LayerStack<3> layer_stack() const;
 
   /// Response at the vacuum wavenumber k0 [1/m] for incidence at `angle` [rad] from the normal
   /// in the plane at the azimuth `azimuth` [rad] (in-plane wavevector
@@ -73,6 +97,14 @@ class AnisotropicStack {
   /// @throws InvalidArgument for k0 ≤ 0, |angle| ≥ π/2, or a region without two upward and two
   ///         downward modes (grazing propagation, k_z = 0).
   [[nodiscard]] StackResponse response(Real k0, Real angle, Real azimuth = 0.0) const;
+
+  /// Plane wave of polarisation `pol` (s or p) and amplitude |E| = `amplitude` [V/m] incident
+  /// as in `response`: the analytic field in every region (E and curl E = i k0 Z0 H),
+  /// @f$ \psi(z) = W_u e^{ik_0T_u(z - z_b)}\alpha + W_d e^{ik_0T_d(z - z_t)}\delta @f$ with the
+  /// upward amplitudes at the bottom and the downward ones at the top of each region, so all
+  /// exponentials decay. @throws as `response`.
+  [[nodiscard]] AnisotropicPlaneWave plane_wave(Real k0, Real angle, Polarisation pol,
+                                                Real amplitude = 1.0, Real azimuth = 0.0) const;
 
   /// Berreman matrix K of a medium for the normalised in-plane wavevector (a, b) = (k_x, k_y)/k0:
   /// @f$ \psi' = ik_0K\psi @f$ (exposed for tests and the theory page).
