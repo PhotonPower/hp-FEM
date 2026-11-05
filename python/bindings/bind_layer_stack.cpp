@@ -152,6 +152,10 @@ void bind_layered(py::module_& m) {
            py::arg("polarisation"), py::arg("amplitude") = 1.0, py::arg("azimuth") = 0.0,
            "analytic stack field (field, incident_wave as IncidentField3D) and the response; with "
            "layer_stack() the layered background of Scattering3D")
+      .def("mode_wave", &physics::AnisotropicStack::mode_wave, py::arg("k0"), py::arg("a"),
+           py::arg("b"), py::arg("mode"), py::arg("amplitude") = 1.0,
+           "analytic field of the downward mode (0, 1) of the incidence medium (also a crystal) "
+           "at the normalised in-plane wavevector (a, b)")
       .def("layer_stack", &physics::AnisotropicStack::layer_stack,
            "the geometry and materials as a LayerStack3D (background of Scattering3D)")
       .def_static("berreman_matrix", &physics::AnisotropicStack::berreman_matrix, py::arg("eps"),

@@ -265,7 +265,13 @@ TEST_CASE("Anisotropic stack: energy balance and thick absorbing layers",
 
 TEST_CASE("Anisotropic stack: argument checks", "[physics][stack][anisotropic]") {
   const Material crystal = Material::anisotropic(uniaxial(2.25, 3.0, Eigen::Vector3d(1, 0, 0)));
-  REQUIRE_THROWS_AS(AnisotropicStack(crystal, {}, Material::vacuum()), hpfem::InvalidArgument);
+  // a lossless crystal cover is allowed (mode_wave, M19 S7e), a lossy one is not
+  REQUIRE_NOTHROW(AnisotropicStack(crystal, {}, Material::vacuum()));
+  REQUIRE_THROWS_AS(
+      AnisotropicStack(
+          Material::anisotropic(Tensor3(uniaxial(2.25, {3.0, 0.1}, Eigen::Vector3d(1, 0, 0)))), {},
+          Material::vacuum()),
+      hpfem::InvalidArgument);
   REQUIRE_THROWS_AS(AnisotropicStack(Material::vacuum(), {{crystal, 0.0}}, Material::vacuum()),
                     hpfem::InvalidArgument);
   Tensor3 enz = uniaxial(2.25, 3.0, Eigen::Vector3d(1, 0, 0));
@@ -587,4 +593,45 @@ TEST_CASE("Anisotropic stack: reflection at any in-plane wavevector",
   }
   // the evanescent spectrum of a crystal stack
   REQUIRE(stack.reflection_at(kK0, 2.0, -0.7).allFinite());
+}
+
+TEST_CASE("Anisotropic stack: incidence of the modes of a crystal cover",
+          "[physics][stack][anisotropic]") {
+  // M19 S7e: mode_wave; for an isotropic cover its modes are the s / p waves of plane_wave
+  const Material crystal = Material::anisotropic(uniaxial(2.25, 3.1, Eigen::Vector3d(1, 0.4, 0.7)));
+  const AnisotropicStack iso(Material::dielectric(1.2), {{crystal, 0.2}},
+                             Material::dielectric(1.5));
+  const Real angle = 0.6;
+  const Real azimuth = 0.9;
+  const Real s = 1.2 * std::sin(angle);
+  const Real a = s * std::cos(azimuth);
+  const Real b = s * std::sin(azimuth);
+  const hpfem::Point<3> x(0.1, -0.2, -0.13);
+  for (int mode = 0; mode < 2; ++mode) {
+    const auto m = iso.mode_wave(kK0, a, b, mode);
+    const auto p = iso.plane_wave(
+        kK0, angle, mode == 0 ? hpfem::physics::Polarisation::kS : hpfem::physics::Polarisation::kP,
+        1.0, azimuth);
+    REQUIRE((m.field.value(x) - p.field.value(x)).norm() < 1e-12);
+    REQUIRE((m.incident_wave.value(x) - p.incident_wave.value(x)).norm() < 1e-12);
+  }
+  // a lossless tilted crystal as the cover (the mirrored crystal substrate of the emitters):
+  // the z flux is the same above and below (lossless layers), and curl curl E = k0^2 eps E
+  const Material cover = Material::anisotropic(uniaxial(2.4, 3.4, Eigen::Vector3d(0.6, 0.2, 0.8)));
+  const AnisotropicStack stack(cover, {{Material::dielectric(1.8), 0.15}}, Material::vacuum());
+  REQUIRE_THROWS_AS(stack.response(kK0, 0.3), hpfem::AnisotropicUnsupported);
+  const auto flux_at = [](const auto& wave, Real z) {
+    const hpfem::Point<3> p(0.03, 0.07, z);
+    const Eigen::Vector3cd e = wave.field.value(p);
+    const Eigen::Vector3cd h = Eigen::Vector3cd(wave.field.curl(p)) / (kI * kK0);  // Z0 H
+    return std::real(e(0) * std::conj(h(1)) - e(1) * std::conj(h(0)));
+  };
+  for (int mode = 0; mode < 2; ++mode) {
+    const auto w = stack.mode_wave(kK0, 0.4, -0.3, mode);
+    const Real above = flux_at(w, 0.3);
+    const Real below = flux_at(w, -0.6);
+    REQUIRE(below < -1e-3);  // power travels down
+    REQUIRE(std::abs(above - below) < 1e-10 * std::abs(below));
+  }
+  REQUIRE_THROWS_AS(stack.mode_wave(kK0, 2.5, 0.0, 0), hpfem::InvalidArgument);  // evanescent
 }

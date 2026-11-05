@@ -849,6 +849,11 @@ void bind_physics(py::module_& m) {
         py::arg("angle"), py::arg("azimuth"), py::arg("polarisation"), py::arg("amplitude") = 1.0,
         "Stack wave at the angle from the normal and the azimuth about it; beta = k0 n sin(angle) "
         "sin(azimuth), azimuth 0 is in-plane incidence (E_z polarisation for s)");
+    m.def("anisotropic_conical_mode_wave", &physics::anisotropic_conical_mode_wave,
+          py::arg("stack"), py::arg("k0"), py::arg("kx"), py::arg("beta"), py::arg("mode"),
+          py::arg("amplitude") = 1.0,
+          "downward mode (0, 1) of a crystal incidence medium at (kx, beta) in the conical solver "
+          "frame, with the matching background");
     py::class_<physics::AnisotropicConicalWave>(
         m, "AnisotropicConicalWave",
         "A crystal AnisotropicStack (laboratory frame) as the layered background of the conical "

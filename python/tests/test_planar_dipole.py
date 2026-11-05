@@ -269,8 +269,10 @@ def test_dipole_emission_refusals_with_crystals():
     mesh = emitter_cell(0.0)
     dipole = {"position": (0.05 * UM, 0.32 * UM), "sigma": SIGMA}
     common = dict(order=2, pml={"top": UM, "bottom": UM})
-    with pytest.raises(grating.GratingError, match="S7d"):
-        grating.dipole_emission(mesh, {5: crystal}, stack, dipole, OMEGA, **common)
+    # (the channels into a crystal substrate are computed since S7e)
+    with pytest.raises(grating.GratingError, match="guided-mode poles"):
+        grating.dipole_emission(mesh, {5: crystal}, stack, dipole, OMEGA, guided=True,
+                                channels=False, **common)  # fmt: skip
     with pytest.raises(grating.GratingError, match="mirror"):
         grating.dipole_emission(mesh, {5: crystal}, stack, dipole, OMEGA, symmetric=True,
                                 channels=False, **common)  # fmt: skip
@@ -328,3 +330,83 @@ def test_emission_pattern_above_a_crystal_stack():
     with pytest.raises(grating.GratingError, match="crystal substrate"):
         grating.emission_pattern(mesh, {4: crystal, 5: crystal}, crystal_sub, dipole, OMEGA,
                                  [(0.2, 0.0, "down")], order=2, pml=pml)  # fmt: skip
+
+
+def test_mode_incidence_from_a_crystal_substrate():
+    """M19 S7e: the plane wave incident from a tilted crystal substrate (one of its modes), solved
+    on the mirrored cell (the crystal as the incidence medium of the mirrored AnisotropicStack),
+    equals the analytic ``AnisotropicStack.mode_wave`` at the dipole, for both modes."""
+    from hpfem import grating
+
+    period, height = 0.5 * UM, 0.32 * UM
+    axis = np.array([np.sin(0.7), 0.3, np.cos(0.7)])
+    eps = 2.4 * np.eye(3) + np.outer(axis, axis) / 1.09  # laboratory frame
+    mirror = np.diag([1.0, 1.0, -1.0])
+    cover = hpfem.Material.anisotropic(mirror @ eps @ mirror)  # the substrate, mirrored
+    stack = hpfem.AnisotropicStack(cover, [], hpfem.Material.dielectric(1.0), 0.0)
+    swap = np.array([[1, 0, 0], [0, 0, 1], [0, 1, 0.0]])
+    mesh = hpfem.rectangle(5, 40, [-period / 2, -2 * UM], [period / 2, 2 * UM])
+    for c in range(mesh.num_cells):
+        y = np.mean([mesh.vertex(int(v))[1] for v in mesh.cell_vertices(c)])
+        if y > 0:
+            mesh.set_cell_tag(c, 5)
+    cell_map = hpfem.MaterialMap(hpfem.Material.dielectric(1.0))
+    for c in range(mesh.num_cells):
+        if mesh.cell_tag(c) == 5:
+            cell_map.set_cell(c, hpfem.Material.anisotropic(swap @ mirror @ eps @ mirror @ swap))
+    x0 = np.array([0.05 * UM, -height])  # the dipole below the mirrored interface
+    gauss = math.exp(-0.5 * (K0 * SIGMA) ** 2)  # host: vacuum
+    for kx, beta in ((0.4 * K0, 0.3 * K0), (-1.1 * K0, 0.6 * K0)):
+        for mode in (0, 1):
+            result = grating.solve(
+                mesh, grating._SolverFrameMap(cell_map), stack, "s", 0.3, 0.0, OMEGA, 4,
+                pml={"top": UM, "bottom": UM}, check=False, _mode_incidence=(kx, beta, mode),
+            )  # fmt: skip
+            fem = np.asarray(hpfem.conical_gaussian_average(result.problem, result.solution,
+                                                            list(x0), SIGMA))  # fmt: skip
+            e_lab = np.asarray(stack.mode_wave(K0, kx / K0, beta / K0, mode).field.value(
+                [x0[0], 0.0, x0[1]]))  # fmt: skip
+            reference = gauss * (swap @ e_lab)
+            assert np.linalg.norm(fem - reference) < 2e-4 * np.linalg.norm(reference)
+
+
+def test_radiation_into_a_crystal_substrate_closes_the_balance():
+    """M19 S7e: the reciprocity formula dP/d²k_∥ = Z0 |p · E_j|² / (32π² F_j) of the
+    power-normalised modes of a tilted crystal half-space, on the samples of the library (the
+    propagating range of each mode split at the light line of the cover and both cutoffs,
+    cosine-mapped panels), with
+    the analytic fields of the mirrored stack, plus the cover hemisphere with the analytic plane
+    waves, equals the total of the 2D-spectrum reference (lossless, no guided modes)."""
+    from hpfem import grating
+
+    height = 0.32 * UM
+    axis = np.array([np.sin(0.7), 0.3, np.cos(0.7)])
+    eps = 2.4 * np.eye(3) + np.outer(axis, axis) / 1.09  # laboratory frame
+    mirror = np.diag([1.0, 1.0, -1.0])
+    stack = hpfem.AnisotropicStack(hpfem.Material.dielectric(1.0), [],
+                                   hpfem.Material.anisotropic(eps))  # fmt: skip
+    mirrored = hpfem.AnisotropicStack(hpfem.Material.anisotropic(mirror @ eps @ mirror), [],
+                                      hpfem.Material.dielectric(1.0), 0.0)  # fmt: skip
+    p = np.array([0.6, 0.4, 0.5])  # laboratory frame
+    z0 = hpfem.constants.Z0
+    up = 0.0
+    for theta, phi, w in grating._hemisphere_directions(8, 16, False, False, []):
+        for pol in (hpfem.Polarisation.S, hpfem.Polarisation.P):
+            e = np.asarray(stack.plane_wave(K0, theta, pol, 1.0, phi + math.pi).field.value(
+                [0.0, 0.0, height]))  # fmt: skip
+            up += w * K0**2 * z0 * abs(p @ e) ** 2 / (32 * math.pi**2)
+    eps_cover = mirror @ eps @ mirror
+    down = 0.0
+    for kx, beta, mode, w in grating._crystal_substrate_samples(
+        eps_cover, K0, K0, 8, 16, 1.01 * K0 * math.sqrt(np.linalg.eigvalsh(eps).max())
+    ):
+        modes = hpfem.half_space_modes(eps_cover, kx / K0, beta / K0, False)
+        if not abs(modes.kz[mode].imag) < 1e-12 * max(1.0, abs(modes.kz[mode])):
+            continue
+        e = np.asarray(mirrored.mode_wave(K0, kx / K0, beta / K0, mode).field.value(
+            [0.0, 0.0, -height]))  # fmt: skip
+        down += w * z0 * abs((mirror @ p) @ e) ** 2 / (32 * math.pi**2 * modes.flux[mode])
+    bulk = z0 * K0**2 * float(p @ p) / (12 * math.pi)
+    reference = dipole_above_stack(stack, K0, height, p, azimuths=96)
+    assert (up + down) / bulk == pytest.approx(reference, rel=3e-4)
+    assert 0.3 < down / (up + down) < 0.7

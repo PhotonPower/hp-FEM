@@ -3,6 +3,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Radiation into crystal substrates (M19 S7e-1): `AnisotropicStack` (and `LayerStack` for the
+  lookup of a layered background) take a lossless crystal incidence medium, whose modes
+  `AnisotropicStack::mode_wave` and `anisotropic_conical_mode_wave` give; `emission_cone(side=
+  "down")` and the channels of `dipole_emission` integrate the power into a uniaxial crystal
+  substrate over the in-plane wavevector of its power-normalised modes. Benchmark
+  `m19_crystal_substrate_balance.py`: up + down equal the total of the 2D-spectrum reference.
 - Crystals in the axisymmetric solver (M19 S6, ADR-0015 §8): tensor materials are read as
   diagonal (r, φ, z) tensors (`axisymmetric_permittivity`): an optic axis along the symmetry
   axis, or radially / azimuthally anisotropic media; tilted axes are refused. The material and

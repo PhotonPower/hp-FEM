@@ -100,8 +100,10 @@ struct AnisotropicPlaneWave {
 /// lossless incidence medium above `top`, `layers` from top to bottom, semi-infinite substrate.
 class AnisotropicStack {
  public:
-  /// @throws InvalidArgument for a thickness ≤ 0, a magnetic material, an anisotropic or lossy
-  ///         incidence medium, a gain medium (Im ε not positive semi-definite) or an
+  /// The incidence medium may be a lossless crystal, whose waves are then those of `mode_wave`
+  /// (`response`, `plane_wave` and `reflection_at` need an isotropic one).
+  /// @throws InvalidArgument for a thickness ≤ 0, a magnetic material, a lossy incidence
+  ///         medium, a gain medium (Im ε not positive semi-definite) or an
   ///         epsilon-near-zero @f$ |\varepsilon_{zz}| < 10^{-8}\max|\varepsilon_{ij}| @f$.
   AnisotropicStack(materials::Material incidence_medium, std::vector<Layer> layers,
                    materials::Material substrate, Real top = 0.0);
@@ -138,6 +140,16 @@ class AnisotropicStack {
   /// singular or large. @throws InvalidArgument for k0 ≤ 0 or grazing propagation in a region
   /// (k_z = 0, e.g. |(a, b)| = n0).
   [[nodiscard]] Eigen::Matrix2cd reflection_at(Real k0, Real a, Real b) const;
+
+  /// The analytic field of the downward mode `mode` (0 or 1, the order of `half_space_modes`:
+  /// s / p, ordinary / extraordinary) of the incidence medium, with |E| = `amplitude` [V/m], at
+  /// the normalised in-plane wavevector (a, b): as `plane_wave`, also for a lossless crystal
+  /// incidence medium (M19 S7e: the plane wave incident from a crystal substrate, mirrored, in
+  /// the reciprocity of emitters). `response` is left empty. The incident wave has the phase 1
+  /// at the origin of the top interface.
+  /// @throws InvalidArgument for an evanescent mode or a mode index other than 0, 1.
+  [[nodiscard]] AnisotropicPlaneWave mode_wave(Real k0, Real a, Real b, int mode,
+                                               Real amplitude = 1.0) const;
 
   /// Berreman matrix K of a medium for the normalised in-plane wavevector (a, b) = (k_x, k_y)/k0:
   /// @f$ \psi' = ik_0K\psi @f$ (exposed for tests and the theory page).
