@@ -791,10 +791,9 @@ cover the truth within 2 std in every run and their rms deviations are alike, be
 estimate from the p = 2 values would give near-p = 3 accuracy at p = 2 cost (factor 6 in the
 error above); this correction was not tried in the fits.
 
-Not tested: the hypothesis in its full form, multi-fidelity BO with the DWR estimate as the
-fidelity indicator against single-fidelity BO (`opt.multi_fidelity_optimize` needs BoTorch,
-which the local environment does not have); the study supports the indicator, not yet the
-multi-fidelity acquisition built on it. One problem, five seeds, one κ.
+The hypothesis in its full form, multi-fidelity BO with the DWR estimate as the fidelity
+indicator against single-fidelity BO, is section K: the indicator holds, the multi-fidelity
+optimisation built on it does not pay off there. One problem, five seeds, one κ.
 
 ## J. Bodies of revolution on layer stacks against the 3D solver (M18)
 
@@ -875,3 +874,78 @@ from p = 2 to p = 3 towards the 2.5D values (−1.3 % / +2.5 % at 600 nm, below 
 The 3D runs need minutes and gigabytes where the orders need seconds, which is the reason
 for the layered background of the body-of-revolution solver.
 
+
+## K. Multi-fidelity BO and the DWR estimate as fidelity indicator (M16 S8)
+
+**Question.** Section I showed that the DWR estimate chooses the order of a reconstruction
+well. Does a multi-fidelity optimisation built on it — or BoTorch's multi-fidelity knowledge
+gradient without it — find the optimum for less computing than single-fidelity BO?
+
+**Problem.** The spectrum match of section H (six R0 values, σ = 0.002) with the target from
+p = 5 on a mesh at the truth (100 nm, 120 nm, 86°) and no noise, the levels p = 2 and p = 3.
+On the morphed start mesh the truth gives $F = 1.46$ at p = 2, $0.039$ at p = 3 and $0.0073$
+at p = 4: p = 2 is biased by more than the noise in one observable, p = 3 is not. Every
+strategy gets the same budget of **400 s of measured solve time** (the summed `Evaluation.cost`):
+
+- `sf_p2`, `sf_p3`: `opt.bayesian_optimize` (EI, no gradients) at a fixed order;
+- `mf_kg`: `opt.multi_fidelity_optimize` with the levels p = 2 and p = 3 (BoTorch 0.18.1,
+  `SingleTaskMultiFidelityGP`, cost-aware `qMultiFidelityKnowledgeGradient` with the measured
+  cost per level, 32 fantasies), stopped by its cost model at 400 s; its recommendation, the
+  maximiser of the posterior mean at p = 3, is evaluated at the end;
+- `dwr_screened`: `opt.bayesian_optimize` on an evaluator that solves every point at p = 2
+  with the signed DWR estimates $\eta$ of its six efficiencies and refines to p = 3 only if
+  the point may beat the best p = 3 value: with $r = (y - y^{target})/\sigma$ the bound
+  $\delta F = \sum (2|r||\eta|/\sigma + (\eta/\sigma)^2)$, a point with $F - \delta F > F^*$
+  keeps its p = 2 values.
+
+The recommendation of a run is its best evaluation at p = 3 (`sf_p2`: at p = 2), re-evaluated
+at p = 4. Seeds 0–2, driver `benchmarks/opt_validation.py mf --cost 400`, record
+`benchmarks/results/2026-11-06-validation-opt-mf.json` (code after #156).
+
+| strategy | $F$ at p = 4 of the recommendation (seeds 0 / 1 / 2) | evaluations p = 2 + p = 3 | solve s to $F \le 6$ | wall time per run |
+|---|---|---|---|---|
+| `sf_p2` | 0.82 / 1.11 / 0.55 | 82 / 85 / 124 | 196 / 173 / 85 | 7 min |
+| `sf_p3` | 18.5 / 0.24 / 0.020 | 32 / 33 / 53 | – / 296 / 174 | 7 min |
+| `mf_kg` | 4.9 / 156 / 1650 | 59+18 / 36+26 / 59+17 | 422 / – / – | 79–100 min |
+| `dwr_screened` | 44 / 56 / 6.5 | 14+5 / 12+5 / 19+8 | – / – / 378 | 7 min |
+
+Parameter errors of the recommendations: `sf_p2` 0.16–0.19 nm in CD, 0.17–0.33 nm in height,
+0.17–0.25° in angle (the bias of p = 2, cf. section I); `sf_p3` within 0.04 nm, 0.20 nm and
+0.13° on seeds 1 and 2, but 1.1 nm / 0.76° on seed 0, where it stayed in a side basin;
+`mf_kg` 0.3, 3 and 10 nm in CD; `dwr_screened` 0.2–2 nm and 0.1–2.8 nm.
+
+The runs were made on a 12-thread workstation, three processes with 4 threads in parallel, and
+the solve time depends on the load: `sf_p2` / `sf_p3` of seed 2 ran alone and fitted 124 / 53
+evaluations into the budget against 82–85 / 32–33 under load, `dwr_screened` of seed 2 ran next
+to the MF-KG runs (27 evaluations against 17–19). The columns compare strategies under similar
+but not identical conditions; the ranking below is larger than this effect.
+
+**Assessment.** At this budget neither multi-fidelity strategy beats single-fidelity BO; the
+hypothesis of ADR-0012 §6 is not confirmed for the optimisation, only for the choice of the
+order (section I).
+
+- *DWR screening* fails on cost: the estimate needs an adjoint solve per efficiency, and p = 2
+  with six estimates costs 1.4–1.7 times a p = 3 solve (18–21 s against 12.4 s under the same
+  load, from the counts). The screened evaluator therefore made
+  17–27 evaluations against 32–53 of `sf_p3`, too few to leave the initial design
+  (2(d + 1) = 8 points) far behind; the screening itself worked (12–19 of the points kept their
+  p = 2 values). It would pay where the observables are few and the solve dominates, or with an
+  estimate shared between the functionals.
+- *MF-KG* spends most evaluations at p = 2 (36–59 of 62–77) and its best p = 3 value stalls
+  after about 130 s; only the final posterior-mean recommendation improves it (seed 1:
+  1396 → 153, seed 0 to 4.9). Two seeds end far from the truth. Plausible causes, not tested
+  separately: the p = 2 objective has its minimum elsewhere than p = 3 (the bias above), which
+  the multi-fidelity kernel has to learn from few p = 3 points; and the GP models $F$ over four
+  decades directly. Its acquisition (knowledge gradient with fantasies) costs 72–93 min of wall
+  time per run against 400 s of solving, so on this problem it is slower by an order of
+  magnitude in wall time as well.
+- *Single fidelity:* p = 2 converges reliably to its own biased optimum (0.2 nm, 0.2°, inside
+  the Laplace uncertainty of section I but systematic); p = 3 reaches the truth to 0.04 nm when
+  it finds the basin and is caught in a side basin on one of three seeds. A p = 2 search followed
+  by a p = 3 refinement (the plan of S3/S5, global surrogate then local least squares at the
+  order the DWR rule picks) uses the strengths of both.
+
+Not tested: larger budgets (an MF-KG advantage typically shows when the cheap level is much
+cheaper than here, where p = 3 costs 2.3–2.6 times p = 2), the DWR estimate subtracted from
+the p = 2 values (section I: a factor 6 in the error), and other problems. A rerun on a
+dedicated server (no parallel load, larger budget) is planned and will be added to the record.

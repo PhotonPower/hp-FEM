@@ -3,6 +3,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Multi-fidelity validation study (M16 S8, `docs/validation.md` K): single-fidelity BO at p = 2
+  and p = 3, BoTorch's multi-fidelity knowledge gradient and BO with DWR screening under the same
+  budget of solve time on the Si grating; neither multi-fidelity strategy beats single-fidelity
+  BO there (the DWR estimates cost more than they save, MF-KG stalls at p = 2). Driver modes
+  `meta` (metasurface deflector cell) and `mf` in `benchmarks/opt_validation.py`.
 - GUI (GUI-hpFEM, M16 S9b): study view for the job-runner tasks `optimize`, `reconstruct` and
   `uq`: job documents from templates or files, start / cancel / resume in the background, the
   history from the study store (with the reasons of failed evaluations), parameter traces, the
@@ -427,6 +432,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   side-wall angle tolerances of a silicon grating propagated to its reflectance spectrum.
 
 ### Fixed
+- `hpfem.opt.multi_fidelity_optimize` with BoTorch >= 0.15: `project_to_target_fidelity` needs
+  the input dimension `d`, which is passed when the installed version takes it (the BoTorch
+  tests had not run, CI has no BoTorch).
 - `hpfem.opt.sobol_indices`: the first-order estimator works on the centred output. Its variance
   grew with mean²/variance, so an efficiency of 0.83 ± 0.008 had bootstrap half-widths of up to 7
   (the indices themselves were right); the Ishigami function shifted by 100 now gives the same

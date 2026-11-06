@@ -1,6 +1,6 @@
 """M16 S8 validation studies on the quick silicon-grating cell of examples/grating_reconstruction
 (spectroscopic R0, s and p, 65 deg, 400 / 550 / 700 nm; CD, height and side-wall angle). Not run
-in CI; the numbers go to benchmarks/results and docs/validation.md (sections H and I).
+in CI; the numbers go to benchmarks/results and docs/validation.md (sections H, I and K).
 
 ``python benchmarks/opt_validation.py bo [--seeds 0 1 2] [--budget 40]``
     (a) gradient-based against gradient-free optimisation of a spectrum match
