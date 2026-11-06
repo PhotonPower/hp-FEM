@@ -269,10 +269,7 @@ def test_dipole_emission_refusals_with_crystals():
     mesh = emitter_cell(0.0)
     dipole = {"position": (0.05 * UM, 0.32 * UM), "sigma": SIGMA}
     common = dict(order=2, pml={"top": UM, "bottom": UM})
-    # (the channels into a crystal substrate are computed since S7e)
-    with pytest.raises(grating.GratingError, match="guided-mode poles"):
-        grating.dipole_emission(mesh, {5: crystal}, stack, dipole, OMEGA, guided=True,
-                                channels=False, **common)  # fmt: skip
+    # (the channels into a crystal substrate are computed since S7e, the guided poles since S7e-2b)
     with pytest.raises(grating.GratingError, match="mirror"):
         grating.dipole_emission(mesh, {5: crystal}, stack, dipole, OMEGA, symmetric=True,
                                 channels=False, **common)  # fmt: skip
