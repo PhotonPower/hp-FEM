@@ -1303,6 +1303,9 @@ def multi_fidelity_optimize(
     method = "botorch-mfkg"
     n_init = 2 * (d + 1) if n_initial is None else int(n_initial)
     nfev, nit, spent, message = 0, 0, 0.0, ""
+    project_d = (
+        {"d": d + 1} if "d" in inspect.signature(project_to_target_fidelity).parameters else {}
+    )
 
     def data():
         x, y, cost = [], [], {i: [] for i in range(n_levels)}
@@ -1381,7 +1384,8 @@ def multi_fidelity_optimize(
             )
 
             def project(t):
-                return project_to_target_fidelity(X=t, target_fidelities={d: 1.0})
+                # BoTorch >= 0.15 needs the input dimension d, older versions infer it
+                return project_to_target_fidelity(X=t, target_fidelities={d: 1.0}, **project_d)
 
             current = FixedFeatureAcquisitionFunction(
                 acq_function=PosteriorMean(model), d=d + 1, columns=[d], values=[1.0]
