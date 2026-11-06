@@ -3,6 +3,8 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- GUI (GUI-hpFEM, M19 S8): crystal materials in the material editor (uniaxial, biaxial, full
+  tensor) and the Jones / Mueller matrices of every order (`grating.jones`).
 - Crystal grating rotated with the crystal against 3D (M19 S3c): a lamellar crystal ridge in
   the conical solver against 3D cells with the lines along z and rotated by 90° together with
   crystal, wave and probe (5e-5 at p = 4).

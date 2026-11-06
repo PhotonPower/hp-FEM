@@ -682,8 +682,11 @@ last.
         (detection and causal bumps per β node, no β pre-pass; `dipole_emission` warns);
         validation pending: `benchmarks/m19_crystal_guided_scan.py` against
         `dipole_above_stack(depth=0.03)` (a long run, to be done on a server)
-- [ ] S8: GUI material editor (isotropic / uniaxial / biaxial / full, axis angles, per part and
-  layer) and display of the Jones / Mueller elements (`GUI-hpFEM`)
+- [x] S8: GUI material editor (isotropic / uniaxial / biaxial / full, axis angles, per part and
+  layer) and display of the Jones / Mueller elements (`GUI-hpFEM` PR #4: crystal spec in the
+  laboratory frame, `AnisotropicStack` for crystal layers / substrate, `grating.jones` with the
+  Mueller map / curves and the Jones table; end to end against the analytic Jones matrix of a flat
+  crystal plate on a crystal substrate, 3e-16)
 
 ## Backlog / ideas
 - [ ] the full ring resonator with ports in 3D (M12 stage B): needs an hp-mesh that is fine
