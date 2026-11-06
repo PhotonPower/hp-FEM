@@ -428,17 +428,17 @@ effort in focused sessions.
   from the Jacobian (own), Monte Carlo on the surrogate, Sobol' indices by one route (GP
   surrogate, SALib optional), fabrication-tolerance example (`hpfem.opt.uq`; SALib not
   needed: the own estimators are verified against the analytic Ishigami indices)
-- [ ] S8 (P2, ongoing) validation: Branin / Rosenbrock for BO, Ishigami for Sobol', NIST MGH17
+- [x] S8 (P2) validation: Branin / Rosenbrock for BO, Ishigami for Sobol', NIST MGH17
   for the reconstruction uncertainties, linear-Gaussian problems (MCMC = Laplace), gradient-based
   against gradient-free BO on the 2D grating and the metasurface unit cell, test of the DWR
-  hypothesis (fidelity indicator against independent noise). Done (`docs/validation.md` H, I,
-  `benchmarks/opt_validation.py`): BO with/without gradients against Nelder–Mead, differential
-  evolution and L-BFGS-B on the Si grating, and the DWR estimate as fidelity indicator
-  (effectivity, the κσ rule holds, DWR as noise rejected), and multi-fidelity BO (MF-KG, DWR
-  screening) against single-fidelity BO (`docs/validation.md` K: no gain at this budget).
-  Open: the metasurface unit cell (`opt_validation.py meta`), a rerun of H and I after the PML
-  fix #156 (the studies are self-consistent: data and model share the PML) and K on a dedicated
-  machine — the long runs go to the server (issue #202)
+  hypothesis (fidelity indicator against independent noise). Done (`docs/validation.md` H–L,
+  `benchmarks/opt_validation.py`, the long runs on the server, issue #202): BO with/without
+  gradients against Nelder–Mead, differential evolution and L-BFGS-B on the Si grating (H) and
+  on a TiO₂ metasurface deflector (L: both BO variants find the global maximum, the local
+  methods depend on the start), the DWR estimate as fidelity indicator (I: effectivity, the κσ
+  rule holds, DWR as noise rejected; rerun after the PML fix #156) and multi-fidelity BO (MF-KG,
+  DWR screening) against single-fidelity BO (K: no gain at this budget, on a workstation and a
+  server)
 - [x] S9a (P3) job schema version 2 with the tasks `optimize`, `reconstruct` and `uq`
   (`hpfem.run`, study store next to the results, version-1 documents unchanged; written by the
   helper agent `opt-jobs`)
