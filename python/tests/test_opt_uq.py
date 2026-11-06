@@ -63,6 +63,16 @@ def test_sobol_indices_of_the_ishigami_function():
     assert "x3" in result.table()
 
 
+def test_sobol_indices_do_not_depend_on_a_shift_of_the_output():
+    """A large mean against a small spread (an efficiency near 1) must not inflate the bootstrap
+    confidence of the first-order indices: the estimator works on the centred output."""
+    plain = sobol_indices(ishigami, ISHIGAMI_INPUTS, samples=2**12, seed=2)
+    shifted = sobol_indices(lambda x: ishigami(x) + 100.0, ISHIGAMI_INPUTS, samples=2**12, seed=2)
+    np.testing.assert_allclose(shifted.first, plain.first, atol=1e-9)
+    np.testing.assert_allclose(shifted.total, plain.total, atol=1e-9)
+    assert np.all(shifted.first_conf < 0.1)  # 0.65 to 0.91 without the centring
+
+
 def test_sobol_indices_through_the_actively_learned_surrogate():
     surrogate = build_global_surrogate(ishigami_evaluator(), ISHIGAMI_INPUTS, points=40,
                                        active=30, seed=2)  # fmt: skip

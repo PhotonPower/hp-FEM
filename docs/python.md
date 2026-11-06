@@ -681,7 +681,9 @@ set by the corners of the box and conservative). `monte_carlo(surrogate_or_funct
 samples=10000)` gives the output mean, std, quantiles and samples (normal samples outside the
 surrogate box are clipped and counted); `sobol_indices(surrogate_or_function, inputs,
 samples=4096, bootstrap=200)` the first-order (Saltelli 2010) and total (Jansen) Sobol'
-indices with bootstrap 95 % half-widths from scrambled Sobol' points, `N (n + 2)` model calls
+indices (of the output centred by its mean, so a large mean against a small spread does not
+inflate the first-order estimator) with bootstrap 95 % half-widths from scrambled Sobol' points,
+`N (n + 2)` model calls
 (free on the surrogate). SALib is not used: it does not install on the MSYS2 Python, and the
 own estimators are checked against the analytic indices instead.
 `python/tests/test_opt_uq.py`: the Ishigami indices directly (2¹⁴ points, 0.02) and through a

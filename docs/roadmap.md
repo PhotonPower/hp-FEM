@@ -441,7 +441,11 @@ effort in focused sessions.
 - [x] S9a (P3) job schema version 2 with the tasks `optimize`, `reconstruct` and `uq`
   (`hpfem.run`, study store next to the results, version-1 documents unchanged; written by the
   helper agent `opt-jobs`)
-- [ ] S9b (P3) study view in `hpfem-gui` (history, Pareto front, Sobol' bars, posteriors)
+- [x] S9b (P3) study view in `hpfem-gui` (history, Pareto front, Sobol' bars, posteriors):
+  GUI-hpFEM mode „Studie“ on the job runner (`python -m hpfem.run`, schema 2), start, cancel and
+  resume, the history from the study store; the Pareto front is that of the evaluations of two
+  observables (the runner has no multi-objective task). Found on the way: the first-order Sobol'
+  estimator now works on the centred output (bootstrap half-widths of an efficiency near 1)
 
 ## M17 — Dipole emitters in periodic structures (ADR-0013)
 Proposal of 9 October 2026 from the GUI work, reviewed the same day; physics, conventions, stages,

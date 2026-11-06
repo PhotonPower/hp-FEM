@@ -30,8 +30,11 @@ normal samples outside the surrogate box are clipped to it and counted.
 :math:`A_B^{(i)}` (A with column i from B), the first-order index follows the estimator of
 Saltelli et al. (2010), :math:`S_i = \\overline{f(B)\\,(f(A_B^{(i)}) - f(A))} / V`, the total
 index Jansen's, :math:`S_{T,i} = \\tfrac12\\,\\overline{(f(A) - f(A_B^{(i)}))^2} / V`, with
-:math:`V` the variance of :math:`f` over A and B; ``N (n + 2)`` model calls in total, on the
-surrogate mean they cost nothing. Bootstrap resampling of the rows gives confidence intervals.
+:math:`V` the variance of :math:`f` over A and B and :math:`f` centred by its mean over A and B
+(the first-order estimator is unbiased for any shift of :math:`f`, but its variance grows with
+:math:`\\bar f^2 / V`, e.g. for an efficiency near 1 with a small spread); ``N (n + 2)`` model
+calls in total, on the surrogate mean they cost nothing. Bootstrap resampling of the rows gives
+confidence intervals.
 Verified on the Ishigami function (analytic indices) directly and through the surrogate.
 """
 
@@ -376,6 +379,11 @@ class SobolResult:
 def _sobol_estimates(fa, fb, fab):
     """First (Saltelli 2010) and total (Jansen) indices from f(A), f(B) (N, m) and f(A_B^i)
     (n, N, m)."""
+    # centred outputs: the first-order estimator is unbiased for any constant shift of f, but its
+    # variance grows with mean(f)^2 / V (an efficiency of 0.83 +- 0.008 gave bootstrap half-widths
+    # of 7 instead of 0.05); the total index is shift-invariant anyway
+    mean = np.mean(np.concatenate([fa, fb]), axis=0)
+    fa, fb, fab = fa - mean, fb - mean, fab - mean
     variance = np.var(np.concatenate([fa, fb]), axis=0)
     variance = np.where(variance > 0, variance, np.nan)
     first = np.mean(fb[None] * (fab - fa[None]), axis=1) / variance

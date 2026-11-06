@@ -379,7 +379,7 @@ workflow with `hpfem-gui` (F15). **M12** is complete except the full ring in 3D:
 shape sensitivities by the adjoint solve (ADR-0011) and the 3D directional coupler with modal
 ports validated against coupled-mode theory on the cuDSS backend (`docs/validation.md` F).
 **M16 (optimisation, calibration, UQ, `hpfem.opt`)** is complete except the remaining
-validation studies of S8 and the study view in `hpfem-gui` (S9b). **M17 (dipole emitters in
+validation studies of S8 (the study view S9b is in GUI-hpFEM). **M17 (dipole emitters in
 periodic structures, ADR-0013)**: phased array, reciprocity and the job-runner task are done;
 the array scanning `grating.dipole_emission` (S3) lacks only the FEM validation of the
 plasmonic film against the layered Sommerfeld integral (a long local run, about 18 h).
