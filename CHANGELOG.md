@@ -3,6 +3,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- GUI (GUI-hpFEM, M16 S9b): study view for the job-runner tasks `optimize`, `reconstruct` and
+  `uq`: job documents from templates or files, start / cancel / resume in the background, the
+  history from the study store (with the reasons of failed evaluations), parameter traces, the
+  Pareto front of two observables, the optimum, the fit with Laplace errors, correlations and
+  the emcee posterior, the spread of the observables and the Sobol' bars.
 - GUI (GUI-hpFEM, M19 S8): crystal materials in the material editor (uniaxial, biaxial, full
   tensor) and the Jones / Mueller matrices of every order (`grating.jones`).
 - Crystal grating rotated with the crystal against 3D (M19 S3c): a lamellar crystal ridge in
@@ -422,6 +427,10 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   side-wall angle tolerances of a silicon grating propagated to its reflectance spectrum.
 
 ### Fixed
+- `hpfem.opt.sobol_indices`: the first-order estimator works on the centred output. Its variance
+  grew with mean²/variance, so an efficiency of 0.83 ± 0.008 had bootstrap half-widths of up to 7
+  (the indices themselves were right); the Ishigami function shifted by 100 now gives the same
+  indices and half-widths below 0.1 (0.65–0.91 before).
 - `ConicalScattering` with `scalar_ez` now also refuses a background stack whose crystal couples
   E_z to the in-plane field (only the cells' own materials were checked).
 - The adjoint solves of the conical solver (`conical_adjoint_solution` without a kept
