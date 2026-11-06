@@ -572,6 +572,10 @@ last.
     tensor for the substrate directions; done in S7d, except a crystal substrate), the grating
     rotated with the crystal against 3D, form birefringence against the effective-medium plate
     (L. Li 2003)
+    - [x] form birefringence: a lamellar grating (isotropic and crystal lamellae) against the
+      effective-medium plate; the difference falls like P/λ (boundary layers of the evanescent
+      orders), its Richardson extrapolation like (P/λ)² (`test_grating_jones.py`)
+    - [ ] the grating rotated with the crystal against 3D
 - [ ] S4: anisotropic `LayerStack`: 4×4 system per layer (ε_zz ≠ 0), ordered complex Schur form
   and 2×2 block exponentials, stable S-matrix recursion on the up / down subspaces, substrate modes
   (o / e by the axis, biaxial by power orthogonality), Jones matrix, analytic stack field for the
@@ -671,7 +675,10 @@ last.
         wavevectors, the causal up / down split beyond the half-space indices,
         `dipole_above_stack(depth=...)`); tests: an isotropic slab against Airy, a crystal slab
         independent of the depth and the small-loss limit
-      - [ ] S7e-2b: the guided-mode poles in the array scan of crystal structures
+      - [ ] S7e-2b: the guided-mode poles in the array scan of crystal structures: implemented
+        (detection and causal bumps per β node, no β pre-pass; `dipole_emission` warns);
+        validation pending: `benchmarks/m19_crystal_guided_scan.py` against
+        `dipole_above_stack(depth=0.03)` (a long run, to be done on a server)
 - [ ] S8: GUI material editor (isotropic / uniaxial / biaxial / full, axis angles, per part and
   layer) and display of the Jones / Mueller elements (`GUI-hpFEM`)
 

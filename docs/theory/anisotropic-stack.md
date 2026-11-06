@@ -235,6 +235,16 @@ mode channels) and its Mueller matrix $M = A(J\otimes\bar J)A^{-1}$ (Stokes vect
 reciprocity relation above holds for the specular order of a grating too (the reversed path is
 the incidence at φ + π).
 
+**Form birefringence.** A lamellar grating of period P ≪ λ (fill f, lines along y) reflects
+like the uniaxial plate of effective-medium theory, $\varepsilon_y = \varepsilon_z =
+f\varepsilon_1 + (1 - f)\varepsilon_2$ along the lines and the normal, $\varepsilon_x =
+(f/\varepsilon_1 + (1 - f)/\varepsilon_2)^{-1}$ across them (component by component for crystal
+lamellae with the axes of the lamellae; L. Li 2003). The plate's reflection refers to its top,
+the grating's to the bottom of the lines: $J = e^{-2ik_0\cos\theta\,h}DrD$. The difference falls
+like P/λ, not like the (P/λ)² of the bulk correction: the evanescent orders form boundary layers
+of thickness ~P at the top and the bottom of the grating, which the plate lacks. The Richardson
+extrapolation $2J(P/2) - J(P)$ removes that term and falls like (P/λ)².
+
 ## A dipole above the stack
 
 `AnisotropicStack::reflection_at(k0, a, b)` gives the Jones reflection matrix at any in-plane
@@ -292,8 +302,13 @@ group velocity $v_x = -F_{k_x}/F_{k_0}$ (a small loss moves the root into the up
 when $v_x > 0$), its complex roots the branch points of the evanescent sheets; β is split at the
 turning points of the two sheets, the largest $k\sin t$ of the generalised eigenvalues
 $\det(k_0^2\varepsilon - k^2(I - uu^T)) = 0$, $u = (\cos t, 0, \sin t)$. The Wood-anomaly
-pinch breaks are kept for the isotropic media only. The guided-mode poles and `symmetric`
-are not available with crystals; a lossless crystal structure that may guide modes is refused.
+pinch breaks are kept for the isotropic media only. `symmetric` is not available with
+crystals. The guided-mode poles (S7e-2b) are detected per β node by the AAA fit on the kx
+contour and bumped to the causal side as for isotropic cells, which needs no kx mirror; the β
+pre-pass that splits the β rule at the pinch points (pole pairs meeting at kx = 0 or π/P) does
+assume it and is skipped, so a crystal structure's β rule is not split there. This path is not
+validated yet: `benchmarks/m19_crystal_guided_scan.py` (a tilted crystal slab against
+`dipole_above_stack(depth=...)`, a long run) is pending, and `dipole_emission` warns.
 
 **Emission by reciprocity (S7d).** dP/dΩ into the direction r̂ is
 $n k_0^2Z_0|p\cdot\langle E_{pw}\rangle|^2/(32\pi^2)$ with the plane wave incident from r̂ (ADR-0013
@@ -388,7 +403,10 @@ it. Uniaxial substrates only (the o / e labelling); biaxial ones are refused.
   crystal ridge on glass satisfies the reciprocity relation of the specular order in the conical
   solver to $10^{-5}$ at p = 3 (with $|J_{ps}| = 0.056$; $1.3\cdot10^{-7}$ at p = 4); a grating
   on a substrate with a backward order −1 is refused with `bottom="pml"` and closes its energy
-  balance with `bottom="modal"`;
+  balance with `bottom="modal"`; a lamellar grating (fill ½, ε = 4 and diag(4, 3, 2.5), h = 0.3λ,
+  θ = 0.5, φ = 0.7, |J_ps| ≈ 0.05–0.08) against the effective-medium plate at P = 0.2, 0.1,
+  0.05λ: the difference 1.1·10⁻², 7.5·10⁻³, 4.1·10⁻³ (~P; the FEM error is 4·10⁻⁵ by mesh
+  refinement), the Richardson extrapolation 3.5·10⁻³, 8.5·10⁻⁴ (~P²);
 - `reflection_at` equals `response` inside the light cone and the Fresnel coefficients with
   complex $k_z$ beyond it; `python/tests/test_planar_dipole.py`: `dipole_above_stack` equals the
   1D Sommerfeld integrals with the Fresnel / Airy coefficients (glass half-space, absorbing layer

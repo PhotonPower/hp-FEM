@@ -3,6 +3,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Form birefringence test (M19 S3c): a lamellar grating against the effective-medium plate,
+  difference ~P/λ by the boundary layers of the evanescent orders, Richardson extrapolation
+  ~(P/λ)².
+- Guided-mode poles in `grating.dipole_emission` with crystals (M19 S7e-2b, not yet validated:
+  a warning; `benchmarks/m19_crystal_guided_scan.py` against the deformed-path reference).
 - Guided modes in the dipole reference above crystal stacks (M19 S7e-2a):
   `AnisotropicStack::reflection_at` takes complex in-plane wavevectors (causal continuation),
   `hpfem.planar.dipole_above_stack(depth=...)` passes the guided-mode poles of lossless stacks on
