@@ -3,6 +3,16 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- GUI (GUI-hpFEM, M19 S8): crystal materials in the material editor (uniaxial, biaxial, full
+  tensor) and the Jones / Mueller matrices of every order (`grating.jones`).
+- Crystal grating rotated with the crystal against 3D (M19 S3c): a lamellar crystal ridge in
+  the conical solver against 3D cells with the lines along z and rotated by 90° together with
+  crystal, wave and probe (5e-5 at p = 4).
+- Form birefringence test (M19 S3c): a lamellar grating against the effective-medium plate,
+  difference ~P/λ by the boundary layers of the evanescent orders, Richardson extrapolation
+  ~(P/λ)².
+- Guided-mode poles in `grating.dipole_emission` with crystals (M19 S7e-2b, not yet validated:
+  a warning; `benchmarks/m19_crystal_guided_scan.py` against the deformed-path reference).
 - Guided modes in the dipole reference above crystal stacks (M19 S7e-2a):
   `AnisotropicStack::reflection_at` takes complex in-plane wavevectors (causal continuation),
   `hpfem.planar.dipole_above_stack(depth=...)` passes the guided-mode poles of lossless stacks on

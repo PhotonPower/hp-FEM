@@ -16,6 +16,7 @@ from __future__ import annotations
 import math
 import threading
 import time
+import warnings
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -3635,14 +3636,17 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     metal). **Limits:** the evanescent range β > k0 n_max, where near-field absorption by nearby
     metals lives, needs an explicit ``beta_max``; lossy hosts are excluded.
 
-    **Crystals** (in the cells or an ``AnisotropicStack``, M19 S7c, ADR-0015 S7 amendment): the
-    integrand is not even in β or kx, so β runs over (−beta_max, beta_max) and kx over the full
-    zone, every entry of the power matrix counts, and the light lines of a crystal half-space
-    come from its Fresnel quartic; the emitter lies in an isotropic, lossless medium. The
-    ``channels`` by reciprocity (S7d) take every azimuth (no z mirror) and, into the substrate,
+    **Crystals** (in the cells or an ``AnisotropicStack``, M19 S7c / S7e, ADR-0015 S7
+    amendment): the integrand is not even in β or kx, so β runs over (−beta_max, beta_max) and kx
+    over the full zone, every entry of the power matrix counts, and the light lines of a crystal
+    half-space come from its Fresnel quartic; the emitter lies in an isotropic, lossless medium.
+    The ``channels`` by reciprocity (S7d) take every azimuth (no z mirror) and, into the substrate,
     the cell with mirrored tensors; a crystal substrate has no down channel yet (refused).
-    ``symmetric`` and the guided-mode poles are not available (a lossless crystal structure that
-    may guide modes is refused).
+    The guided-mode poles are detected and bumped per β node as for isotropic cells; the β
+    pre-pass, which finds the pinch points where pole pairs meet at kx = 0 or π/P, assumes the kx
+    mirror and is skipped, so the β rule does not split at the pinches of a crystal. Not yet
+    validated against the reference (a warning; benchmarks/m19_crystal_guided_scan.py, a long
+    run). ``symmetric`` is not available.
 
     ``workers`` > 1 solves the cell problems of the scan in that many threads (the β pre-pass,
     the first pass over all β nodes and the second pass of the guided bumps as one batch each;
@@ -3677,22 +3681,19 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
         # M19 S7c: no β / kx symmetry, no channels by reciprocity (S7d), no pole subtraction
         if symmetric:
             raise GratingError("symmetric=True assumes a mirror-symmetric cell; not with crystals")
-        if guided is True:
-            raise GratingError(
-                "the guided-mode poles of crystal structures are not treated yet (M19 S7c): use "
-                "absorbing layers or a structure without guided modes, guided=False"
-            )
-        if not cell.lossy and cell.n_max > n_semi + 1e-12:
-            raise GratingError(
-                "a lossless crystal structure with a layer of higher index than the half-spaces "
-                "may guide modes (poles on the real axis), which the scan does not treat yet "
-                "(M19 S7c)"
-            )
-        guided = False
+        # guided-mode poles (M19 S7e-2b): the detection per β node and the bumps on the causal
+        # side are general; the β pre-pass is not (pole pairs meet at kx = 0 or π/P only by the
+        # kx mirror), so the pinch points of a crystal are not split off in β
     guided_on = _guided_wanted(cell, guided)
+    if crystal and guided_on:
+        warnings.warn(
+            "dipole_emission: guided-mode poles above crystals (M19 S7e-2b) are not validated yet "
+            "against the reference (benchmarks/m19_crystal_guided_scan.py, a long run)",
+            stacklevel=2,
+        )
     beta_top = k0 * max(n_semi, cell.n_max) if beta_max is None else float(beta_max)
     breaks, n_prepass = [], 0
-    if guided_on:
+    if guided_on and not crystal:
         breaks, n_prepass = _guided_breaks(cell, k0, beta_top, progress, cancel,
                                            workers=workers)  # fmt: skip
     rule, directions, indices = _emission_plan(cell, k0, nodes=nodes, kx_nodes=kx_nodes,

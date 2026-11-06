@@ -10,6 +10,12 @@
 // PML-terminated in y (scattered-field formulation). The scattered (reflected) field at a point
 // above the plate from both solvers must agree, and the difference must fall exponentially in
 // p: the two discretisations converge to the same field.
+//
+// The second case (ADR-0015 §9 item 6, M19 S3c) is a lamellar grating of the same crystal (the
+// ridge x < P/2 of the plate) in two 3D cells: with the lines along z as in the conical solver,
+// and with the grating, the crystal, the incident wave and the probe rotated together by 90°
+// about the normal y (lines along x, R ε Rᵀ, R k, R E0), whose field at R x is R E(x).
+#include <algorithm>
 #include <cmath>
 #include <numbers>
 #include <vector>
@@ -80,21 +86,37 @@ Index num_y_cells() {
   return static_cast<Index>(std::lround(2.0 * (kInterior + kLayer) / kH));
 }
 
+/// The crystal region: the plate, or the ridge of the lamellar grating (x < P/2 of the plate,
+/// z < P/2 when rotated: the lines along x).
+enum class Shape { kPlate, kRidge, kRotatedRidge };
+
+/// The rotation by 90° about the normal y that takes the lines from z to x: R e_z = −e_x,
+/// R e_x = e_z (proper, det R = 1).
+Eigen::Matrix3d rotation(Shape shape) {
+  Eigen::Matrix3d r = Eigen::Matrix3d::Identity();
+  if (shape == Shape::kRotatedRidge) r << 0.0, 0.0, -1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0;
+  return r;
+}
+
 template <int Dim>
-void tag_plate(Mesh<Dim>& mesh) {
+void tag_plate(Mesh<Dim>& mesh, Shape shape = Shape::kPlate) {
   for (Index c = 0; c < mesh.num_cells(); ++c) {
-    if (std::abs(hpfem::mesh::affine_map(mesh, c).centroid()(1)) < 0.5 * kThickness) {
-      mesh.set_cell_tag(c, 2);
+    const auto x = hpfem::mesh::affine_map(mesh, c).centroid();
+    if (std::abs(x(1)) >= 0.5 * kThickness) continue;
+    if (shape == Shape::kRidge && x(0) > 0.5 * kPeriod) continue;
+    if constexpr (Dim == 3) {
+      if (shape == Shape::kRotatedRidge && x(2) > 0.5 * kPeriod) continue;
     }
+    mesh.set_cell_tag(c, 2);
   }
 }
 
 const Point<3> kProbe(0.4 * kPeriod, 0.35, 0.0);
 
-ConicalVector conical(int p) {
+ConicalVector conical(int p, Shape shape = Shape::kPlate) {
   const Real y = kInterior + kLayer;
   Mesh<2> mesh = hpfem::mesh::rectangle(2, num_y_cells(), Point<2>(0.0, -y), Point<2>(kPeriod, y));
-  tag_plate(mesh);
+  tag_plate(mesh, shape);
   const hpfem::fespace::NedelecDofMap<2> nd(mesh, p);
   const hpfem::fespace::DofMap<2> h1(mesh, p);
   const Point<3> k = wave_vector();
@@ -117,17 +139,21 @@ ConicalVector conical(int p) {
   return *problem.scattered_field(solution, locator, Point<2>(kProbe(0), kProbe(1)));
 }
 
-ConicalVector volume(int p) {
+/// The 3D field at the probe, rotated back (R^T E(R x)) for the rotated grating.
+ConicalVector volume(int p, Shape shape = Shape::kPlate) {
   const Real y = kInterior + kLayer;
   Mesh<3> mesh =
       hpfem::mesh::box(2, num_y_cells(), 2, Point<3>(0.0, -y, 0.0), Point<3>(kPeriod, y, kPeriod));
-  tag_plate(mesh);
+  tag_plate(mesh, shape);
   const hpfem::fespace::NedelecDofMap<3> dofs(mesh, p);
-  const Point<3> k = wave_vector();
+  const Eigen::Matrix3d r = rotation(shape);
+  const Point<3> k = r * wave_vector();
   hpfem::physics::ScatteringSetup<3> setup;
   setup.omega = kK0 * hpfem::constants::c0;
-  setup.materials.set(2, plate());
-  setup.incident = hpfem::physics::plane_wave<3>(polarisation(), k);
+  setup.materials.set(2, Material::anisotropic(Tensor3(r.cast<Complex>() * plate().eps_tensor() *
+                                                       r.transpose().cast<Complex>())));
+  setup.incident =
+      hpfem::physics::plane_wave<3>(ConicalVector(r.cast<Complex>() * polarisation()), k);
   setup.formulation = hpfem::physics::Formulation::kScatteredField;
   PmlBox<3>::Thickness t{};
   t[2] = t[3] = kLayer;
@@ -142,7 +168,9 @@ ConicalVector volume(int p) {
   const hpfem::physics::Scattering<3> problem(dofs, setup);
   const auto solution = problem.solve();
   const hpfem::mesh::PointLocator<3> locator(mesh);
-  return *problem.scattered_field(solution, locator, kProbe);
+  const Point<3> probe = r * kProbe;  // (0, 0.35, 0.4 P) when rotated: inside the cell
+  return ConicalVector(r.transpose().cast<Complex>() *
+                       *problem.scattered_field(solution, locator, probe));
 }
 
 }  // namespace
@@ -167,4 +195,27 @@ TEST_CASE("Crystal plate at conical incidence: conical solver against the 3D sol
     differences.push_back(diff);
   }
   REQUIRE(differences.back() < 1e-4);
+}
+
+TEST_CASE("Crystal grating at conical incidence, rotated with the crystal: conical against 3D",
+          "[convergence][anisotropic][conical]") {
+  fmt::print(
+      "\nCrystal ridge (x < P/2), axis (1,1,1); 3D with lines along z and rotated by 90 deg\n"
+      "{:>4} {:>14} {:>12} {:>12} {:>12}\n",
+      "p", "|E_sc| conical", "vs 3D", "vs rotated", "3D vs rot.");
+  std::vector<Real> differences;
+  for (int p = 2; p <= 4; ++p) {
+    const ConicalVector a = conical(p, Shape::kRidge);
+    const ConicalVector b = volume(p, Shape::kRidge);
+    const ConicalVector c = volume(p, Shape::kRotatedRidge);
+    const Real diff = (a - b).norm() / b.norm();
+    const Real diff_rotated = (a - c).norm() / c.norm();
+    const Real same = (b - c).norm() / b.norm();
+    fmt::print("{:>4} {:>14.6f} {:>12.3e} {:>12.3e} {:>12.3e}\n", p, a.norm(), diff, diff_rotated,
+               same);
+    REQUIRE(b.norm() > 0.05);
+    if (!differences.empty()) REQUIRE(std::max(diff, diff_rotated) < 0.5 * differences.back());
+    differences.push_back(std::max(diff, diff_rotated));
+  }
+  REQUIRE(differences.back() < 2e-4);
 }
