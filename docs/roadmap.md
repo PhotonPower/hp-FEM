@@ -568,14 +568,17 @@ last.
     `conical_resonance_adjoint` for non-symmetric pencils (a latent error, checked against finite
     differences), crystals in `hpfem.grating.solve` / `validate` in the laboratory frame
     (y ↔ z to the conical frame, ADR-0015 S3 amendment)
-  - [ ] S3c: the emission pattern and the array scan by reciprocity with crystals (mirrored
+  - [x] S3c: the emission pattern and the array scan by reciprocity with crystals (mirrored
     tensor for the substrate directions; done in S7d, except a crystal substrate), the grating
     rotated with the crystal against 3D, form birefringence against the effective-medium plate
     (L. Li 2003)
     - [x] form birefringence: a lamellar grating (isotropic and crystal lamellae) against the
       effective-medium plate; the difference falls like P/λ (boundary layers of the evanescent
       orders), its Richardson extrapolation like (P/λ)² (`test_grating_jones.py`)
-    - [ ] the grating rotated with the crystal against 3D
+    - [x] the grating rotated with the crystal against 3D: a crystal ridge (axis (1, 1, 1)) in
+      the conical solver against 3D cells with the lines along z and with grating, crystal, wave
+      and probe rotated by 90° about the normal; 5e-5 at p = 4
+      (`tests/convergence/anisotropic_conical_vs_3d.cpp`)
 - [ ] S4: anisotropic `LayerStack`: 4×4 system per layer (ε_zz ≠ 0), ordered complex Schur form
   and 2×2 block exponentials, stable S-matrix recursion on the up / down subspaces, substrate modes
   (o / e by the axis, biaxial by power orthogonality), Jones matrix, analytic stack field for the

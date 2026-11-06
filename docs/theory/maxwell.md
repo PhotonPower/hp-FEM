@@ -697,7 +697,11 @@ crystal in a Bloch cell by the adjoint matches finite differences (and fails wit
 transpose); the weighted residual of the estimator sums to $\ell(W) - a(E_h, W)$ with full
 $\varepsilon$ and $\mu^{-1}$. A uniaxial plate with the axis along (1, 1, 1) at conical incidence
 (θ = 0.5, φ = 0.7) gives the same reflected field in the conical and the 3D solver (Bloch cell,
-PML), the difference falling from $10^{-2}$ to $2\cdot10^{-5}$ for p = 2…4.
+PML), the difference falling from $10^{-2}$ to $2\cdot10^{-5}$ for p = 2…4. A lamellar grating
+of that crystal (the ridge x < P/2) is checked against two 3D cells (ADR-0015 §9 item 6): one with
+the lines along z, and one with the grating, the crystal ($R\varepsilon R^T$), the incident wave
+and the probe rotated together by 90° about the normal (lines along x); the difference falls
+from $1.5\cdot10^{-2}$ to $5\cdot10^{-5}$ for p = 2…4 against both.
 
 ## Resonances (`physics/resonance.hpp`)
 
