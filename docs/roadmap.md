@@ -434,10 +434,11 @@ effort in focused sessions.
   hypothesis (fidelity indicator against independent noise). Done (`docs/validation.md` H, I,
   `benchmarks/opt_validation.py`): BO with/without gradients against Nelder–Mead, differential
   evolution and L-BFGS-B on the Si grating, and the DWR estimate as fidelity indicator
-  (effectivity, the κσ rule holds, DWR as noise rejected). Open: the metasurface unit cell,
-  multi-fidelity BO with the DWR indicator against single-fidelity BO (needs BoTorch), and a
-  rerun of H and I after the PML fix #156 (the studies are self-consistent: data and model
-  share the PML)
+  (effectivity, the κσ rule holds, DWR as noise rejected), and multi-fidelity BO (MF-KG, DWR
+  screening) against single-fidelity BO (`docs/validation.md` K: no gain at this budget).
+  Open: the metasurface unit cell (`opt_validation.py meta`), a rerun of H and I after the PML
+  fix #156 (the studies are self-consistent: data and model share the PML) and K on a dedicated
+  machine — the long runs go to the server (issue #202)
 - [x] S9a (P3) job schema version 2 with the tasks `optimize`, `reconstruct` and `uq`
   (`hpfem.run`, study store next to the results, version-1 documents unchanged; written by the
   helper agent `opt-jobs`)
