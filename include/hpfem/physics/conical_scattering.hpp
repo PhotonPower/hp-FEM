@@ -370,6 +370,15 @@ struct AnisotropicConicalWave {
                                                               Polarisation pol,
                                                               Real amplitude = 1.0);
 
+/// The downward mode `mode` of a (crystal) incidence medium of the laboratory-frame `stack` at
+/// the in-plane wavevector (kx, β) [1/m] in the solver frame of the conical solver, as
+/// `anisotropic_conical_wave` (`AnisotropicStack::mode_wave`; M19 S7e). `wave.ky` is the
+/// normal wavenumber −Re k_z of the mode (> 0); the powers are left zero.
+/// @throws as `AnisotropicStack::mode_wave`.
+[[nodiscard]] AnisotropicConicalWave anisotropic_conical_mode_wave(const AnisotropicStack& stack,
+                                                                   Real k0, Real kx, Real beta,
+                                                                   int mode, Real amplitude = 1.0);
+
 /// Fourier coefficients of a physical 3-vector field on the line through `origin` along the
 /// unit `tangent` (the direction of the period): @f$ A_m = \frac1a\int_0^a E(\text{origin} +
 /// s\,\text{tangent})\,e^{-ik_{t,m}s}\,ds @f$ with @f$ k_{t,m} = k_{t0} + 2\pi m/a @f$, m =

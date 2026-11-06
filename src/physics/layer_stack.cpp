@@ -124,11 +124,9 @@ LayerStack<Dim>::LayerStack(materials::Material incidence_medium, std::vector<La
                             materials::Material substrate, Real top)
     : incidence_(incidence_medium), layers_(std::move(layers)), substrate_(substrate) {
   check_material(incidence_, "the incidence medium");
-  if (!incidence_.is_isotropic()) {
-    throw AnisotropicUnsupported(
-        "LayerStack: the incidence medium must be isotropic (ADR-0015 §5)");
-  }
-  if (std::imag(incidence_.eps_scalar()) != 0) {
+  // a lossless crystal is held for the lookup of the solvers' layered background (the mode
+  // incidence of AnisotropicStack, M19 S7e); the scalar plane_wave needs an isotropic one
+  if (incidence_.eps_tensor().imag().cwiseAbs().maxCoeff() != 0) {
     throw InvalidArgument("LayerStack: the incidence medium must be lossless");
   }
   check_material(substrate_, "the substrate");

@@ -787,8 +787,12 @@ std::vector<ConicalDiffractionOrder> conical_diffraction_efficiencies(
   return out;
 }
 
-AnisotropicConicalWave anisotropic_conical_wave(const AnisotropicStack& stack, Real k0, Real angle,
-                                                Real azimuth, Polarisation pol, Real amplitude) {
+namespace {
+
+/// A laboratory-frame stack wave in the solver frame of the conical solver (background,
+/// scaled field, physical curl); kx, beta, ky and the powers are left to the caller.
+AnisotropicConicalWave to_conical_frame(const AnisotropicStack& stack,
+                                        std::shared_ptr<const AnisotropicPlaneWave> lab) {
   // laboratory (x, y, z normal) -> solver frame (x, y normal, z along the lines): swap y, z
   const auto to_solver = [](const materials::Material& m) {
     if (m.is_isotropic()) return m;
@@ -801,11 +805,9 @@ AnisotropicConicalWave anisotropic_conical_wave(const AnisotropicStack& stack, R
   for (const Layer& layer : stack.layers())
     layers.push_back({to_solver(layer.material), layer.thickness});
   AnisotropicConicalWave out{
-      LayerStack<2>(stack.material(0), layers, to_solver(stack.material(stack.num_layers() + 1)),
-                    stack.top()),
+      LayerStack<2>(to_solver(stack.material(0)), layers,
+                    to_solver(stack.material(stack.num_layers() + 1)), stack.top()),
       {}};
-  const auto lab =
-      std::make_shared<AnisotropicPlaneWave>(stack.plane_wave(k0, angle, pol, amplitude, azimuth));
   // solver point (x, y) -> laboratory point (x, 0, y); scaled components (E_x, E_y, -i E_z)
   const auto scaled = [](const assembly::ComplexVector<3>& e) {
     return ConicalVector(e(0), e(2), -kI * e(1));
@@ -825,6 +827,16 @@ AnisotropicConicalWave anisotropic_conical_wave(const AnisotropicStack& stack, R
   out.wave.incident_curl = [lab, physical_curl](const Point<2>& x) {
     return physical_curl(lab->incident_wave.curl(Point<3>(x(0), 0.0, x(1))));
   };
+  return out;
+}
+
+}  // namespace
+
+AnisotropicConicalWave anisotropic_conical_wave(const AnisotropicStack& stack, Real k0, Real angle,
+                                                Real azimuth, Polarisation pol, Real amplitude) {
+  const auto lab = std::make_shared<const AnisotropicPlaneWave>(
+      stack.plane_wave(k0, angle, pol, amplitude, azimuth));
+  AnisotropicConicalWave out = to_conical_frame(stack, lab);
   const Real n0 = std::sqrt(std::real(stack.material(0).eps_scalar()));
   out.wave.kx = k0 * n0 * std::sin(angle) * std::cos(azimuth);
   out.wave.beta = k0 * n0 * std::sin(angle) * std::sin(azimuth);
@@ -832,6 +844,19 @@ AnisotropicConicalWave anisotropic_conical_wave(const AnisotropicStack& stack, R
   const int column = pol == Polarisation::kS ? 0 : 1;
   out.wave.reflectance = lab->response.reflectance(column);
   out.wave.transmittance = lab->response.transmittance(column);
+  return out;
+}
+
+AnisotropicConicalWave anisotropic_conical_mode_wave(const AnisotropicStack& stack, Real k0,
+                                                     Real kx, Real beta, int mode, Real amplitude) {
+  const auto lab = std::make_shared<const AnisotropicPlaneWave>(
+      stack.mode_wave(k0, kx / k0, beta / k0, mode, amplitude));
+  AnisotropicConicalWave out = to_conical_frame(stack, lab);
+  const HalfSpaceModes modes =
+      half_space_modes(stack.material(0).eps_tensor(), kx / k0, beta / k0, false);
+  out.wave.kx = kx;
+  out.wave.beta = beta;
+  out.wave.ky = -k0 * std::real(modes.kz[static_cast<std::size_t>(mode)]);  // > 0: downward
   return out;
 }
 

@@ -28,8 +28,8 @@ Vec3 cross(const Vec3& a, const Vec3& b) {
 
 /// The full fields (E, Z0 H) of a tangential field in a medium at the normalised in-plane
 /// wavevector (a, b): H_z = a E_y - b E_x, E_z from the z row of curl H.
-void full_fields(const materials::Tensor3& eps, Real a, Real b, const TangentialField& psi, Vec3& e,
-                 Vec3& h) {
+void full_fields(const materials::Tensor3& eps, Complex a, Complex b, const TangentialField& psi,
+                 Vec3& e, Vec3& h) {
   h = Vec3(psi(2), psi(3), a * psi(1) - b * psi(0));
   const Complex dz = -(a * psi(3) - b * psi(2));  // (eps E)_z
   e = Vec3(psi(0), psi(1), (dz - eps(2, 0) * psi(0) - eps(2, 1) * psi(1)) / eps(2, 2));
@@ -137,7 +137,7 @@ struct Subspaces {
 };
 
 /// `region` < 0 names a half-space in the messages.
-Subspaces subspaces(const Eigen::Matrix4cd& k, int region) {
+Subspaces subspaces(const Eigen::Matrix4cd& k, int region, bool continued = false) {
   const std::string where =
       region < 0 ? std::string("the half-space") : fmt::format("region {}", region);
   // up / down per eigenvalue: Im q for decaying modes, the flux S_z for propagating ones
@@ -145,7 +145,18 @@ Subspaces subspaces(const Eigen::Matrix4cd& k, int region) {
   std::array<bool, 4> up{};
   std::array<Complex, 4> q{};
   int n_up = 0;
-  for (int m = 0; m < 4; ++m) {
+  if (continued) {
+    // a complex in-plane wavevector on a path below the real axis (causal continuation): the
+    // two modes with the largest Im q are the upward ones (decaying or travelling up)
+    std::array<int, 4> order{0, 1, 2, 3};
+    std::sort(order.begin(), order.end(), [&](int i, int j) {
+      return std::imag(eig.eigenvalues()(i)) > std::imag(eig.eigenvalues()(j));
+    });
+    for (int m = 0; m < 4; ++m) q[static_cast<std::size_t>(m)] = eig.eigenvalues()(m);
+    up[static_cast<std::size_t>(order[0])] = up[static_cast<std::size_t>(order[1])] = true;
+    n_up = 2;
+  }
+  for (int m = 0; m < 4 && !continued; ++m) {
     q[static_cast<std::size_t>(m)] = eig.eigenvalues()(m);
     const Real tol = 1e-10 * std::max(1.0, std::abs(eig.eigenvalues()(m)));
     const Real im = std::imag(eig.eigenvalues()(m));
@@ -175,14 +186,25 @@ Subspaces subspaces(const Eigen::Matrix4cd& k, int region) {
                     where, n_up));
   }
   // classify the Schur diagonal by the nearest eigenvalue of the classification
+  const Eigen::ComplexSchur<Eigen::Matrix4cd> schur(k);
+  // on a complex path: the two Schur diagonal entries with the largest Im (exact values, which
+  // the swaps only move), robust where two eigenvalues are close (near-normal incidence)
+  std::array<Complex, 2> continued_up{};
+  if (continued) {
+    std::array<Complex, 4> diag{};
+    for (int m = 0; m < 4; ++m) diag[static_cast<std::size_t>(m)] = schur.matrixT()(m, m);
+    std::sort(diag.begin(), diag.end(),
+              [](Complex x, Complex y) { return std::imag(x) > std::imag(y); });
+    continued_up = {diag[0], diag[1]};
+  }
   const auto is_up = [&](Complex lambda) {
+    if (continued) return lambda == continued_up[0] || lambda == continued_up[1];
     std::size_t best = 0;
     for (std::size_t m = 1; m < 4; ++m) {
       if (std::abs(q[m] - lambda) < std::abs(q[best] - lambda)) best = m;
     }
     return up[best];
   };
-  const Eigen::ComplexSchur<Eigen::Matrix4cd> schur(k);
   Subspaces out;
   {
     Eigen::Matrix4cd t = schur.matrixT();
@@ -239,10 +261,11 @@ Eigen::Vector2cd coefficients(const Mat42& basis, const TangentialField& psi) {
 AnisotropicStack::AnisotropicStack(materials::Material incidence_medium, std::vector<Layer> layers,
                                    materials::Material substrate, Real top)
     : incidence_(incidence_medium), layers_(std::move(layers)), substrate_(substrate), top_(top) {
-  if (!incidence_.is_isotropic() || std::imag(incidence_.eps_scalar()) != 0 ||
-      !(std::real(incidence_.eps_scalar()) > 0)) {
-    throw InvalidArgument(
-        "AnisotropicStack: the incidence medium must be isotropic and lossless (ADR-0015 §5)");
+  // a lossless isotropic medium, or a lossless crystal (incidence of its modes, `mode_wave`)
+  const bool lossless = incidence_.eps_tensor().imag().cwiseAbs().maxCoeff() == 0;
+  const bool positive = !incidence_.is_isotropic() || std::real(incidence_.eps_scalar()) > 0;
+  if (!lossless || !positive) {
+    throw InvalidArgument("AnisotropicStack: the incidence medium must be lossless (ADR-0015 §5)");
   }
   check_material(incidence_, "the incidence medium");
   check_material(substrate_, "the substrate");
@@ -262,7 +285,20 @@ const materials::Material& AnisotropicStack::material(int region) const {
   return layers_[static_cast<std::size_t>(region - 1)].material;
 }
 
+namespace {
+
+/// The Berreman matrix for a complex in-plane wavevector (a deformed integration path).
+Eigen::Matrix4cd berreman(const materials::Tensor3& eps, Complex a, Complex b);
+
+}  // namespace
+
 Eigen::Matrix4cd AnisotropicStack::berreman_matrix(const materials::Tensor3& eps, Real a, Real b) {
+  return berreman(eps, a, b);
+}
+
+namespace {
+
+Eigen::Matrix4cd berreman(const materials::Tensor3& eps, Complex a, Complex b) {
   // psi' = i k0 K psi with psi = (E_x, E_y, H_x, H_y) (H = Z0 H): from curl E = i k0 H and
   // curl H = -i k0 eps E with d/dx = i k0 a, d/dy = i k0 b
   Eigen::Matrix4cd k;
@@ -281,13 +317,16 @@ Eigen::Matrix4cd AnisotropicStack::berreman_matrix(const materials::Tensor3& eps
   return k;
 }
 
+}  // namespace
+
 namespace {
 
 /// The recursion of one (k0, angle, azimuth): subspaces, propagators, interface matrices and the
 /// incidence-medium waves.
 struct Solved {
-  Real k0 = 0, a = 0, b = 0, n0 = 1;
-  Complex cos_t = 0;  ///< k_z / k0 of the incident wave (Im >= 0 for an evanescent one)
+  Real k0 = 0, n0 = 1;
+  Complex a = 0, b = 0;  ///< normalised in-plane wavevector (complex on a deformed path)
+  Complex cos_t = 0;     ///< k_z / k0 of the incident wave (Im >= 0 for an evanescent one)
   Vec3 s_hat, k_down, k_up, p_down, p_up;
   std::vector<Subspaces> regions;
   std::vector<Eigen::Matrix2cd> pu, pd;       ///< per region (layers only)
@@ -297,25 +336,30 @@ struct Solved {
 /// The recursion at the normalised in-plane wavevector (a, b) with the s vector `s_hat` of the
 /// incidence medium; the incident wave may be evanescent there (k_z / k0 = sqrt(n0^2 - a^2 - b^2)
 /// with Im >= 0, decaying away from the stack).
-Solved solve_stack_at(const AnisotropicStack& stack, Real k0, Real a, Real b, const Vec3& s_hat) {
+Solved solve_stack_at(const AnisotropicStack& stack, Real k0, Complex a, Complex b,
+                      const Vec3& s_hat) {
   if (!(k0 > 0)) throw InvalidArgument(fmt::format("AnisotropicStack: k0 = {} <= 0", k0));
   Solved out;
   const int n_layers = stack.num_layers();
   const int n_regions = n_layers + 2;
   out.k0 = k0;
-  out.n0 = std::sqrt(std::real(stack.material(0).eps_scalar()));
+  // the s / p vectors of the cover need an isotropic one (a crystal cover: `mode_wave` only)
+  out.n0 =
+      stack.material(0).is_isotropic() ? std::sqrt(std::real(stack.material(0).eps_scalar())) : 1.0;
   out.a = a;
   out.b = b;
-  out.cos_t = std::sqrt(Complex(out.n0 * out.n0 - a * a - b * b, 0.0));
-  if (std::imag(out.cos_t) < 0) out.cos_t = -out.cos_t;
+  out.cos_t = std::sqrt(out.n0 * out.n0 - a * a - b * b);
+  if (std::imag(out.cos_t) < 0 || (std::imag(out.cos_t) == 0 && std::real(out.cos_t) < 0)) {
+    out.cos_t = -out.cos_t;
+  }
   out.s_hat = s_hat;
   out.k_down = Vec3(out.a, out.b, -out.cos_t);
   out.k_up = Vec3(out.a, out.b, out.cos_t);
   out.p_down = cross(out.s_hat, out.k_down) / out.n0;
   out.p_up = cross(out.s_hat, out.k_up) / out.n0;
   for (int j = 0; j < n_regions; ++j) {
-    out.regions.push_back(subspaces(
-        AnisotropicStack::berreman_matrix(stack.material(j).eps_tensor(), out.a, out.b), j));
+    out.regions.push_back(subspaces(berreman(stack.material(j).eps_tensor(), out.a, out.b), j,
+                                    std::imag(out.a) != 0 || std::imag(out.b) != 0));
   }
   // propagators across layer j: up amplitudes from the bottom to the top, down ones from the top
   // to the bottom; both decay (or keep their modulus)
@@ -346,7 +390,17 @@ Solved solve_stack_at(const AnisotropicStack& stack, Real k0, Real a, Real b, co
   return out;
 }
 
+void require_isotropic_cover(const AnisotropicStack& stack, const char* what) {
+  if (!stack.material(0).is_isotropic()) {
+    throw AnisotropicUnsupported(fmt::format(
+        "AnisotropicStack::{}: the incidence medium is a crystal; its waves are its modes "
+        "(`mode_wave`), not s and p",
+        what));
+  }
+}
+
 Solved solve_stack(const AnisotropicStack& stack, Real k0, Real angle, Real azimuth) {
+  require_isotropic_cover(stack, "response / plane_wave");
   if (!(std::abs(angle) < std::numbers::pi / 2 - 1e-9)) {
     throw InvalidArgument(
         fmt::format("AnisotropicStack: angle {} must lie strictly between -pi/2 and pi/2", angle));
@@ -496,8 +550,8 @@ StackResponse AnisotropicStack::response(Real k0, Real angle, Real azimuth) cons
   const std::array<TangentialField, 2> incident{plane_wave_field(s.s_hat, s.k_down),
                                                 plane_wave_field(s.p_down, s.k_down)};
   // downward substrate modes
-  const HalfSpaceModes sub_modes =
-      modes_of(substrate_.eps_tensor(), s.a, s.b, false, s.s_hat, s.regions[sub]);
+  const HalfSpaceModes sub_modes = modes_of(substrate_.eps_tensor(), std::real(s.a), std::real(s.b),
+                                            false, s.s_hat, s.regions[sub]);
   Mat42 modes;
   for (int m = 0; m < 2; ++m) {
     const auto idx = static_cast<std::size_t>(m);
@@ -525,9 +579,11 @@ StackResponse AnisotropicStack::response(Real k0, Real angle, Real azimuth) cons
   return out;
 }
 
-Eigen::Matrix2cd AnisotropicStack::reflection_at(Real k0, Real a, Real b) const {
-  const Real par = std::hypot(a, b);
-  const Vec3 s_hat = par > 0 ? Vec3(-b / par, a / par, 0.0) : Vec3(0.0, 1.0, 0.0);
+Eigen::Matrix2cd AnisotropicStack::reflection_at(Real k0, Complex a, Complex b) const {
+  require_isotropic_cover(*this, "reflection_at");
+  // ŝ = ẑ × k̂_∥ with the non-conjugating norm (ŝ·ŝ = 1, analytic in a, b)
+  const Complex par = std::sqrt(a * a + b * b);
+  const Vec3 s_hat = std::abs(par) > 0 ? Vec3(-b / par, a / par, 0.0) : Vec3(0.0, 1.0, 0.0);
   const Solved s = solve_stack_at(*this, k0, a, b, s_hat);
   Mat42 reflected_basis;
   reflected_basis.col(0) = plane_wave_field(s.s_hat, s.k_up);
@@ -541,27 +597,48 @@ Eigen::Matrix2cd AnisotropicStack::reflection_at(Real k0, Real a, Real b) const 
   return out;
 }
 
-AnisotropicPlaneWave AnisotropicStack::plane_wave(Real k0, Real angle, Polarisation pol,
-                                                  Real amplitude, Real azimuth) const {
+namespace {
+
+/// Interfaces of the stack, top to bottom, and the region of a height (an interface belongs to
+/// the region above it, as `LayerStack::region`); also for a crystal incidence medium.
+struct Geometry {
+  std::vector<Real> z;
+  explicit Geometry(const AnisotropicStack& stack) : z{stack.top()} {
+    for (const Layer& layer : stack.layers()) z.push_back(z.back() - layer.thickness);
+  }
+  [[nodiscard]] Real interface(int i) const { return z[static_cast<std::size_t>(i)]; }
+  [[nodiscard]] Real bottom() const { return z.back(); }
+  [[nodiscard]] int region(Real height) const {
+    int j = 0;
+    while (j < static_cast<int>(z.size()) && height < z[static_cast<std::size_t>(j)]) ++j;
+    return j;
+  }
+};
+
+/// The analytic field of the incident downward wave (full E `e_inc`, wave vector k0 `k_inc`,
+/// tangential field `psi_inc`) on the solved stack, and the incident wave alone.
+AnisotropicPlaneWave stack_wave(const AnisotropicStack& stack, Solved solved, const Vec3& e_inc,
+                                const Vec3& k_inc, const TangentialField& psi_inc) {
   struct Data {
     Solved s;
     Amplitudes amp;
     std::vector<materials::Tensor3> eps;
     std::vector<Real> z_top, z_bottom;  ///< per region (semi-infinite ones: the interface)
-    LayerStack<3> geometry;
+    Geometry geometry;
     Vec3 e_inc;
+    Vec3 k_inc;
   };
   auto data = std::make_shared<Data>(
-      Data{solve_stack(*this, k0, angle, azimuth), {}, {}, {}, {}, layer_stack(), Vec3::Zero()});
+      Data{std::move(solved), {}, {}, {}, {}, Geometry(stack), e_inc, k_inc});
   const Solved& s = data->s;
-  data->e_inc = amplitude * (pol == Polarisation::kS ? s.s_hat : s.p_down);
-  data->amp = amplitudes(s, plane_wave_field(data->e_inc, s.k_down));
-  const int n_regions = num_layers() + 2;
+  data->amp = amplitudes(s, psi_inc);
+  const int n_regions = stack.num_layers() + 2;
+  const Real top = stack.top();
   for (int j = 0; j < n_regions; ++j) {
-    data->eps.push_back(material(j).eps_tensor());
-    const Real top_j = j == 0 ? top_ : data->geometry.interface(j - 1);
-    const Real bottom_j = j == n_regions - 1 ? data->geometry.bottom()
-                                             : (j == 0 ? top_ : data->geometry.interface(j));
+    data->eps.push_back(stack.material(j).eps_tensor());
+    const Real top_j = j == 0 ? top : data->geometry.interface(j - 1);
+    const Real bottom_j =
+        j == n_regions - 1 ? data->geometry.bottom() : (j == 0 ? top : data->geometry.interface(j));
     data->z_top.push_back(top_j);
     data->z_bottom.push_back(bottom_j);
   }
@@ -579,7 +656,6 @@ AnisotropicPlaneWave AnisotropicStack::plane_wave(Real k0, Real angle, Polarisat
     full_fields(d.eps[idx], d.s.a, d.s.b, psi, e, h);
   };
   AnisotropicPlaneWave out;
-  out.response = response(k0, angle, azimuth);
   out.field.value = [data, fields](const Point<3>& x) {
     Vec3 e;
     Vec3 h;
@@ -600,17 +676,52 @@ AnisotropicPlaneWave AnisotropicStack::plane_wave(Real k0, Real angle, Polarisat
   };
   // the incident plane wave alone, continued everywhere
   out.incident_wave.value = [data](const Point<3>& x) {
-    const Vec3 k = data->s.k0 * data->s.k_down;
+    const Vec3 k = data->s.k0 * data->k_inc;
     return assembly::ComplexVector<3>(
         data->e_inc * std::exp(kI * (k(0) * x(0) + k(1) * x(1) + k(2) * (x(2) - data->z_top[0]))));
   };
   out.incident_wave.curl = [data](const Point<3>& x) {
-    const Vec3 k = data->s.k0 * data->s.k_down;
+    const Vec3 k = data->s.k0 * data->k_inc;
     const Complex phase =
         std::exp(kI * (k(0) * x(0) + k(1) * x(1) + k(2) * (x(2) - data->z_top[0])));
     return assembly::ComplexCurl<3>(kI * cross(k, data->e_inc) * phase);
   };
   return out;
+}
+
+}  // namespace
+
+AnisotropicPlaneWave AnisotropicStack::plane_wave(Real k0, Real angle, Polarisation pol,
+                                                  Real amplitude, Real azimuth) const {
+  Solved s = solve_stack(*this, k0, angle, azimuth);
+  const Vec3 e_inc = amplitude * (pol == Polarisation::kS ? s.s_hat : s.p_down);
+  const Vec3 k_inc = s.k_down;
+  AnisotropicPlaneWave out =
+      stack_wave(*this, std::move(s), e_inc, k_inc, plane_wave_field(e_inc, k_inc));
+  out.response = response(k0, angle, azimuth);
+  return out;
+}
+
+AnisotropicPlaneWave AnisotropicStack::mode_wave(Real k0, Real a, Real b, int mode,
+                                                 Real amplitude) const {
+  if (mode != 0 && mode != 1) {
+    throw InvalidArgument(fmt::format("AnisotropicStack::mode_wave: mode {} is not 0 or 1", mode));
+  }
+  const HalfSpaceModes modes = half_space_modes(incidence_.eps_tensor(), a, b, false);
+  const auto idx = static_cast<std::size_t>(mode);
+  const Complex kz = modes.kz[idx];
+  if (!(std::abs(std::imag(kz)) < 1e-12 * std::max(1.0, std::abs(kz))) || !(modes.flux[idx] > 0)) {
+    throw InvalidArgument(fmt::format(
+        "AnisotropicStack::mode_wave: mode {} of the incidence medium is evanescent at (a, b) = "
+        "({}, {})",
+        mode, a, b));
+  }
+  const Real par = std::hypot(a, b);
+  const Vec3 s_hat = par > 0 ? Vec3(-b / par, a / par, 0.0) : Vec3(0.0, 1.0, 0.0);
+  Solved s = solve_stack_at(*this, k0, a, b, s_hat);
+  const Vec3 e_inc = amplitude * modes.fields[idx];
+  return stack_wave(*this, std::move(s), e_inc, Vec3(a, b, kz),
+                    TangentialField(amplitude * modes.modes[idx]));
 }
 
 }  // namespace hpfem::physics

@@ -506,6 +506,7 @@ def _prepare(
     cover_line,
     substrate_line,
     allow_crystal_stack=False,
+    mode_incidence=None,
 ) -> _Prepared:
     pol = _polarisation(polarisation)
     if bottom not in ("pml", "pec", "modal"):
@@ -519,7 +520,14 @@ def _prepare(
                 "this feature takes a LayerStack2D of isotropic media"
             )
         # laboratory frame (z the normal) -> solver frame, with the stack wave
-        crystal_wave = hpfem.anisotropic_conical_wave(stack, k0, float(theta), float(phi), pol)
+        if mode_incidence is not None:  # (kx, beta, mode) of a crystal cover (M19 S7e)
+            kx_m, beta_m, mode_m = mode_incidence
+            crystal_wave = hpfem.anisotropic_conical_mode_wave(
+                stack, k0, float(kx_m), float(beta_m), int(mode_m)
+            )
+        else:
+            crystal_wave = hpfem.anisotropic_conical_wave(stack, k0, float(theta), float(phi),
+                                                          pol)  # fmt: skip
         stack = crystal_wave.background
     elif _stack_crystals(stack):
         raise GratingError(
@@ -533,7 +541,7 @@ def _prepare(
     period = x_max - x_min
     if not period > 0:
         raise GratingError("the mesh has no extent along x (the period)")
-    n_cover = complex(stack.incidence_medium.refractive_index)
+    n_cover = _substrate_index(stack.incidence_medium)
     n_sub = _substrate_index(stack.substrate)
     substrate_eps = None if stack.substrate.is_isotropic else np.asarray(stack.substrate.eps_tensor)
     if abs(n_cover.imag) > 1e-12:
@@ -1487,6 +1495,7 @@ def solve(
     cancel=None,
     scalar="auto",
     keep_factorisation: bool = False,
+    _mode_incidence=None,
 ) -> GratingResult:
     """Solves the grating unit cell and returns a :class:`GratingResult`.
 
@@ -1563,6 +1572,7 @@ def solve(
         cover_line=cover_line,
         substrate_line=substrate_line,
         allow_crystal_stack=True,
+        mode_incidence=_mode_incidence,
     )
     found = []
     if check:
@@ -1616,6 +1626,15 @@ def solve(
 
     # --- orders, absorption, balance ------------------------------------------------------------
     t2 = time.perf_counter()
+    if _mode_incidence is not None:
+        # the internal mode incidence of the reciprocity paths: only the field is needed (the
+        # orders of a crystal cover, e.g. under a backward wave, are not measured here)
+        return GratingResult(
+            R_orders=[], T_orders=[], R=0.0, T=0.0, A=0.0, A_by_tag={},
+            power_balance_residual=0.0, wave=wave, problem=problem, solution=solution, mesh=mesh,
+            pml=box, cover_line=cover_line, substrate_line=None,
+            dofs=int(len(problem.free_dofs)), timing=timing, period=period, x_min=x_min,
+        )  # fmt: skip
     locator = hpfem.PointLocator2D(mesh)
     lines = (x_min, period, cover_line, substrate_line if transmitted else None)
     r_orders, t_orders, incident_physical = _measure_orders(
@@ -2211,6 +2230,125 @@ def _mirrored_stack(stack):
         for i in range(n_layers)
     ]  # fmt: skip
     return hpfem.LayerStack2D(stack.substrate, layers, stack.incidence_medium, -float(stack.bottom))
+
+
+def _mode_cutoff(eps_lab, k0: float, psi: float, mode: int, k_top: float) -> float:
+    """The in-plane wavenumber where the downward mode ``mode`` of a lossless crystal
+    (laboratory frame) at the azimuth ψ of the in-plane wavevector turns evanescent (bisection on
+    ``half_space_modes``)."""
+
+    def propagating(kappa):
+        try:
+            m = hpfem.half_space_modes(eps_lab, kappa * math.cos(psi) / k0,
+                                       kappa * math.sin(psi) / k0, False)  # fmt: skip
+        except (hpfem.InvalidArgument, ValueError):
+            return False
+        kz = m.kz[mode]
+        return abs(kz.imag) < 1e-12 * max(1.0, abs(kz)) and m.flux[mode] > 0
+
+    lo, hi = 0.0, k_top
+    for _ in range(60):
+        mid = 0.5 * (lo + hi)
+        lo, hi = (mid, hi) if propagating(mid) else (lo, mid)
+    return lo
+
+
+def _crystal_substrate_samples(eps_cover, k0: float, kappa_c: float, n_kappa: int, n_psi: int,
+                               k_top: float) -> list:  # fmt: skip
+    """The samples (kx, β, mode, weight) of :func:`_crystal_substrate_radiation`: ∫ d²k_∥ over the
+    propagating range of each downward mode of the crystal ``eps_cover`` (laboratory frame)."""
+    samples = []
+    for i_psi in range(n_psi):
+        psi = 2 * math.pi * i_psi / n_psi
+        cutoffs = [_mode_cutoff(eps_cover, k0, psi, mode, k_top) for mode in (0, 1)]
+        for mode in (0, 1):
+            k_max = cutoffs[mode]
+            # kinks: the light line of the cover (the near-field coupling peaks just beyond it)
+            # and the cutoff of the other mode (its reflected wave turns evanescent); every
+            # panel in τ (κ = κ_max sin τ) with the cosine map that makes the square-root points
+            # at its ends smooth (a plain Gauss rule converged like n⁻³ on the peak)
+            breaks = sorted({x / k_max for x in [kappa_c, *cutoffs] if 0 < x < k_max * (1 - 1e-9)})
+            edges = [0.0, *(math.asin(x) for x in breaks), 0.5 * math.pi]
+            for t0, t1 in zip(edges[:-1], edges[1:], strict=True):
+                taus, wts = _mapped_gauss(t0, t1, n_kappa)
+                for tau, wt in zip(taus, wts, strict=True):
+                    kappa = k_max * math.sin(tau)
+                    # d²k = κ dκ dψ, dκ = κ_max cos τ dτ
+                    weight = wt * k_max * math.cos(tau) * kappa * 2 * math.pi / n_psi
+                    samples.append((kappa * math.cos(psi), kappa * math.sin(psi), mode, weight))
+    return samples
+
+
+def _crystal_substrate_radiation(mesh, materials, stack, position, sigma: float, omega: float,
+                                 order, pml, solve_kwargs, nodes=(12, 24), progress=None,
+                                 cancel=None, who="dipole_emission") -> np.ndarray:  # fmt: skip
+    """The radiation matrix R (dP = pᴴ R p) of the power a Gaussian dipole radiates into a lossless
+    uniaxial crystal substrate (M19 S7e, ADR-0015 S7 amendment), by reciprocity with the
+    power-normalised substrate modes, integrated over the in-plane wavevector:
+    dP/d²k_∥ = Z0 |p · ⟨E_j⟩|² / (32π² F_j) per mode j, with the field ⟨E_j⟩ at the dipole of the
+    mode incident from the substrate with unit |E| and its z flux F_j (2 Z0 S_z; for an isotropic
+    medium this is dP/dΩ = n k0² Z0 |p · E|²/(32π²) with dΩ = d²k_∥/(k k_z)). The incident mode
+    is solved on the cell mirrored at y = 0 (mirrored tensors, the stack as the mirrored
+    AnisotropicStack with the crystal as its incidence medium). ``nodes`` = (points in the
+    in-plane wavenumber per mode and panel, azimuths): the wavenumber κ = κ_max sin τ (κ_max the
+    cutoff of the mode, the 1/F singularity cancels), split at the light line of the cover and at
+    the cutoffs of both modes, each panel by the cosine-mapped Gauss rule (checked against the
+    analytic fields: 1.2e-4 at (8, 16), 2.4e-5 at (8, 32) on a tilted crystal half-space)."""
+    layers = _solver_frame_stack(stack)
+    eps_sub = np.asarray(layers.substrate.eps_tensor, dtype=complex)
+    if np.abs(eps_sub.imag).max() > 1e-12:
+        raise GratingError(f"{who}: the radiation into an absorbing substrate is not defined")
+    eps_lab = _LAB_TO_CONICAL @ eps_sub @ _LAB_TO_CONICAL.T
+    principal = np.linalg.eigvalsh(eps_lab.real)
+    if (principal.max() - principal.min()) > 1e-9 * principal.max() and min(
+        principal[1] - principal[0], principal[2] - principal[1]
+    ) > 1e-9 * principal.max():
+        raise GratingError(f"{who}: a biaxial substrate has no o / e labelling of its modes yet")
+    k0 = float(units.vacuum_wavenumber(omega))
+    material_map = _completed_material_map(mesh, materials, layers, omega)
+    # the mirrored cell: tensors M eps M, the stack reversed with the crystal on top
+    mirrored_mesh = _mirrored_cell(mesh)
+    down_map = hpfem.MaterialMap(_mirrored_material(layers.substrate))
+    for c in range(mesh.num_cells):
+        down_map.set_cell(c, _mirrored_material(material_map.of_cell(mesh, c)))
+    lab_layers = [
+        hpfem.Layer(_mirrored_material(_to_conical_frame(layers.material(n_l)), _MIRROR_Z),
+                    float(layers.interface(n_l - 1) - layers.interface(n_l)))
+        for n_l in range(int(layers.num_layers), 0, -1)
+    ]  # fmt: skip
+    cover_lab = _mirrored_material(_to_conical_frame(layers.substrate), _MIRROR_Z)
+    down_stack = hpfem.AnisotropicStack(cover_lab, lab_layers, layers.incidence_medium,
+                                        -float(layers.bottom))  # fmt: skip
+    eps_cover = np.asarray(cover_lab.eps_tensor, dtype=complex)
+    if pml is not None and not isinstance(pml, Mapping):
+        raise GratingError(f"{who}: give the PML as None or {{'top', 'bottom'}}")
+    mirrored_pml = None if pml is None else {"top": pml.get("bottom", 0.0),
+                                             "bottom": pml.get("top", 0.0)}  # fmt: skip
+    x0 = np.asarray(position, dtype=float) * np.array([1.0, -1.0])
+    flip = np.array([1.0, -1.0, 1.0])
+    n_kappa, n_psi = int(nodes[0]), int(nodes[1])
+    k_top = 1.01 * k0 * math.sqrt(principal.max())
+    kappa_c = k0 * complex(layers.incidence_medium.refractive_index).real
+    samples = _crystal_substrate_samples(eps_cover, k0, kappa_c, n_kappa, n_psi, k_top)
+    r = np.zeros((3, 3), dtype=complex)
+    for count, (kx, beta, mode, weight) in enumerate(samples):
+        if cancel is not None and cancel():
+            raise hpfem.Cancelled(f"{who} cancelled")
+        if progress is not None:
+            progress(count, len(samples))
+        modes = hpfem.half_space_modes(eps_cover, kx / k0, beta / k0, False)
+        flux, kz = modes.flux[mode], modes.kz[mode]
+        if not (flux > 0 and abs(kz.imag) < 1e-12 * max(1.0, abs(kz))):
+            continue  # numerically at the cutoff, where the weight vanishes
+        theta = math.asin(min(math.hypot(kx, beta) / (k0 * math.sqrt(principal.max())), 0.99))
+        result = solve(mirrored_mesh, _SolverFrameMap(down_map), down_stack, "s", theta,
+                       math.atan2(beta, kx), omega, order, pml=mirrored_pml, check=False,
+                       _mode_incidence=(kx, beta, mode), **solve_kwargs)  # fmt: skip
+        mean = np.asarray(hpfem.conical_gaussian_average(
+            result.problem, result.solution, [float(x0[0]), float(x0[1])], sigma
+        ), dtype=complex) * flip  # fmt: skip
+        r += weight * hpfem.constants.Z0 / (32 * math.pi**2 * flux) * np.outer(mean.conj(), mean)
+    return r
 
 
 def _reciprocity_means(mesh, materials, stack, position, sigma: float, omega: float, directions,
@@ -3228,7 +3366,9 @@ def _emission_plan(cell: _DipoleCell, k0: float, *, nodes: int, kx_nodes: int, d
         crystal = not cell.material_map.is_isotropic or bool(_stack_crystals(cell.pr.stack))
         scalar = [n_cover] + ([cell.pr.n_sub.real] if down_side else [])
         for side, n_side in (("up", n_cover), ("down", cell.pr.n_sub.real)):
-            if side == "down" and not down_side:
+            # a crystal substrate: by the in-plane wavevector of its modes (_crystal_substrate_
+            # radiation), not by directions
+            if side == "down" and (not down_side or cell.pr.substrate_eps is not None):
                 continue
             critical = [math.asin(n / n_side) for n in scalar if n < n_side - 1e-12]
             directions += [(th, ph, side, w) for th, ph, w in _hemisphere_directions(
@@ -3394,9 +3534,18 @@ def emission_cone(mesh, materials, stack, dipole, omega: float, aperture: float,
         raise GratingError("symmetric=True assumes a mirror-symmetric cell; not with crystals")
     medium = layers.incidence_medium if side == "up" else layers.substrate
     if not medium.is_isotropic:
-        raise GratingError(
-            f"emission_cone: the {side} medium is a crystal (M19 S7d: not available)"
-        )
+        # a crystal substrate (M19 S7e): the whole half-space, by its modes
+        n_max = _substrate_index(medium).real
+        if float(aperture) < n_max - 1e-12:
+            raise GratingError(
+                f"emission_cone: a crystal substrate takes the whole half-space only (aperture "
+                f">= its largest index {n_max:.4g}); a cone of a crystal is not defined by an "
+                "index"
+            )
+        r = _crystal_substrate_radiation(mesh, materials, stack, position, sigma, omega, order,
+                                         pml, solve_kwargs, angle_nodes, progress, cancel,
+                                         "emission_cone")  # fmt: skip
+        return _cone_result(side, aperture, 0.5 * math.pi, n_max, r, dipole, 0, t0)
     n_side = complex(medium.refractive_index)
     if abs(n_side.imag) > 1e-12:
         raise GratingError(f"emission_cone: the medium of the {side} side is lossy")
@@ -3424,6 +3573,11 @@ def emission_cone(mesh, materials, stack, dipole, omega: float, aperture: float,
         if symmetric:
             odd[0, 1] = odd[1, 0] = True
     r[odd] = 0.0
+    return _cone_result(side, aperture, theta_max, n_side, r, dipole, 2 * len(directions), t0)
+
+
+def _cone_result(side, aperture, theta_max, n_side, r, dipole, solves, t0) -> EmissionCone:
+    """The :class:`EmissionCone` of the radiation matrix ``r`` (dP = pᴴ r p)."""
 
     def quadratic(p) -> float:
         return float(np.real(np.conj(p) @ r @ p))
@@ -3433,7 +3587,7 @@ def emission_cone(mesh, materials, stack, dipole, omega: float, aperture: float,
     own = dipole.get("moment")
     if own is not None and not isinstance(own, str):
         power["moment"] = quadratic(np.asarray(own, dtype=complex))
-    return EmissionCone(side, float(aperture), theta_max, n_side, power, r, 2 * len(directions),
+    return EmissionCone(side, float(aperture), theta_max, n_side, power, r, solves,
                         {"total": time.perf_counter() - t0})  # fmt: skip
 
 
@@ -3523,11 +3677,6 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
         # M19 S7c: no β / kx symmetry, no channels by reciprocity (S7d), no pole subtraction
         if symmetric:
             raise GratingError("symmetric=True assumes a mirror-symmetric cell; not with crystals")
-        if channels and cell.pr.transmitted and cell.pr.substrate_eps is not None:
-            raise GratingError(
-                "channels into a crystal substrate need a plane wave incident from the crystal, "
-                "which is not available (M19 S7d): pass channels=False"
-            )
         if guided is True:
             raise GratingError(
                 "the guided-mode poles of crystal structures are not treated yet (M19 S7c): use "
@@ -3600,6 +3749,15 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
             r = np.einsum("d,dpi,dpj->ij", scale[pick], np.conj(means[pick]), means[pick])
             r[odd] = 0.0
             radiation[side] = r
+        if cell.pr.transmitted and cell.pr.substrate_eps is not None:
+            radiation["down"] = _crystal_substrate_radiation(
+                mesh, materials, stack, position, sigma, omega, order, pml,
+                dict(bottom=bottom, snap_tolerance=snap_tolerance, pml_target=pml_target,
+                     pml_wavelengths=pml_wavelengths,
+                     extra_quadrature_order=extra_quadrature_order, solver=solver,
+                     **solve_kwargs),
+                angle_nodes, None, cancel,
+            )  # fmt: skip
         up = {key: quadratic(radiation["up"], moments[j]) for j, key in enumerate(keys)}
         down = {key: quadratic(radiation["down"], moments[j]) for j, key in enumerate(keys)}
     n_channel = 2 * len(directions)

@@ -256,7 +256,15 @@ stack's $r_{pp}$ has the convention $r_p = +1$ for a perfect conductor). The Gau
 ADR-0013 multiplies every spectral component by $e^{-\sigma^2k\cdot k} = e^{-(nk_0\sigma)^2}$,
 the factor of $P_{bulk}$, so the Purcell factor of the point dipole is that of the FEM emitter.
 The radial integral runs on the real axis ($s = n\sin t$, $s = n\cosh u$), the azimuth by the
-trapezoidal rule; guided modes of lossless stacks (poles on the real axis) are not covered.
+trapezoidal rule. Guided modes of lossless stacks are poles on the real axis (S7e-2a,
+`depth` > 0): bound modes are evanescent in both half-spaces, so beyond the largest principal
+index $s_b$ of the cover and the substrate the radial path leaves the axis,
+$s = s_b + (S - s_b)\tau - i\,\text{depth}\,\sin\pi\tau$ up to S beyond all indices (a small loss
+moves the poles above the axis, exp(−iωt), so the path passes them on the causal side), with the
+stack at complex in-plane wavevectors (`reflection_at`; ŝ normalised by the non-conjugating norm,
+the two modes with the largest Im k_z upward, unambiguous where both half-spaces are
+evanescent). Closer to the axis a tilted crystal may have upward modes with Im k_z < 0 (its
+in-plane group velocity can oppose the wavevector), which is why the path stays real up to $s_b$.
 
 **One sample of the array scan.** The cell problem of `grating.emit` (a Bloch array of
 Gaussian dipoles with $e^{ik_xP}$ and $e^{i\beta z}$) samples the same spectrum on the orders
@@ -294,10 +302,32 @@ substrate is computed on the cell mirrored at y = 0: the mirror maps a solution 
 for $M\varepsilon M$, $M = \operatorname{diag}(1, -1, 1)$ (solver frame), so every cell's
 tensor is mirrored and the stack becomes the `AnisotropicStack` of the reversed layers with
 $M_z\varepsilon M_z$ (laboratory frame), the former substrate as its incidence medium. A crystal
-substrate would become a crystal incidence medium, which the stack does not take: no down
-directions there yet. The Gaussian average at the dipole carries $e^{-(n_{host}k_0\sigma)^2}$
+substrate becomes a crystal incidence medium of the mirrored stack (S7e below). The Gaussian average at the dipole carries $e^{-(n_{host}k_0\sigma)^2}$
 for every direction (the plane wave at the dipole lives in the host), the prefactor n is that of
 the direction's medium.
+
+**Radiation into a crystal substrate (S7e).** The stack takes a lossless crystal as its
+incidence medium; `AnisotropicStack::mode_wave(k0, a, b, mode)` gives the analytic field of one
+of its downward modes (`half_space_modes`: ordinary / extraordinary), and
+`anisotropic_conical_mode_wave` the same in the conical solver frame. A direction into a crystal
+is not described by an index, so the power is integrated over the in-plane wavevector of the
+substrate modes: with the field ⟨E_j⟩ at the dipole of mode j incident from the substrate with
+unit |E| and its z flux $F_j$ ($2Z_0S_z$),
+
+$$
+\frac{dP}{d^2k_\parallel} = \frac{Z_0\,|p\cdot\langle E_j\rangle|^2}{32\pi^2F_j},
+$$
+
+which for an isotropic medium is $dP/d\Omega = nk_0^2Z_0|p\cdot E|^2/(32\pi^2)$ with
+$d\Omega = d^2k_\parallel/(kk_z)$ and $F = k_z/k_0$. Per azimuth ψ the wavenumber runs to the
+cutoff $\kappa_{max,j}(\psi)$ of the mode (bisection on `half_space_modes`) as
+$\kappa = \kappa_{max}\sin\tau$ (the $1/F_j$ singularity cancels), split at the light line of the
+cover (the near-field coupling peaks just beyond it) and at the cutoff of the other mode (its
+reflected wave turns evanescent), each panel with the cosine-mapped Gauss rule: a plain Gauss
+rule converged only like $n^{-3}$ on the square-root points (0.5 % at 8 points per panel). The
+incident mode is solved on the mirrored cell (`grating._crystal_substrate_radiation`);
+`emission_cone(side="down")` (the whole half-space) and the `channels` of `dipole_emission` use
+it. Uniaxial substrates only (the o / e labelling); biaxial ones are refused.
 
 ## Verification
 
@@ -380,6 +410,17 @@ the direction's medium.
   half-spaces (`emission_cone`, 8×16 directions each) add up to the total of
   `dipole_above_stack` to $4.8\cdot10^{-5}$ (lossless, no guided modes;
   `benchmarks/m19_crystal_emission_balance.py`, 15 min);
+- guided modes on the deformed path (`test_planar_dipole.py`): an isotropic waveguide slab
+  (n = 2 on 1.45) equals the 1D Airy–Sommerfeld integral to $10^{-8}$ (the M17 benchmark
+  `sommerfeld_layered` to $3\cdot10^{-14}$); a tilted lossless crystal slab gives the same F for
+  two path depths, and the same slab with a small loss δ on the real axis tends linearly to it
+  ($-2.9\cdot10^{-6}$, $-1.5\cdot10^{-6}$, $-7.7\cdot10^{-7}$ for δ = 4, 2, 1·10⁻³);
+- the radiation into a tilted lossless crystal substrate: the FEM field of a mode incident from
+  the crystal (both modes, also beyond the light line of the cover) equals `mode_wave` to
+  $2\cdot10^{-4}$; with the analytic fields the cover and the crystal half-space together give the
+  total of `dipole_above_stack` to $1.2\cdot10^{-4}$ at 8 points per panel and 16 azimuths
+  ($2.4\cdot10^{-5}$ at 32), and the FEM (`benchmarks/m19_crystal_substrate_balance.py`) to
+  7.5e-5 (`test_planar_dipole.py`);
 - `benchmarks/m19_crystal_dipole_scan.py` (a long local run, 3840 cell problems, 32 min with 4
   workers): `dipole_emission` of a Gaussian dipole 0.32 µm above that half-space equals
   `dipole_above_stack` to $5\cdot10^{-4}$ for every orientation (x −5.3e-4, y −5.1e-4,

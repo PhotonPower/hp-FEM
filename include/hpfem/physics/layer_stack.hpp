@@ -57,11 +57,12 @@ template <int Dim>
 class LayerStack {
  public:
   static_assert(Dim == 2 || Dim == 3);
-  /// Layers and the substrate may be crystals (ADR-0015 §5): the stack then serves as the
-  /// geometry and the materials of a layered background, and its field comes from
-  /// `AnisotropicStack::plane_wave` (`plane_wave` here refuses crystals).
+  /// Layers, the substrate and (lossless) the incidence medium may be crystals (ADR-0015 §5): the
+  /// stack then serves as the geometry and the materials of a layered background, and its field
+  /// comes from `AnisotropicStack::plane_wave` / `mode_wave` (`plane_wave` here refuses
+  /// crystals).
   /// @throws InvalidArgument for a thickness ≤ 0, a magnetic material, a lossy incidence
-  /// medium or Im ε < 0 anywhere; AnisotropicUnsupported for a crystal incidence medium.
+  /// medium or Im ε < 0 anywhere.
   LayerStack(materials::Material incidence_medium, std::vector<Layer> layers,
              materials::Material substrate, Real top = 0.0);
 

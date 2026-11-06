@@ -657,7 +657,21 @@ last.
     the analytic stack field per polarisation (6e-5); local run
     `benchmarks/m19_crystal_emission_balance.py`: the hemisphere powers up + down (8×16
     directions each) against the total of S7a to 4.8e-5
-  - [ ] S7e (open): guided-mode poles above crystals, down channels into a crystal substrate
+  - [ ] S7e: guided-mode poles above crystals, down channels into a crystal substrate
+    - [x] S7e-1: radiation into a crystal substrate: a lossless crystal incidence medium in
+      `AnisotropicStack` and `LayerStack` (lookup), `AnisotropicStack::mode_wave`,
+      `anisotropic_conical_mode_wave`, the reciprocity with power-normalised modes over the
+      in-plane wavevector (`emission_cone(side="down")`, `dipole_emission` channels); tests: the
+      mode fields against the analytic ones, the analytic up + down against the S7a total
+      (1.2e-4), the FEM balance (7.5e-5, `benchmarks/m19_crystal_substrate_balance.py`);
+      fixed on the way: the crystal cover was left in the laboratory frame by
+      `anisotropic_conical_wave`
+    - [ ] S7e-2: guided-mode poles above crystals
+      - [x] S7e-2a: the reference on a deformed path (`reflection_at` at complex in-plane
+        wavevectors, the causal up / down split beyond the half-space indices,
+        `dipole_above_stack(depth=...)`); tests: an isotropic slab against Airy, a crystal slab
+        independent of the depth and the small-loss limit
+      - [ ] S7e-2b: the guided-mode poles in the array scan of crystal structures
 - [ ] S8: GUI material editor (isotropic / uniaxial / biaxial / full, axis angles, per part and
   layer) and display of the Jones / Mueller elements (`GUI-hpFEM`)
 
