@@ -3,6 +3,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `examples/ring_resonator_3d` (M12 stage B, driver): the add-drop SOI ring in 3D between four
+  modal ports on a curved Gmsh mesh (`ring_mesh.py`, variable order near the cores), the
+  resonance as the common pole of the through and drop amplitudes (`fit_pole`), the isolated
+  ring from `AxisymmetricCavity` as reference, `--record` resumable for the long server runs;
+  CI case in `test_examples.py`.
 - Symmetry planes for 3D modal ports: `WaveguidePort::pmc_tags` (Python
   `WaveguidePort(..., pmc_tags=[...])`, `PortModes3D(..., pmc_tags=...)`) leaves the rim of the
   port cross-section natural (PMC) where it lies on the listed facets, so half a device with a

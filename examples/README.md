@@ -20,6 +20,7 @@ runtime) and a driver. The M3–M5 examples are C++ programs (`main.cpp`, built 
 | `quantum_dot_purcell/` | Purcell factor in a micropillar | M8 |
 | `solar_cell_texture/`  | Light trapping + heat (multiphysics) | M9 |
 | `directional_coupler_3d/` | SOI directional coupler with 3D modal ports vs coupled-mode theory | M12 |
+| `ring_resonator_3d/` | SOI add-drop ring in 3D between modal ports vs the axisymmetric ring modes | M12 |
 | `gold_dimer/`          | Plasmonic gap field of a gold sphere dimer (M10 benchmark, axisymmetric solver) | M10 |
 | `grating_reconstruction/` | Scatterometry: CD / height / side-wall angle of a Si grating with uncertainties | M16 |
 | `fabrication_tolerance/` | Fabrication tolerances of a Si grating propagated to its reflectance (linearised, Monte Carlo, Sobol') | M16 |
