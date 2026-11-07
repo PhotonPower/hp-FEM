@@ -304,9 +304,11 @@ void bind_physics_dim(py::module_& m) {
 
   py::class_<physics::PortModes<Dim>>(m, named("PortModes", Dim).c_str(),
                                       "Modes, functionals and normalisations of one port")
-      .def(py::init<const ND&, mesh::Tag, const materials::MaterialMap&, Real, Index, int>(),
+      .def(py::init<const ND&, mesh::Tag, const materials::MaterialMap&, Real, Index, int,
+                    const std::vector<mesh::Tag>&>(),
            py::arg("dofs"), py::arg("facet_tag"), py::arg("materials"), py::arg("omega"),
-           py::arg("num_modes"), py::arg("extra_order") = 2, py::keep_alive<1, 2>(), Release())
+           py::arg("num_modes"), py::arg("extra_order") = 2,
+           py::arg("pmc_tags") = std::vector<mesh::Tag>{}, py::keep_alive<1, 2>(), Release())
       .def_property_readonly("modes", &physics::PortModes<Dim>::modes)
       .def_property_readonly("num_modes", &physics::PortModes<Dim>::num_modes)
       .def_property_readonly("length", &physics::PortModes<Dim>::length)
@@ -1223,15 +1225,21 @@ void bind_physics(py::module_& m) {
   py::class_<physics::WaveguidePort>(m, "WaveguidePort",
                                      "A modal port on boundary facets (2D: a straight line)")
       .def(py::init<>())
-      .def(py::init([](mesh::Tag facet_tag, Index num_modes, std::vector<Complex> incident) {
-             return physics::WaveguidePort{facet_tag, num_modes, std::move(incident)};
+      .def(py::init([](mesh::Tag facet_tag, Index num_modes, std::vector<Complex> incident,
+                       std::vector<mesh::Tag> pmc_tags) {
+             return physics::WaveguidePort{facet_tag, num_modes, std::move(incident),
+                                           std::move(pmc_tags)};
            }),
            py::arg("facet_tag"), py::arg("num_modes") = 1,
-           py::arg("incident") = std::vector<Complex>{})
+           py::arg("incident") = std::vector<Complex>{},
+           py::arg("pmc_tags") = std::vector<mesh::Tag>{})
       .def_readwrite("facet_tag", &physics::WaveguidePort::facet_tag)
       .def_readwrite("num_modes", &physics::WaveguidePort::num_modes,
                      "modes of the expansion: guided first, then by decay")
-      .def_readwrite("incident", &physics::WaveguidePort::incident, "incoming amplitudes per mode");
+      .def_readwrite("incident", &physics::WaveguidePort::incident, "incoming amplitudes per mode")
+      .def_readwrite("pmc_tags", &physics::WaveguidePort::pmc_tags,
+                     "3D: facet tags of symmetry planes (magnetic walls) the port touches; the "
+                     "rim is PMC there, PEC elsewhere");
   py::class_<physics::PortMode>(m, "PortMode", "One mode of a port cross-section")
       .def_readonly("beta", &physics::PortMode::beta)
       .def_readonly("effective_index", &physics::PortMode::effective_index)

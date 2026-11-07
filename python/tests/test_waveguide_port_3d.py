@@ -41,3 +41,25 @@ def test_rectangular_waveguide_transmits_te10():
     assert len(s.channels) == 2
     assert abs(s.s[1, 0] - expected) < 2e-2
     assert abs(s.s[0, 1] - s.s[1, 0]) < 1e-6
+
+
+def test_half_waveguide_with_magnetic_symmetry_plane():
+    # x in [0, a/2] with a natural wall at x = a/2 and ports magnetic there: the TE10 of the
+    # full guide, S21 = e^{i beta L}
+    a, b, length, k0 = 2.0, 1.0, 2.0, 2.5
+    mesh = hpfem.box(2, 2, 4, [0.0, 0.0, 0.0], [a / 2, b, length])
+    dofs = hpfem.NedelecDofMap3D(mesh, 3)
+    setup = hpfem.ScatteringSetup3D()
+    setup.omega = k0 * c0
+    setup.pec_tags = [hpfem.box_tag.X_MIN, hpfem.box_tag.Y_MIN, hpfem.box_tag.Y_MAX]
+    sym = [hpfem.box_tag.X_MAX]
+    setup.ports = [
+        hpfem.WaveguidePort(hpfem.box_tag.Z_MIN, 1, pmc_tags=sym),
+        hpfem.WaveguidePort(hpfem.box_tag.Z_MAX, 1, pmc_tags=sym),
+    ]
+    assert setup.ports[0].pmc_tags == sym
+    s = hpfem.s_parameters(dofs, setup)
+    beta = np.sqrt(k0**2 - (np.pi / a) ** 2)
+    assert len(s.channels) == 2 and abs(s.channels[0].beta.real - beta) < 1e-5
+    assert abs(s.s[1, 0] - np.exp(1j * beta * length)) < 1e-3
+    assert abs(s.s[0, 0]) < 1e-3

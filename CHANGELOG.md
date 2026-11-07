@@ -3,6 +3,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Symmetry planes for 3D modal ports: `WaveguidePort::pmc_tags` (Python
+  `WaveguidePort(..., pmc_tags=[...])`, `PortModes3D(..., pmc_tags=...)`) leaves the rim of the
+  port cross-section natural (PMC) where it lies on the listed facets, so half a device with a
+  magnetic mirror plane (natural in the volume) has matching port modes; convergence test of
+  the half rectangular waveguide (TE10, `waveguide_port_3d`), `docs/theory/maxwell.md`.
 - M16 S8 validation complete (`docs/validation.md`, server runs, issue #202): metasurface deflector
   (section L, TiO₂ ridge maximising the −1 transmission for s and p: both BO variants find the
   global maximum on every seed, Nelder–Mead and L-BFGS-B depend on the start); sections H and I
