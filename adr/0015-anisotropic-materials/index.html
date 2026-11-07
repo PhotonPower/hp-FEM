@@ -1,0 +1,1585 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/adr/0015-anisotropic-materials/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+    
+    
+      
+        <title>0015 — Optically anisotropic materials (substrates, layers, structured parts) - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#0015-optically-anisotropic-materials-substrates-layers-structured-parts" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              0015 — Optically anisotropic materials (substrates, layers, structured parts)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/materials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Materials and anisotropy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/anisotropic-stack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anisotropic layer stacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-material-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Material model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-volume-solvers-scattering-2d3d" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Volume solvers (Scattering 2D/3D)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-solver-symmetry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Solver symmetry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-conical-grating-solver" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Conical (grating) solver
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-anisotropic-layer-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Anisotropic layer stack
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-python-layer-and-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Python layer and data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-post-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Post-processing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-axisymmetric-solver-and-emitters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Axisymmetric solver and emitters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-validation-each-stage-with-an-independent-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Validation (each stage with an independent reference)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternatives considered
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="0015-optically-anisotropic-materials-substrates-layers-structured-parts">0015 — Optically anisotropic materials (substrates, layers, structured parts)</h1>
+<p><strong>Status:</strong> accepted
+<strong>Date:</strong> 2026-11-01 (proposed and accepted after review the same day)</p>
+<h2 id="context">Context</h2>
+<p>Semiconductor metrology and device optics need optically anisotropic media in substrates, in
+unstructured layers and in structured parts: sapphire, SiC, GaN, LiNbO₃/LiTaO₃, TiO₂ (uniaxial),
+biaxial films, crystals cut off-axis (the optic axis rotated against the interface and against the
+grating lines), and, as a weak effect, strained silicon. Cross-polarised reflection
+(r_sp, r_ps) and Mueller-matrix scatterometry are the quantities of interest.</p>
+<p>Facts from the code (<code>main</code> after M17 S3):</p>
+<ul>
+<li>The assembly is tensor-ready: <code>assembly::MaxwellForm&lt;Dim&gt;</code> carries complex tensors ε(x) and
+  μ⁻¹(x); the PML is already implemented as an anisotropic material (ADR-0005, validated by
+  <code>tests/convergence/pml_reflection.cpp</code>); <code>ConicalForm</code> and the axisymmetric forms carry
+  <strong>diagonal</strong> tensors only.</li>
+<li><code>materials::Material</code> is isotropic: the public fields <code>eps_r</code>, <code>mu_r</code>
+  (<code>include/hpfem/materials/material.hpp</code>, which names anisotropy as "later").
+  <code>Scattering::form_of_cell</code> builds <code>ε_r·I</code>, <code>μ_r⁻¹·I</code>. <code>eps_r</code> appears in 51 files of <code>src/</code>,
+  <code>include/</code>, <code>python/</code> (203 hits), <code>mu_r</code> in 37.</li>
+<li><code>physics::LayerStack</code> (ADR-0009) assumes isotropic layers (scalar k_z per layer, s/p
+  polarisations); <code>docs/axisymmetric-layered-features.md</code> lists anisotropic layers as out of
+  scope. <code>diffraction</code>, <code>farfield</code>, <code>waveguide_port</code>, <code>propagating_mode</code>, <code>mie</code>, <code>absorption</code> and
+  the dipole scan (ADR-0013) use scalar indices.</li>
+<li>The direct solvers choose their path by <code>detect_symmetry</code> (ADR-0008): complex-symmetric systems
+  take the LDLᵀ paths, the others the general LU.</li>
+<li>Several conical paths rely on the symmetry of the unreduced matrix A(β): the adjoint of the
+  goal-oriented estimator is assembled from A instead of Aᵀ (<code>src/physics/conical_goal.cpp</code>), and
+  the emission pattern of M17 S2 (<code>grating.emission_pattern</code>, ADR-0013 §6) is computed by
+  reciprocity at the same β.</li>
+<li><code>hpfem.materials</code> (<code>Dispersive</code>: <code>Constant</code>, <code>Tabulated</code>, <code>Sellmeier</code>, <code>DrudeLorentz</code>) returns
+  scalars.</li>
+</ul>
+<h2 id="decision">Decision</h2>
+<h3 id="1-material-model">1. Material model</h3>
+<p><code>materials::Material</code> gains an optional tensor part (<code>std::shared_ptr&lt;const Tensors&gt;</code> with a
+complex 3×3 <code>eps</code>), so that isotropic materials keep their size and speed. <code>is_isotropic()</code>,
+<code>eps_tensor()</code> (returns <code>eps_r·I</code> for isotropic) and <code>mu_inv_tensor()</code> are the tensor-aware
+accessors. <strong>Scalar access to an anisotropic material throws</strong> (<code>eps_scalar()</code>, used by every path
+not yet migrated): an unsupported feature fails loudly instead of computing with a wrong scalar.
+Every such path also reports a <code>hpfem.diagnostics</code> entry <code>anisotropic_unsupported</code> with the
+feature name before it fails.</p>
+<p>A public data member cannot throw, so <code>eps_r</code> and <code>mu_r</code> become <strong>private</strong> with the accessors
+<code>eps_scalar()</code> / <code>mu_scalar()</code> and the constructors <code>Material::isotropic(eps, mu = 1)</code> and
+<code>Material::anisotropic(eps_tensor)</code>. This is a <strong>breaking change</strong> of the C++ API (reads and
+writes of <code>Material::eps_r</code> / <code>mu_r</code>). Transition: S1 replaces all uses inside the repository in
+one change; the two-argument constructor <code>Material(eps_r, mu_r)</code> keeps <code>Material{eps, mu}</code>
+compiling.</p>
+<p><em>Amendment (S1, 2026-11-01):</em> the Python API does not break. A Python property can raise, so
+<code>Material.eps_r</code> stays as the scalar property (it raises <code>hpfem.AnisotropicUnsupported</code> for a
+tensor material, and setting it makes the material isotropic) instead of becoming a deprecated
+alias. The diagnostic code is <code>anisotropic_unsupported</code>, in the snake_case of the existing
+codes. The diagnostic is reported by the Python entry points that run diagnostics
+(<code>grating.validate</code> / <code>solve</code>, <code>validate_scattering</code>); C++ paths and other Python paths fail
+with the exception. The isotropic-limit regression (§9 item 1) moves to S2, the first stage with
+a tensor path to compare.</p>
+<p><strong>μ stays scalar.</strong> Optical crystals have μ = 1; the assembly keeps full μ⁻¹ tensors for the PML,
+but <code>Material</code> carries no μ tensor. This keeps the 4×4 system of §5 in its simple form and halves
+the test matrix; a μ tensor (metamaterial homogenisations) needs an amendment of this ADR.</p>
+<p>The tensors are given in the <strong>laboratory frame</strong> (x, y along the lattice, z the layer normal of
+the 3D and stack solvers; the conical solver's own frame in §4); the crystal frame and its
+rotation are a Python concern (§6).</p>
+<h3 id="2-volume-solvers-scattering-2d3d">2. Volume solvers (Scattering 2D/3D)</h3>
+<p><code>form_of_cell</code> returns tensors; with a layered background the source is
+<code>k0² (ε_c(x) − ε_stack(z_c)) E_inc</code> as a matrix product, so it still vanishes where the structure
+equals the stack, in particular inside the PML. The PML stretches by
+<code>ε̃_ij = ε_ij · s_x s_y s_z / (s_i s_j)</code> (and <code>μ̃</code> likewise). Residual and goal-oriented
+estimators use <code>ε</code> in the divergence term and the <code>n·εE</code> jump. Per-cell overrides
+(<code>MaterialMap::set_cell</code>) accept anisotropic materials, which also gives position-dependent
+tensors (strain, graded axes) and a path for <code>ThermoOptical</code>.</p>
+<p><strong>PML stability.</strong> The coordinate-stretching PML absorbs a wave only if the component of its
+group velocity along the stretching direction has the same sign as the component of its phase
+velocity, the geometric condition of Bécache, Fauqueux &amp; Joly (2003). This fails not only in
+hyperbolic media but already in an ordinary uniaxial or biaxial crystal <strong>whose axis is tilted
+against the PML normal</strong>: an extraordinary wave can carry power into the PML with its phase
+travelling out of it, and the stretch then amplifies it. Consequences:</p>
+<ul>
+<li><code>form_of_cell</code> computes, per PML layer, the slowness curve of the medium along the stretching
+  direction for the in-plane wave vectors of interest and reports a diagnostic
+  <code>pml-backward-wave</code> with the medium and the direction where the condition fails; axes aligned
+  with the PML normal or lying in the PML plane never trigger it.</li>
+<li>For periodic structures over a tilted anisotropic substrate the substrate side is truncated by
+  a <strong>modal transparent boundary</strong> (Dirichlet-to-Neumann map of the 4×4 eigenmodes of the
+  half-space for every Fourier order, from §5) instead of a PML; this also gives the
+  mode-resolved orders of §7 directly. For isolated structures in such a substrate the first step
+  stops with the diagnostic.</li>
+</ul>
+<p><em>Amendment (S2, 2026-11-05):</em> the statement above that aligned axes never trigger the
+diagnostic holds for <strong>uniaxial</strong> crystals (optic axis along the normal or in the layer plane)
+only. An aligned <strong>biaxial</strong> crystal violates the geometric condition along its intermediate
+principal axis: near the optic axes the group velocity of one sheet sweeps the cone of internal
+conical refraction, which reaches across the layer plane (min k_d v_d ≈ −0.01 for
+ε = diag(2, 3, 4.5), checked independently with the gradient of ω(k)). The diagnostic therefore
+also fires there; it is a warning, since only waves near the optic axes are affected. The check
+samples the wave directions (<code>pml::backward_wave</code>, <code>docs/theory/materials.md</code>). In the 2D solver
+the tensor is the in-plane block; a tensor coupling the plane to z is refused there
+(<code>anisotropic_unsupported</code>), not approximated.</p>
+<h3 id="3-solver-symmetry">3. Solver symmetry</h3>
+<p>A material with ε = εᵀ (all non-gyrotropic crystals, also rotated by a real rotation and
+absorbing) keeps the 3D and the 2D in-plane curl–curl system complex-symmetric; <code>detect_symmetry</code>
+routes such systems to LDLᵀ (MUMPS, cuDSS). <strong>This does not hold for the conical solver</strong> once
+the tensor couples the longitudinal to the in-plane components (§4). Gyrotropic and optically
+active media (antisymmetric parts ε_ij = −ε_ji) are <strong>out of scope of the first step</strong>: they break
+reciprocity, on which the far field and the emission pattern by reciprocity rely; they would use
+the general LU through the same detection.</p>
+<h3 id="4-conical-grating-solver">4. Conical (grating) solver</h3>
+<p><code>ConicalForm</code> goes from diagonal to full 3×3 tensors (ε full, μ⁻¹ full for the PML only). The
+derivation is short and goes into the conical section of <code>docs/theory/maxwell.md</code>:</p>
+<ul>
+<li><strong>Interface conditions need no re-derivation.</strong> They are natural in the weak form: the
+  continuity of the tangential field (the in-plane tangential component and E_z, since z is
+  tangential to every interface of a z-invariant structure) is built into the Nédélec × H1 pair,
+  and the continuity of n·(εE) with n in the (x, y) plane and of the tangential H is natural. The
+  gradient kernel <code>conical_gradient</code> does not depend on the material and stays exact.</li>
+<li><strong>The scaled components break the symmetry.</strong> With <code>E = (E_t, iv) e^{iβz}</code>, test functions
+  <code>V = (V_t, −iw) e^{−iβz}</code> and the curls <code>curl E = D c_E</code>, <code>curl V = D̄ c_V</code>,
+  <code>D = diag(i, −i, 1)</code> (<code>c</code> the real-structured curl components of the conical section), the cell
+  matrices are <code>c_Vᵀ (D̄ μ⁻¹ D) c_E</code> and <code>V̂ᵀ (D'' ε D') Ê</code> with <code>D' = diag(1, 1, i)</code>,
+  <code>D'' = diag(1, 1, −i)</code>. Their entries are, for a symmetric tensor:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>coupling</th>
+<th>stiffness factor</th>
+<th>mass factor</th>
+<th>symmetric</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>xx, yy, zz</td>
+<td>1</td>
+<td>1</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>xy</td>
+<td>−1 (both entries)</td>
+<td>1</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>xz, yz</td>
+<td>∓i (antisymmetric pair)</td>
+<td>±i (antisymmetric pair)</td>
+<td><strong>no</strong></td>
+</tr>
+</tbody>
+</table>
+<p>So A(β) is complex-symmetric only if ε_xz = ε_yz = 0 (and μ⁻¹_xz = μ⁻¹_yz = 0, which the
+  diagonal PML stretch keeps). In general <strong>A(β)ᵀ = S A(−β) S</strong> with <code>S = diag(I, −I)</code> (sign of
+  the scaled E_z block): reciprocity pairs β with −β. Physically, an optic axis with a component
+  along the grating lines that is not perpendicular to them breaks the mirror symmetry z → −z.
+- <strong>Consequences in the code.</strong> <code>kDetect</code> already routes the non-symmetric matrices to the
+  general LU. Every path that uses symmetry must use the transposed system instead:
+  the adjoint of <code>conical_goal</code> (assemble <code>Aᵀ</code>, i.e. <code>S A(−β) S</code>, not <code>A</code>), the emission pattern
+  by reciprocity (ADR-0013 §6: the reciprocal problem at −β), the power matrix on a kept
+  factorisation (<code>ConicalSweep</code>, transposed solves of the same factorisation) and the material
+  and shape sensitivities (ADR-0011). Each gets a unit test with a tilted axis that compares the
+  transposed path to a forward solve.
+- <strong>The scalar E_z path breaks.</strong> At β = 0 the terms ε_xz, ε_yz couple E_z to the in-plane field,
+  so the E_z / H_z polarisations no longer decouple; <code>ConicalScatteringSetup::scalar_ez</code> rejects
+  such materials with a diagnostic.
+- <strong>Staging.</strong> S3 first takes tensors with ε_xz = ε_yz = 0 (optic axis in the cross-section plane
+  or along the lines: symmetric, no change of the symmetry-based paths), then the general tensor
+  with the transposed paths.</p>
+<p>The conical estimators follow §2. Checked against the 3D solver (§9, item 5).</p>
+<p><em>Amendment (S3, 2026-11-05):</em> <strong>frame of the grating module.</strong> <code>hpfem.materials</code> and every
+Python entry point take tensors in the laboratory frame of §1 (x across the lines, y along them,
+z the layer normal). The conical solver computes in its own frame (x across the lines, y the
+layer normal, z along the lines); <code>hpfem.grating</code> maps a crystal given in a dict by
+<code>ε_conical = P ε_lab Pᵀ</code> with P swapping y and z, so that the azimuth φ runs from x towards the
+lines in both frames (P is a reflection; harmless for a symmetric tensor). A <code>MaterialMap</code> with
+crystals is refused by <code>hpfem.grating</code> (its frame would be ambiguous); the C++
+<code>ConicalScatteringSetup</code> takes the conical frame. <strong>Staging:</strong> both stages of §4 came at once
+(diagonal tensors keep their assembly, full tensors take the general product). The transposed
+paths found two latent errors that only crystals with ε_xz, ε_yz expose: the assembling
+<code>conical_adjoint_solution</code> and <code>conical_dwr_estimate</code> solved with A instead of Aᵀ, and
+<code>conical_resonance_adjoint</code> took y = x without constraints; both are fixed and checked against
+finite differences. The reciprocity paths of <code>hpfem.grating</code> (emission pattern, array scan)
+still refuse crystals: their mirrored cell for the substrate directions would need the mirrored
+tensor.</p>
+<h3 id="5-anisotropic-layer-stack">5. Anisotropic layer stack</h3>
+<p><code>LayerStack</code> layers and the substrate may carry anisotropic materials; the incidence medium stays
+isotropic and lossless (as today). Per layer the in-plane wave vector (k_x, k_y) fixes a 4×4 system
+for the tangential fields (Berreman 1972, Yeh 1979), <code>∂_z ψ = i K ψ</code>, <code>ψ = (E_x, E_y, H_x, H_y)</code>,
+obtained by eliminating E_z and H_z; this requires ε_zz ≠ 0, and an epsilon-near-zero ε_zz is
+rejected with a diagnostic.</p>
+<p><strong>Degenerate and defective cases.</strong> The eigenvectors of K are not a reliable basis: every
+isotropic layer is doubly degenerate (the common case in a mixed stack), a uniaxial axis near z or
+near-normal incidence makes the individual eigenvectors ill-conditioned, and absorbing biaxial
+media have exceptional points (Voigt waves) where K is defective. The stack therefore never
+diagonalises K. It computes the <strong>ordered complex Schur form</strong> <code>K = U T Uᴴ</code> with the two
+upward eigenvalues first; the leading two columns of U span the upward invariant subspace, which
+is well-conditioned under degeneracy and defined at a defective point. Propagation through a layer
+uses the 2×2 matrix exponentials of the diagonal blocks of T, and the <strong>stable S-matrix
+recursion</strong> from the substrate upwards works with these subspaces only (layer-local amplitudes,
+decaying exponentials only, as in ADR-0009 §2) — no transfer-matrix products through thick or
+absorbing layers. Up / down is decided by Im k_z &gt; 0 for evanescent and absorbing modes and by the
+sign of the Poynting flux S_z for propagating lossless modes; grazing modes (k_z = 0, Rayleigh
+anomalies) are handled as in the isotropic stack. Isotropic layers keep the closed s/p forms as the
+fast path and as the test reference.</p>
+<p>Individual modes are needed only in the substrate and the incidence medium, for the output: in a
+uniaxial substrate the ordinary mode is defined through the optic axis (D ⊥ axis), the
+extraordinary one as the other mode of the subspace; in a biaxial substrate the two modes are the
+eigenvectors of the upward 2×2 block, made unique at a degeneracy by power orthogonality.
+Outputs: the <strong>Jones matrix</strong> (r_ss, r_sp, r_ps, r_pp and the transmission channels into the
+substrate modes), the mode amplitudes and the analytic field (value and curl) per layer for the
+scattered-field source.</p>
+<h3 id="6-python-layer-and-data">6. Python layer and data</h3>
+<p><code>hpfem.materials.Anisotropic</code> combines three principal <code>Dispersive</code> models with an orientation,
+<code>.at(omega)</code> returns the tensor <code>Material</code>. The tensor is <code>R diag(ε_1, ε_2, ε_3) Rᵀ</code> with real R,
+hence symmetric (§3). Orientation conventions, fixed here:</p>
+<ul>
+<li><strong>Uniaxial</strong> (<code>Uniaxial(n_o, n_e, theta, phi)</code>): the optic axis by its polar angle θ from the
+  laboratory z axis and its azimuth φ from the x axis towards y, as used in metrology
+  (c-plane: θ = 0; a- and m-plane: θ = 90°).</li>
+<li><strong>Biaxial</strong>: intrinsic z-x-z Euler angles (α, β, γ), <code>R = R_z(α) R_x(β) R_z(γ)</code>, mapping the
+  principal (crystal) frame to the laboratory frame; documented with a figure in
+  a new page <code>docs/theory/materials.md</code> (written in S1).</li>
+</ul>
+<p>The refractiveindex.info loader reads the separate ordinary / extraordinary entries of uniaxial
+materials where the database has them.</p>
+<p><em>Amendment (S5b, 2026-11-05):</em> in a periodic problem only the discrete in-plane wave vectors
+of the orders reach the PML, so the instability needs an outgoing propagating order that is a
+backward wave. In a tilted uniaxial crystal this happens in a narrow window of the tangential
+wavenumber just inside the cutoff of the extraordinary sheet (for ε_o = 2.4, ε_e = 3.4, axis
+0.7 rad from the normal: a ≈ −1.71…−1.68), i.e. for diffracted orders, not for the zeroth order
+of incidence from air. There the PML stalls at a fixed error (the energy balance of a lossless
+grating at 10⁻⁴ for every p) and the modal boundary converges (<code>anisotropic_modal_boundary</code>).
+The modal boundary is implemented for the conical solver as a per-order Dirichlet-to-Neumann
+term (<code>ConicalScatteringSetup::modal_boundaries</code>, <code>docs/theory/anisotropic-stack.md</code>); the 3D
+solver keeps the diagnostic.</p>
+<h3 id="7-post-processing">7. Post-processing</h3>
+<ul>
+<li><strong>Diffraction orders in an anisotropic half-space</strong> are decomposed on the two modes of that
+  half-space (§5, tangential E_t, H_t), not on s/p; every order has an ordinary and an
+  extraordinary (or two biaxial) channels with their own k_z and power. In isotropic half-spaces
+  the existing s/p decomposition stays.</li>
+<li><strong>Absorption</strong> uses <code>Q = ω/2 · Eᴴ (ε − εᴴ)/(2i) E</code>; the <strong>Poynting flux</strong> uses
+  <code>H = (iωμ)⁻¹ curl E</code> (μ scalar, §1).</li>
+<li><strong>Far field and cross-sections</strong> only in isotropic cover media (the reciprocity far field
+  needs the Green's function of the half-space); anisotropic substrates are measured through the
+  mode-resolved orders and fluxes.</li>
+<li>New output: <strong>Jones and Mueller matrix</strong> of each order and of the specular channel. The s/p
+  basis of the incoming and outgoing waves follows the convention of
+  <code>conical_polarisation(k, n̂, s|p)</code> (s = k̂ × n̂ normalised, p = s × k̂ for both waves), stated in
+  <code>docs/theory/maxwell.md</code> together with the reciprocity relations of §9.</li>
+</ul>
+<h3 id="8-axisymmetric-solver-and-emitters">8. Axisymmetric solver and emitters</h3>
+<p>The axisymmetric solver takes <strong>diagonal tensors in (r, φ, z)</strong> (c-axis along z, or radial /
+azimuthal axes); an optic axis tilted against z breaks the rotational symmetry and is
+rejected with a diagnostic. The dipole scan (ADR-0013) needs the Green's function of the
+anisotropic stack (Sommerfeld integral with the 4×4 formalism of §5, poles and branch cuts of
+the extraordinary and ordinary modes) and the β ↔ −β reciprocity of §4; it is a <strong>separate later
+stage</strong> with its own ADR amendment once §5 and §7 are validated.</p>
+<p><em>Amendment (S7, 2026-11-05): emitters above crystal stacks.</em> The emitter stays the Gaussian
+dipole of ADR-0013 in an <strong>isotropic, lossless host</strong> (the cover or an isotropic layer); hosts
+that are crystals need their own bulk power and are not part of S7. Decisions, in stages:</p>
+<ul>
+<li><strong>S7a, reference.</strong> The power of a point dipole above an <code>AnisotropicStack</code> is computed from the
+  2D plane-wave (Weyl) spectrum of the Green's dyadic and the Jones reflection of the stack at
+  every in-plane wavevector, propagating and evanescent (<code>AnisotropicStack::reflection_at</code>,
+  <code>hpfem.planar.dipole_above_stack</code>), not from a 1D Sommerfeld integral: without rotational
+  symmetry the azimuth of the in-plane wavevector does not separate. The radial integral runs on
+  the real axis; guided modes of lossless stacks (real-axis poles) are excluded, the references
+  use absorbing layers or stacks without guided modes. Complex in-plane wavevectors (a deformed
+  path through the 4×4 system) are deferred. The Gaussian smearing multiplies every spectral
+  component by exp(−σ² k·k) = exp(−(n k0 σ)²) and cancels in the Purcell factor, so the point
+  dipole is the exact reference of the FEM emitter.</li>
+<li><strong>S7b, one sample.</strong> <code>grating.emit</code> with an <code>AnisotropicStack</code>: one Bloch sample (kx, β) of a
+  flat stack is the plane-wave spectrum on the orders (kx + 2πm/P, β), which gives an exact
+  reference for the delivered power of the cell problem.</li>
+<li><strong>S7c, array scan.</strong> For crystals the (kx, β) integrand is in general neither even in β nor in
+  kx: <code>dipole_emission</code> integrates β over (−∞, ∞) and kx over the full zone, keeps every entry
+  of the power matrix (no zeroing of odd entries), and takes the light lines and branch points
+  of crystal media from their ordinary / extraordinary roots (<code>half_space_modes</code>). The
+  reciprocity of a symmetric tensor, A(kx, β)ᵀ = S A(−kx, −β) S, pairs the samples at (kx, β)
+  and (−kx, −β) and may halve the work later; S7c does not rely on it.</li>
+<li><strong>S7d, channels by reciprocity.</strong> The substrate directions of the reciprocity path mirror the
+  cell; a crystal needs the mirrored tensor M ε M (M = diag(1, −1, 1) in the solver frame) or a
+  plane wave incident from the substrate (M19 S3c).</li>
+</ul>
+<h3 id="9-validation-each-stage-with-an-independent-reference">9. Validation (each stage with an independent reference)</h3>
+<ol>
+<li><strong>Isotropic limit:</strong> a tensor ε·I must reproduce every existing benchmark and test to
+   round-off (guards the migration).</li>
+<li><strong>Homogeneous plate:</strong> uniaxial with the optic axis in the plane, along the normal and tilted;
+   reference an independent 4×4 transfer-matrix implementation in the tests (NumPy,
+   eigenvector-based, thin layers only) plus the closed forms (normal incidence with the axis in
+   the plane: two Fabry–Pérot problems with n_o and n_e).</li>
+<li><strong>Degenerate cases of the stack:</strong> isotropic layers between anisotropic ones, axis exactly
+   along z at normal incidence, axis 10⁻⁶ rad off z (results continuous in the angle), and an
+   absorbing biaxial layer at a Voigt direction (results continuous across it).</li>
+<li><strong>Energy balance:</strong> R + T + A = 1, lossless and absorbing, all four Jones channels.</li>
+<li><strong>Form birefringence:</strong> a sub-wavelength grating of isotropic materials against the
+   homogeneous uniaxial plate of effective-medium theory (structured against unstructured), then
+   the same with an anisotropic grating material; published Fourier-modal results for anisotropic
+   gratings (L. Li 2003) where they cover the case.</li>
+<li><strong>Cross-consistency and symmetry:</strong> the grating and the crystal rotated by the same azimuth,
+   conical against the 3D solver. Symmetry checks on a plate with the axis in the plane at the
+   azimuth α against the plane of incidence: r_sp(−α) = −r_sp(α) and r_ps(−α) = −r_ps(α) with
+   r_ss, r_pp even in α (mirror at the plane of incidence); r_sp = r_ps = 0 for the axis in or
+   perpendicular to the plane of incidence.</li>
+<li><strong>PML:</strong> <code>pml_reflection</code> extended to media with a full tensor, axis aligned (no diagnostic,
+   reflection as today) and tilted (the diagnostic <code>pml-backward-wave</code> fires where the geometric
+   condition fails; the modal boundary of §2 reproduces the stack reference there).</li>
+<li><strong>Reciprocity:</strong> for a reciprocal (non-gyrotropic) structure the Jones matrix of the reversed
+   path satisfies r_ps(k_in → k_out) = −r_sp(−k_out → −k_in) and r_ss, r_pp equal, with the sign
+   fixed by the s/p convention of §7; checked on a rotated crystal in the stack and in the conical
+   solver (which exercises the β ↔ −β pairing of §4).</li>
+<li><strong>Conical symmetry:</strong> the assembled conical matrix is complex-symmetric for ε_xz = ε_yz = 0 and
+   satisfies A(β)ᵀ = S A(−β) S for a general symmetric tensor (unit test on the cell matrices).</li>
+</ol>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li><strong>Safe migration:</strong> because scalar access throws, each of the ~50 files is either migrated or
+  refuses anisotropic input with a diagnostic; there is no silent wrong answer. The price is a
+  breaking change of the C++ <code>Material</code> (private fields), absorbed in one change; the Python
+  API keeps <code>eps_r</code> as a property. The migration order (stages in the roadmap, M19) follows the use: volume
+  solvers and the stack first, then the conical solver, then the rest.</li>
+<li><strong>No cost for isotropic runs:</strong> isotropic materials stay scalar; the tensor path is taken only
+  when a cell carries a tensor. The solver symmetry is kept for non-gyrotropic crystals in the 3D
+  and 2D solvers and for the conical solver with ε_xz = ε_yz = 0.</li>
+<li><strong>Conical symmetry loss:</strong> a general tilted crystal in the conical solver costs the general LU
+  (roughly twice the factorisation memory of LDLᵀ) and requires the transposed paths of §4 in
+  the adjoint, reciprocity and sensitivity code.</li>
+<li><strong>Larger numerical work:</strong> the Schur-based stack (§5), the transposed conical paths (§4) and the
+  modal substrate boundary (§2) are the risks; each is checked against an independent reference
+  before the dependent stages start.</li>
+<li><strong>Limits stay visible:</strong> gyrotropy, a μ tensor, ε_zz → 0 in the stack, tilted axes in the
+  axisymmetric solver, anisotropic cover media, isolated structures in a tilted substrate (PML
+  condition) and the anisotropic emitter scan are out of scope and fail with diagnostics.</li>
+</ul>
+<h2 id="alternatives-considered">Alternatives considered</h2>
+<ul>
+<li><strong>Always-tensor <code>Material</code></strong> (3×3 for every material): simplest to reason about, but touches
+  every one of the 203 <code>eps_r</code> uses at once, costs memory and time for the dominant isotropic case
+  and makes the migration an all-or-nothing change.</li>
+<li><strong>Keeping <code>eps_r</code> public</strong> and documenting that it is meaningless for anisotropic materials:
+  no API break, but exactly the silent wrong answer the throwing accessor prevents.</li>
+<li><strong>Only diagonal anisotropy:</strong> covers on-axis uniaxial crystals, but not the rotated crystals
+  (c-plane / a-plane / r-plane cuts at an angle to the grating) that metrology needs, and gives
+  no cross-polarisation.</li>
+<li><strong>Effective isotropic media for form birefringence only:</strong> correct for deep sub-wavelength
+  structures, wrong for real crystals and for structures near the diffraction limit.</li>
+<li><strong>Transfer-matrix (4×4) instead of the S-matrix recursion:</strong> short, but loses digits in thick
+  or absorbing layers, which ADR-0009 already rejected for the isotropic stack.</li>
+<li><strong>Eigenvector basis per layer</strong> (closed forms for uniaxial layers, a projection for degenerate
+  pairs): the textbook route, but ill-conditioned near degeneracies and undefined at the
+  exceptional points of absorbing biaxial media; the ordered Schur form covers all cases with one
+  code path.</li>
+<li><strong>A different conical scaling</strong> (e.g. <code>V_z = iw</code>) to restore symmetry: it changes only the sign
+  of the zz block and moves the antisymmetry elsewhere; the loss of symmetry is physical (z → −z
+  mirror) and cannot be scaled away.</li>
+<li><strong>Gyrotropy in the first step:</strong> breaks the complex-symmetric solver path and the
+  reciprocity-based far field; deferred.</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li>D. W. Berreman, "Optics in stratified and anisotropic media: 4×4-matrix formulation",
+  J. Opt. Soc. Am. 62, 502 (1972), doi:10.1364/JOSA.62.000502.</li>
+<li>P. Yeh, "Electromagnetic propagation in birefringent layered media", J. Opt. Soc. Am. 69,
+  742 (1979).</li>
+<li>L. Li, "Fourier modal method for crossed anisotropic gratings with arbitrary permittivity and
+  permeability tensors", J. Opt. A: Pure Appl. Opt. 5, 345–355 (2003).</li>
+<li>E. Bécache, S. Fauqueux, P. Joly, "Stability of perfectly matched layers, group velocities and
+  anisotropic waves", J. Comput. Phys. 188, 399–433 (2003).</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,5 @@
+<map id="hpfem::adaptivity::HpStep" name="hpfem::adaptivity::HpStep">
+<area shape="rect" id="Node000001" title="Result of an hp&#45;refinement step: the mesh relation and the orders of the new cells." alt="" coords="43,93,188,133"/>
+<area shape="rect" id="Node000002" href="$structhpfem_1_1mesh_1_1RefinementStep.html" title=" " alt="" coords="5,5,225,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="118,44,118,93,113,93,113,44"/>
+</map>
