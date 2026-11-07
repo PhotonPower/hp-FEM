@@ -8,6 +8,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   resonance as the common pole of the through and drop amplitudes (`fit_pole`), the isolated
   ring from `AxisymmetricCavity` as reference, `--record` resumable for the long server runs;
   CI case in `test_examples.py`.
+- Symmetry planes for 3D modal ports: `WaveguidePort::pmc_tags` (Python
+  `WaveguidePort(..., pmc_tags=[...])`, `PortModes3D(..., pmc_tags=...)`) leaves the rim of the
+  port cross-section natural (PMC) where it lies on the listed facets, so half a device with a
+  magnetic mirror plane (natural in the volume) has matching port modes; convergence test of
+  the half rectangular waveguide (TE10, `waveguide_port_3d`), `docs/theory/maxwell.md`.
 - M16 S8 validation complete (`docs/validation.md`, server runs, issue #202): metasurface deflector
   (section L, TiO₂ ridge maximising the −1 transmission for s and p: both BO variants find the
   global maximum on every seed, Nelder–Mead and L-BFGS-B depend on the start); sections H and I
@@ -440,6 +445,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   intervals) on the surrogate or any function; verified on the Ishigami function (analytic
   indices) and closed-form linear models. `examples/fabrication_tolerance`: CD / height /
   side-wall angle tolerances of a silicon grating propagated to its reflectance spectrum.
+
+### Changed
+- CI actions updated: `actions/checkout` v7, `actions/setup-python` v7, `actions/upload-artifact`
+  v7 / `actions/download-artifact` v8 (together), `softprops/action-gh-release` v3;
+  `pymdown-extensions >= 12.3` for the docs (Dependabot #179–#184).
 
 ### Fixed
 - `hpfem.opt.multi_fidelity_optimize` with BoTorch >= 0.15: `project_to_target_fidelity` needs

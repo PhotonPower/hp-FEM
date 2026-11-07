@@ -22,22 +22,22 @@ jobs:
   sdist:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       - run: pipx run build --sdist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: sdist, path: dist/*.tar.gz }
 
   linux:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pypa/cibuildwheel@v2.21
         env:
           # pull requests: one interpreter is enough to validate the build
           CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp312-*' || '' }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: wheels-linux, path: wheelhouse/*.whl }
 
   windows:
@@ -49,8 +49,8 @@ jobs:
     defaults:
       run: { shell: 'msys2 {0}' }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         id: cpython
         with: { python-version: '${{ matrix.python }}' }
       - uses: msys2/setup-msys2@v2
@@ -80,7 +80,7 @@ jobs:
           cd "$RUNNER_TEMP"
           python -c "import hpfem; print(hpfem.__version__, hpfem.available_backends())"
           python -m pytest "$GITHUB_WORKSPACE/python/tests/test_gui_entry.py" "$GITHUB_WORKSPACE/python/tests/test_progress.py" -q
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-windows-${{ matrix.python }}
           path: dist/*.whl
@@ -91,9 +91,9 @@ jobs:
     runs-on: ubuntu-24.04
     permissions: { contents: write }
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { path: artefacts, merge-multiple: true }
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             artefacts/*.whl

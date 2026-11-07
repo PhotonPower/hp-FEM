@@ -79,7 +79,8 @@ TEST_CASE("slab section between modal ports: S21 converges exponentially in p",
     setup.omega = kWavenumber * hpfem::constants::c0;
     setup.materials.set(kCore, hpfem::materials::Material::dielectric(kCoreIndex));
     setup.pec_tags = {box_tag::kYMin, box_tag::kYMax};
-    setup.ports = {WaveguidePort{box_tag::kXMin, 3, {}}, WaveguidePort{box_tag::kXMax, 3, {}}};
+    setup.ports = {WaveguidePort{box_tag::kXMin, 3, {}, {}},
+                   WaveguidePort{box_tag::kXMax, 3, {}, {}}};
     const auto s = hpfem::physics::s_parameters<2>(dofs, setup);
     // channel 0 is the guided mode of port 0; the first channel of port 1 is its partner
     // (the closed cross-section also has propagating box modes of the cladding)

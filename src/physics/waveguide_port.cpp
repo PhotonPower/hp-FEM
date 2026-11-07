@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <set>
+#include <utility>
 #include <vector>
 
 #include <Eigen/Dense>
@@ -23,6 +25,7 @@ namespace hpfem::physics {
 namespace {
 
 constexpr mesh::Tag kRim = 1;  ///< facet tag of the rim of an extracted 3D port cross-section
+constexpr mesh::Tag kMagneticRim = 2;  ///< rim facets on a symmetry plane (natural, PMC)
 
 /// Legendre polynomials P_0 … P_n at ξ ∈ [−1, 1].
 void legendre(int n, Real xi, std::vector<Real>& p) {
@@ -46,14 +49,17 @@ Eigen::Matrix<Complex, 3, 1> cross3(const Eigen::Matrix<Complex, 3, 1>& a,
 template <int Dim>
 PortModes<Dim>::PortModes(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag facet_tag,
                           const materials::MaterialMap& materials, Real omega, Index num_modes,
-                          int extra_order)
+                          int extra_order, const std::vector<mesh::Tag>& pmc_tags)
     : omega_(omega) {
   if (!(omega > 0)) throw InvalidArgument("PortModes: omega must be positive");
   if (num_modes < 1) throw InvalidArgument("PortModes: num_modes must be >= 1");
   if constexpr (Dim == 2) {
+    if (!pmc_tags.empty()) {
+      throw NotImplemented("PortModes: magnetic rim segments (pmc_tags) are 3D only");
+    }
     build_2d(dofs, facet_tag, materials, num_modes, extra_order);
   } else {
-    build_3d(dofs, facet_tag, materials, num_modes, extra_order);
+    build_3d(dofs, facet_tag, materials, num_modes, extra_order, pmc_tags);
   }
 }
 
@@ -289,7 +295,7 @@ void PortModes<Dim>::build_2d(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag
 template <int Dim>
 void PortModes<Dim>::build_3d(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag facet_tag,
                               const materials::MaterialMap& materials, Index num_modes,
-                              int extra_order) {
+                              int extra_order, const std::vector<mesh::Tag>& pmc_tags) {
   if constexpr (Dim == 3) {
     using Vec3 = Eigen::Matrix<Complex, 3, 1>;
     using Vec2 = Eigen::Matrix<Complex, 2, 1>;
@@ -363,7 +369,31 @@ void PortModes<Dim>::build_3d(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag
       }
     }
     auto section = std::make_shared<mesh::Mesh<2>>(uv, cells, tags);
-    for (const Index f : section->boundary_facets()) section->set_facet_tag(f, kRim);
+    // rim: PEC, except the edges on a magnetic wall of the volume (both end vertices on one
+    // facet tagged in pmc_tags)
+    std::set<std::pair<Index, Index>> magnetic_edges;
+    for (const mesh::Tag tag : pmc_tags) {
+      if (tag == facet_tag) {
+        throw InvalidArgument(fmt::format("PortModes: tag {} is the port and a PMC tag", tag));
+      }
+      for (const Index f : mesh.facets_with_tag(tag)) {
+        const auto& v = mesh.facet_vertices(f);
+        for (std::size_t i = 0; i < 3; ++i) {
+          const Index a = v[i];
+          const Index b = v[(i + 1) % 3];
+          magnetic_edges.emplace(std::min(a, b), std::max(a, b));
+        }
+      }
+    }
+    std::vector<Index> volume_vertex(uv.size());
+    for (const auto& [v, i] : vertex_index) volume_vertex[as_size(i)] = v;
+    for (const Index f : section->boundary_facets()) {
+      const auto& fv = section->facet_vertices(f);
+      const Index a = volume_vertex[as_size(fv[0])];
+      const Index b = volume_vertex[as_size(fv[1])];
+      const bool magnetic = magnetic_edges.contains({std::min(a, b), std::max(a, b)});
+      section->set_facet_tag(f, magnetic ? kMagneticRim : kRim);
+    }
     section_ = section;
     section_nedelec_ = std::make_shared<const fespace::NedelecDofMap<2>>(*section_, orders);
     section_h1_ = std::make_shared<const fespace::DofMap<2>>(*section_, orders);
