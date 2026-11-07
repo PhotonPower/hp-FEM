@@ -16,6 +16,17 @@ below and above the cores. The two end faces are split at y = 0 into four single
 (1: input, bus A at x = −X; 2: through, bus A at +X; 3: drop, bus B at −X; 4: add, bus B at
 +X). The cells within 250 nm of a core get `--order-core`, the others `--order-far`.
 
+**Half model** (`--half`, for the mesh and the solver). The cladding is silica above and
+below, so the structure is mirror-symmetric about the mid-plane z = h/2 of the cores, and the
+TE-like modes launched here have an even tangential electric field about it: the plane is a
+magnetic wall. `--half` meshes only z ≥ h/2, leaves the plane natural in the volume problem
+and makes the port rims magnetic there (`WaveguidePort.pmc_tags`, `docs/theory/maxwell.md`).
+The power-normalised S-parameters are those of the full device. On the production mesh this
+saves a third of the unknowns (p = 3: 0.55 M instead of 0.83 M, p = 4: 1.1 M instead of
+1.7 M) and more of the factor memory. A local check on the 150 nm mesh at p = 2 / 1 gives the
+port n_eff 2.3501 (half) against 2.3530 (full) — the two meshes differ — in 49 s instead of
+218 s.
+
 **Reference.** The isolated ring is a body of revolution: `hpfem.AxisymmetricCavity` on the
 meridian section (axis to the PEC wall at the bus distance, the same cladding margins) gives
 the resonance wavelength of the fundamental TE-like mode for each azimuthal order m. For the
