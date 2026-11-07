@@ -3,6 +3,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `examples/ring_resonator_3d` (M12 stage B, driver): the add-drop SOI ring in 3D between four
+  modal ports on a curved Gmsh mesh (`ring_mesh.py`, variable order near the cores), the
+  resonance as the common pole of the through and drop amplitudes (`fit_pole`), the isolated
+  ring from `AxisymmetricCavity` as reference, `--record` resumable for the long server runs;
+  CI case in `test_examples.py`.
 - M16 S8 validation complete (`docs/validation.md`, server runs, issue #202): metasurface deflector
   (section L, TiO₂ ridge maximising the −1 transmission for s and p: both BO variants find the
   global maximum on every seed, Nelder–Mead and L-BFGS-B depend on the start); sections H and I

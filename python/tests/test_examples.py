@@ -149,6 +149,28 @@ def test_ring_resonator_dip_at_the_eigenmode_resonance():
     assert all(0.0 < t < 1.05 for t in spec.transmission)
 
 
+def test_ring_resonator_3d_pole_fit_and_lossless_ports(tmp_path):
+    example = load_example("ring_resonator_3d")
+    # the pole fit is exact for responses of its model
+    lam = np.linspace(1555.0, 1559.0, 6)
+    pole = 1557.3 - 0.2j
+    through = 1.02 + 0.2j / (lam - pole) + 0.01 * (lam - 1557.0)
+    drop = -0.06j / (lam - pole) + (0.003 - 0.001j) * (lam - 1557.0)
+    fitted, residual = example.fit_pole(lam, [through, drop])
+    assert abs(fitted - pole) < 1e-9 and residual < 1e-12
+    pytest.importorskip("gmsh")
+    # the CI case: R = 1.5 µm, p = 1 on 150 nm cells, two wavelengths at the isolated-ring
+    # resonance of m = 14 (axisymmetric cavity, p = 2 on 100 nm cells)
+    r = example.run(quick=True, record_path=str(tmp_path / "ring.json"))
+    assert r.dofs > 10000 and len(r.points) == 2
+    assert 1600.0 < r.reference["14"] < 1650.0
+    for point in r.points:
+        assert abs(point["power_sum"] - 1.0) < 1e-6  # lossless: PEC walls, real materials
+        assert point["power"][1] > 0.9 and point["power"][0] < 0.05
+        assert 2.0 < point["n_eff"] < 2.6
+    assert (tmp_path / "ring.json").stat().st_size > 500
+
+
 def test_solar_cell_texture_traps_light_and_exports(tmp_path, monkeypatch):
     example = load_example("solar_cell_texture")
     monkeypatch.chdir(tmp_path)
