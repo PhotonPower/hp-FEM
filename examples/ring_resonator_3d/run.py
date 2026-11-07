@@ -26,7 +26,15 @@ import hpfem
 from hpfem import units
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ring_mesh import TAG_CLAD, TAG_LEFT, TAG_RIGHT, TAG_SI, TAG_WALL, Geometry  # noqa: E402
+from ring_mesh import (  # noqa: E402
+    TAG_CLAD,
+    TAG_LEFT,
+    TAG_RIGHT,
+    TAG_SI,
+    TAG_SYMMETRY,
+    TAG_WALL,
+    Geometry,
+)
 from ring_mesh import build as build_mesh  # noqa: E402
 
 NM = units.nm
@@ -167,17 +175,20 @@ class Record:
     fit: dict | None = None
 
 
-def solve_wavelength(dofs, wavelength_nm: float, solver=None):
+def solve_wavelength(dofs, wavelength_nm: float, solver=None, half: bool = False):
     """S-parameters of the excitation at port 1: the complex outgoing amplitudes of the four
-    ports, power-normalised (|s_k|^2 = power fraction), with the port n_eff."""
+    ports, power-normalised (|s_k|^2 = power fraction), with the port n_eff. ``half``: the
+    mesh is the half model above the mid-plane of the cores, a magnetic wall (natural in the
+    volume, `pmc_tags` on the ports)."""
     setup = hpfem.ScatteringSetup3D()
     setup.omega = units.angular_frequency(wavelength=wavelength_nm * NM)
     setup.materials = materials()
     setup.pec_tags = [TAG_WALL]
     if solver is not None:
         setup.solver = solver
-    setup.ports = [hpfem.WaveguidePort(PORT_TAGS[0], 1, [1.0])] + [
-        hpfem.WaveguidePort(tag, 1) for tag in PORT_TAGS[1:]
+    pmc = [TAG_SYMMETRY] if half else []
+    setup.ports = [hpfem.WaveguidePort(PORT_TAGS[0], 1, [1.0], pmc)] + [
+        hpfem.WaveguidePort(tag, 1, [], pmc) for tag in PORT_TAGS[1:]
     ]
     t0 = time.perf_counter()
     problem = hpfem.Scattering3D(dofs, setup)
@@ -244,7 +255,8 @@ def run(
     ``quick``: the CI case (R = 1.5 µm, 150 nm cells, p = 1, the reference at p = 2 on
     100 nm cells, two wavelengths)."""
     if quick:
-        geometry = Geometry(radius=1500.0, cell_core=150.0, cell_far=400.0)
+        half = bool(geometry and geometry.half)
+        geometry = Geometry(radius=1500.0, cell_core=150.0, cell_far=400.0, half=half)
         order_core, order_far, azimuthal_orders = 1, 1, (14,)
     geometry = geometry or Geometry()
     solver = BACKENDS[str(backend).lower()]
@@ -290,7 +302,7 @@ def run(
         for lam in lams:
             if round(float(lam), 6) in done:
                 continue
-            point = solve_wavelength(dofs, float(lam), solver)
+            point = solve_wavelength(dofs, float(lam), solver, geometry.half)
             record.points.append(point)
             done.add(round(float(lam), 6))
             update_fit(record)
@@ -334,6 +346,7 @@ def main(argv=None) -> int:
     parser.add_argument("--gap", type=float, default=200.0, help="[nm]")
     parser.add_argument("--cell-core", type=float, default=100.0, help="[nm]")
     parser.add_argument("--cell-far", type=float, default=300.0, help="[nm]")
+    parser.add_argument("--half", action="store_true", help="half model, magnetic mid-plane")
     parser.add_argument("--order-core", type=int, default=3)
     parser.add_argument("--order-far", type=int, default=2)
     parser.add_argument("--reach", type=float, default=250.0, help="[nm] of order-core cells")
@@ -346,7 +359,11 @@ def main(argv=None) -> int:
     parser.add_argument("--quick", action="store_true")
     args = parser.parse_args(argv)
     geometry = Geometry(
-        radius=1000 * args.radius, gap=args.gap, cell_core=args.cell_core, cell_far=args.cell_far
+        radius=1000 * args.radius,
+        gap=args.gap,
+        cell_core=args.cell_core,
+        cell_far=args.cell_far,
+        half=args.half,
     )
     r = run(
         geometry=geometry,

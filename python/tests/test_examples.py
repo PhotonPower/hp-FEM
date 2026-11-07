@@ -171,6 +171,14 @@ def test_ring_resonator_3d_pole_fit_and_lossless_ports(tmp_path):
         assert all(0.0 <= p <= 1.0 for p in point["power"])
         assert 2.0 < point["n_eff"] < 2.6
     assert (tmp_path / "ring.json").stat().st_size > 500
+    # the half model above the mid-plane of the cores (magnetic wall, pmc_tags on the ports)
+    # carries the TE-like mode (a TM-like one would have n_eff below 2) without loss
+    geometry = example.Geometry(half=True)
+    h = example.run(quick=True, geometry=geometry, record_path=None)
+    assert h.geometry["half"] and h.dofs < r.dofs
+    for point in h.points:
+        assert abs(point["power_sum"] - 1.0) < 1e-6
+        assert 2.0 < point["n_eff"] < 2.6
 
 
 def test_solar_cell_texture_traps_light_and_exports(tmp_path, monkeypatch):
