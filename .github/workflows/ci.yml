@@ -11,7 +11,7 @@ jobs:
   format:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: clang-format check
         run: |
           sudo apt-get install -y clang-format
@@ -37,7 +37,7 @@ jobs:
       CC: ${{ matrix.cc }}
       CXX: ${{ matrix.cxx }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Dependencies
         # libopenblas-dev switches the BLAS alternative of Ubuntu's MUMPS from the reference BLAS
         # to OpenBLAS (test step 10 min instead of 60-100); installed here so that the job name,
@@ -54,7 +54,7 @@ jobs:
     needs: format
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y ninja-build libeigen3-dev clang-tidy-18 libomp-18-dev
       - run: cmake --preset debug
       - run: |
@@ -66,8 +66,8 @@ jobs:
     needs: format
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       - run: sudo apt-get update && sudo apt-get install -y ninja-build libeigen3-dev libglu1-mesa libxcursor1 libxft2 libxinerama1 libxrender1
       - run: pip install ".[dev]" -v

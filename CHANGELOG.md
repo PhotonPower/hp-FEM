@@ -436,6 +436,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   indices) and closed-form linear models. `examples/fabrication_tolerance`: CD / height /
   side-wall angle tolerances of a silicon grating propagated to its reflectance spectrum.
 
+### Changed
+- CI actions updated: `actions/checkout` v7, `actions/setup-python` v7, `actions/upload-artifact`
+  v7 / `actions/download-artifact` v8 (together), `softprops/action-gh-release` v3;
+  `pymdown-extensions >= 12.3` for the docs (Dependabot #179–#184).
+
 ### Fixed
 - `hpfem.opt.multi_fidelity_optimize` with BoTorch >= 0.15: `project_to_target_fidelity` needs
   the input dimension `d`, which is passed when the installed version takes it (the BoTorch
