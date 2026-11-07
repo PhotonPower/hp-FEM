@@ -702,35 +702,36 @@ truth gives $F = 0.016$ (the floor of the discretisation, largest deviation $1.9
 so $F \le m = 6$ means a match to the noise level and $F \le 0.06$ one to a tenth of it.
 Budget 40 evaluations, seeds 0–2 (initial designs; random starts in the box for the local
 methods). Driver `benchmarks/opt_validation.py bo`, record
-`benchmarks/results/2026-10-10-validation-opt-bo.json` (three processes with 6 threads each).
-Both studies of S8 ran before the fix of the grating PML angle (#156, every grating PML was
-designed for normal incidence); target and model share the PML, so the comparisons are
-self-consistent, but the absolute efficiencies differ slightly from those of today's code.
+`benchmarks/results/2026-11-06-validation-opt-bo-server.json` (code after the fix of the grating
+PML angle #156; a server with two AMD EPYC 9015, 16 cores, 6 threads, next to the study of
+section L). The first run, before #156 (`2026-10-10-validation-opt-bo.json`; target and model
+shared the PML designed for normal incidence, so it was self-consistent), gave the same picture
+with the differences noted below.
 
 | method | evaluations to $F \le m$ (seeds 0 / 1 / 2) | best $F$ after 40 | s per evaluation |
 |---|---|---|---|
-| Bayesian optimisation, EI | 39 / 26 / 30 | 1.16 / 0.42 / 0.53 | 5.4 |
-| Bayesian optimisation, EI, gradient-enhanced | 16 / 31 / 22 | 0.26 / 0.15 / 0.16 | 9.0 |
-| Nelder–Mead | – / – / 40 | 34 / 41 / 4.5 | 8.0 |
-| differential evolution | – / – / – | 338 / 775 / 285 | 8.6 |
-| L-BFGS-B (random start) | – / 27 / – | 3364 / 0.38 / 2828 | 7.5 |
+| Bayesian optimisation, EI | 36 / 34 / 27 | 0.46 / 0.87 / 0.44 | 4.8 |
+| Bayesian optimisation, EI, gradient-enhanced | 17 / 31 / 22 | 0.33 / 0.13 / 0.20 | 7.2 |
+| Nelder–Mead | – / – / 38 | 35 / 42 / 4.1 | 4.5 |
+| differential evolution | – / – / – | 337 / 779 / 285 | 4.5 |
+| L-BFGS-B (random start) | – / – / – | 3360 / 3100 / 410 | 6.5 |
 
-At the best points the gradient-enhanced BO is within 0.04 nm in CD, 0.13–0.20 nm in height and
-0.04–0.09° in angle, plain BO within 0.09 nm, 0.08–0.23 nm and 0.03–0.19°; the BO runs remeshed
-10–22 times (the initial designs fill the box).
+At the best points the gradient-enhanced BO is within 0.03–0.05 nm in CD, 0.16–0.29 nm in height
+and 0.05–0.08° in angle, plain BO within 0.04–0.13 nm, 0.14–0.31 nm and 0.03–0.07°; the BO runs
+remeshed 11–21 times (the initial designs fill the box).
 
-**Assessment.** Gradient-enhanced BO reaches the noise level in fewer evaluations on two of three
-seeds (16 and 22 against 39 and 30; on seed 1 the plain one is faster, 26 against 31) and ends
-2–4 times lower in $F$ on all three. An evaluation with the Jacobian costs about 1.7 times one
+**Assessment.** Gradient-enhanced BO reaches the noise level in fewer evaluations on all three
+seeds (17 / 31 / 22 against 36 / 34 / 27; before #156 the plain one was faster on seed 1) and
+ends 1.4–6.6 times lower in $F$. An evaluation with the Jacobian costs about 1.5 times one
 without, so in wall time the two are close up to the noise level and the gradients pay off in
-the final accuracy. The local gradient method alone is fast when it starts in the basin (seed 1:
-the noise level in 27 evaluations, $F = 0.38$) but stops at a corner of the box from two of three
-random starts; Nelder–Mead and differential evolution are far from the goal after 40
-evaluations (differential evolution needs a population of tens per generation). No method
-reached $F \le 0.06$ within 40 evaluations. The study is small (three seeds, one problem, one
-budget) and the per-evaluation times include the contention of three parallel processes; it
-supports the plan of S3/S5 — a global surrogate stage, with gradients where the evaluator
-provides them, before a local least-squares fit — rather than proving a general ranking.
+the final accuracy. The local gradient method alone stops at a corner of the box from all three
+random starts (after 14, 14 and 28 evaluations); before #156 one of the three started in the
+basin and reached the noise level in 27 evaluations. Nelder–Mead and differential evolution are
+far from the goal after 40 evaluations (differential evolution needs a population of tens per
+generation). No method reached $F \le 0.06$ within 40 evaluations. The study is small (three
+seeds, one problem, one budget); it supports the plan of S3/S5 — a global surrogate stage, with
+gradients where the evaluator provides them, before a local least-squares fit — rather than
+proving a general ranking.
 
 ## I. The DWR estimate as fidelity indicator (M16 S8)
 
@@ -748,8 +749,10 @@ the same five data sets with `opt.fit` (least squares from the start geometry 11
 The bias of a strategy is measured *paired*: the shift of its estimate against the p = 4 fit of
 the same data set, averaged over the seeds (the noise realisation cancels; the spread of the
 shift over the seeds is below a third of its mean for CD and angle at p = 2). Driver
-`benchmarks/opt_validation.py dwr`, record `benchmarks/results/2026-10-10-validation-opt-dwr.json`.
-Data, model and reference share the PML of section H (before #156).
+`benchmarks/opt_validation.py dwr`, record
+`benchmarks/results/2026-11-06-validation-opt-dwr-server.json` (code after #156, the server of
+section H, 6 threads). The first run before #156 (`2026-10-10-validation-opt-dwr.json`) agrees
+to within 0.1 standard deviation in every shift below and picks the same order.
 
 **Effectivity.** At the truth on the morphed start mesh, the signed DWR estimate
 (`conical_dwr_estimate` of the order functional) against the true error (p = 5 on the same
@@ -757,33 +760,34 @@ mesh), largest over the six observables:
 
 | p | largest true error | largest estimate | after subtracting the estimate | largest $\eta$ at the start |
 |---|---|---|---|---|
-| 2 | $1.73\cdot10^{-3}$ | $1.71\cdot10^{-3}$ | $2.8\cdot10^{-4}$ | $2.96\cdot10^{-3}$ |
-| 3 | $2.80\cdot10^{-4}$ | $2.01\cdot10^{-4}$ | $7.9\cdot10^{-5}$ | $1.98\cdot10^{-4}$ |
-| 4 | $7.86\cdot10^{-5}$ | $7.86\cdot10^{-5}$ | $1.9\cdot10^{-8}$ | $7.97\cdot10^{-5}$ |
+| 2 | $1.61\cdot10^{-3}$ | $1.58\cdot10^{-3}$ | $2.7\cdot10^{-4}$ | $2.67\cdot10^{-3}$ |
+| 3 | $2.64\cdot10^{-4}$ | $1.85\cdot10^{-4}$ | $8.0\cdot10^{-5}$ | $1.93\cdot10^{-4}$ |
+| 4 | $7.95\cdot10^{-5}$ | $7.95\cdot10^{-5}$ | $1.9\cdot10^{-8}$ | $8.29\cdot10^{-5}$ |
 
-The sign is right for every observable; the estimate captures 69–99 % of the error at p = 3 and
-all of it at p = 4, so subtracting it gains a factor 6, 4 and 4000. The bound $\sum_K |r_K|$
-overestimates by 1.7 to $10^3$ and is no stopping criterion. With κσ = $2\cdot10^{-4}$ the rule
-selects p = 3 at the start geometry.
+The sign is right for every observable at p = 3 and 4 and for five of six at p = 2 (the sixth has
+a true error of $5\cdot10^{-5}$, a thirtieth of the largest); for the observables with the larger
+errors the estimate captures 67–105 % of the error at p = 3 and all of it at p = 4, so
+subtracting it gains a factor 6, 3 and 4000. The bound $\sum_K |r_K|$ overestimates by 1.7 to
+700 and is no stopping criterion. With κσ = $2\cdot10^{-4}$ the rule selects p = 3 at the start
+geometry (largest $\eta$ $1.93\cdot10^{-4}$, just below).
 
 **Fits.**
 
 | strategy | shift against p = 4: CD / height / angle | same, in the fit's std | rms deviation from the truth, in std | within 2 std | evaluations | median time per fit |
 |---|---|---|---|---|---|---|
-| p = 2 | +0.170 nm / +0.071 nm / −0.126° | 0.68 / 0.16 / −0.42 | 0.87 / 0.85 / 0.53 | 15 of 15 | 10.4 | 81 s |
-| p = 2, $\sigma^2 + \eta^2$ as noise | +0.149 nm / −0.086 nm / −0.069° | 0.59 / −0.17 / −0.22 | 0.80 / 0.95 / 0.61 | 15 of 15 | 9.8 | 151 s |
-| p = 3 (the DWR rule) | +0.028 nm / −0.002 nm / −0.021° | 0.11 / −0.01 / −0.07 | 0.77 / 0.95 / 0.78 | 15 of 15 | 10.2 | 284 s |
-| p = 4 (reference) | 0 | 0 | 0.80 / 0.95 / 0.84 | 15 of 15 | 11.4 | 800 s |
+| p = 2 | +0.154 nm / +0.039 nm / −0.100° | 0.62 / 0.09 / −0.33 | 0.85 / 0.81 / 0.54 | 15 of 15 | 10.2 | 90 s |
+| p = 2, $\sigma^2 + \eta^2$ as noise | +0.144 nm / −0.084 nm / −0.061° | 0.56 / −0.17 / −0.20 | 0.77 / 0.96 / 0.62 | 15 of 15 | 11.2 | 93 s |
+| p = 3 (the DWR rule) | +0.024 nm / +0.023 nm / −0.024° | 0.10 / 0.05 / −0.08 | 0.77 / 0.93 / 0.78 | 15 of 15 | 10.6 | 195 s |
+| p = 4 (reference) | 0 | 0 | 0.80 / 0.95 / 0.84 | 15 of 15 | 10.6 | 525 s |
 
-(The rule's fits repeat the p = 3 computation and agree with it to $10^{-7}$; the median times
-are from a workstation shared with other jobs and indicate the ratio only, the record has every
-run.)
+(The rule's fits repeat the p = 3 computation and agree with it to $10^{-7}$; the record has
+every run.)
 
 **Assessment.** The premises hold on this problem. The estimate is accurate enough to choose
-the order: the rule picks p = 3 and the bias there is 0.11 std in CD and below 0.1 std in the
-other parameters — the size κ = 0.1 promises — at a third of the cost of p = 4. At p = 2, where
-$\eta$ reaches 1.5σ, the bias is 0.68 std in CD and 0.42 std in angle. Adding $\eta^2$ to the
-noise variance does not remove it (0.59 / 0.22 std): it widens the error bars by at most 13 %
+the order: the rule picks p = 3 and the bias there is 0.10 std in CD and below 0.1 std in the
+other parameters — the size κ = 0.1 promises — at about a third of the cost of p = 4. At p = 2,
+where $\eta$ reaches 1.3σ, the bias is 0.62 std in CD and 0.33 std in angle. Adding $\eta^2$ to
+the noise variance does not remove it (0.56 / 0.20 std): it widens the error bars by at most 13 %
 and reweights the observables, but a systematic error stays a shift — the reason ADR-0012
 gives for not doing so. The bias at p = 2 is invisible in the usual diagnostics: all strategies
 cover the truth within 2 std in every run and their rms deviations are alike, because the noise
@@ -920,16 +924,31 @@ evaluations into the budget against 82–85 / 32–33 under load, `dwr_screened`
 to the MF-KG runs (27 evaluations against 17–19). The columns compare strategies under similar
 but not identical conditions; the ranking below is larger than this effect.
 
+The study was repeated on a server (two AMD EPYC 9015, 16 cores; the same driver and versions,
+three processes with 4 threads, record `2026-11-06-validation-opt-mf-server.json`):
+
+| strategy | $F$ at p = 4 (seeds 0 / 1 / 2) | evaluations p = 2 + p = 3 | wall time per run |
+|---|---|---|---|
+| `sf_p2` | 0.82 / 1.11 / 0.87 | 82 / 84 / 85 | 7 min |
+| `sf_p3` | 83 / 3.8 / 0.57 | 27 / 28 / 28 | 7 min |
+| `mf_kg` | 84 / 244 / 185 | 38+13 / 26+17 / 33+14 | 50–55 min |
+| `dwr_screened` | 1220 / 426 / 460 | 7+4 / 9+3 / 9+3 | 7 min |
+
+A p = 3 solve took 14.6 s there against 12.4 s on the workstation, so `sf_p3` fitted fewer
+evaluations into the budget and reached the truth on one seed only (0.13 nm, 0.01 nm, 0.00°);
+`sf_p2` found the same optima as on the workstation (seeds 0 and 1: the same recommendation).
+No multi-fidelity run beats the best single-fidelity run of its seed on either machine.
+
 **Assessment.** At this budget neither multi-fidelity strategy beats single-fidelity BO; the
 hypothesis of ADR-0012 §6 is not confirmed for the optimisation, only for the choice of the
 order (section I).
 
 - *DWR screening* fails on cost: the estimate needs an adjoint solve per efficiency, and p = 2
-  with six estimates costs 1.4–1.7 times a p = 3 solve (18–21 s against 12.4 s under the same
-  load, from the counts). The screened evaluator therefore made
-  17–27 evaluations against 32–53 of `sf_p3`, too few to leave the initial design
-  (2(d + 1) = 8 points) far behind; the screening itself worked (12–19 of the points kept their
-  p = 2 values). It would pay where the observables are few and the solve dominates, or with an
+  with six estimates costs 1.4–1.7 times a p = 3 solve on the workstation and 2.1–2.2 times on
+  the server (from the counts: 18–21 s against 12.4 s, 31 s against 14.6 s). The screened
+  evaluator therefore made 17–27 evaluations (11–12 on the server) against 27–53 of `sf_p3`, too
+  few to leave the initial design (2(d + 1) = 8 points) far behind; the screening itself worked
+  (most points kept their p = 2 values). It would pay where the observables are few and the solve dominates, or with an
   estimate shared between the functionals.
 - *MF-KG* spends most evaluations at p = 2 (36–59 of 62–77) and its best p = 3 value stalls
   after about 130 s; only the final posterior-mean recommendation improves it (seed 1:
@@ -937,15 +956,59 @@ order (section I).
   separately: the p = 2 objective has its minimum elsewhere than p = 3 (the bias above), which
   the multi-fidelity kernel has to learn from few p = 3 points; and the GP models $F$ over four
   decades directly. Its acquisition (knowledge gradient with fantasies) costs 72–93 min of wall
-  time per run against 400 s of solving, so on this problem it is slower by an order of
+  time per run on the workstation and 43–48 min on the server against 400 s of solving, so on this problem it is slower by an order of
   magnitude in wall time as well.
 - *Single fidelity:* p = 2 converges reliably to its own biased optimum (0.2 nm, 0.2°, inside
-  the Laplace uncertainty of section I but systematic); p = 3 reaches the truth to 0.04 nm when
-  it finds the basin and is caught in a side basin on one of three seeds. A p = 2 search followed
+  the Laplace uncertainty of section I but systematic, identical on both machines); p = 3
+  reaches the truth to 0.04 nm when it finds the basin, but with 27–53 evaluations it misses the
+  basin on one seed of three on the workstation and two of three on the server. A p = 2 search followed
   by a p = 3 refinement (the plan of S3/S5, global surrogate then local least squares at the
   order the DWR rule picks) uses the strengths of both.
 
 Not tested: larger budgets (an MF-KG advantage typically shows when the cheap level is much
 cheaper than here, where p = 3 costs 2.3–2.6 times p = 2), the DWR estimate subtracted from
-the p = 2 values (section I: a factor 6 in the error), and other problems. A rerun on a
-dedicated server (no parallel load, larger budget) is planned and will be added to the record.
+the p = 2 values (section I: a factor 6 in the error), and other problems.
+
+## L. Gradient-based against gradient-free optimisation of a metasurface deflector (M16 S8)
+
+**Problem.** A TiO₂ ridge (trapezoid) on fused silica, period 500 nm, illuminated from the
+air at 600 nm under 36.87° — the Littrow angle of the −1 order in air — so that the cell deflects
+the transmitted light into the −1 order in the glass. Objective: maximise the mean $\bar T_{-1} = (T_{-1}^s + T_{-1}^p)/2$ of
+the −1 transmission efficiency for s and p (polarisation-independent deflection) over the width
+CD ∈ [60, 400] nm, the height ∈ [150, 600] nm and the side-wall angle ∈ [80°, 90°]. The
+structured unit-cell mesh (a column line bent onto the side wall, 20 nm rows) is built at the
+tallest ridge, morphed exactly and remeshed when the quality guard trips; p = 2 (at the start geometry p = 2
+and p = 4 differ by less than $5\cdot10^{-4}$ in the efficiencies, the energy balance closes to
+$10^{-4}$). The landscape has two maxima, $\bar T_{-1} \approx 0.92$ near (166 nm, 287 nm) and
+$\approx 0.68$ near (285 nm, 500 nm), and is about 0.5 at the height bound. The five
+methods of section H, 40 evaluations, seeds 0–2 (random starts in the box for the local methods).
+Driver `benchmarks/opt_validation.py meta`, record
+`benchmarks/results/2026-11-06-validation-opt-meta-server.json` (the server of section H, 6
+threads, next to the study of section H).
+
+| method | best $\bar T_{-1}$ (seeds 0 / 1 / 2) | evaluations to within 0.01 of the best | s per evaluation |
+|---|---|---|---|
+| Bayesian optimisation, EI | 0.9144 / 0.9160 / 0.9144 | 22 / 26 / 17 | 2.3 |
+| Bayesian optimisation, EI, gradient-enhanced | 0.9153 / 0.9161 / 0.9161 | 22 / 15 / 21 | 6.1 |
+| Nelder–Mead | 0.682 / 0.447 / 0.915 | – / – / 30 | 2.2 |
+| differential evolution | 0.820 / 0.882 / 0.866 | – / – / – | 2.3 |
+| L-BFGS-B (random start) | 0.503 / 0.470 / 0.470 | – / – / – | 6.5 |
+
+The best value any run found is 0.9161 at CD 166.0 nm, height 287.4 nm, 88.5° (the
+gradient-enhanced BO of seeds 1 and 2, which agree to 0.1 nm); plain BO ends within
+$1.7\cdot10^{-3}$ of it, twice at the vertical-wall bound (90°, 167.6 nm, 286.9 nm). The BO runs
+remeshed 16–35 times, differential evolution 37–38 times; one evaluation of all runs
+failed.
+
+**Assessment.** Both BO variants find the global maximum on all three seeds, in 15–26
+evaluations to within 0.01. On this landscape the gradients do not shorten the search (to within
+0.01: 22 / 15 / 21 against 22 / 26 / 17) and cost 2.6 times as much per evaluation (two
+polarisations, four orders each, adjoint per order), but they place the final point more
+precisely (all three within $8\cdot10^{-4}$ of the best against $1.7\cdot10^{-3}$). The local
+methods depend on the start: Nelder–Mead reaches the global maximum from one start of three and
+stops on the second maximum (0.68) from another, L-BFGS-B climbs to the height bound (600 nm)
+from all three random starts and stops there after 12–15 evaluations. Differential evolution
+gets within 0.05 on two seeds but not within 0.01 in 40 evaluations. Together with section H:
+a global surrogate stage is needed on multimodal design problems, and gradient enhancement
+pays where a least-squares objective sharpens the minimum (H) more than where a smooth maximum
+is to be found (L). Three seeds, one cell, one budget.

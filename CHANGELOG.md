@@ -3,6 +3,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- M16 S8 validation complete (`docs/validation.md`, server runs, issue #202): metasurface deflector
+  (section L, TiO₂ ridge maximising the −1 transmission for s and p: both BO variants find the
+  global maximum on every seed, Nelder–Mead and L-BFGS-B depend on the start); sections H and I
+  rerun after the PML fix #156 (same conclusions; gradient-enhanced BO now faster to the noise
+  level on all three seeds); section K repeated on the server (no multi-fidelity gain).
 - Multi-fidelity validation study (M16 S8, `docs/validation.md` K): single-fidelity BO at p = 2
   and p = 3, BoTorch's multi-fidelity knowledge gradient and BO with DWR screening under the same
   budget of solve time on the Si grating; neither multi-fidelity strategy beats single-fidelity
