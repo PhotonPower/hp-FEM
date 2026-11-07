@@ -45,8 +45,8 @@ ScatteringSetup<2> strip_setup(Real k0, Index num_modes) {
   ScatteringSetup<2> setup;
   setup.omega = k0 * hpfem::constants::c0;
   setup.pec_tags = {box_tag::kYMin, box_tag::kYMax};
-  setup.ports = {WaveguidePort{box_tag::kXMin, num_modes, {}},
-                 WaveguidePort{box_tag::kXMax, num_modes, {}}};
+  setup.ports = {WaveguidePort{box_tag::kXMin, num_modes, {}, {}},
+                 WaveguidePort{box_tag::kXMax, num_modes, {}, {}}};
   return setup;
 }
 
@@ -307,6 +307,36 @@ TEST_CASE("3D port modes of the rectangular waveguide: TE10 with the analytic be
   REQUIRE_THROWS_AS(port.profile(0, 0.5), hpfem::InvalidArgument);
 }
 
+TEST_CASE("3D port on a symmetry plane: the rim is PMC on the pmc_tags facets",
+          "[physics][port][3d]") {
+  // half of the a x b guide, x in [0, a/2]: with PMC at x = a/2 the section carries the TE10
+  // of the full guide (beta for width a); an all-PEC rim would make it a guide of width a/2
+  // with nothing guided at this k0
+  const Real a = 2.0;
+  const Real b = 1.0;
+  const Real k0 = 2.5;
+  const Mesh<3> mesh = hpfem::mesh::box(3, 3, 2, Point<3>(0.0, 0.0, 0.0), Point<3>(a / 2, b, 1.0));
+  const NedelecDofMap<3> dofs(mesh, 2);
+  hpfem::materials::MaterialMap materials;
+  const Real omega = k0 * hpfem::constants::c0;
+  const PortModes<3> half(dofs, box_tag::kZMin, materials, omega, 1, 2, {box_tag::kXMax});
+  REQUIRE(half.num_modes() == 1);
+  const Real beta = std::sqrt(k0 * k0 - (std::numbers::pi / a) * (std::numbers::pi / a));
+  REQUIRE(half.modes()[0].beta.real() == Approx(beta).epsilon(2e-3));
+  // E_y is largest on the magnetic wall and vanishes on the electric one
+  const auto wall = half.transverse_field(0, Point<3>(a / 2, b / 2, 0.0));
+  const auto mid = half.transverse_field(0, Point<3>(a / 4, b / 2, 0.0));
+  REQUIRE(wall(1).real() > 0.0);
+  REQUIRE(mid(1).real() == Approx(wall(1).real() * std::sin(std::numbers::pi / 4)).epsilon(2e-2));
+  // the port tag cannot be a magnetic wall of itself; 2D ports have no magnetic rim
+  REQUIRE_THROWS_AS(PortModes<3>(dofs, box_tag::kZMin, materials, omega, 1, 2, {box_tag::kZMin}),
+                    hpfem::InvalidArgument);
+  const Mesh<2> square = hpfem::mesh::rectangle(2, 2);
+  const NedelecDofMap<2> dofs2(square, 2);
+  REQUIRE_THROWS_AS(PortModes<2>(dofs2, box_tag::kXMin, materials, 1.0, 1, 2, {box_tag::kYMax}),
+                    hpfem::NotImplemented);
+}
+
 TEST_CASE("3D straight rectangular waveguide: S21 = e^{i beta L}, no reflection",
           "[physics][port][3d]") {
   const Real a = 2.0;
@@ -318,7 +348,8 @@ TEST_CASE("3D straight rectangular waveguide: S21 = e^{i beta L}, no reflection"
   ScatteringSetup<3> setup;
   setup.omega = k0 * hpfem::constants::c0;
   setup.pec_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin, box_tag::kYMax};
-  setup.ports = {WaveguidePort{box_tag::kZMin, 1, {}}, WaveguidePort{box_tag::kZMax, 1, {}}};
+  setup.ports = {WaveguidePort{box_tag::kZMin, 1, {}, {}},
+                 WaveguidePort{box_tag::kZMax, 1, {}, {}}};
   const auto s = s_parameters<3>(dofs, setup);
   REQUIRE(s.channels.size() == 2);
   const Real beta = s.channels[0].beta.real();

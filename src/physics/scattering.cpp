@@ -144,7 +144,7 @@ Scattering<Dim>::Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringS
     }
     for (const WaveguidePort& port : setup_.ports) {
       port_modes_.emplace_back(*dofs_, port.facet_tag, setup_.materials, setup_.omega,
-                               port.num_modes, setup_.extra_quadrature_order);
+                               port.num_modes, setup_.extra_quadrature_order, port.pmc_tags);
     }
   }
 }

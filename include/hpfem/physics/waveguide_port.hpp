@@ -30,7 +30,8 @@
 ///
 /// **3D**: the port facets form a planar cross-section, extracted as a 2D mesh in the frame
 /// @f$ (t_1, t_2, n) @f$ (right-handed, n outward), whose guided modes come from
-/// `PropagatingMode` (PEC rim, materials and orders of the inside cells; propagating modes
+/// `PropagatingMode` (PEC rim, PMC where the rim lies on a symmetry plane listed in
+/// `WaveguidePort::pmc_tags`; materials and orders of the inside cells; propagating modes
 /// only). For a mode @f$ (E_t + \hat n E_z)e^{i\beta\xi} @f$ the transverse curl is
 /// @f$ (\nabla\times E)_t = (\nabla_tE_z - i\beta E_t)\times\hat n @f$, so
 /// @f$ \hat w_m = \hat n\times w = (\nabla_tE_z - i\beta E_t)/\mu_r @f$ and
@@ -57,6 +58,13 @@ struct WaveguidePort {
   /// ones with the slowest decay; more modes absorb more of the near field at the port.
   Index num_modes = 1;
   std::vector<Complex> incident;  ///< incoming amplitudes per mode (missing entries are 0)
+  /// 3D: boundary facet tags of magnetic walls (symmetry planes, natural boundary of the
+  /// volume problem) that the port touches. Rim edges of the cross-section on facets with
+  /// these tags are natural (PMC) in the mode solver, the rest of the rim stays PEC; with a
+  /// symmetry plane through the guide the port then carries the modes whose tangential
+  /// electric field is even about the plane (TE-like for the mid-plane of a strip waveguide
+  /// in a symmetric cladding). Empty: the whole rim is PEC.
+  std::vector<mesh::Tag> pmc_tags;
 };
 
 /// One mode of a port cross-section. Unit amplitude: in 2D the profile h is B-normalised,
@@ -87,13 +95,15 @@ class PortModes {
  public:
   /// Solves the cross-section problem of the facets tagged `facet_tag` with the materials of
   /// their inside cells at ω and keeps `num_modes` modes (3D: at most the guided ones).
-  /// Quadrature on the port of degree 2p + `extra_order`.
+  /// Quadrature on the port of degree 2p + `extra_order`. `pmc_tags`: see
+  /// `WaveguidePort::pmc_tags` (3D only).
   /// @throws InvalidArgument for a tag without boundary facets, a lossy material on the
-  ///         port, facets not on one straight line (2D) / plane (3D), ω ≤ 0 or
-  ///         num_modes < 1; Error if the 3D mode solver does not converge.
+  ///         port, facets not on one straight line (2D) / plane (3D), ω ≤ 0, num_modes < 1
+  ///         or the port tag among `pmc_tags`; NotImplemented for `pmc_tags` in 2D; Error if
+  ///         the 3D mode solver does not converge.
   PortModes(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag facet_tag,
             const materials::MaterialMap& materials, Real omega, Index num_modes,
-            int extra_order = 2);
+            int extra_order = 2, const std::vector<mesh::Tag>& pmc_tags = {});
 
   [[nodiscard]] const std::vector<PortMode>& modes() const noexcept { return modes_; }
   [[nodiscard]] Index num_modes() const noexcept { return static_cast<Index>(modes_.size()); }
@@ -141,7 +151,8 @@ class PortModes {
   void build_2d(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag facet_tag,
                 const materials::MaterialMap& materials, Index num_modes, int extra_order);
   void build_3d(const fespace::NedelecDofMap<Dim>& dofs, mesh::Tag facet_tag,
-                const materials::MaterialMap& materials, Index num_modes, int extra_order);
+                const materials::MaterialMap& materials, Index num_modes, int extra_order,
+                const std::vector<mesh::Tag>& pmc_tags);
   /// Values and s-derivatives of the 1D basis of a segment at s.
   void basis(const Segment& seg, Real s, std::vector<Real>& values,
              std::vector<Real>& derivatives) const;

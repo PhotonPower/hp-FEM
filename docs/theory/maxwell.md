@@ -483,6 +483,16 @@ about the port centre for modes with vanishing mean), again independent of the p
 orientation. The modes' unit amplitude is the unit 2-norm of the `PropagatingMode`
 coefficients; the S-parameters are power-normalised and do not depend on it.
 
+**Symmetry planes.** A device with a mirror plane whose excitation is even in the tangential
+electric field about it (TE-like modes of strip waveguides in a symmetric cladding about the
+mid-plane of the core) has $n\times H = 0$ there: half the domain with the plane as a natural
+boundary of the volume problem (not in `pec_tags`) carries the same solution. Its ports must
+then be magnetic along the plane too: `WaveguidePort::pmc_tags` lists the facet tags of such
+planes, and the rim edges of the cross-section that lie on a facet with one of these tags
+(both end vertices on one facet) are left natural in the mode solver; the rest of the rim
+stays PEC. The half-domain modes carry half the power of the full ones, the power-normalised
+S-parameters are those of the full device. 2D ports refuse `pmc_tags` (`NotImplemented`).
+
 **Verification** (`tests/unit/physics/test_waveguide_port.cpp`,
 `tests/convergence/waveguide_port.cpp`): the port modes of the PEC parallel plate are
 $\cos(n\pi s/a)$ with $\beta_n = \sqrt{k_0^2 - (n\pi/a)^2}$ ($10^{-6}$ at $p = 4$, evanescent
@@ -500,7 +510,12 @@ $\beta = \sqrt{k_0^2 - (\pi/a)^2}$ ($2\cdot10^{-3}$ at $p = 2$ on the coarse sec
 mode field $\propto\hat y\sin(\pi x/a)$ with the same sign on both ports, and the section of
 length 2 transmits with $S_{21} = e^{i\beta L}$: on a fixed $4\times2\times4$ box the error of
 $S_{21}$ decays $4\cdot10^{-2}$, $3.7\cdot10^{-3}$, $6.8\cdot10^{-5}$ and $|S_{11}|$
-$4\cdot10^{-2}$, $3.6\cdot10^{-4}$, $1.7\cdot10^{-6}$ for $p = 1, 2, 3$.
+$4\cdot10^{-2}$, $3.6\cdot10^{-4}$, $1.7\cdot10^{-6}$ for $p = 1, 2, 3$. The half guide
+$x\in[0, a/2]$ with a magnetic wall at $x = a/2$ (natural in the volume, `pmc_tags` on both
+ports) carries the same TE$_{10}$ (its field is even about the plane): on a $2\times2\times4$
+box the error of $S_{21}$ decays $4.1\cdot10^{-2}$, $3.6\cdot10^{-3}$, $6.6\cdot10^{-5}$, of
+$\beta$ $1.1\cdot10^{-2}$, $1.7\cdot10^{-5}$, $2.3\cdot10^{-7}$ for $p = 1, 2, 3$; with the
+all-PEC rim the half section would be a guide of width $a/2$, cut off at this $k_0$.
 
 ## Conical incidence and the E_z polarisation (`physics/conical_scattering.hpp`)
 
