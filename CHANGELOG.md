@@ -3,6 +3,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- M17 S3 validation on a plasmonic film (`docs/theory/maxwell.md` "Stage B", server run, record
+  `benchmarks/results/2026-11-07-validation-m17-silver-server.json`): a dipole in a dielectric 80 nm
+  above silver by array scanning with the lossy surface-plasmon poles (844 poles, 18380 cell
+  problems at p = 4, 65 h) against the layered Sommerfeld integral: Purcell factor to 3e-4, upward
+  power to 1.3e-4, quenched power to 2e-3 relative. Closes M17 S3.
 - `examples/ring_resonator_3d` (M12 stage B, driver): the add-drop SOI ring in 3D between four
   modal ports on a curved Gmsh mesh (`ring_mesh.py`, variable order near the cores), the
   resonance as the common pole of the through and drop amplitudes (`fit_pole`), the isolated
