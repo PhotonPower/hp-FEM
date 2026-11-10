@@ -469,7 +469,7 @@ radiated power into cover and substrate per direction, guided and absorbed power
 - [x] S2: `grating.emission_pattern` by reciprocity (angle-resolved emission: one solve per
   direction and polarisation, cover and substrate, normalised to P_bulk; checked against the
   homogeneous and the Fresnel closed forms and against Stage A; written by `opt-jobs`)
-- [ ] S3 (ongoing): `grating.dipole_emission` (array scanning, guided-mode poles, parallel samples on
+- [x] S3: `grating.dipole_emission` (array scanning, guided-mode poles, parallel samples on
   ConicalSweep, cost estimate before the run); tests: mirror, planar multilayer (Sommerfeld),
   period independence, plasmonic film, reciprocity against S2. Done: the kx integral on the
   complex contour of ADR-0013 §3a with the analytic Bloch elimination
@@ -483,8 +483,10 @@ radiated power into cover and substrate per direction, guided and absorbed power
   `emission_cost`; a dipole above a perfect mirror against the image dipole (F_P to 6e-4, all
   power up); the lossy surface-plasmon poles with graded β panels towards their pinch (checked on
   the analytic spectrum of a dipole above silver); parallel samples (`workers`, threads in one
-  process). Open: the FEM validation of the plasmonic film against the layered Sommerfeld
-  integral (`benchmarks/m17_dipole_scan.py --cases silver`, a long local run)
+  process; the FEM validation of the plasmonic film against the layered Sommerfeld integral
+  (`benchmarks/m17_dipole_scan.py --cases silver`, server run of 65 h, record
+  `2026-11-07-validation-m17-silver-server.json`): a dipole in n = 1.5 80 nm above silver, F_P to
+  3e-4, up to 1.3e-4, the quenched rest to 2e-3 relative at p = 4)
 - [x] S4: job-runner task `emitter` (schema 2) with events, cancellation and the cost estimate
   before the run (`grating.emission_cost`, `dry_run`), extraction into a numerical aperture
   (`grating.emission_cone`); docs (maxwell.md "Stage B", python.md), example
