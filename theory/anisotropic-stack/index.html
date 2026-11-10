@@ -1,0 +1,1731 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/theory/anisotropic-stack/">
+      
+      
+        <link rel="prev" href="../materials/">
+      
+      
+        <link rel="next" href="../../python/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+    
+    
+      
+        <title>Anisotropic layer stacks - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#anisotropic-layer-stacks" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Anisotropic layer stacks
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../materials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Materials and anisotropy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anisotropic layer stacks
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anisotropic layer stacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-44-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The 4×4 system
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#subspaces-instead-of-eigenvectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subspaces instead of eigenvectors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#substrate-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Substrate modes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-stack-as-layered-background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The stack as layered background
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mode-resolved-diffraction-orders" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode-resolved diffraction orders
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modal-transparent-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modal transparent boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#crystal-stacks-in-hpfemgrating" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Crystal stacks in hpfem.grating
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-dipole-above-the-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A dipole above the stack
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-44-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The 4×4 system
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#subspaces-instead-of-eigenvectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subspaces instead of eigenvectors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#substrate-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Substrate modes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-stack-as-layered-background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The stack as layered background
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mode-resolved-diffraction-orders" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode-resolved diffraction orders
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modal-transparent-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modal transparent boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#crystal-stacks-in-hpfemgrating" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Crystal stacks in hpfem.grating
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-dipole-above-the-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A dipole above the stack
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="anisotropic-layer-stacks">Anisotropic layer stacks</h1>
+<p>Plane-wave reflection and transmission of planar stacks with crystal layers and a crystal
+substrate (<code>physics::AnisotropicStack</code>, <code>include/hpfem/physics/anisotropic_stack.hpp</code>; decision
+record <a href="../../adr/0015-anisotropic-materials/">ADR-0015 §5</a>, milestone M19 S4). Conventions as
+everywhere: time dependence <span class="arithmatex">\(e^{-i\omega t}\)</span>, a lossy medium has a positive semi-definite
+<span class="arithmatex">\(\operatorname{Im}\varepsilon\)</span>; laboratory frame with <span class="arithmatex">\(z\)</span> the layer normal
+(<a href="../materials/">materials.md</a>). The wave comes from an isotropic, lossless incidence medium
+above the top interface and travels towards <span class="arithmatex">\(-z\)</span>. The isotropic <code>LayerStack</code>
+(<a href="../maxwell/#layered-background">maxwell.md</a>) stays the fast path of the solvers and the
+reference of the isotropic case.</p>
+<h2 id="the-44-system">The 4×4 system</h2>
+<p>With the in-plane wavevector <span class="arithmatex">\(k_0(a, b)\)</span> fixed by the incidence, every field in a homogeneous
+region is <span class="arithmatex">\(F(z)\,e^{ik_0(ax + by)}\)</span>. Write <span class="arithmatex">\(\tilde H = Z_0H\)</span>, so that
+<span class="arithmatex">\(\nabla\times E = ik_0\tilde H\)</span> and <span class="arithmatex">\(\nabla\times\tilde H = -ik_0\varepsilon E\)</span>. The <span class="arithmatex">\(z\)</span> rows are
+algebraic,
+$$
+\tilde H_z = aE_y - bE_x, \qquad
+E_z = \frac{-(a\tilde H_y - b\tilde H_x) - \varepsilon_{zx}E_x - \varepsilon_{zy}E_y}{\varepsilon_{zz}},
+$$
+(this needs <span class="arithmatex">\(\varepsilon_{zz} \ne 0\)</span>; an epsilon-near-zero <span class="arithmatex">\(\varepsilon_{zz}\)</span> is refused), and the
+tangential field <span class="arithmatex">\(\psi = (E_x, E_y, \tilde H_x, \tilde H_y)\)</span> obeys the Berreman system
+(Berreman 1972, Yeh 1979)
+$$
+\psi' = ik_0K\psi, \qquad
+\begin{aligned}
+E_x' &amp;= ik_0(\tilde H_y + aE_z), &amp; E_y' &amp;= ik_0(bE_z - \tilde H_x),\
+\tilde H_x' &amp;= ik_0\big(a\tilde H_z - (\varepsilon E)_y\big), &amp;
+\tilde H_y' &amp;= ik_0\big(b\tilde H_z + (\varepsilon E)_x\big).
+\end{aligned}
+$$
+<code>AnisotropicStack::berreman_matrix</code> builds <span class="arithmatex">\(K\)</span> column by column from this linear map. Its
+eigenvalues are the normalised vertical wavenumbers <span class="arithmatex">\(q = k_z/k_0\)</span>; for an isotropic medium they
+are <span class="arithmatex">\(\pm\sqrt{\varepsilon - a^2 - b^2}\)</span>, each twice. The power flux along <span class="arithmatex">\(z\)</span> is
+<span class="arithmatex">\(2Z_0S_z = \operatorname{Re}(E_x\bar{\tilde H}_y - E_y\bar{\tilde H}_x)\)</span>.</p>
+<h2 id="subspaces-instead-of-eigenvectors">Subspaces instead of eigenvectors</h2>
+<p>The eigenvectors of <span class="arithmatex">\(K\)</span> are not a reliable basis: every isotropic region is doubly degenerate,
+an optic axis near <span class="arithmatex">\(z\)</span> or near-normal incidence makes individual eigenvectors ill-conditioned
+(the eigenvector matrix of a degenerate region can be numerically singular), and absorbing
+biaxial media have <strong>Voigt (exceptional) points</strong> where <span class="arithmatex">\(K\)</span> is defective. The stack therefore
+uses, per region, two <strong>ordered complex Schur forms</strong> <span class="arithmatex">\(K = UTU^H\)</span> (LAPACK <code>ztrexc</code>-style Givens
+swaps of adjacent diagonal entries): one with the two upward eigenvalues first, one with the two
+downward ones first. The leading two columns of <span class="arithmatex">\(U\)</span> are an orthonormal basis <span class="arithmatex">\(W_u\)</span> (resp. <span class="arithmatex">\(W_d\)</span>)
+of the upward (downward) invariant subspace, and the leading <span class="arithmatex">\(2\times2\)</span> block <span class="arithmatex">\(T_u\)</span> (<span class="arithmatex">\(T_d\)</span>) is
+<span class="arithmatex">\(K\)</span> on that subspace, upper triangular. Both stay well defined under degeneracy and at a
+defective point.</p>
+<p><strong>Up and down.</strong> An eigenvalue is upward if <span class="arithmatex">\(\operatorname{Im}q &gt; 0\)</span> (decaying upwards:
+evanescent or absorbing); for <span class="arithmatex">\(\operatorname{Im}q = 0\)</span> (propagating in a lossless medium) by the
+sign of <span class="arithmatex">\(S_z\)</span> of its eigenvector — the only use of eigenvectors, and a sign does not suffer from
+their conditioning. A region without two modes of each kind (grazing, <span class="arithmatex">\(k_z = 0\)</span>) is refused.</p>
+<p><strong>Propagation.</strong> In region <span class="arithmatex">\(j\)</span> of thickness <span class="arithmatex">\(d\)</span> the upward amplitudes are referred to its bottom,
+the downward ones to its top, so the propagators
+$$
+P_u = \exp(ik_0dT_u), \qquad P_d = \exp(-ik_0dT_d)
+$$
+only decay (or keep their modulus). They are the closed-form exponentials of upper triangular
+<span class="arithmatex">\(2\times2\)</span> matrices,
+<span class="arithmatex">\(\exp\begin{pmatrix}\lambda_1 &amp; \beta\\ 0 &amp; \lambda_2\end{pmatrix} =
+\begin{pmatrix}e^{\lambda_1} &amp; \beta\,\frac{e^{\lambda_1} - e^{\lambda_2}}{\lambda_1 - \lambda_2}\\
+0 &amp; e^{\lambda_2}\end{pmatrix}\)</span>, with the divided difference by its Taylor series for
+<span class="arithmatex">\(|\lambda_1 - \lambda_2| &lt; 10^{-3}\)</span> — exact at a defective block.</p>
+<p><strong>S-matrix recursion.</strong> At interface <span class="arithmatex">\(i\)</span> (region <span class="arithmatex">\(i\)</span> above, <span class="arithmatex">\(i+1\)</span> below) the upward amplitudes
+are <span class="arithmatex">\(\alpha_i = R_i\delta_i\)</span> (all at the interface). Below, the upward field of region <span class="arithmatex">\(i+1\)</span> at
+the interface is <span class="arithmatex">\(\Gamma\delta_{i+1}\)</span> with <span class="arithmatex">\(\Gamma = P_uR_{i+1}P_d\)</span> (<span class="arithmatex">\(\Gamma = 0\)</span> in the
+substrate). Continuity of <span class="arithmatex">\(\psi\)</span>,
+$$
+\begin{pmatrix} W_u^{(i)} &amp; -\big(W_u^{(i+1)}\Gamma + W_d^{(i+1)}\big) \end{pmatrix}
+\begin{pmatrix}\alpha_i\ \delta_{i+1}\end{pmatrix} = -W_d^{(i)}\delta_i ,
+$$
+gives <span class="arithmatex">\(R_i\)</span> and the transmission <span class="arithmatex">\(\delta_{i+1} = \tau_i\delta_i\)</span> by one <span class="arithmatex">\(4\times4\)</span> solve per
+interface, from the substrate upwards. No transfer matrix crosses a layer: thick and absorbing
+layers neither overflow nor cancel (a 100-wavelength absorbing crystal reflects like the
+half-space).</p>
+<h2 id="output">Output</h2>
+<p>For incident s (<span class="arithmatex">\(E \parallel \hat s = \hat z\times\hat k_\parallel\)</span>) and p
+(<span class="arithmatex">\(E \parallel \hat s\times\hat k\)</span>, so that <span class="arithmatex">\(H \parallel +\hat s\)</span> as in <code>LayerStack</code>) of unit
+<span class="arithmatex">\(|E|\)</span>: the downward amplitudes <span class="arithmatex">\(\delta_0 = W_d^{(0)H}\psi_{inc}\)</span>, the reflected field
+<span class="arithmatex">\(W_u^{(0)}R_0\delta_0\)</span> decomposed on the reflected s and p waves gives the <strong>Jones matrix</strong>
+$$
+\begin{pmatrix} r_{ss} &amp; r_{sp}\ r_{ps} &amp; r_{pp}\end{pmatrix}
+$$
+(columns incident, rows reflected; E amplitudes at the top interface), the transmitted field at
+the top of the substrate is decomposed on the two downward substrate modes (s and p of an
+isotropic substrate; the eigenvectors of <span class="arithmatex">\(T_d\)</span> for a crystal, or the orthonormal Schur basis
+where the modes coincide), each with unit <span class="arithmatex">\(|E|\)</span>. Reflectance and transmittance follow from <span class="arithmatex">\(S_z\)</span>
+of the incident, reflected and transmitted fields, <span class="arithmatex">\(A = 1 - R - T\)</span>.</p>
+<p>For an isotropic stack <span class="arithmatex">\(r_{ss}\)</span>, <span class="arithmatex">\(r_{pp}\)</span> equal <code>LayerStack</code>'s s and p reflection coefficients
+(the p one is the ratio of the H amplitudes, which with this p vector equals the ratio of the E
+amplitudes in the incidence medium) and <span class="arithmatex">\(r_{sp} = r_{ps} = 0\)</span>. At normal incidence and azimuth 0,
+<span class="arithmatex">\(\hat s = \hat y\)</span>, the incident p is <span class="arithmatex">\(-\hat x\)</span> and the reflected p is <span class="arithmatex">\(+\hat x\)</span>, so
+<span class="arithmatex">\(r_{xx} = -r_{pp}\)</span>, <span class="arithmatex">\(r_{yx} = -r_{sp}\)</span>, <span class="arithmatex">\(r_{yy} = r_{ss}\)</span>, <span class="arithmatex">\(r_{xy} = r_{ps}\)</span>.</p>
+<h2 id="substrate-modes">Substrate modes</h2>
+<p>The transmitted field is decomposed on two downward modes of the substrate, each with unit
+<span class="arithmatex">\(|E|\)</span> (<code>StackResponse::substrate_modes</code>, <code>substrate_mode_kinds</code>):</p>
+<ul>
+<li><strong>isotropic:</strong> s and p;</li>
+<li><strong>uniaxial</strong> (two equal principal values of <span class="arithmatex">\(\operatorname{Re}\varepsilon\)</span>, optic axis
+  <span class="arithmatex">\(\hat c\)</span> the third eigenvector): the <strong>ordinary</strong> mode is the one with <span class="arithmatex">\(D = \varepsilon E \perp
+  \hat c\)</span> (its <span class="arithmatex">\(k_z = -k_0\sqrt{\varepsilon_o - a^2 - b^2}\)</span>), the <strong>extraordinary</strong> one the other
+  eigenmode of the downward block;</li>
+<li><strong>biaxial:</strong> the two eigenvectors of the downward block <span class="arithmatex">\(T_d\)</span>;</li>
+<li><strong>coinciding modes</strong> (k along an optic axis): the basis of the downward subspace that
+  diagonalises the Hermitian cross power flux
+  $P_{ij} = \tfrac12(\bar E_{x,i}\tilde H_{y,j} + \bar{\tilde H}<em>{y,i}E</em>{x,j} - \bar E_{y,i}\tilde H_{x,j}</li>
+<li>\bar{\tilde H}<em>{x,i}E</em>{y,j})$ (power-orthogonal modes).</li>
+</ul>
+<p><code>channel_transmittance</code> is the power per mode, <span class="arithmatex">\(|t_m|^2\)</span> times the mode's flux over the incident
+flux; it adds up to <span class="arithmatex">\(T\)</span> when the modes are power-orthogonal (always for a lossless substrate).</p>
+<h2 id="the-stack-as-layered-background">The stack as layered background</h2>
+<p><code>AnisotropicStack::plane_wave(k0, angle, pol, amplitude, azimuth)</code> returns the analytic total
+field in every region,
+$$
+\psi(z) = e^{ik_0(ax + by)}\Big(W_u\,e^{ik_0T_u(z - z_b)}\alpha + W_d\,e^{ik_0T_d(z - z_t)}\delta\Big),
+$$
+with the upward amplitudes at the bottom and the downward ones at the top of each region (so all
+exponentials decay), the full E from <span class="arithmatex">\(\psi\)</span> and <span class="arithmatex">\(\nabla\times E = ik_0\tilde H\)</span>, the branch of a
+given region (<code>value_in_region</code>, for points on an interface) and the incident wave alone. The
+incident wave has the phase 1 at the origin of the top interface, as in <code>LayerStack</code>.</p>
+<p><strong>3D solver.</strong> <code>layer_stack()</code> gives the geometry as a <code>LayerStack&lt;3&gt;</code> (which now holds crystal
+layers for lookup; its own scalar <code>plane_wave</code> refuses them). With it as
+<code>ScatteringSetup&lt;3&gt;::background</code> and the stack field as <code>incident</code>, the scattered-field source
+is the tensor contrast <span class="arithmatex">\(k_0^2(\varepsilon_c - \varepsilon_b)E^{inc}\)</span>, zero wherever a cell
+equals its layer.</p>
+<p><strong>Conical solver.</strong> <code>anisotropic_conical_wave(stack, k0, angle, azimuth, pol)</code> turns a stack given
+in the laboratory frame into the solver frame of the conical solver (x across the lines, y the
+normal, z along them): the background <code>LayerStack&lt;2&gt;</code> carries <span class="arithmatex">\(P\varepsilon P^T\)</span> with P swapping y
+and z, the solver point <span class="arithmatex">\((x, y)\)</span> is the laboratory point <span class="arithmatex">\((x, 0, y)\)</span>, the field is <span class="arithmatex">\(PE\)</span> in scaled
+components and its physical curl <span class="arithmatex">\(\det(P)\,P\,\nabla\times E = -P\,\nabla\times E\)</span> (the curl is a
+pseudovector and P a reflection). The angles and the s / p vectors coincide with
+<code>layered_conical_wave</code>.</p>
+<h2 id="mode-resolved-diffraction-orders">Mode-resolved diffraction orders</h2>
+<p><code>half_space_modes(eps, a, b, upward)</code> gives the two upward or downward modes of a homogeneous
+half-space at the normalised in-plane wavevector <span class="arithmatex">\((a, b)\)</span>, labelled as the substrate modes above,
+with unit <span class="arithmatex">\(|E|\)</span>, their <span class="arithmatex">\(k_z/k_0\)</span>, the full <span class="arithmatex">\(E\)</span> and the flux <span class="arithmatex">\(2Z_0S_z\)</span> along their direction. The
+substrate modes of <code>response</code> are the downward ones.</p>
+<p><code>conical_mode_orders</code> (ADR-0015 §7) decomposes the orders of a conical field on an <code>OrderLine</code> in
+a crystal on these modes. With the unit tangent <span class="arithmatex">\(\hat t\)</span> and the normal <span class="arithmatex">\(\hat n\)</span> away from the
+structure, the local frame <span class="arithmatex">\((\hat t, \hat n\times\hat t, \hat n)\)</span> is right-handed in the solver
+coordinates; with R the matrix of its rows the order <span class="arithmatex">\(m\)</span> sees the medium <span class="arithmatex">\(R\varepsilon R^T\)</span> at
+<span class="arithmatex">\(a = k_{t,m}/k_0\)</span>, <span class="arithmatex">\(b = \beta\,(\hat n\times\hat t)_z/k_0\)</span>, and only outgoing waves (along
+<span class="arithmatex">\(\hat n\)</span>) on the line. The tangential part of <span class="arithmatex">\(R A_m\)</span> then fixes both amplitudes <span class="arithmatex">\(c_{1,2}\)</span> by a
+2×2 solve, and</p>
+<div class="arithmatex">\[
+\eta_{m,j} = \frac{|c_j|^2 S_j}{|E_0|^2 k_n^{inc}/k_0}, \qquad
+\eta_m = \frac{S(c_1\psi_1 + c_2\psi_2)}{|E_0|^2 k_n^{inc}/k_0}
+\]</div>
+<p>with the fluxes <span class="arithmatex">\(S\)</span> in units of <span class="arithmatex">\(2Z_0\)</span>. In a lossless medium with distinct modes the channels are
+power-orthogonal and <span class="arithmatex">\(\eta_m = \eta_{m,1} + \eta_{m,2}\)</span>; in an isotropic one the channels are s and
+p and <span class="arithmatex">\(\eta_m\)</span> equals <code>conical_diffraction_orders</code>. In a lossy medium the efficiencies are the
+powers through the line. A channel propagates when <span class="arithmatex">\(|\operatorname{Im}k_n| &lt; |\operatorname{Re}k_n|\)</span>.</p>
+<p><strong>Jones convention and reciprocity.</strong> The reflection Jones matrix of the stack uses
+<span class="arithmatex">\(\hat s = \hat z\times\hat k_\parallel\)</span> for both waves and <span class="arithmatex">\(\hat p = \hat s\times\hat k/n\)</span> in the
+laboratory frame. <code>hpfem.grating.jones</code> uses <code>conical_polarisation</code> in the solver frame,
+<span class="arithmatex">\(\hat s = \hat k\times\hat n\)</span>, <span class="arithmatex">\(\hat p = \hat s\times\hat k\)</span>; mapped back by the reflection P
+(y ↔ z), cross products change sign, so its ŝ is the stack's and its p̂ the negative of the
+stack's for both waves: <span class="arithmatex">\(J = D\,r\,D\)</span> with <span class="arithmatex">\(D = \operatorname{diag}(1, -1)\)</span>, i.e. equal
+diagonals and opposite off-diagonal elements (checked to <span class="arithmatex">\(10^{-8}\)</span> on a flat crystal stack).
+Reversing the specular path at the azimuth φ is the incidence at φ + π, and for every symmetric
+tensor</p>
+<div class="arithmatex">\[
+r_{ss}(\phi + \pi) = r_{ss}(\phi),\quad r_{pp}(\phi + \pi) = r_{pp}(\phi),\quad
+r_{ps}(\phi) = -r_{sp}(\phi + \pi).
+\]</div>
+<p>A plate with its axis in the layer plane at the azimuth α against the plane of incidence is
+mirrored by α → −α: <span class="arithmatex">\(r_{ss}, r_{pp}\)</span> are even, <span class="arithmatex">\(r_{sp}, r_{ps}\)</span> odd in α (and zero for the axis
+in or perpendicular to the plane of incidence).</p>
+<h2 id="modal-transparent-boundary">Modal transparent boundary</h2>
+<p>A coordinate-stretching PML amplifies a <em>backward</em> wave, whose phase travels into the layer while
+its energy leaves it (<span class="arithmatex">\(k_nv_n &lt; 0\)</span>, <code>pml-backward-wave</code>). In a crystal with a tilted axis an
+outgoing diffraction order can be such a wave. <code>ConicalScatteringSetup::modal_boundaries</code>
+truncates the substrate (or the cover) of a periodic conical problem instead with the exact
+radiation condition of the half-space: the boundary term of the weak form,
+<span class="arithmatex">\(\oint (n\times\nabla\times E)\cdot F\,ds = ik_0\oint (n\times\tilde H)\cdot F\,ds\)</span>
+(<span class="arithmatex">\(\nabla\times E = ik_0\tilde H\)</span>, the test function in physical components
+<span class="arithmatex">\(F = (V_x, V_y, -iw)\,e^{-i\beta z}\)</span>), is evaluated order by order. In the local frame
+<span class="arithmatex">\((\hat t, \hat n\times\hat t, \hat n)\)</span> of the line (n outward) the unknown is outgoing, so for
+the order <span class="arithmatex">\(k_m = k_{t0} + 2\pi m/a\)</span> its tangential magnetic field is
+<span class="arithmatex">\(\tilde H_t = Y_mE_t\)</span> with the admittance <span class="arithmatex">\(Y_m = W_HW_E^{-1}\)</span> of the two outgoing modes of
+<code>half_space_modes</code> (labelling-independent, also for coinciding modes). With
+<span class="arithmatex">\(J = \left[\begin{smallmatrix}0&amp;-1\\1&amp;0\end{smallmatrix}\right]\)</span> for <span class="arithmatex">\(n\times\)</span>,</p>
+<div class="arithmatex">\[
+B_{ij} = ik_0\sum_{m=-M}^{M}\hat F_{i,m}^T\,J\,Y_m\,\hat E_{j,m},\qquad
+\hat E_{j,m} = \frac1a\int_\Gamma E_t(\phi_j)e^{-ik_ms}ds,\quad
+\hat F_{i,m} = \int_\Gamma F_t(\phi_i)e^{ik_ms}ds
+\]</div>
+<p>(<code>conical_modal_boundary_matrix</code>, dense on the DoFs of the line; the tangential traces are the
+tangential Nédélec component and <span class="arithmatex">\(\pm E_z = \pm iv\)</span>). The Bloch constraints combine the two ends
+of the line as for the volume terms. Orders beyond M see a natural boundary; the default
+<span class="arithmatex">\(M = \lceil n_fp/2\rceil + 2\)</span> covers the resolution of the trace of n_f facets of order p.
+Like the volume operator, B satisfies <span class="arithmatex">\(B(\beta, k_t)^T = S\,B(-\beta, -k_t)\,S\)</span>
+(reciprocity of a symmetric tensor). The line must be straight, along the period, in one
+homogeneous non-magnetic medium outside the PML; the estimators, the resonance and the sweep
+solvers do not take the term.</p>
+<h2 id="crystal-stacks-in-hpfemgrating">Crystal stacks in <code>hpfem.grating</code></h2>
+<p><code>grating.solve</code> / <code>validate</code> / <code>jones</code> take the stack as an <code>AnisotropicStack</code> in the laboratory
+frame (as the crystals of the structured parts); it is turned into the solver frame with
+<code>anisotropic_conical_wave</code>. A <code>LayerStack2D</code> with crystals is refused (its frame would be
+ambiguous). In a crystal substrate the transmitted orders are measured with
+<code>conical_mode_orders</code> and carry <code>channels</code>; <code>bottom="modal"</code> truncates the substrate by the
+modal transparent boundary, and <code>bottom="pml"</code> is refused when a transmitted order is a backward
+wave. <code>grating.jones</code> solves for s and p and returns per propagating order the power-normalised
+Jones matrix (amplitudes referred to the top / bottom interface of the stack, rows s / p or the
+mode channels) and its Mueller matrix <span class="arithmatex">\(M = A(J\otimes\bar J)A^{-1}\)</span> (Stokes vectors
+(I, Q, U, V), <span class="arithmatex">\(Q = |E_s|^2 - |E_p|^2\)</span>; <span class="arithmatex">\(M_{00}\)</span> is the efficiency for unpolarised light). The
+reciprocity relation above holds for the specular order of a grating too (the reversed path is
+the incidence at φ + π).</p>
+<p><strong>Form birefringence.</strong> A lamellar grating of period P ≪ λ (fill f, lines along y) reflects
+like the uniaxial plate of effective-medium theory, <span class="arithmatex">\(\varepsilon_y = \varepsilon_z =
+f\varepsilon_1 + (1 - f)\varepsilon_2\)</span> along the lines and the normal, <span class="arithmatex">\(\varepsilon_x =
+(f/\varepsilon_1 + (1 - f)/\varepsilon_2)^{-1}\)</span> across them (component by component for crystal
+lamellae with the axes of the lamellae; L. Li 2003). The plate's reflection refers to its top,
+the grating's to the bottom of the lines: <span class="arithmatex">\(J = e^{-2ik_0\cos\theta\,h}DrD\)</span>. The difference falls
+like P/λ, not like the (P/λ)² of the bulk correction: the evanescent orders form boundary layers
+of thickness ~P at the top and the bottom of the grating, which the plate lacks. The Richardson
+extrapolation <span class="arithmatex">\(2J(P/2) - J(P)\)</span> removes that term and falls like (P/λ)².</p>
+<h2 id="a-dipole-above-the-stack">A dipole above the stack</h2>
+<p><code>AnisotropicStack::reflection_at(k0, a, b)</code> gives the Jones reflection matrix at any in-plane
+wavevector <span class="arithmatex">\(k_0(a, b)\)</span>, also beyond the light cone of the cover, where the incident and the
+reflected wave are evanescent (<span class="arithmatex">\(q = \sqrt{n^2 - a^2 - b^2}\)</span>, Im q ≥ 0, ŝ and p̂ complex with
+<span class="arithmatex">\(\hat s\cdot\hat s = \hat p\cdot\hat p = 1\)</span>). A current moment m at the height h above the top
+interface delivers (exp(−iωt), Weyl expansion of the Green's dyadic,
+<span class="arithmatex">\(I - \hat k\hat k^T = \hat s\hat s^T + \hat p\hat p^T\)</span>)</p>
+<div class="arithmatex">\[
+\frac{P}{P_{bulk}} = 1 + \frac{3}{4\pi n|m|^2}\,\mathrm{Re}\iint \frac{da\,db}{q}\,
+e^{2ik_0qh}\; m^H\,[\hat s, \hat p_u]\; r\; [\hat s, \hat p_d]^T\, m,
+\qquad P_{bulk} = \frac{Z_0k_0^2n|m|^2}{12\pi}
+\]</div>
+<p>(<code>hpfem.planar.dipole_above_stack</code>). For an isotropic stack and m ∥ ẑ it reduces to the
+Chance–Prock–Silbey integral <span class="arithmatex">\(1 + \tfrac32\mathrm{Re}\int s^3/s_z\,r_p\,e^{2ik_1hs_z}ds\)</span> (the
+stack's <span class="arithmatex">\(r_{pp}\)</span> has the convention <span class="arithmatex">\(r_p = +1\)</span> for a perfect conductor). The Gaussian dipole of
+ADR-0013 multiplies every spectral component by <span class="arithmatex">\(e^{-\sigma^2k\cdot k} = e^{-(nk_0\sigma)^2}\)</span>,
+the factor of <span class="arithmatex">\(P_{bulk}\)</span>, so the Purcell factor of the point dipole is that of the FEM emitter.
+The radial integral runs on the real axis (<span class="arithmatex">\(s = n\sin t\)</span>, <span class="arithmatex">\(s = n\cosh u\)</span>), the azimuth by the
+trapezoidal rule. Guided modes of lossless stacks are poles on the real axis (S7e-2a,
+<code>depth</code> &gt; 0): bound modes are evanescent in both half-spaces, so beyond the largest principal
+index <span class="arithmatex">\(s_b\)</span> of the cover and the substrate the radial path leaves the axis,
+<span class="arithmatex">\(s = s_b + (S - s_b)\tau - i\,\text{depth}\,\sin\pi\tau\)</span> up to S beyond all indices (a small loss
+moves the poles above the axis, exp(−iωt), so the path passes them on the causal side), with the
+stack at complex in-plane wavevectors (<code>reflection_at</code>; ŝ normalised by the non-conjugating norm,
+the two modes with the largest Im k_z upward, unambiguous where both half-spaces are
+evanescent). Closer to the axis a tilted crystal may have upward modes with Im k_z &lt; 0 (its
+in-plane group velocity can oppose the wavevector), which is why the path stays real up to <span class="arithmatex">\(s_b\)</span>.</p>
+<p><strong>One sample of the array scan.</strong> The cell problem of <code>grating.emit</code> (a Bloch array of
+Gaussian dipoles with <span class="arithmatex">\(e^{ik_xP}\)</span> and <span class="arithmatex">\(e^{i\beta z}\)</span>) samples the same spectrum on the orders
+<span class="arithmatex">\(k_m = k_x + 2\pi m/P\)</span> at <span class="arithmatex">\(k_y^{lab} = \beta\)</span>: with <span class="arithmatex">\(\iint d^2k = \sum_m\int_{BZ}dk_x\int d\beta\)</span> and
+the array-scan weight <span class="arithmatex">\(P/(4\pi^2)\)</span>,</p>
+<div class="arithmatex">\[
+P_{cell}(k_x, \beta) = \frac{\omega\mu_0}{4P}\sum_m \mathrm{Re}\Big[\frac{1}{k_z}\Big(
+\tfrac12\textstyle\sum_\pm|m_\perp^\pm|^2\,[k_z\ \text{real}] + e^{2ik_zh}\,m^HM_mm\Big)\Big]
+e^{-(nk_0\sigma)^2}
+\]</div>
+<p>(<code>hpfem.planar.array_sample_above_stack</code>; the homogeneous term is the closed form of the M17 S1
+test). The Gaussian must stay 6σ clear of the stack interfaces (<code>emit</code> warns otherwise): a source
+reaching into the next medium is no longer the point dipole of the reference (the first
+comparison missed by 2.5 % for σ = 0.05 µm at 0.12 µm until the dipole was raised to 0.32 µm).</p>
+<p><strong>The array scan above crystals (S7c).</strong> The (kx, β) integrand of <code>grating.dipole_emission</code> is
+even in β and in kx only for mirror-symmetric media. With a crystal in the cell or the stack, β
+runs over (−β_max, β_max) with half the weight, kx over the full zone, and every entry of the
+power matrix counts. The light line of a crystal half-space (k_y = 0 in the solver frame) is
+the zero set of the Fresnel quartic <span class="arithmatex">\(F(k_x) = \det(k_0^2\varepsilon + kk^T - |k|^2I)\)</span>,
+<span class="arithmatex">\(k = (k_x, 0, \beta)\)</span>: its real roots are the crossings of the kx contour, on the side of the
+group velocity <span class="arithmatex">\(v_x = -F_{k_x}/F_{k_0}\)</span> (a small loss moves the root into the upper half plane
+when <span class="arithmatex">\(v_x &gt; 0\)</span>), its complex roots the branch points of the evanescent sheets; β is split at the
+turning points of the two sheets, the largest <span class="arithmatex">\(k\sin t\)</span> of the generalised eigenvalues
+<span class="arithmatex">\(\det(k_0^2\varepsilon - k^2(I - uu^T)) = 0\)</span>, <span class="arithmatex">\(u = (\cos t, 0, \sin t)\)</span>. The Wood-anomaly
+pinch breaks are kept for the isotropic media only. <code>symmetric</code> is not available with
+crystals. The guided-mode poles (S7e-2b) are detected per β node by the AAA fit on the kx
+contour and bumped to the causal side as for isotropic cells, which needs no kx mirror; the β
+pre-pass that splits the β rule at the pinch points (pole pairs meeting at kx = 0 or π/P) does
+assume it and is skipped, so a crystal structure's β rule is not split there. This path is not
+validated yet: <code>benchmarks/m19_crystal_guided_scan.py</code> (a tilted crystal slab against
+<code>dipole_above_stack(depth=...)</code>, a long run) is pending, and <code>dipole_emission</code> warns.</p>
+<p><strong>Emission by reciprocity (S7d).</strong> dP/dΩ into the direction r̂ is
+<span class="arithmatex">\(n k_0^2Z_0|p\cdot\langle E_{pw}\rangle|^2/(32\pi^2)\)</span> with the plane wave incident from r̂ (ADR-0013
+§6); reciprocity needs only a symmetric ε, so it holds for crystals. A direction into the
+substrate is computed on the cell mirrored at y = 0: the mirror maps a solution for ε onto one
+for <span class="arithmatex">\(M\varepsilon M\)</span>, <span class="arithmatex">\(M = \operatorname{diag}(1, -1, 1)\)</span> (solver frame), so every cell's
+tensor is mirrored and the stack becomes the <code>AnisotropicStack</code> of the reversed layers with
+<span class="arithmatex">\(M_z\varepsilon M_z\)</span> (laboratory frame), the former substrate as its incidence medium. A crystal
+substrate becomes a crystal incidence medium of the mirrored stack (S7e below). The Gaussian average at the dipole carries <span class="arithmatex">\(e^{-(n_{host}k_0\sigma)^2}\)</span>
+for every direction (the plane wave at the dipole lives in the host), the prefactor n is that of
+the direction's medium.</p>
+<p><strong>Radiation into a crystal substrate (S7e).</strong> The stack takes a lossless crystal as its
+incidence medium; <code>AnisotropicStack::mode_wave(k0, a, b, mode)</code> gives the analytic field of one
+of its downward modes (<code>half_space_modes</code>: ordinary / extraordinary), and
+<code>anisotropic_conical_mode_wave</code> the same in the conical solver frame. A direction into a crystal
+is not described by an index, so the power is integrated over the in-plane wavevector of the
+substrate modes: with the field ⟨E_j⟩ at the dipole of mode j incident from the substrate with
+unit |E| and its z flux <span class="arithmatex">\(F_j\)</span> (<span class="arithmatex">\(2Z_0S_z\)</span>),</p>
+<div class="arithmatex">\[
+\frac{dP}{d^2k_\parallel} = \frac{Z_0\,|p\cdot\langle E_j\rangle|^2}{32\pi^2F_j},
+\]</div>
+<p>which for an isotropic medium is <span class="arithmatex">\(dP/d\Omega = nk_0^2Z_0|p\cdot E|^2/(32\pi^2)\)</span> with
+<span class="arithmatex">\(d\Omega = d^2k_\parallel/(kk_z)\)</span> and <span class="arithmatex">\(F = k_z/k_0\)</span>. Per azimuth ψ the wavenumber runs to the
+cutoff <span class="arithmatex">\(\kappa_{max,j}(\psi)\)</span> of the mode (bisection on <code>half_space_modes</code>) as
+<span class="arithmatex">\(\kappa = \kappa_{max}\sin\tau\)</span> (the <span class="arithmatex">\(1/F_j\)</span> singularity cancels), split at the light line of the
+cover (the near-field coupling peaks just beyond it) and at the cutoff of the other mode (its
+reflected wave turns evanescent), each panel with the cosine-mapped Gauss rule: a plain Gauss
+rule converged only like <span class="arithmatex">\(n^{-3}\)</span> on the square-root points (0.5 % at 8 points per panel). The
+incident mode is solved on the mirrored cell (<code>grating._crystal_substrate_radiation</code>);
+<code>emission_cone(side="down")</code> (the whole half-space) and the <code>channels</code> of <code>dipole_emission</code> use
+it. Uniaxial substrates only (the o / e labelling); biaxial ones are refused.</p>
+<h2 id="verification">Verification</h2>
+<p><code>tests/unit/physics/test_anisotropic_stack.cpp</code>:</p>
+<ul>
+<li>isotropic stacks (absorbing layer, a metal film, lossy substrate, three angles at an azimuth)
+  reproduce <code>LayerStack</code> to <span class="arithmatex">\(10^{-12}\)</span>, with zero cross-polarisation;</li>
+<li>thin crystal layers (an absorbing tilted biaxial layer, an isotropic one, a tilted uniaxial
+  one) on a tilted uniaxial substrate agree with an independent transfer-matrix reference
+  (<span class="arithmatex">\(\exp(-ik_0Kd)\)</span> by Taylor series with scaling and squaring, no eigenvectors in the layers) to
+  <span class="arithmatex">\(10^{-10}\)</span>, cross-polarisation included;</li>
+<li>a plate with the axis in the plane at normal incidence gives the two Fabry–Pérot problems with
+  <span class="arithmatex">\(n_e\)</span> and <span class="arithmatex">\(n_o\)</span> in closed form, <span class="arithmatex">\(r_{xx} = \cos^2\phi\,r_e + \sin^2\phi\,r_o\)</span>,
+  <span class="arithmatex">\(r_{yx} = \sin\phi\cos\phi\,(r_e - r_o)\)</span>;</li>
+<li>an optic axis exactly along <span class="arithmatex">\(z\)</span> at normal incidence (both pairs degenerate) equals the
+  isotropic plate with <span class="arithmatex">\(n_o\)</span>, and <span class="arithmatex">\(10^{-6}\)</span> rad off it changes the result by less than <span class="arithmatex">\(10^{-9}\)</span>;
+  the same for a crystal substrate with the axis along <span class="arithmatex">\(z\)</span>;</li>
+<li>lossless crystals conserve energy, <span class="arithmatex">\(R + T = 1\)</span> to <span class="arithmatex">\(10^{-12}\)</span>; a 100-wavelength absorbing
+  crystal reflects as the half-space;</li>
+<li>at a Voigt point of an absorbing biaxial medium (found by Newton on the discriminant
+  <span class="arithmatex">\((q_1 - q_2)^2\)</span> of the downward eigenvalues), the layer agrees with the eigenvector-free
+  reference to <span class="arithmatex">\(10^{-9}\)</span>, and the half-space reflection is continuous across the point;</li>
+<li>the analytic field solves <span class="arithmatex">\(\nabla\times\nabla\times E = k_0^2\varepsilon E\)</span> in every region
+  (finite differences), its tangential components are continuous at the interfaces, and for an
+  isotropic stack it equals <code>LayerStack</code>'s field and curl;</li>
+<li>the ordinary mode of a tilted uniaxial substrate has the closed-form <span class="arithmatex">\(k_z\)</span>; the power channels
+  add up to <span class="arithmatex">\(T\)</span>, also for coinciding modes;</li>
+<li><code>tests/convergence/anisotropic_stack_background.cpp</code>: a tilted crystal plate meshed on the
+  analytic half-space of a c-cut substrate converges to the analytic field of the full stack, in
+  the 3D solver (Bloch cell, <span class="arithmatex">\(2\cdot10^{-2} \to 9\cdot10^{-5}\)</span> for p = 2…4) and in the conical
+  solver (<span class="arithmatex">\(5\cdot10^{-2} \to 1\cdot10^{-5}\)</span> for p = 2…5); a structure equal to the stack has no
+  scattered field (exactly zero), in both solvers;</li>
+<li><code>anisotropic_conical_wave</code> of an isotropic stack equals <code>layered_conical_wave</code> (field, curl,
+  β, R), and its curl matches the field by finite differences for a crystal stack;</li>
+<li>half-space modes: s / p with <span class="arithmatex">\(k_z = \pm\sqrt{\varepsilon - a^2 - b^2}\)</span> and flux <span class="arithmatex">\(\operatorname{Re}k_z\)</span>,
+  eigenvectors of K and the closed-form ordinary <span class="arithmatex">\(k_z\)</span> of a tilted crystal, both directions, and
+  the substrate modes of <code>response</code>; the mirror symmetry in α and the reciprocity relation above
+  (also for an axis tilted out of the plane) to <span class="arithmatex">\(10^{-12}\)</span>;</li>
+<li><code>conical_mode_orders</code> (<code>test_anisotropic_conical.cpp</code>): a field of known ordinary and
+  extraordinary waves (one evanescent) in a tilted crystal, verified to solve Maxwell's equations
+  in the solver frame by finite differences, gives back its amplitudes to <span class="arithmatex">\(10^{-10}\)</span>; in an
+  isotropic medium the order efficiencies equal <code>conical_diffraction_orders</code>;</li>
+<li><code>anisotropic_stack_background</code> (convergence): on a lossless c-cut substrate the ordinary and
+  extraordinary channels of the transmitted zeroth order of the conical FEM field converge to the
+  per-mode transmittances of the stack (<span class="arithmatex">\(1.5\cdot10^{-4} \to 3.5\cdot10^{-7}\)</span> for p = 2…5; the
+  error of these quadratic quantities alternates in sign, so it falls in pairs of p);</li>
+<li><code>conical_modal_boundary_matrix</code> (<code>test_anisotropic_conical.cpp</code>): the transposition symmetry
+  above to <span class="arithmatex">\(10^{-12}\)</span> for a tilted crystal, rows only on the line;</li>
+<li><code>anisotropic_modal_boundary</code> (convergence), a tilted lossless crystal substrate truncated by
+  the modal boundary: a crystal plate converges to the analytic stack field
+  (<span class="arithmatex">\(5.8\cdot10^{-2} \to 1.5\cdot10^{-5}\)</span>, the o / e channels to <span class="arithmatex">\(6.5\cdot10^{-7}\)</span>, p = 2…5); a
+  lossless lamellar grating whose transmitted order −1 is an extraordinary backward wave closes
+  the energy balance R + T = 1 to <span class="arithmatex">\(1.6\cdot10^{-4} \to 3.3\cdot10^{-8}\)</span>, while a PML in the
+  same substrate stalls at <span class="arithmatex">\(1.1\cdot10^{-4}\)</span> for every p. (The plate alone is no test of the
+  PML: only its zeroth order propagates, a forward wave, and the PML there converges as well.)</li>
+<li><code>python/tests/test_grating_jones.py</code>: a flat crystal stack through <code>grating.jones</code> gives the
+  stack's reflection Jones matrix (<span class="arithmatex">\(J = DrD\)</span>) and its o / e channels to <span class="arithmatex">\(10^{-8}\)</span>; a tilted
+  crystal ridge on glass satisfies the reciprocity relation of the specular order in the conical
+  solver to <span class="arithmatex">\(10^{-5}\)</span> at p = 3 (with <span class="arithmatex">\(|J_{ps}| = 0.056\)</span>; <span class="arithmatex">\(1.3\cdot10^{-7}\)</span> at p = 4); a grating
+  on a substrate with a backward order −1 is refused with <code>bottom="pml"</code> and closes its energy
+  balance with <code>bottom="modal"</code>; a lamellar grating (fill ½, ε = 4 and diag(4, 3, 2.5), h = 0.3λ,
+  θ = 0.5, φ = 0.7, |J_ps| ≈ 0.05–0.08) against the effective-medium plate at P = 0.2, 0.1,
+  0.05λ: the difference 1.1·10⁻², 7.5·10⁻³, 4.1·10⁻³ (~P; the FEM error is 4·10⁻⁵ by mesh
+  refinement), the Richardson extrapolation 3.5·10⁻³, 8.5·10⁻⁴ (~P²);</li>
+<li><code>reflection_at</code> equals <code>response</code> inside the light cone and the Fresnel coefficients with
+  complex <span class="arithmatex">\(k_z\)</span> beyond it; <code>python/tests/test_planar_dipole.py</code>: <code>dipole_above_stack</code> equals the
+  1D Sommerfeld integrals with the Fresnel / Airy coefficients (glass half-space, absorbing layer
+  on glass) and with the closed-form <span class="arithmatex">\(r_p = (\varepsilon_oq_1 - q_{2e})/(\varepsilon_oq_1 +
+  q_{2e})\)</span>, <span class="arithmatex">\(q_{2e} = \sqrt{\varepsilon_o(1 - s^2/\varepsilon_e)}\)</span>, of a c-cut half-space, to
+  <span class="arithmatex">\(10^{-9}\)</span> (the glass case to <span class="arithmatex">\(10^{-15}\)</span>); a tilted absorbing crystal layer gives the same F
+  when crystal and dipole are rotated together about the normal; <code>grating.emit</code> above a tilted
+  absorbing crystal layer equals <code>array_sample_above_stack</code> to <span class="arithmatex">\(6\cdot10^{-8}\)</span> inside and
+  <span class="arithmatex">\(2\cdot10^{-5}\)</span> beyond the light cone of the cover, above a tilted lossless crystal substrate
+  with the modal bottom to <span class="arithmatex">\(10^{-5}\)</span> with $P_{cell} = $ up + down;</li>
+<li>the crystal light lines (<code>test_planar_dipole.py</code>): the roots of the Fresnel quartic and the
+  turning points of a diagonal tensor equal the closed forms; the scan rule with the crystal
+  light lines integrates the exact sample spectrum above a tilted lossless crystal half-space to
+  the 2D reference (<span class="arithmatex">\(10^{-4}\)</span> at 6 nodes per panel, <span class="arithmatex">\(2\cdot10^{-6}\)</span> to <span class="arithmatex">\(10^{-5}\)</span> at 10);</li>
+<li>the emission pattern of a dipole above a tilted crystal layer on a substrate of index 2, up
+  and down at azimuths without symmetry, equals <span class="arithmatex">\(|p\cdot E_{pw}(x_0)|^2\)</span> of
+  <code>AnisotropicStack.plane_wave</code> (and of the mirrored stack for the down directions) to
+  <span class="arithmatex">\(6\cdot10^{-5}\)</span> per polarisation (<code>test_planar_dipole.py</code>); the powers radiated into both
+  half-spaces (<code>emission_cone</code>, 8×16 directions each) add up to the total of
+  <code>dipole_above_stack</code> to <span class="arithmatex">\(4.8\cdot10^{-5}\)</span> (lossless, no guided modes;
+  <code>benchmarks/m19_crystal_emission_balance.py</code>, 15 min);</li>
+<li>guided modes on the deformed path (<code>test_planar_dipole.py</code>): an isotropic waveguide slab
+  (n = 2 on 1.45) equals the 1D Airy–Sommerfeld integral to <span class="arithmatex">\(10^{-8}\)</span> (the M17 benchmark
+  <code>sommerfeld_layered</code> to <span class="arithmatex">\(3\cdot10^{-14}\)</span>); a tilted lossless crystal slab gives the same F for
+  two path depths, and the same slab with a small loss δ on the real axis tends linearly to it
+  (<span class="arithmatex">\(-2.9\cdot10^{-6}\)</span>, <span class="arithmatex">\(-1.5\cdot10^{-6}\)</span>, <span class="arithmatex">\(-7.7\cdot10^{-7}\)</span> for δ = 4, 2, 1·10⁻³);</li>
+<li>the radiation into a tilted lossless crystal substrate: the FEM field of a mode incident from
+  the crystal (both modes, also beyond the light line of the cover) equals <code>mode_wave</code> to
+  <span class="arithmatex">\(2\cdot10^{-4}\)</span>; with the analytic fields the cover and the crystal half-space together give the
+  total of <code>dipole_above_stack</code> to <span class="arithmatex">\(1.2\cdot10^{-4}\)</span> at 8 points per panel and 16 azimuths
+  (<span class="arithmatex">\(2.4\cdot10^{-5}\)</span> at 32), and the FEM (<code>benchmarks/m19_crystal_substrate_balance.py</code>) to
+  7.5e-5 (<code>test_planar_dipole.py</code>);</li>
+<li><code>benchmarks/m19_crystal_dipole_scan.py</code> (a long local run, 3840 cell problems, 32 min with 4
+  workers): <code>dipole_emission</code> of a Gaussian dipole 0.32 µm above that half-space equals
+  <code>dipole_above_stack</code> to <span class="arithmatex">\(5\cdot10^{-4}\)</span> for every orientation (x −5.3e-4, y −5.1e-4,
+  z +2.9e-5; the rule alone contributes 1–2e-4), <code>benchmarks/results/2026-11-05-validation-
+  m19-crystal-scan.json</code>;</li>
+<li><code>python/tests/test_anisotropic_volume.py</code> checks the bindings.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
