@@ -20,6 +20,7 @@
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/log.hpp"
 #include "hpfem/core/parallel.hpp"
+#include "hpfem/core/special_functions.hpp"
 #include "hpfem/fespace/h1_basis.hpp"
 #include "hpfem/fespace/nedelec_basis.hpp"
 #include "hpfem/mesh/geometry.hpp"
@@ -974,7 +975,7 @@ AxisymmetricFarField axisymmetric_far_field(
     currents.push_back(c);
   }
   const auto bessel = [](int n, Real x) {
-    const Real value = std::cyl_bessel_j(static_cast<Real>(std::abs(n)), x);
+    const Real value = hpfem::cyl_bessel_j(static_cast<Real>(std::abs(n)), x);
     return (n < 0 && (std::abs(n) % 2 == 1)) ? -value : value;
   };
   const auto power_of_minus_i = [](int n) {
@@ -1121,7 +1122,7 @@ AxisymmetricField oblique_plane_wave(Complex amplitude, Real k, Real theta_i,
   const auto a = [k_perp](int n, Real rho) {
     static const Complex powers[4] = {{1.0, 0.0}, {0.0, 1.0}, {-1.0, 0.0}, {0.0, -1.0}};
     const int order = std::abs(n);
-    Real j = std::cyl_bessel_j(static_cast<Real>(order), k_perp * rho);
+    Real j = hpfem::cyl_bessel_j(static_cast<Real>(order), k_perp * rho);
     if (n < 0 && order % 2 == 1) j = -j;
     return powers[((n % 4) + 4) % 4] * j;
   };
@@ -1143,7 +1144,7 @@ namespace {
 Complex jacobi_anger(int n, Real x) {
   static const Complex powers[4] = {{1.0, 0.0}, {0.0, 1.0}, {-1.0, 0.0}, {0.0, -1.0}};
   const int order = std::abs(n);
-  Real j = std::cyl_bessel_j(static_cast<Real>(order), x);
+  Real j = hpfem::cyl_bessel_j(static_cast<Real>(order), x);
   if (n < 0 && order % 2 == 1) j = -j;
   return powers[((n % 4) + 4) % 4] * j;
 }
