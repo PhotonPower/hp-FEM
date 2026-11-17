@@ -165,6 +165,17 @@ CMake and Ninja (installed via winget), Git for Windows. **Not MSVC.**
   APIs in the library, use `std::filesystem` for paths, and keep line endings
   as configured in `.editorconfig`.
 
+### 4b. Local development on macOS (Apple Clang + Homebrew)
+
+- `brew install cmake ninja libomp`; Apple Clang from the Xcode command line tools.
+- Configure with the Homebrew OpenMP: `cmake --preset release -DOpenMP_ROOT=$(brew --prefix libomp)`
+  (without it the assembly runs serially). Then build and test as above.
+- libc++ lacks the C++17 special math functions; CMake then fetches Boost.Math (standalone)
+  automatically (ADR-0001 amendment). Call `hpfem::cyl_bessel_j` etc. from
+  `core/special_functions.hpp`, never `std::cyl_bessel_j` directly, and include `<numbers>`
+  where `std::numbers` is used (libc++ does not include it transitively).
+- On machines with little RAM (8 GB) build with `-j 4`.
+
 ## 5. Coding conventions (C++)
 
 - **Standard:** C++20. No compiler extensions. Must compile with GCC ≥ 12, Clang ≥ 15.

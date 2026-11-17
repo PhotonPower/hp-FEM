@@ -453,6 +453,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   side-wall angle tolerances of a silicon grating propagated to its reflectance spectrum.
 
 ### Changed
+- The library builds on macOS with Apple Clang / libc++ (ADR-0001 amendment): the Bessel
+  functions go through `hpfem::cyl_bessel_j`, `cyl_neumann`, `sph_bessel`, `sph_neumann`
+  (`core/special_functions.hpp`), which use the C++17 standard functions where they exist and
+  the header-only Boost.Math 1.86 (standalone, fetched only then) under libc++; missing
+  `<numbers>` includes added. fmt 11.0.2 → 11.1.4 and spdlog v1.15.0 → v1.15.1, because fmt
+  11.0's `FMT_STRING` does not compile with recent Clang (consteval error in `os.cc`).
 - CI actions updated: `actions/checkout` v7, `actions/setup-python` v7, `actions/upload-artifact`
   v7 / `actions/download-artifact` v8 (together), `softprops/action-gh-release` v3;
   `pymdown-extensions >= 12.3` for the docs (Dependabot #179–#184).

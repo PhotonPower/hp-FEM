@@ -25,6 +25,7 @@
 #include <fmt/format.h>
 
 #include "hpfem/core/error.hpp"
+#include "hpfem/core/special_functions.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/generators.hpp"
@@ -49,10 +50,10 @@ constexpr Real kPi = std::numbers::pi;
 
 /// J'_ν(x) = ν/x J_ν(x) − J_{ν+1}(x) (no negative orders), the same for Y_ν.
 Real bessel_j_prime(Real nu, Real x) {
-  return nu / x * std::cyl_bessel_j(nu, x) - std::cyl_bessel_j(nu + 1, x);
+  return nu / x * hpfem::cyl_bessel_j(nu, x) - hpfem::cyl_bessel_j(nu + 1, x);
 }
 Real bessel_y_prime(Real nu, Real x) {
-  return nu / x * std::cyl_neumann(nu, x) - std::cyl_neumann(nu + 1, x);
+  return nu / x * hpfem::cyl_neumann(nu, x) - hpfem::cyl_neumann(nu + 1, x);
 }
 
 /// The first `count` positive zeros of f on (0, 40] by a sign scan and bisection.
@@ -117,7 +118,7 @@ TEST_CASE("Axisymmetric cavity: uniaxial filling with the optic axis along z",
   const Mesh<2> mesh = hpfem::mesh::rectangle(3, 4, Point<2>(0.0, 0.0), Point<2>(a, h));
   for (const int m : {0, 1}) {
     std::vector<Real> reference;
-    const auto j = zeros([m](Real x) { return std::cyl_bessel_j(Real(m), x); }, 3);
+    const auto j = zeros([m](Real x) { return hpfem::cyl_bessel_j(Real(m), x); }, 3);
     const auto jp = zeros([m](Real x) { return bessel_j_prime(Real(m), x); }, 3);
     for (const Real z : j) {
       for (int p = 0; p <= 3; ++p) reference.push_back(z * z / ez + std::pow(p * kPi / h, 2) / et);

@@ -2,6 +2,7 @@
 // the value, and curl curl E = k^2 E away from the source (second derivatives by central
 // differences of the curl).
 #include <cmath>
+#include <numbers>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>

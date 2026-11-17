@@ -47,6 +47,7 @@ mkdocs serve                                 # documentation
 | fmt / spdlog | logging | FetchContent |
 | nlohmann_json | configs, results | FetchContent |
 | Spectra 1.2 | shift-invert Lanczos / Arnoldi eigensolvers (header-only) | FetchContent |
+| Boost.Math 1.86 (standalone) | Bessel functions where the standard library lacks the C++17 special functions (libc++, Apple Clang); not used with libstdc++ / MSVC | FetchContent, only if needed |
 | Catch2 v3 | C++ tests | FetchContent |
 | pybind11 | Python bindings | FetchContent / pip |
 | Gmsh | mesh generation (external tool) | system |
