@@ -530,7 +530,7 @@ particles on substrates, nanoparticle-on-mirror, holes and grooves in films (neg
 ## M19 — Optically anisotropic materials (ADR-0015)
 Proposal of 1 November 2026, reviewed and accepted the same day: substrates, unstructured layers
 and structured parts of anisotropic crystals (uniaxial, biaxial, rotated optic axis) as used in
-semiconductor metrology; Jones and Mueller matrices. Nothing implemented yet. Out of scope of the
+semiconductor metrology; Jones and Mueller matrices. Out of scope of the
 first step: gyrotropy / optical activity, a μ tensor, anisotropic cover media, tilted axes in the
 axisymmetric solver, isolated structures in a tilted substrate; the anisotropic emitter scan comes
 last.
@@ -557,7 +557,7 @@ last.
   paths); done in `Scattering`, `Resonance`, `BandStructure`, the losses and `Thermal`, 2D on
   the in-plane block (plane-to-z coupling refused); finding: aligned biaxial crystals also fail
   the PML condition, along their intermediate axis (ADR-0015 S2 amendment)
-- [ ] S3: conical solver: full tensors in `ConicalForm`, derivation in the conical section of
+- [x] S3: conical solver: full tensors in `ConicalForm`, derivation in the conical section of
   `docs/theory/maxwell.md`, estimators; first ε_xz = ε_yz = 0 (symmetric), then the general tensor
   with the transposed paths (adjoint of `conical_goal`, emission pattern by reciprocity at −β,
   power matrix on `ConicalSweep`, sensitivities), `scalar_ez` rejecting coupling tensors; tests:
@@ -586,7 +586,7 @@ last.
       the conical solver against 3D cells with the lines along z and with grating, crystal, wave
       and probe rotated by 90° about the normal; 5e-5 at p = 4
       (`tests/convergence/anisotropic_conical_vs_3d.cpp`)
-- [ ] S4: anisotropic `LayerStack`: 4×4 system per layer (ε_zz ≠ 0), ordered complex Schur form
+- [x] S4: anisotropic `LayerStack`: 4×4 system per layer (ε_zz ≠ 0), ordered complex Schur form
   and 2×2 block exponentials, stable S-matrix recursion on the up / down subspaces, substrate modes
   (o / e by the axis, biaxial by power orthogonality), Jones matrix, analytic stack field for the
   scattered-field source; tests: independent eigenvector 4×4 transfer matrix (thin layers), closed
