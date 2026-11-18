@@ -464,6 +464,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `pymdown-extensions >= 12.3` for the docs (Dependabot #179–#184).
 
 ### Fixed
+- `grating.dipole_emission` with crystals and guided modes (M19 S7e-2b): the β pre-pass that
+  splits the β rule at the pinch points of the guided poles now also runs for crystals without a
+  coupling along the lines (ε_xz = ε_yz = 0 in the solver frame; the poles are then even in kx by
+  the z mirror and reciprocity), and a lossy pinch is graded on both sides of the full β range.
+  Without it the β rule integrated across the square-root points: the server runs of issue #205
+  stayed at 2e-3 to 6e-3 and were not monotone in 6 / 8 / 10 β nodes. A crystal coupling the
+  lines direction keeps the old rule, with a warning.
 - `hpfem.opt.multi_fidelity_optimize` with BoTorch >= 0.15: `project_to_target_fidelity` needs
   the input dimension `d`, which is passed when the installed version takes it (the BoTorch
   tests had not run, CI has no BoTorch).

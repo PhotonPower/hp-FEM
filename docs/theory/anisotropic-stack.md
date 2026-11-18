@@ -304,11 +304,20 @@ turning points of the two sheets, the largest $k\sin t$ of the generalised eigen
 $\det(k_0^2\varepsilon - k^2(I - uu^T)) = 0$, $u = (\cos t, 0, \sin t)$. The Wood-anomaly
 pinch breaks are kept for the isotropic media only. `symmetric` is not available with
 crystals. The guided-mode poles (S7e-2b) are detected per β node by the AAA fit on the kx
-contour and bumped to the causal side as for isotropic cells, which needs no kx mirror; the β
-pre-pass that splits the β rule at the pinch points (pole pairs meeting at kx = 0 or π/P) does
-assume it and is skipped, so a crystal structure's β rule is not split there. This path is not
-validated yet: `benchmarks/m19_crystal_guided_scan.py` (a tilted crystal slab against
-`dipole_above_stack(depth=...)`, a long run) is pending, and `dipole_emission` warns.
+contour and bumped to the causal side as for isotropic cells, which needs no kx mirror. The β
+pre-pass that splits the β rule at the pinch points (pole pairs meeting at kx = 0 or π/P) needs
+the poles even in kx. That holds whenever no tensor couples the lines direction
+($\varepsilon_{xz} = \varepsilon_{yz} = 0$ in the solver frame, an optic axis in the
+cross-section): the cell is then mirror-symmetric in z, so the poles are even in β, and a
+symmetric ε is reciprocal, so a pole at $(k_x, \beta)$ has its partner at $(-k_x, -\beta)$;
+together the poles are even in $k_x$, although a tilted axis breaks the cell's own mirror in x.
+For such crystals the pre-pass runs as for isotropic cells (its breaks mirrored to −β, lossy
+pinches graded on both sides). With a coupling along the lines the pinches lie at other kx and
+are not split off (a warning). Without the split the β rule integrates across square-root
+points: on the tilted slab of `benchmarks/m19_crystal_guided_scan.py` (seven pinch points per
+side between 0.07 and 1.68 k0) the error stayed at 2e-3 to 6e-3 and was not monotone in 6, 8
+and 10 β nodes (server runs of 2026-11-10 and 2026-11-18). The validation with the pre-pass is
+pending, and `dipole_emission` warns.
 
 **Emission by reciprocity (S7d).** dP/dΩ into the direction r̂ is
 $n k_0^2Z_0|p\cdot\langle E_{pw}\rangle|^2/(32\pi^2)$ with the plane wave incident from r̂ (ADR-0013

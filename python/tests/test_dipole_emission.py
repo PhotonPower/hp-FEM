@@ -382,3 +382,41 @@ def test_dipole_emission_on_the_sweep_matches_the_per_sample_problems():
     assert np.any(np.abs(swept.rule.kx.imag) > 0)  # the contour leaves the real axis
     np.testing.assert_allclose(swept.power_matrix, direct.power_matrix, rtol=1e-8,
                                atol=1e-8 * np.abs(direct.power_matrix).max())  # fmt: skip
+
+
+def test_pre_pass_condition_for_crystals():
+    # M19 S7e-2b: the β pre-pass finds pole pairs meeting at kx = 0 and π/P; for crystals that
+    # needs poles even in kx, which holds when no tensor couples the lines direction (ε_xz =
+    # ε_yz = 0 in the solver frame) and fails for an optic axis with a component along the lines
+    swap = np.array([[1, 0, 0], [0, 0, 1], [0, 1, 0.0]])  # laboratory <-> solver frame
+
+    def solver_eps(axis):
+        axis = np.asarray(axis, float) / np.linalg.norm(axis)
+        return swap @ (3.2 * np.eye(3) + 0.9 * np.outer(axis, axis)) @ swap
+
+    in_section = solver_eps([0.8, 0.0, 0.6])  # tilted in the cross-section (x, normal)
+    along_lines = solver_eps([0.6, 0.48, 0.64])  # with a component along y (the lines)
+    assert grating._poles_mirrored_in_kx([])
+    assert grating._poles_mirrored_in_kx([in_section, np.diag([2.0, 2.5, 3.0])])
+    assert not grating._poles_mirrored_in_kx([in_section, along_lines])
+    rounded = in_section.astype(complex)
+    rounded[0, 2] = rounded[2, 0] = 1e-16  # rounding of a rotation is no coupling
+    assert grating._poles_mirrored_in_kx([rounded])
+
+
+def test_beta_rule_grades_a_lossy_pinch_on_both_sides_for_crystals():
+    # with a crystal β runs over (−β_max, β_max): a lossy pinch β_r + iδ of the pre-pass has its
+    # mirror at −β_r, whose panels are graded as well (plain Gauss–Legendre on the Lorentzian)
+    beta_r, delta, beta_max = 1.3 * K, 3e-3 * K, 2.0 * K
+    crystal = np.diag([2.0, 2.4, 2.2]).astype(complex)
+
+    def lorentz(b):
+        return delta / ((b - beta_r) ** 2 + delta**2) + delta / ((b + beta_r) ** 2 + delta**2)
+
+    exact = 2.0 * (math.atan((beta_max - beta_r) / delta) + math.atan((beta_max + beta_r) / delta))
+    factor = (PERIOD / (2 * math.pi)) / math.pi * 0.5
+    slices = grating._scan_slices(PERIOD, K0, [N, crystal], beta_max, 6, False,
+                                  [complex(beta_r, delta)])  # fmt: skip
+    assert min(sl.beta for sl in slices) < -beta_r
+    value = sum(sl.weight / factor * lorentz(sl.beta) for sl in slices)
+    assert abs(value / exact - 1.0) < 1e-4
