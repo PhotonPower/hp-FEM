@@ -686,9 +686,12 @@ last.
         `dipole_above_stack(depth=...)`); tests: an isotropic slab against Airy, a crystal slab
         independent of the depth and the small-loss limit
       - [ ] S7e-2b: the guided-mode poles in the array scan of crystal structures: implemented
-        (detection and causal bumps per β node, no β pre-pass; `dipole_emission` warns);
-        validation pending: `benchmarks/m19_crystal_guided_scan.py` against
-        `dipole_above_stack(depth=0.03)` (a long run, to be done on a server)
+        (detection and causal bumps per β node; `dipole_emission` warns); without the β
+        pre-pass the server runs stayed at 2e-3 to 6e-3, not monotone in 6 / 8 / 10 β nodes
+        (issue #205): the pre-pass now runs for crystals without a coupling along the lines
+        (poles even in kx by the z mirror and reciprocity); validation pending:
+        `benchmarks/m19_crystal_guided_scan.py` against `dipole_above_stack(depth=0.03)` (a long
+        run, to be done on a server)
 - [x] S8: GUI material editor (isotropic / uniaxial / biaxial / full, axis angles, per part and
   layer) and display of the Jones / Mueller elements (`GUI-hpFEM` PR #4: crystal spec in the
   laboratory frame, `AnisotropicStack` for crystal layers / substrate, `grating.jones` with the

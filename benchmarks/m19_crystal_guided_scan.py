@@ -1,7 +1,8 @@
 """M19 S7e-2b: a single Gaussian dipole above a lossless tilted crystal slab that guides modes, by
 array scanning with the guided-mode poles (``grating.dipole_emission``, crystals: β over
-(−β_max, β_max), the full kx zone, the poles detected and bumped per β node, no β pre-pass for
-the pinch points) against the 2D-spectrum reference on the deformed path
+(−β_max, β_max), the full kx zone, the poles detected and bumped per β node, the β pre-pass for
+the pinch points at kx = 0 and π/P: the optic axis lies in the cross-section, so the poles are
+even in kx) against the 2D-spectrum reference on the deformed path
 (``hpfem.planar.dipole_above_stack(depth=...)``, exact for the Gaussian emitter). A long local
 run; the result goes to ``benchmarks/results/<date>-validation-m19-crystal-guided.json``.
 

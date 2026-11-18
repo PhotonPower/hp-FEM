@@ -2833,6 +2833,7 @@ def _scan_slices(period: float, k0: float, indices, beta_max: float, nodes: int,
     out = []
     if full:
         b_points = b_points + [-b for b in b_points] + [0.0]
+        graded |= {-b for b in graded}  # the graded panels of a pinch at −β_r as well
     b_edges = _breaks(-beta_max if full else 0.0, beta_max, b_points)
     for b0, b1 in zip(b_edges[:-1], b_edges[1:], strict=True):
         if b0 in graded and b1 in graded:
@@ -3283,6 +3284,39 @@ def _detection_contour(sl: _ScanSlice, kx_nodes: int, depth: float, min_points: 
 _GUIDED_BREAK_POINTS = 40  # β samples of the guided pre-pass at each of kx = 0 and π/P
 
 
+def _cell_tensors(mesh, cell) -> list[np.ndarray]:
+    """The permittivity tensors (solver frame) of the cells and of the media of the background
+    stack of a :class:`_DipoleCell`, crystals only."""
+    out = []
+    for c in range(mesh.num_cells):
+        m = cell.material_map.of_cell(mesh, c)
+        if not m.is_isotropic:
+            out.append(np.asarray(m.eps_tensor, dtype=complex))
+    stack = cell.pr.stack
+    media = [stack.incidence_medium, stack.substrate]
+    media += [stack.material(i + 1) for i in range(int(getattr(stack, "num_layers", 0)))]
+    out += [np.asarray(m.eps_tensor, dtype=complex) for m in media if not m.is_isotropic]
+    return out
+
+
+def _poles_mirrored_in_kx(tensors, tol: float = 1e-12) -> bool:
+    """Whether the guided poles of a cell with these crystals (3×3 permittivities in the solver
+    frame: x across, y the normal, z along the lines) are even in kx, so that pole pairs meet at
+    kx = 0 and π/P and the β pre-pass of :func:`_guided_breaks` finds the pinch points
+    (ADR-0013 §4a, M19 S7e-2b). With ε_xz = ε_yz = 0 in every tensor the cell is mirror-symmetric
+    in z and its poles are even in β; a symmetric (non-gyrotropic) ε is reciprocal, a pole at
+    (kx, β) has its partner at (−kx, −β); both together make the poles even in kx, whatever the
+    cell's own mirror in x (a tilted optic axis in the cross-section breaks that one). ``tol`` is
+    relative to the largest entry of each tensor."""
+    for t in tensors:
+        t = np.asarray(t, dtype=complex)
+        scale = float(np.abs(t).max())
+        coupling = max(abs(t[0, 2]), abs(t[1, 2]), abs(t[2, 0]), abs(t[2, 1]))
+        if coupling > tol * scale:
+            return False
+    return True
+
+
 def _guided_breaks(cell: _DipoleCell, k0: float, beta_max: float, progress, cancel,
                    points: int = _GUIDED_BREAK_POINTS, refine: int = 12,
                    workers: int = 1):  # fmt: skip
@@ -3463,7 +3497,9 @@ def emission_cost(mesh, materials, stack, dipole, omega: float, *, nodes: int = 
         beta_top = k0 * max(max(_indices), cell.n_max) if beta_max is None else float(beta_max)
         slices = _scan_slices(cell.pr.period, k0, _indices, beta_top, nodes, symmetric)
         detection = sum(len(_detection_contour(sl, kx_nodes, depth)[0]) for sl in slices)
-        samples = 2 * _GUIDED_BREAK_POINTS + 2 * detection
+        crystal = not cell.material_map.is_isotropic or bool(_stack_crystals(cell.pr.stack))
+        prepass = not crystal or _poles_mirrored_in_kx(_cell_tensors(mesh, cell))
+        samples = (2 * _GUIDED_BREAK_POINTS if prepass else 0) + 2 * detection
     cost = EmissionCost(samples=samples, plane_wave_solves=2 * len(directions),
                         solves=samples + 2 * len(directions), dofs=int(estimate.dofs),
                         total_bytes=int(estimate.total_bytes), memory=estimate.describe(),
@@ -3642,11 +3678,17 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     half-space come from its Fresnel quartic; the emitter lies in an isotropic, lossless medium.
     The ``channels`` by reciprocity (S7d) take every azimuth (no z mirror) and, into the substrate,
     the cell with mirrored tensors; a crystal substrate has no down channel yet (refused).
-    The guided-mode poles are detected and bumped per β node as for isotropic cells; the β
-    pre-pass, which finds the pinch points where pole pairs meet at kx = 0 or π/P, assumes the kx
-    mirror and is skipped, so the β rule does not split at the pinches of a crystal. Not yet
-    validated against the reference (a warning; benchmarks/m19_crystal_guided_scan.py, a long
-    run). ``symmetric`` is not available.
+    The guided-mode poles are detected and bumped per β node as for isotropic cells. The β
+    pre-pass, which finds the pinch points where pole pairs meet at kx = 0 or π/P, needs the
+    poles mirror-symmetric in kx: it runs when no tensor couples the lines direction
+    (ε_xz = ε_yz = 0 in the solver frame, an optic axis in the cross-section; the cell is then
+    mirror-symmetric in z, and with reciprocity the poles are even in kx,
+    :func:`_poles_mirrored_in_kx`). For a tensor with such a coupling the pinches lie elsewhere
+    and are not split off in β (a warning: the β quadrature then converges slowly and not
+    monotonically; without the pre-pass the crystal slab of benchmarks/m19_crystal_guided_scan.py
+    stayed at 2e-3 to 6e-3 for 6 to 10 β nodes). Not yet validated against the reference (a
+    warning; benchmarks/m19_crystal_guided_scan.py, a long run). ``symmetric`` is not
+    available.
 
     ``workers`` > 1 solves the cell problems of the scan in that many threads (the β pre-pass,
     the first pass over all β nodes and the second pass of the guided bumps as one batch each;
@@ -3682,18 +3724,27 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
         if symmetric:
             raise GratingError("symmetric=True assumes a mirror-symmetric cell; not with crystals")
         # guided-mode poles (M19 S7e-2b): the detection per β node and the bumps on the causal
-        # side are general; the β pre-pass is not (pole pairs meet at kx = 0 or π/P only by the
-        # kx mirror), so the pinch points of a crystal are not split off in β
+        # side are general; the β pre-pass needs pole pairs that meet at kx = 0 or π/P, i.e.
+        # poles even in kx, which holds without a coupling of the lines direction
     guided_on = _guided_wanted(cell, guided)
+    prepass = guided_on and (not crystal or _poles_mirrored_in_kx(_cell_tensors(mesh, cell)))
     if crystal and guided_on:
         warnings.warn(
             "dipole_emission: guided-mode poles above crystals (M19 S7e-2b) are not validated yet "
             "against the reference (benchmarks/m19_crystal_guided_scan.py, a long run)",
             stacklevel=2,
         )
+        if not prepass:
+            warnings.warn(
+                "dipole_emission: a crystal couples the lines direction (eps_xz or eps_yz in the "
+                "solver frame): the guided poles are not even in kx, the β pre-pass does not "
+                "apply and the pinch points are not split off in β (slow, non-monotone "
+                "convergence in the β nodes)",
+                stacklevel=2,
+            )
     beta_top = k0 * max(n_semi, cell.n_max) if beta_max is None else float(beta_max)
     breaks, n_prepass = [], 0
-    if guided_on and not crystal:
+    if prepass:
         breaks, n_prepass = _guided_breaks(cell, k0, beta_top, progress, cancel,
                                            workers=workers)  # fmt: skip
     rule, directions, indices = _emission_plan(cell, k0, nodes=nodes, kx_nodes=kx_nodes,
