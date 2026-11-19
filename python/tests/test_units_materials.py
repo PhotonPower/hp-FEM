@@ -36,7 +36,15 @@ def test_library_values_against_the_sources():
     assert abs(au.real - 0.18) < 0.03 and abs(au.imag - 3.43) < 0.1
     si = materials.get("Si").refractive_index(units.angular_frequency(wavelength=500 * units.nm))
     assert abs(si.real - 4.30) < 0.05 and 0.03 < si.imag < 0.06  # alpha ~ 1.1e4 /cm
-    for name in ("Au", "Ag", "Al", "Si", "GaAs", "MAPbI3"):
+    # Johnson & Christy 1974 (adhesion layers): the tabulated rows at 659 nm
+    omega_659 = units.angular_frequency(wavelength=659 * units.nm)
+    ti = materials.get("Ti").refractive_index(omega_659)
+    cr = materials.get("Cr").refractive_index(omega_659)
+    assert abs(ti - complex(2.76, 3.84)) < 1e-9 and abs(cr - complex(3.09, 3.34)) < 1e-9
+    assert (
+        "PhysRevB.9.5056" in materials.get("Ti").source and "Johnson" in materials.get("Cr").source
+    )
+    for name in ("Au", "Ag", "Ti", "Cr", "Al", "Si", "GaAs", "MAPbI3"):
         eps = materials.get(name).eps_r(omega)
         assert eps.imag > 0, name  # lossy: Im eps_r > 0 with exp(-i omega t)
     assert materials.get("Ag").eps_r(omega).real < -10  # noble metal in the visible

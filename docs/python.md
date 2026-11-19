@@ -83,6 +83,7 @@ database, CC0):
 | `Si` | Green 2008, intrinsic c-Si at 300 K | 0.25 – 1.45 µm |
 | `SiO2` | Malitson 1965 Sellmeier, fused silica | 0.21 – 6.7 µm |
 | `Au`, `Ag` | Johnson & Christy 1972 | 0.188 – 1.94 µm |
+| `Ti`, `Cr` | Johnson & Christy 1974 (adhesion layers) | 0.188 – 1.94 µm |
 | `Al` | Rakić 1995 (Kramers–Kronig consistent) | 0.000124 – 200 µm |
 | `TiO2` | Devore 1951 Sellmeier, rutile, ordinary ray | 0.43 – 1.53 µm |
 | `Al2O3` | Malitson & Dodge 1972 Sellmeier, sapphire, ordinary / extraordinary (uniaxial, c-cut) | 0.2 – 5.0 µm |
