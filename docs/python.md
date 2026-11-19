@@ -929,6 +929,68 @@ d_r = hpfem.band_shape_derivative(crystal, bands, hpfem.region_normal_velocity(m
 
 See docs/theory/maxwell.md, "Band derivatives and group velocity".
 
+## Data ports for BindOptiX (`hpfem.dataports`)
+
+BindOptiX (optical biosensors) reads the light of the fusion as maps in the result envelope
+`raytatouille-result` (Raytatouille ADR 0023), with the types of `bindoptix.ports` (issue
+#214). `hpfem.dataports` writes them:
+
+- `EmitterResponseTable`: per emitter position the real symmetric 3×3 tensors `a_tot`
+  (total emitted power), `a_rad` (power into the far field of both half-spaces) and `a_det`
+  (power reaching each detector region), normalised to the free dipole in the host. The
+  power of a unit orientation μ̂ is μ̂ᵀAμ̂.
+- `FieldMap`: the complex E on a grid per 1 mW incident power, optionally with the absorbed
+  power density and the temperature rise.
+
+Both types run the checks BindOptiX applies on import (symmetric, positive semidefinite,
+ΣA_det ≤ A_rad ≤ A_tot), and `to_json()` writes the envelope. Positions are in the sensor frame:
+µm, the surface (the top interface) at z = 0, the solution (the emitter's host) at z > 0.
+
+`planar_emitter_response(stack, wavelength, heights, detectors=None)` computes the table of
+a planar stack of isotropic media (e.g. water / 50 nm Au / glass) semi-analytically, with
+no mesh. The grid runs along z only: x and y are invariant.
+- **A_tot.** `diag(F_∥, F_∥, F_⊥)` from the Sommerfeld integrals (Chance–Prock–Silbey). The
+  path runs below the real axis past the guided-mode and plasmon poles; the code is the M17
+  reference.
+- **Far field.** The far field of the unit dipoles x, y, z in both half-spaces comes from
+  the Fresnel coefficients of the stack (`result.far_field[side]`, a `FarField` with the
+  directions, weights, ŝ / p̂ basis and E∞). In the substrate this includes the supercritical
+  light and the plasmon-coupled emission of a metal film.
+- **A_rad and A_det.** Both are the quadratic forms of that far field on one direction grid:
+  cosine-mapped Gauss nodes in θ, split at the critical angle and at the detector edges. So
+  A_det ≤ A_rad holds by construction.
+- **Detectors.** A `Detector(name, side, theta_min, theta_max, jones=None)` is a polar range
+  of one half-space. The optional `jones(theta, phi)` is the 2×2 matrix from the far-field
+  components (E·ŝ, E·p̂) to the detector, e.g. the J_d of the K5 chain. The default detectors
+  are the whole solution side and the whole substrate.
+- **Accuracy.** Energy is conserved to 1e-12 (A_tot = A_rad for water on glass). The mirror
+  limit matches the image-dipole closed form, and the plasmon-coupled emission of a gold
+  film peaks at the surface-plasmon resonance angle (`python/tests/test_dataports.py`).
+
+A difference that vanishes physically consists only of rounding: A_tot − A_rad of a lossless
+stack, or A_rad − ΣA_det when the detectors cover every direction. BindOptiX measures negative
+eigenvalues against the trace of the difference itself, so such a table would fail at random.
+Both differences are therefore raised to eigenvalues ≥ 1e-12·tr A; the change is recorded as
+`psd_projection` and must stay within the quadrature error. The provenance (`table.source`)
+carries:
+- the solver, version and method;
+- a SHA-256 of the stack and the wavelength;
+- the convergence data: asymmetry, `radiated_check` (the grid against an adaptive integration),
+  `energy` (the smallest eigenvalue of A_tot − A_rad over the trace) and the projection.
+
+```python
+from hpfem import dataports
+stack = hpfem.LayerStack2D(water, [hpfem.Layer(gold, 50e-9)], glass, 0.0)
+critical = math.asin(1.33 / 1.52)
+result = dataports.planar_emitter_response(
+    stack, 670e-9, np.geomspace(2e-9, 200e-9, 40),
+    detectors=[dataports.Detector("sil_supercritical", "substrate", critical, 1.2)])
+open("response.json", "w").write(result.table.to_json())
+```
+
+Field maps (F) from the grating and axisymmetric solvers and response tables of structured
+surfaces (holes, cavities) from the FEM follow in later stages.
+
 ## GPU backend
 
 With the separately built GPU library (`gpu/README.md`, `HPFEM_ENABLE_CUDA`) the direct

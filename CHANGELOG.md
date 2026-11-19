@@ -3,6 +3,16 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `hpfem.dataports` (issue #214, stage 1: planar stacks and the writer): the data ports of the
+  fusion for BindOptiX in the `raytatouille-result` envelope.
+  - `EmitterResponseTable` and `FieldMap` with the import checks of `bindoptix.ports`.
+  - `planar_emitter_response`: the emitter response tensors A_tot / A_rad / A_det of a planar
+    isotropic stack (Sommerfeld / Fresnel, semi-analytic), with the complex far field of the
+    unit dipoles in both half-spaces, detector regions with optional Jones matrices, and
+    provenance (content hash, convergence).
+  - Tests: no layer (A = I), the perfect-mirror closed form, energy conservation and the
+    Chance–Prock–Silbey upward power for water on glass, quenching and the plasmon-coupled
+    emission angle of a gold film, the envelope round trip.
 - M17 S3 validation on a plasmonic film (`docs/theory/maxwell.md` "Stage B", server run, record
   `benchmarks/results/2026-11-07-validation-m17-silver-server.json`): a dipole in a dielectric 80 nm
   above silver by array scanning with the lossy surface-plasmon poles (844 poles, 18380 cell
