@@ -989,7 +989,9 @@ A_rad − ΣA_det are measured against A_tot and A_rad, so a difference that van
 (a lossless stack, detectors covering every direction) passes as rounding noise. The provenance
 (`table.source`) carries:
 - the solver, version and method;
-- a SHA-256 of the stack and the wavelength;
+- `stack`: the stack and the wavelength in plain text (JSON: cover, layers top to bottom as
+  [Re n, Im n, thickness in m], substrate, wavelength in m), so that BindOptiX can recompute the
+  table (its test T4), and `content_hash`, the SHA-256 of exactly that string;
 - the convergence data: asymmetry, `radiated_check` (the grid against an adaptive integration),
   and `energy` (the smallest eigenvalue of A_tot − A_rad over the trace; ≈ 0 for a lossless
   stack without guided modes, > 0 with absorption).

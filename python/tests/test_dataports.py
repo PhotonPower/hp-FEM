@@ -1,6 +1,7 @@
 """Data ports for BindOptiX (issue #214): emitter response tables of planar stacks and the
 ``raytatouille-result`` writer (``hpfem.dataports``)."""
 
+import hashlib
 import json
 import math
 
@@ -179,6 +180,18 @@ def test_emitter_response_table_envelope_round_trip():
     src = data["source"]
     assert src["commit"] == "abc123" and src["solver"] == "hp-FEM"
     assert len(src["content_hash"]) == 64
+    # the stack in plain text (BindOptiX T4 recomputes the table from it) and its hash
+    stack = json.loads(src["stack"])
+    assert stack["cover"] == [N_W, 0.0] and stack["wavelength_m"] == pytest.approx(LAM)
+    assert stack["layers"] == [
+        [
+            pytest.approx(np.sqrt(EPS_AU).real),
+            pytest.approx(np.sqrt(EPS_AU).imag),
+            pytest.approx(50e-9),
+        ]
+    ]
+    assert stack["substrate"] == [N_G, 0.0]
+    assert src["content_hash"] == hashlib.sha256(src["stack"].encode()).hexdigest()
     assert json.loads(src["convergence"])["energy"] > 0  # absorption in the gold
     # the import checks of BindOptiX, here in the constructor
     rebuilt = dp.EmitterResponseTable(r.table.grid, 0.67, N_W, r.table.detectors, a_tot,

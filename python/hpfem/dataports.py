@@ -615,14 +615,19 @@ def _symmetrise(a: np.ndarray) -> tuple[np.ndarray, float]:
     return 0.5 * (a + np.swapaxes(a, -1, -2)), asym
 
 
-def _content_hash(n1, layers, n3, wavelength) -> str:
+def _stack_provenance(n1, layers, n3, wavelength) -> dict[str, str]:
+    """``stack``: the stack in plain text as JSON (sorted keys) — ``{"cover": [n1, 0.0],
+    "layers": [[Re n, Im n, thickness_m], …] (top to bottom), "substrate": [Re n, Im n],
+    "wavelength_m": λ}`` — so that the table can be recomputed (BindOptiX T4); ``content_hash``:
+    the SHA-256 of exactly that string (UTF-8)."""
     data = {
-        "cover": [n1, 0.0],
-        "layers": [[complex(n).real, complex(n).imag, d] for n, d in layers],
+        "cover": [float(n1), 0.0],
+        "layers": [[complex(n).real, complex(n).imag, float(d)] for n, d in layers],
         "substrate": [complex(n3).real, complex(n3).imag],
-        "wavelength_m": wavelength,
+        "wavelength_m": float(wavelength),
     }
-    return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
+    text = json.dumps(data, sort_keys=True)
+    return {"stack": text, "content_hash": hashlib.sha256(text.encode()).hexdigest()}
 
 
 def planar_emitter_response(
@@ -665,7 +670,7 @@ def planar_emitter_response(
     integration of the same far field, ``energy`` = min eig(A_tot − A_rad) / tr A_tot (≈ 0 for a
     lossless stack without guided modes, > 0 with absorption or guided modes). ``source``: extra
     provenance entries (e.g. ``"commit"``), merged over the defaults (solver, version, method,
-    content hash of the stack and wavelength)."""
+    ``stack``: the stack and wavelength in plain text as JSON, ``content_hash``: its SHA-256)."""
     n1, layers, n3, z_bottom = _media(stack)
     heights = np.asarray(heights, dtype=float).ravel()
     if heights.size < 1 or np.any(heights <= 0) or np.any(np.diff(heights) <= 0):
@@ -736,7 +741,7 @@ def planar_emitter_response(
         "solver": "hp-FEM",
         "version": hpfem.__version__,
         "method": "hpfem.dataports.planar_emitter_response (Sommerfeld / Fresnel, semi-analytic)",
-        "content_hash": _content_hash(n1, layers, n3, float(wavelength)),
+        **_stack_provenance(n1, layers, n3, float(wavelength)),
         "convergence": json.dumps(convergence, sort_keys=True),
     }
     provenance.update(source or {})
@@ -895,7 +900,7 @@ def planar_field_map(
         "solver": "hp-FEM",
         "version": hpfem.__version__,
         "method": "hpfem.dataports.planar_field_map (stack plane wave, exact)",
-        "content_hash": _content_hash(*_media(stack)[:3], float(wavelength)),
+        **_stack_provenance(*_media(stack)[:3], float(wavelength)),
         "phase_reference": _PHASE_REFERENCE,
         "incidence": "substrate" if from_substrate else "solution",
     }
