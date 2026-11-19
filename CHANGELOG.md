@@ -23,6 +23,14 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   - Tests: the normal-incidence closed forms, the Kretschmann surface field against the Airy
     recursion and its plasmon peak (DP1), ∫q against the absorptance of a layer and of a
     grating ridge (DP2), periodicity, the envelope keys.
+- `hpfem.dataports` stage 3a (issue #214, structured surfaces): `axisymmetric_emitter_response`,
+  the emitter response table of emitters on the axis of a body of revolution in a planar stack
+  (holes, cavities, pillars) by the axisymmetric FEM.
+  - A_tot from the Poynting flux around the Gaussian dipole (orders m = 0 and ±1).
+  - A_rad and A_det from the layered far field by reciprocity.
+  - `meridian_mesh` for structured meridian meshes.
+  - Tests: a flat absorbing film against the planar table (1e-2 at p = 3, 1.4e-4 on the finer
+    mesh for water on glass), a hole in the film, refusals.
 - `grating.operator` (issue #216, RTT-Fusion L4): the grating cell as an operator at one in-plane
   wavevector. One assembly and factorisation per (kx, β, ω) solves s and p from the cover and s
   and p from the substrate at the same (kx, β) (the loads in one batched solve of the kept

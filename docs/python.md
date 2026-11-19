@@ -1039,7 +1039,28 @@ There are two producers:
     refused.
   - Test (DP2): the sum of q over a lossy ridge equals the solver's `A_by_tag` to 2e-3.
 
-Response tables of structured surfaces (holes, cavities) from the FEM follow in stage 3.
+**Structured surfaces (stage 3).** `axisymmetric_emitter_response(mesh, materials, stack,
+wavelength, heights, pml={"r": t, "top": t, "bottom": t}, order=3, sigma=None, detectors=None)`
+computes the table for emitters on the axis of a body of revolution in a planar stack (a hole,
+a cavity, a pillar) with the axisymmetric FEM.
+
+- **Mesh.** `meridian_mesh(r_lines, z_lines, tag_at)` builds a structured meridian mesh. Put
+  the interfaces, walls and PML boundaries on grid lines; the axis facets get tag 77.
+- **Solves.** Each height costs two solves with a Gaussian dipole: the axial dipole (order
+  m = 0) gives A_zz, the transverse one (m = ±1, equal by symmetry) gives A_xx = A_yy. On the
+  axis the tensors are diagonal.
+- **A_tot.** The Poynting flux around the emitter, through the host cells within 6σ, divided
+  by the bulk power of the same smeared dipole. The smearing cancels.
+- **A_rad, A_det.** From the far field by reciprocity in both half-spaces
+  (`axisymmetric_layered_far_field`), on cosine-mapped Gauss nodes split at the critical
+  angle and the detector edges. Detectors take no Jones matrices here.
+- **Discretisation error.** In a lossless structure the FEM error can push A_rad slightly
+  above A_tot. A_tot is then raised and the change recorded (`energy_projection`, at most
+  `balance_tolerance`).
+- **Accuracy.** A flat stack reproduces the planar table: 6e-3 at p = 3 on a 0.1 λ mesh,
+  1.4e-4 on the twice finer one (`python/tests/test_dataports_axisymmetric.py`).
+- **Limits.** Off-axis emitters need all azimuthal orders or the 3D solver; neither is
+  available yet.
 
 ## GPU backend
 
