@@ -707,10 +707,13 @@ existing solver stack.
   (component-major blocks of `DofMap`), complex assembly with LDLᵀ backends, Dirichlet data per
   component, traction-free default, rigid-body modes by Lagrange multipliers, eigenstrain as a
   callable / data port / temperature, output down to the ADR-0011 mesh velocity
-- [ ] S1: vector H1 assembly with the C : ε forms and `physics::Elasticity<Dim>` (3D and 2D plane
-  strain): Dirichlet per component, tractions, body force, hanging nodes, static condensation;
-  tests: the patch test (linear fields to round-off for p ≥ 1, also with hanging nodes) and a
-  manufactured solution (rate p + 1 in L², p in energy, p = 1 … 4); `docs/theory/elasticity.md`
+- [x] S1: vector H1 assembly with the C : ε forms and `physics::Elasticity<Dim>` (3D and 2D plane
+  strain): Dirichlet per component, tractions, body force, eigenstrain callable, hanging nodes,
+  static condensation (`assembly/elasticity_forms.hpp`, `physics/elasticity.hpp`); tests: the
+  patch test (linear fields to round-off for p = 1 … 3, with hanging nodes and condensation), the
+  rigid-body kernel, a two-material bar under a traction with symmetry planes, a stress-free
+  uniform eigenstrain, and the manufactured solution (rates p + 1 in L², p in H1 for p = 1 … 4 in
+  2D and 1 … 3 in 3D, `tests/convergence/elasticity.cpp`); `docs/theory/elasticity.md`
 - [ ] S2: eigenstrain fields (ε*(x), isotropic s(x), thermal α_th (T − T₀) I from `Thermal`), the
   data-port input on a `RegularGrid` (trilinear), `remove_rigid_modes`; tests: the free sphere
   with homogeneous shrinkage (u = −s r; full sphere and 1/8 with symmetry planes), the laterally

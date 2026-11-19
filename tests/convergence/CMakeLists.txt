@@ -159,3 +159,5 @@ set_tests_properties(validation_long_mie_sphere PROPERTIES LABELS "validation-lo
 add_test(NAME validation_long_conical_grating_hp
   COMMAND convergence_conical_grating_hp "[validation-long]")
 set_tests_properties(validation_long_conical_grating_hp PROPERTIES LABELS "validation-long")
+hpfem_add_test(convergence_elasticity convergence
+  elasticity.cpp)

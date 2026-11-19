@@ -76,6 +76,7 @@ hpfem_add_test(test_physics unit
   physics/test_sweep.cpp
   physics/test_resonance.cpp
   physics/test_riesz_projection.cpp
+  physics/test_elasticity.cpp
   physics/test_thermal.cpp
   physics/test_thermo_optical.cpp
   physics/test_band_structure.cpp
