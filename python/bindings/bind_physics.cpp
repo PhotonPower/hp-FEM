@@ -461,7 +461,7 @@ void bind_physics_dim(py::module_& m) {
                throw InvalidArgument(
                    fmt::format("GridField: {} axes for dimension {}", axes.size(), Dim));
              }
-             std::array<std::vector<Real>, Dim> a;
+             std::array<std::vector<Real>, static_cast<std::size_t>(Dim)> a;
              for (int k = 0; k < Dim; ++k) a[as_size(k)] = axes[as_size(k)];
              return GridField<Dim>(std::move(a),
                                    std::vector<Real>(values.data(), values.data() + values.size()));
@@ -474,7 +474,7 @@ void bind_physics_dim(py::module_& m) {
       m, named("DisplacementCondition", Dim).c_str(),
       "Prescribed displacement components on the facets of a tag: components (bools), value "
       "(callable x -> u, None for zero)")
-      .def(py::init([](mesh::Tag tag, std::array<bool, Dim> components,
+      .def(py::init([](mesh::Tag tag, std::array<bool, static_cast<std::size_t>(Dim)> components,
                        physics::DisplacementField<Dim> value) {
              return physics::DisplacementCondition<Dim>{tag, components, std::move(value)};
            }),
