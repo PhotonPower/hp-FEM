@@ -421,43 +421,75 @@ Real Elasticity<Dim>::strain_energy(const Vector& u) const {
   return energy;
 }
 
+namespace {
+
+/// Reference coordinates of the midpoint of global edge e in cell c.
 template <int Dim>
-mesh::Mesh<Dim> Elasticity<Dim>::deformed_mesh(const Vector& u, Real scale) const {
+Point<Dim> edge_midpoint(const mesh::Mesh<Dim>& mesh, Index c, Index e) {
+  const auto& cv = mesh.cell_vertices(c);
+  Point<Dim> xi = Point<Dim>::Zero();
+  for (const Index v : mesh.edge_vertices(e)) {
+    const auto local = std::distance(cv.begin(), std::find(cv.begin(), cv.end(), v));
+    if (local > 0) xi(local - 1) += 0.5;  // reference vertex j > 0 is the unit vector j − 1
+  }
+  return xi;
+}
+
+}  // namespace
+
+template <int Dim>
+NodeField Elasticity<Dim>::mesh_velocity(const Vector& u) const {
   const auto& mesh = dofs_->mesh();
   if (u.size() != num_dofs()) {
-    throw InvalidArgument(fmt::format("Elasticity::deformed_mesh: {} coefficients for {} DoFs",
+    throw InvalidArgument(fmt::format("Elasticity::mesh_velocity: {} coefficients for {} DoFs",
                                       u.size(), num_dofs()));
   }
   const Index scalar = dofs_->num_dofs();
-  mesh::Mesh<Dim> out = mesh;
-  int p_max = 1;
-  for (Index c = 0; c < mesh.num_cells(); ++c) p_max = std::max(p_max, dofs_->cell_order(c));
-  std::vector<typename mesh::Mesh<Dim>::Vertex> nodes;
-  if (mesh.geometry_order() == 2 || p_max >= 2) {
-    // one node per edge: the (curved) edge midpoint moved by the displacement there
-    nodes.resize(as_size(mesh.num_edges()));
+  NodeField v = NodeField::Zero(num_geometry_nodes(mesh), Dim);
+  for (Index n = 0; n < mesh.num_vertices(); ++n) {
+    for (int i = 0; i < Dim; ++i) v(n, i) = u(i * scalar + n).real();
+  }
+  if (mesh.geometry_order() == 2) {
     std::vector<bool> done(as_size(mesh.num_edges()), false);
     for (Index c = 0; c < mesh.num_cells(); ++c) {
-      const auto geometry = mesh::cell_geometry(mesh, c);
-      const auto& cv = mesh.cell_vertices(c);
       for (const Index e : mesh.cell_edges(c)) {
         if (done[as_size(e)]) continue;
-        Point<Dim> xi = Point<Dim>::Zero();
-        for (const Index v : mesh.edge_vertices(e)) {
-          const auto local = std::distance(cv.begin(), std::find(cv.begin(), cv.end(), v));
-          if (local > 0) xi(local - 1) += 0.5;  // reference vertex j > 0 is the unit vector j − 1
-        }
-        nodes[as_size(e)] = geometry->evaluate(xi).x + scale * displacement(u, c, xi).real();
+        v.row(mesh.num_vertices() + e) =
+            displacement(u, c, edge_midpoint(mesh, c, e)).real().transpose();
         done[as_size(e)] = true;
       }
     }
   }
-  for (Index v = 0; v < mesh.num_vertices(); ++v) {
-    typename mesh::Mesh<Dim>::Vertex x = mesh.vertex(v);
-    for (int i = 0; i < Dim; ++i) x(i) += scale * u(i * scalar + v).real();
-    out.set_vertex(v, x);
+  return v;
+}
+
+template <int Dim>
+mesh::Mesh<Dim> Elasticity<Dim>::deformed_mesh(const Vector& u, Real scale) const {
+  const auto& mesh = dofs_->mesh();
+  int p_max = 1;
+  for (Index c = 0; c < mesh.num_cells(); ++c) p_max = std::max(p_max, dofs_->cell_order(c));
+  mesh::Mesh<Dim> out = mesh;
+  NodeField v = mesh_velocity(u);
+  if (mesh.geometry_order() == 1 && p_max >= 2) {
+    // raise to order 2: edge nodes at the midpoints, moving with u there
+    std::vector<typename mesh::Mesh<Dim>::Vertex> nodes(as_size(mesh.num_edges()));
+    NodeField raised = NodeField::Zero(mesh.num_vertices() + mesh.num_edges(), Dim);
+    raised.topRows(mesh.num_vertices()) = v;
+    std::vector<bool> done(as_size(mesh.num_edges()), false);
+    for (Index c = 0; c < mesh.num_cells(); ++c) {
+      for (const Index e : mesh.cell_edges(c)) {
+        if (done[as_size(e)]) continue;
+        const auto& ev = mesh.edge_vertices(e);
+        nodes[as_size(e)] = 0.5 * (mesh.vertex(ev[0]) + mesh.vertex(ev[1]));
+        raised.row(mesh.num_vertices() + e) =
+            displacement(u, c, edge_midpoint(mesh, c, e)).real().transpose();
+        done[as_size(e)] = true;
+      }
+    }
+    out.set_edge_nodes(std::move(nodes));
+    v = std::move(raised);
   }
-  if (!nodes.empty()) out.set_edge_nodes(std::move(nodes));
+  move_nodes<Dim>(out, v, scale);
   return out;
 }
 

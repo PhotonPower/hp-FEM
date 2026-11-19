@@ -728,9 +728,11 @@ existing solver stack.
   Timoshenko (1925) (agreement to 1e-8 at the centre, `docs/validation.md` M), the example
   `examples/printed_block_shrinkage` (shape error and wall pull-in of a printed block, a
   constrained-layer check inside) with its regression test
-- [ ] S4: coupling to the optics: an optical solve on the deformed mesh, and u as the ADR-0011
-  shape velocity (first-order change of an optical quantity, e.g. the focal shift), checked
-  against the solve on the deformed mesh
+- [x] S4: coupling to the optics: `Elasticity::mesh_velocity(u)` (Re u on the geometry nodes,
+  the ADR-0011 velocity) and `deformed_mesh(u, t)` = `move_nodes(mesh, V, t)`; test: a shrinking
+  resin disc in a soft surrounding, the scattered field at a point by `shape_derivative` along
+  V against the central difference of the optical solve on the deformed meshes (2e-4), and the
+  full 1 % shrinkage predicted to first order within 0.9 %
 - [ ] S5 (optional): axisymmetric elasticity (u_r, u_z) for printed bodies of revolution, a
   residual estimator and hp-adaptivity, a real-valued solver path if measured necessary
 

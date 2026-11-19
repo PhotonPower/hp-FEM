@@ -118,3 +118,17 @@ def test_bonded_strip_against_timoshenko():
     ref = 6 * s * (1 + m) ** 2 / (h * (3 * (1 + m) ** 2 + (1 + m * n) * (m**2 + 1 / (m * n))))
     assert kappa > 0  # the shrinking film on top bends the strip concave towards it
     assert kappa == pytest.approx(ref, rel=1e-6)
+
+
+def test_mesh_velocity_is_the_motion_of_the_deformed_mesh():
+    """mesh_velocity(u) on the geometry nodes is the velocity of deformed_mesh(u, t) (M20 S4):
+    the input of shape_gradient / shape_derivative for the optical change of the shrinkage."""
+    s = 0.01
+    mesh, problem = _layer_problem(s)
+    u = problem.solve()
+    velocity = problem.mesh_velocity(u)
+    assert velocity.shape == (mesh.num_vertices, 3)  # an affine mesh: the vertices only
+    moved = problem.deformed_mesh(u, 0.5)
+    v0 = np.asarray(mesh.vertices)
+    assert np.allclose(np.asarray(moved.vertices), v0 + 0.5 * velocity, atol=1e-15)
+    assert np.allclose(velocity[:, 2], -s * v0[:, 2] * (1 + NU) / (1 - NU), atol=1e-15)

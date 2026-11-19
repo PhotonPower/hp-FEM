@@ -1126,6 +1126,7 @@ u = problem.solve()                                           # (u_x | u_y | u_z
 problem.displacements_at(u, points)                           # (n, 3), NaN outside
 problem.stress(u, cell, xi); problem.strain_energy(u)
 problem.deformed_mesh(u)                                      # e.g. for an optical solve
+V = problem.mesh_velocity(u)          # ADR-0011 velocity: hpfem.shape_derivative(..., V)
 ```
 
 **Inputs.**

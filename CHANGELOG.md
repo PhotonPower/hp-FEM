@@ -3,6 +3,12 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Elasticity coupled to the optics (M20 S4).
+  - `Elasticity::mesh_velocity(u)` gives the ADR-0011 mesh velocity, which turns the shrinkage
+    into the first-order change of an optical goal by `shape_derivative`.
+  - `deformed_mesh` is consistent with it, `move_nodes(mesh, V, t)`.
+  - Tests: the shape derivative against the optical solve on the deformed meshes (2e-4), the
+    full shrinkage to first order, and Python.
 - Elasticity output, Python API, validation and an example (M20 S3).
   - Output: `displacements_at`, `strain_energy`, `deformed_mesh`.
   - Python: `hpfem.Elasticity2D` / `3D` with the setups, conditions, `ElasticMaterial` and

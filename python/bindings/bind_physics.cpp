@@ -543,6 +543,9 @@ void bind_physics_dim(py::module_& m) {
       .def("deformed_mesh", &Elasticity<Dim>::deformed_mesh, py::arg("u"), py::arg("scale") = 1.0,
            Release(),
            "the mesh with its geometry moved by scale * Re u (geometry order 2 for p >= 2)")
+      .def("mesh_velocity", &Elasticity<Dim>::mesh_velocity, py::arg("u"),
+           "Re u on the geometry nodes (vertices, then the edge nodes of a second-order mesh): "
+           "the mesh velocity of shape_gradient / shape_derivative (ADR-0011)")
       .def("rigid_modes", &Elasticity<Dim>::rigid_modes)
       .def("l2_product", &Elasticity<Dim>::l2_product, py::arg("a"), py::arg("b"));
   m.def(

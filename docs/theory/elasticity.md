@@ -107,6 +107,32 @@ machinery:
   midpoint, which gives geometry order 2. The deformed mesh carries quadratic displacements
   exactly and higher ones as their quadratic interpolant.
 
+## Coupling to the optics (M20 S4)
+
+**The velocity.** `mesh_velocity(u)` is Re u on the geometry nodes of the mesh: the vertex
+values and, on a second-order mesh, the displacement at the edge midpoints, whose images are the
+edge nodes. This is the mesh velocity V of the shape derivatives (ADR-0011).
+
+**First-order change.** For an optical goal Q computed on the same mesh, the shrinkage changes Q
+to first order by
+`shape_derivative(problem, solution, functional, V)`, or `shape_sensitivity(shape_gradient(…),
+V)` when the functional does not move. This takes one adjoint solve and needs no remeshing, for
+example for the focal shift or the phase of a printed lens.
+
+**The deformed mesh.** `deformed_mesh(u, t)` is `move_nodes(mesh, V, t)`. An affine mesh with
+p ≥ 2 is first raised to geometry order 2. The optical solve on `deformed_mesh(u)` is the full
+reference.
+
+**Test** (`test_elasticity.cpp`):
+- **Setup.** A resin disc in a soft surrounding, clamped on the outer box, shrinks by 1 %. A
+  uniform temperature with α = −s on the disc tag only produces the shrinkage.
+- **Goal.** The scattered field at a point, from the in-plane Maxwell solver on the same
+  second-order mesh.
+- **Result.**
+  - The shape derivative along V equals the central difference of the optical solve on
+    `deformed_mesh(u, ±10⁻⁶)` to 2e-4.
+  - It predicts the change under the full shrinkage to 0.9 %, a remainder of order s.
+
 ## Number type
 
 The matrix is real symmetric positive definite once the Dirichlet data is eliminated. It is
