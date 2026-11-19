@@ -3,6 +3,16 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `hpfem.dataports` (issue #214, stage 1: planar stacks and the writer): the data ports of the
+  fusion for BindOptiX in the `raytatouille-result` envelope.
+  - `EmitterResponseTable` and `FieldMap` with the import checks of `bindoptix.ports`.
+  - `planar_emitter_response`: the emitter response tensors A_tot / A_rad / A_det of a planar
+    isotropic stack (Sommerfeld / Fresnel, semi-analytic), with the complex far field of the
+    unit dipoles in both half-spaces, detector regions with optional Jones matrices, and
+    provenance (content hash, convergence).
+  - Tests: no layer (A = I), the perfect-mirror closed form, energy conservation and the
+    Chance–Prock–Silbey upward power for water on glass, quenching and the plasmon-coupled
+    emission angle of a gold film, the envelope round trip.
 - `grating.operator` (issue #216, RTT-Fusion L4): the grating cell as an operator at one in-plane
   wavevector. One assembly and factorisation per (kx, β, ω) solves s and p from the cover and s
   and p from the substrate at the same (kx, β) (the loads in one batched solve of the kept
@@ -10,7 +20,8 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   cover blocks equal `grating.jones`, which factorises twice). New in the library:
   `ConicalScattering::load()` and `solution_from()` (another excitation on a kept
   factorisation), `layered_conical_wave_from_substrate` (the stack wave incident from below).
-  Tests: the cover blocks against `grating.jones` for 20 random angles (1e-10), one
+  Tests: the cover blocks against `grating.jones` for 20 random angles (1e-8, the run-to-run
+  rounding of the parallel assembly; 1e-10 with one thread), one
   factorisation, reciprocity, the substrate blocks against the mirrored cell.
 - M17 S3 validation on a plasmonic film (`docs/theory/maxwell.md` "Stage B", server run, record
   `benchmarks/results/2026-11-07-validation-m17-silver-server.json`): a dipole in a dielectric 80 nm
