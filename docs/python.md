@@ -1063,8 +1063,25 @@ a cavity, a pillar) with the axisymmetric FEM.
   `balance_tolerance`).
 - **Accuracy.** A flat stack reproduces the planar table: 6e-3 at p = 3 on a 0.1 λ mesh,
   1.4e-4 on the twice finer one (`python/tests/test_dataports_axisymmetric.py`).
-- **Limits.** Off-axis emitters need all azimuthal orders or the 3D solver; neither is
-  available yet.
+- **Off the axis.** `radii=[ρ0, …]` places the emitters at (x, y, z) = (ρ0, 0, z0). The
+  table's grid is then (radii, 0, heights) in µm. The tensors are Cartesian at φ = 0; other
+  azimuths follow by a rotation about z.
+  - The Gaussian dipole is expanded in all azimuthal orders
+    (`axisymmetric_offaxis_gaussian_dipole`). Its order-m components are closed forms in the
+    scaled modified Bessel functions e^{−κ}I_n(κ), κ = rρ0/σ² (`hpfem.bessel_i_scaled`).
+  - The mirror φ → −φ makes the orders ±m mirror images (A₋ₘ = D Aₘ D). So m ≥ 0 suffice,
+    with weight 2 for m > 0, and A_xy = A_yz = 0. A_xz is the cross power of the x and z
+    dipoles.
+  - Every order is factorised once for all positions and the three orientations. The powers
+    and the far fields of the orders add up.
+  - The sum stops when two consecutive orders change A_tot, and separately A_rad, by less than
+    `order_tolerance` (default 1e-8) of the trace. The order content of the source decays as
+    exp(−m²σ²/2ρ0²).
+  - Typical cost: 20 orders for ρ0 = 0.3 µm with σ = 20 nm. At p = 3 on the test mesh that
+    is about 3.5 s per order on a laptop.
+  - Tests: `radii=[0]` gives the on-axis table (4e-15). In a flat film the off-axis table
+    equals the planar one (1e-2 at p = 3, like on the axis) with A_xz ≈ 0. Near the edge of a
+    hole, A_xz ≠ 0 and A_xx ≠ A_yy.
 
 `axisymmetric_field_map(mesh, materials, stack, wavelength, grid, k_hat, polarisation, pml=...)`
 gives port F of the same structures for one incident plane wave (the conventions of

@@ -8,6 +8,7 @@
 
 #include "common.hpp"
 #include "hpfem/adaptivity/residual_estimator.hpp"
+#include "hpfem/core/special_functions.hpp"
 #include "hpfem/physics/axisymmetric.hpp"
 #include "hpfem/physics/band_sensitivity.hpp"
 #include "hpfem/physics/band_structure.hpp"
@@ -1412,6 +1413,15 @@ void bind_physics(py::module_& m) {
           py::arg("omega"), py::arg("m"),
           "f = i omega mu0 J of a Gaussian-smeared point dipole on the axis at z = position "
           "(current moment [A m]) in the scaled components of order m");
+    m.def("axisymmetric_offaxis_gaussian_dipole", &physics::axisymmetric_offaxis_gaussian_dipole,
+          py::arg("radius"), py::arg("position"), py::arg("moment"), py::arg("sigma"),
+          py::arg("omega"), py::arg("m"),
+          "f = i omega mu0 J of order m of a Gaussian-smeared point dipole off the axis at "
+          "(r, phi, z) = (radius, 0, position) with the Cartesian current moment (p_x, p_y, p_z) "
+          "[A m] there; the orders sum to the 3D Gaussian, radius 0 gives "
+          "axisymmetric_gaussian_dipole");
+    m.def("bessel_i_scaled", &hpfem::bessel_i_scaled, py::arg("max_order"), py::arg("x"),
+          "e^{-x} I_n(x) for n = 0 ... max_order, x >= 0 (Miller's backward recurrence)");
     m.def("dipole_vacuum_power", &physics::dipole_vacuum_power, py::arg("moment"), py::arg("omega"),
           "Larmor power Z0 k0^2 |p|^2 / (12 pi) [W]");
     m.def("axial_plane_wave", &physics::axial_plane_wave, py::arg("amplitude"), py::arg("k"),

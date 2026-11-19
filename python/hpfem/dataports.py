@@ -1135,6 +1135,185 @@ def _structure_hash(mesh, materials, stack, wavelength, order, sigma) -> str:
     return h.hexdigest()
 
 
+def _project_balance(a_tot: np.ndarray, a_rad: np.ndarray) -> float:
+    """Raise A_tot (n, 3, 3) in place where A_tot − A_rad has a negative eigenvalue (the
+    discretisation of a lossless structure): A_tot += |λ| v vᵀ. Returns the largest |λ| relative
+    to the trace of A_tot."""
+    worst = 0.0
+    for i in range(a_tot.shape[0]):
+        lam, vec = np.linalg.eigh(a_tot[i] - a_rad[i])
+        for k in np.nonzero(lam < 0)[0]:
+            worst = max(worst, -lam[k] / np.trace(a_tot[i]))
+            a_tot[i] -= lam[k] * np.outer(vec[:, k], vec[:, k])
+    return float(worst)
+
+
+def _offaxis_emitter_response(
+    nd, h1, mesh, materials, stack, wavelength, order, sigma, detectors, theta_points,
+    balance_tolerance, source, radii, heights, order_tolerance, max_azimuthal_order, omega,
+    material_map, lab, centroids, radius, host_cells, axis_tag, far_surface, base_setup, bulk,
+    n_host, radiating_substrate, up, down,
+):  # fmt: skip
+    """The off-axis branch of :func:`axisymmetric_emitter_response` (see there)."""
+    theta_up, w_up = up
+    theta_down, w_down = down
+    positions = [(float(rho), float(z0)) for rho in radii for z0 in heights]
+    surfaces, supports = [], []
+    for rho, z0 in positions:
+        dist = np.hypot(centroids[:, 0] - rho, centroids[:, 1] - z0)
+        ball = set(np.nonzero(dist < 6 * sigma)[0].tolist())
+        if not ball or not ball <= host_cells:
+            raise ValueError(
+                f"the dipole at (r, z) = ({rho:.3g}, {z0:.3g}) m (6 sigma = {6 * sigma:.3g} m) "
+                "reaches another medium or has no cells around it: lower sigma or move it"
+            )
+        surfaces.append(_surface_around(mesh, ball, axis_tag))
+        supports.append(np.nonzero(dist < 10 * sigma + radius)[0].tolist())
+    moments = [np.eye(3, dtype=complex)[i] for i in range(3)]  # x, y, z
+    n_pos, n_e = len(positions), nd.num_dofs
+    sides = {"cover": (w_up, theta_up)}
+    if radiating_substrate:
+        sides["substrate"] = (w_down, math.pi - theta_down)
+    p_tot = np.zeros((n_pos, 3, 3))
+    density = {side: np.zeros((n_pos, theta.size, 3, 3)) for side, (_w, theta) in sides.items()}
+    far_orders = {side: [[[] for _ in range(3)] for _ in range(n_pos)] for side in sides}
+    cap = (int(max_azimuthal_order) if max_azimuthal_order is not None
+           else int(math.ceil(8 * float(radii.max()) / sigma)) + 8)  # fmt: skip
+    quiet_tot = quiet_far = 0
+    far_done = False
+    m = 0
+    m_far = 0
+    while quiet_tot < 2 or not far_done:
+        if m > cap:
+            raise ValueError(
+                f"the azimuthal orders did not converge to order_tolerance {order_tolerance:.1e} "
+                f"by m = {cap}: raise max_azimuthal_order or sigma"
+            )
+        weight = 1.0 if m == 0 else 2.0  # the order -m is the mirror image of +m
+        problems = []
+        for rho, z0 in positions:
+            for moment in moments:
+                setup = base_setup(m)
+                setup.current = hpfem.axisymmetric_offaxis_gaussian_dipole(
+                    rho, z0, moment, float(sigma), omega, m
+                )
+                setup.keep_factorisation = not problems
+                problems.append(hpfem.AxisymmetricScattering(nd, h1, setup))
+        first = problems[0].solve()
+        loads = np.column_stack([problems[k].load(supports[k // 3])
+                                 for k in range(1, len(problems))])  # fmt: skip
+        blocks = np.column_stack([np.concatenate([first.meridian, first.azimuthal]),
+                                  first.factorisation.solve_many(loads)])  # fmt: skip
+        del first
+        change_tot = change_far = 0.0
+        for ip in range(n_pos):
+            b = blocks[:, 3 * ip : 3 * ip + 3]
+
+            def flux(block, ip=ip, m=m):
+                return hpfem.axisymmetric_poynting_flux(
+                    nd, h1, block[:n_e], block[n_e:], m, omega, material_map, surfaces[ip]
+                )
+
+            d = np.zeros((3, 3))
+            for i in range(3):
+                d[i, i] = flux(b[:, i])
+            d[0, 2] = d[2, 0] = 0.5 * (flux(b[:, 0] + b[:, 2]) - d[0, 0] - d[2, 2])
+            p_tot[ip] += weight * d
+            change_tot = max(change_tot, weight * np.trace(d) / max(np.trace(p_tot[ip]), 1e-300))
+            if far_done:
+                continue
+            amplitudes = {side: [] for side in sides}
+            impedance = {}
+            for i in range(3):
+                far = hpfem.axisymmetric_layered_far_field(
+                    nd, h1, b[:n_e, i], b[n_e:, i], m, omega, material_map, far_surface, lab,
+                    theta_up.tolist(), theta_down.tolist())  # fmt: skip
+                for side in sides:
+                    ff = far.up if side == "cover" else far.down
+                    f = np.column_stack([np.asarray(ff.f_theta), np.asarray(ff.f_phi)])
+                    amplitudes[side].append(f)
+                    far_orders[side][ip][i].append(f)
+                    impedance[side] = ff.impedance
+            before = sum(np.trace(density[side][ip].sum(axis=0)) for side in sides)
+            for side, (w, theta) in sides.items():
+                f = np.stack(amplitudes[side], axis=-1)  # (θ, component, orientation)
+                gram = np.einsum("tci,tcj->tij", f.conj(), f).real
+                # the y dipole decouples: its cross terms cancel between the orders ±m
+                gram[:, 0, 1] = gram[:, 1, 0] = gram[:, 1, 2] = gram[:, 2, 1] = 0.0
+                density[side][ip] += (weight * math.pi / impedance[side]
+                                      * (np.sin(theta) * w)[:, None, None] * gram)  # fmt: skip
+            after = sum(np.trace(density[side][ip].sum(axis=0)) for side in sides)
+            change_far = max(change_far, (after - before) / max(after, 1e-300))
+        quiet_tot = quiet_tot + 1 if change_tot < order_tolerance else 0
+        if not far_done:
+            m_far = m
+            quiet_far = quiet_far + 1 if change_far < order_tolerance else 0
+            far_done = quiet_far >= 2
+        m += 1
+    m_tot = m - 1
+
+    a_tot = p_tot / bulk
+    a_rad = sum(density[side].sum(axis=1) for side in sides) / bulk
+    a_det = np.zeros((n_pos, len(detectors), 3, 3))
+    for k, d in enumerate(detectors):
+        if d.side not in sides:
+            continue
+        theta = sides[d.side][1]
+        inside = (theta >= d.theta_min) & (theta <= d.theta_max)
+        a_det[:, k] = density[d.side][:, inside].sum(axis=1) / bulk
+    for side in ("cover", "substrate"):
+        spans = sorted((d.theta_min, d.theta_max, d.name) for d in detectors if d.side == side)
+        for (_a0, b0, n0), (a1, _b1, n1_) in zip(spans[:-1], spans[1:], strict=True):
+            if a1 < b0:
+                raise ValueError(f"the detector regions {n0!r} and {n1_!r} overlap")
+    projection = _project_balance(a_tot, a_rad)
+    if projection > balance_tolerance:
+        raise ValueError(
+            f"A_rad exceeds A_tot by {projection:.2e} (relative), beyond balance_tolerance "
+            f"{balance_tolerance:.1e}: refine the mesh near the emitter or raise the order"
+        )
+    gap = np.linalg.eigvalsh(a_tot - a_rad).min(axis=1) / np.trace(a_tot, axis1=1, axis2=2)
+    convergence = {
+        "order": int(order),
+        "dofs": int(nd.num_dofs + h1.num_dofs),
+        "cells": int(mesh.num_cells),
+        "sigma_m": float(sigma),
+        "energy": float(gap.min()),
+        "energy_projection": float(projection),
+        "theta_points": int(theta_points),
+        "azimuthal_orders": int(m_tot),
+        "far_field_orders": int(m_far),
+        "factorisations": int(m_tot + 1),
+        "order_tolerance": float(order_tolerance),
+    }
+    provenance = {
+        "solver": "hp-FEM",
+        "version": hpfem.__version__,
+        "method": "hpfem.dataports.axisymmetric_emitter_response (axisymmetric FEM, off-axis "
+        "Gaussian dipoles summed over the azimuthal orders, far field by reciprocity)",
+        "content_hash": _structure_hash(mesh, materials, stack, float(wavelength), order, sigma),
+        "convergence": json.dumps(convergence, sort_keys=True),
+    }
+    provenance.update(source or {})
+    shape = (radii.size, 1, heights.size)
+    table = EmitterResponseTable(
+        grid=RegularGrid((radii * 1e6, [0.0], heights * 1e6)),
+        wavelength_um=float(wavelength) * 1e6,
+        n_host=n_host,
+        detectors=tuple(d.name for d in detectors),
+        a_tot=a_tot.reshape(shape + (3, 3)),
+        a_rad=a_rad.reshape(shape + (3, 3)),
+        a_det=a_det.reshape(shape + (len(detectors), 3, 3)),
+        source=provenance,
+    )
+    far_fields = [
+        {name: {side: np.asarray(far_orders[side][ip][i]) for side in sides}
+         for i, name in enumerate(("x", "y", "z"))}
+        for ip in range(n_pos)
+    ]  # fmt: skip
+    return AxisymmetricEmitterResponse(table=table, far_field=far_fields, convergence=convergence)
+
+
 def axisymmetric_emitter_response(
     mesh,
     materials: dict,
@@ -1150,6 +1329,9 @@ def axisymmetric_emitter_response(
     theta_points: int = 64,
     balance_tolerance: float = 1e-2,
     source: dict | None = None,
+    radii=None,
+    order_tolerance: float = 1e-8,
+    max_azimuthal_order: int | None = None,
 ) -> AxisymmetricEmitterResponse:
     """The emitter response table of emitters on the axis of a body of revolution (a hole, a
     cavity, a pillar) in a planar stack, by the axisymmetric FEM (issue #214, stage 3).
@@ -1182,7 +1364,22 @@ def axisymmetric_emitter_response(
     error and may come out slightly negative, which BindOptiX refuses: A_tot is then raised to
     A_rad on that diagonal entry and the change recorded (``energy_projection``, relative to A_tot);
     above ``balance_tolerance`` the call raises ``ValueError`` (refine the mesh or raise
-    ``order``). Off-axis emitters need all azimuthal orders or the 3D solver (not here)."""
+    ``order``).
+
+    **Off the axis** (``radii``: the distances ρ0 ≥ 0 [m] from the axis, strictly increasing; the
+    emitters sit at (x, y, z) = (ρ0, 0, z0), the table's grid is (radii, 0, heights) in µm and the
+    tensors are Cartesian there; other azimuths follow by rotating about z): the Gaussian dipole
+    is expanded in all azimuthal orders (``axisymmetric_offaxis_gaussian_dipole``). The mirror
+    φ → −φ makes the orders ±m of the x, y and z dipoles mirror images, so m ≥ 0 suffice (weight
+    2 for m > 0), and A_xy = A_yz = 0; A_xz is the cross power of the x and z dipoles. Every
+    order is factorised once for all positions and the three orientations (the loads on the
+    support of the Gaussians, one multi-right-hand-side solve); the power and the far field of
+    the orders add up. The sum runs until two consecutive orders change A_tot (and, separately,
+    A_rad) by less than ``order_tolerance`` relative to its trace; the order content of the
+    source decays as exp(−m²σ²/2ρ0²); 20 orders at ρ0/σ = 15 and the default tolerance
+    (``max_azimuthal_order``, default ⌈8 ρ_max/σ⌉ + 8, raises ``ValueError`` when reached). A
+    negative eigenvalue of A_tot − A_rad from the discretisation is projected away as above.
+    ``radii`` = [0] gives the on-axis table (the test)."""
     n1, layers, n3, z_bottom = _media(stack)
     heights = np.asarray(heights, dtype=float).ravel()
     if heights.size < 1 or np.any(np.diff(heights) <= 0):
@@ -1221,12 +1418,19 @@ def axisymmetric_emitter_response(
     )
     # the host medium at the emitters
     locator = hpfem.PointLocator2D(mesh)
+    if radii is not None:
+        radii = np.asarray(radii, dtype=float).ravel()
+        if radii.size < 1 or np.any(np.diff(radii) <= 0) or radii[0] < 0:
+            raise ValueError("radii must be non-negative and strictly increasing")
     host_tags = set()
-    for z0 in heights:
-        found = locator.locate(np.array([0.0, float(z0)]))
-        if found is None or not inner[found.cell]:
-            raise ValueError(f"emitter at z = {z0:.3g} m outside the region inside the PML")
-        host_tags.add(int(tags[found.cell]))
+    for rho in [0.0] if radii is None else radii:
+        for z0 in heights:
+            found = locator.locate(np.array([float(rho), float(z0)]))
+            if found is None or not inner[found.cell]:
+                raise ValueError(
+                    f"emitter at (r, z) = ({rho:.3g}, {z0:.3g}) m outside the region inside the PML"
+                )
+            host_tags.add(int(tags[found.cell]))
     host = {complex(materials[t].refractive_index) for t in host_tags}
     if len(host) != 1:
         raise ValueError("all emitters must lie in one host medium")
@@ -1265,6 +1469,26 @@ def axisymmetric_emitter_response(
         theta_s, w_down = _theta_grid(sorted(set(sub_breaks)), theta_points)
         theta_down = math.pi - theta_s  # polar angle from +z
     bulk = n_host * hpfem.dipole_vacuum_power(1.0, omega) * math.exp(-((n_host * k0 * sigma) ** 2))
+    radius = np.linalg.norm(vertices[cells] - centroids[:, None, :], axis=2).max(axis=1)
+
+    def base_setup(m):
+        setup = hpfem.AxisymmetricScatteringSetup()
+        setup.omega = omega
+        setup.materials = material_map
+        setup.axis_tag = int(axis_tag)
+        setup.azimuthal_order = m
+        setup.pml = pml_box
+        setup.background = lab
+        setup.extra_quadrature_order = 6
+        return setup
+
+    if radii is not None:
+        return _offaxis_emitter_response(
+            nd, h1, mesh, materials, stack, wavelength, order, sigma, detectors, theta_points,
+            balance_tolerance, source, radii, heights, order_tolerance, max_azimuthal_order,
+            omega, material_map, lab, centroids, radius, host_cells, axis_tag, far_surface,
+            base_setup, bulk, n_host, radiating_substrate, (theta_up, w_up), (theta_down, w_down),
+        )  # fmt: skip
 
     a_tot = np.zeros((heights.size, 3, 3))
     a_rad = np.zeros((heights.size, 3, 3))
@@ -1274,7 +1498,6 @@ def axisymmetric_emitter_response(
     # one factorisation per order for all heights: the operator does not depend on the source,
     # the load of a further height is assembled on the support of its Gaussian (10 σ, e^-50)
     kept = {}
-    radius = np.linalg.norm(vertices[cells] - centroids[:, None, :], axis=2).max(axis=1)
     for iz, z0 in enumerate(heights):
         # the Gaussian must stay in the host: 6σ ball of host cells around the emitter
         dist = np.hypot(centroids[:, 0], centroids[:, 1] - z0)
@@ -1290,16 +1513,9 @@ def axisymmetric_emitter_response(
             ("axial", 0, hpfem.AxisDipole.AXIAL, 1.0, (2,)),
             ("transverse", 1, hpfem.AxisDipole.TRANSVERSE, 2.0, (0, 1)),
         ):
-            setup = hpfem.AxisymmetricScatteringSetup()
-            setup.omega = omega
-            setup.materials = material_map
-            setup.axis_tag = int(axis_tag)
-            setup.azimuthal_order = m
-            setup.pml = pml_box
-            setup.background = lab
+            setup = base_setup(m)
             setup.current = hpfem.axisymmetric_gaussian_dipole(float(z0), 1.0, orientation,
                                                                float(sigma), omega, m)  # fmt: skip
-            setup.extra_quadrature_order = 6
             setup.keep_factorisation = m not in kept
             problem = hpfem.AxisymmetricScattering(nd, h1, setup)
             if m in kept:

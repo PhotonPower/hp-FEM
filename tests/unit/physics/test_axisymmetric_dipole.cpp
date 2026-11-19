@@ -5,12 +5,16 @@
 #include <algorithm>
 #include <cmath>
 #include <complex>
+#include <numbers>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include "axisymmetric_dipole.hpp"
+#include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
 
 using Catch::Approx;
@@ -159,4 +163,67 @@ TEST_CASE("kept factorisation: other heights and the order -m on one factorisati
   REQUIRE_THROWS_AS(kept_problem.mirrored(Vector::Zero(3)), hpfem::InvalidArgument);
   const std::vector<Index> outside{mesh.num_cells()};
   REQUIRE_THROWS_AS(kept_problem.load(outside), hpfem::InvalidArgument);
+}
+
+TEST_CASE("off-axis Gaussian dipole: axis limit, sum of the orders and parity",
+          "[physics][axisymmetric]") {
+  using hpfem::physics::axisymmetric_offaxis_gaussian_dipole;
+  using Vec3 = Eigen::Matrix<Complex, 3, 1>;
+  const Real omega = 2.0e15;
+  const Real sigma = 0.1;
+  const Real z0 = 0.3;
+  const Vec3 px(1.0, 0.0, 0.0);
+  const Vec3 py(0.0, 1.0, 0.0);
+  const Vec3 pz(0.0, 0.0, 1.0);
+  const auto close = [](const Vec3& a, const Vec3& b, Real tol) {
+    return (a - b).norm() <= tol * std::max(b.norm(), 1e-300);
+  };
+  // on the axis: the dipoles of axisymmetric_gaussian_dipole, nothing in the other orders
+  for (const Point<2>& x : {Point<2>(0.05, 0.25), Point<2>(0.12, 0.4)}) {
+    const auto axial = axisymmetric_gaussian_dipole(z0, 1.0, AxisDipole::kAxial, sigma, omega, 0);
+    REQUIRE(close(axisymmetric_offaxis_gaussian_dipole(0.0, z0, pz, sigma, omega, 0)(x), axial(x),
+                  1e-14));
+    for (const int m : {1, -1}) {
+      const auto transverse =
+          axisymmetric_gaussian_dipole(z0, 1.0, AxisDipole::kTransverse, sigma, omega, m);
+      REQUIRE(close(axisymmetric_offaxis_gaussian_dipole(0.0, z0, px, sigma, omega, m)(x),
+                    transverse(x), 1e-14));
+    }
+    REQUIRE(axisymmetric_offaxis_gaussian_dipole(0.0, z0, px, sigma, omega, 2)(x).norm() == 0.0);
+  }
+  // off the axis: the orders sum to the 3D Gaussian i ω μ0 p g in cylindrical components
+  const Real rho0 = 0.5;
+  const Vec3 p(0.3, Complex(0.0, -0.7), Complex(0.5, 0.2));
+  const Real norm = 1.0 / (std::pow(2 * std::numbers::pi, 1.5) * sigma * sigma * sigma);
+  const Complex factor = Complex(0.0, 1.0) * omega * hpfem::constants::mu0 * norm;
+  for (const auto& [r, phi, z] :
+       {std::tuple{0.47, 0.05, 0.33}, std::tuple{0.55, -0.12, 0.27}, std::tuple{0.42, 0.2, 0.3}}) {
+    Vec3 sum = Vec3::Zero();  // (f_r, f_phi, f_z)
+    for (int m = -60; m <= 60; ++m) {
+      const Vec3 f =
+          axisymmetric_offaxis_gaussian_dipole(rho0, z0, p, sigma, omega, m)(Point<2>(r, z));
+      const Complex rotation = std::exp(Complex(0.0, m * phi));
+      sum += rotation * Vec3(f(0), Complex(0.0, 1.0) * f(1) / r, f(2));  // f_phi = i f_v / r
+    }
+    const Real d2 = r * r + rho0 * rho0 - 2 * r * rho0 * std::cos(phi) + (z - z0) * (z - z0);
+    const Complex g = factor * std::exp(-d2 / (2 * sigma * sigma));
+    const Vec3 expect(g * (p(0) * std::cos(phi) + p(1) * std::sin(phi)),
+                      g * (-p(0) * std::sin(phi) + p(1) * std::cos(phi)), g * p(2));
+    REQUIRE(close(sum, expect, 1e-12));
+  }
+  // parity: f_{-m} = ±D f_m (D negates f_v): + for p_x and p_z, - for p_y
+  const Point<2> x(0.45, 0.35);
+  for (const int m : {1, 2, 7}) {
+    for (const auto& [moment, sign] :
+         {std::pair{px, 1.0}, std::pair{pz, 1.0}, std::pair{py, -1.0}}) {
+      Vec3 plus = axisymmetric_offaxis_gaussian_dipole(rho0, z0, moment, sigma, omega, m)(x);
+      plus(1) = -plus(1);
+      REQUIRE(close(axisymmetric_offaxis_gaussian_dipole(rho0, z0, moment, sigma, omega, -m)(x),
+                    sign * plus, 1e-14));
+    }
+  }
+  REQUIRE_THROWS_AS(axisymmetric_offaxis_gaussian_dipole(-0.1, z0, px, sigma, omega, 0),
+                    hpfem::InvalidArgument);
+  REQUIRE_THROWS_AS(axisymmetric_offaxis_gaussian_dipole(0.1, z0, px, 0.0, omega, 0),
+                    hpfem::InvalidArgument);
 }
