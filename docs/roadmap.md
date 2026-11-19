@@ -698,6 +698,32 @@ last.
   Mueller map / curves and the Jones table; end to end against the analytic Jones matrix of a flat
   crystal plate on a crystal substrate, 3e-16)
 
+## M20 — Linear elasticity with eigenstrain (ADR-0016)
+Proposal from Voxelspaetzle (two-photon printing process model) in issue #213, accepted on
+19 November 2026. The model is the shrinkage of printed polymer parts:
+−∇·σ = 0, σ = C : (ε(u) − ε*), on Dim copies of the scalar H1 space, assembled complex, with the
+existing solver stack.
+- [x] S0: ADR-0016 (accepted, `docs/adr/0016-linear-elasticity.md`): vector H1 space
+  (component-major blocks of `DofMap`), complex assembly with LDLᵀ backends, Dirichlet data per
+  component, traction-free default, rigid-body modes by Lagrange multipliers, eigenstrain as a
+  callable / data port / temperature, output down to the ADR-0011 mesh velocity
+- [ ] S1: vector H1 assembly with the C : ε forms and `physics::Elasticity<Dim>` (3D and 2D plane
+  strain): Dirichlet per component, tractions, body force, hanging nodes, static condensation;
+  tests: the patch test (linear fields to round-off for p ≥ 1, also with hanging nodes) and a
+  manufactured solution (rate p + 1 in L², p in energy, p = 1 … 4); `docs/theory/elasticity.md`
+- [ ] S2: eigenstrain fields (ε*(x), isotropic s(x), thermal α_th (T − T₀) I from `Thermal`), the
+  data-port input on a `RegularGrid` (trilinear), `remove_rigid_modes`; tests: the free sphere
+  with homogeneous shrinkage (u = −s r; full sphere and 1/8 with symmetry planes), the laterally
+  constrained layer on a clamped base (u_z = −s z (1 + ν)/(1 − ν), σ_xx = s E/(1 − ν))
+- [ ] S3: output (point and surface values, strain, stress, strain energy, the deformed mesh),
+  Python `hpfem.Elasticity3D` / `2D`, the bonded plate against Timoshenko (validation,
+  `docs/validation.md`), an example (a printed micro-lens or cube shrinking) with a README
+- [ ] S4: coupling to the optics: an optical solve on the deformed mesh, and u as the ADR-0011
+  shape velocity (first-order change of an optical quantity, e.g. the focal shift), checked
+  against the solve on the deformed mesh
+- [ ] S5 (optional): axisymmetric elasticity (u_r, u_z) for printed bodies of revolution, a
+  residual estimator and hp-adaptivity, a real-valued solver path if measured necessary
+
 ## Backlog / ideas
 - [ ] the full ring resonator with ports in 3D (M12 stage B): needs an hp-mesh that is fine
   only across the cores and in the coupling region, p = 3 there for the resonance widths
