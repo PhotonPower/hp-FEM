@@ -3,6 +3,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Axisymmetric elasticity for bodies of revolution (M20 S5a).
+  - `ElasticitySetup::axisymmetric` with `axis_tag`: (u_r, u_z) on the meridian mesh, the hoop
+    strain u_r / r, weight r, u_r = 0 on the axis.
+  - `hoop_eigenstrain`, `hoop_strain`, `hoop_stress`. The assembly loop is now shared with the
+    plane and 3D forms (`assemble_axisymmetric_elasticity`).
+  - Tests: the patch test, the free sphere, and the hollow sphere under internal pressure against
+    Lamé (8.4e-7).
 - Elasticity coupled to the optics (M20 S4).
   - `Elasticity::mesh_velocity(u)` gives the ADR-0011 mesh velocity, which turns the shrinkage
     into the first-order change of an optical goal by `shape_derivative`.

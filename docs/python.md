@@ -1143,6 +1143,9 @@ V = problem.mesh_velocity(u)          # ADR-0011 velocity: hpfem.shape_derivativ
   unbalanced loads. It then projects out the rigid motion, so the mean translation and the mean
   rotation are zero.
 - **Static condensation:** `static_condensation`.
+- **Bodies of revolution.** On a meridian mesh (x = r ≥ 0) set `setup.axisymmetric = True`
+  and `setup.axis_tag = …`, as for printed lenses. The components are then (u_r, u_z), with
+  `hoop_strain` / `hoop_stress` for the θθ parts.
 
 **Tests.**
 - `python/tests/test_elasticity.py`:

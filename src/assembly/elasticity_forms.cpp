@@ -134,15 +134,20 @@ ComplexTensor<Dim> from_voigt_stress(const VoigtVector<Dim>& s) {
   return t;
 }
 
-template <int Dim>
-AssembledSystem assemble_elasticity(const fespace::DofMap<Dim>& dofs,
-                                    const ElasticFormFactory<Dim>& form_of_cell, int extra_order,
-                                    StaticCondensation* condensation) {
+namespace {
+
+/// The global cell loop of the vector space: `local(c, basis, geometry, rule)` returns the
+/// element matrix and load of cell c in component-major local order; the rule is exact for
+/// degree 2 p_c + `extra_order` (plus 2 on curved cells).
+template <int Dim, class Local>
+AssembledSystem assemble_blocks(const fespace::DofMap<Dim>& dofs, const Local& local_of_cell,
+                                int extra_order, StaticCondensation* condensation,
+                                const char* name) {
   const auto& mesh = dofs.mesh();
   const Index scalar = dofs.num_dofs();
   const Index n_total = Dim * scalar;
   if (condensation != nullptr && condensation->num_dofs() != n_total) {
-    throw InvalidArgument(fmt::format("assemble_elasticity: condensation of size {} for {} DoFs",
+    throw InvalidArgument(fmt::format("{}: condensation of size {} for {} DoFs", name,
                                       condensation->num_dofs(), n_total));
   }
   const int threads = num_threads();
@@ -151,17 +156,13 @@ AssembledSystem assemble_elasticity(const fespace::DofMap<Dim>& dofs,
   std::vector<std::map<int, QuadratureRule<Dim>>> rules(as_size(threads));
   std::vector<std::vector<Index>> exterior(as_size(threads));
   parallel_for(mesh.num_cells(), [&](Index c, int thread) {
-    const ElasticForm<Dim> form = form_of_cell(c);
-    if (!form.stiffness) {
-      throw InvalidArgument(fmt::format("assemble_elasticity: cell {} has no stiffness", c));
-    }
     const int p = dofs.cell_order(c);
     const fespace::H1Basis<Dim> basis(dofs.cell_layout(c));
     const auto geometry = mesh::cell_geometry(mesh, c);
     const int order = 2 * p + extra_order + (geometry->is_affine() ? 0 : 2);
     auto& rule = rules[as_size(thread)][order];
     if (rule.size() == 0) rule = simplex_quadrature<Dim>(order);
-    auto local = element_elasticity<Dim>(basis, *geometry, rule, form);
+    ElementContribution local = local_of_cell(c, basis, *geometry, rule);
     const auto ids = dofs.cell_dofs(c);
     const Index n = static_cast<Index>(ids.size());
     SparseAssembler& assembler = assemblers[as_size(thread)];
@@ -205,10 +206,104 @@ AssembledSystem assemble_elasticity(const fespace::DofMap<Dim>& dofs,
     rhs[0] += rhs[as_size(t)];
   }
   if (condensation != nullptr) condensation->add_identity(assemblers[0]);
-  log().info("assemble_elasticity<{}>: {} cells, {} DoFs ({} condensed), {} threads", Dim,
-             mesh.num_cells(), n_total,
-             condensation != nullptr ? condensation->num_interior() : Index{0}, threads);
+  log().info("{}<{}>: {} cells, {} DoFs ({} condensed), {} threads", name, Dim, mesh.num_cells(),
+             n_total, condensation != nullptr ? condensation->num_interior() : Index{0}, threads);
   return {assemblers[0].finalize(), std::move(rhs[0])};
+}
+
+/// Element matrix and load of the axisymmetric forms (component-major: u_r, then u_z).
+ElementContribution element_axisymmetric_elasticity(const fespace::H1Basis<2>& basis,
+                                                    const mesh::CellGeometry<2>& geometry,
+                                                    const QuadratureRule<2>& rule,
+                                                    const AxisymmetricElasticForm& form) {
+  const Index n = basis.size();
+  ElementContribution out{Matrix::Zero(2 * n, 2 * n), Vector::Zero(2 * n)};
+  std::vector<Real> values(as_size(n));
+  std::vector<Point<2>> ref_gradients(as_size(n));
+  Eigen::Matrix<Real, 4, Eigen::Dynamic> b(4, 2 * n);
+  for (std::size_t q = 0; q < rule.size(); ++q) {
+    const auto g = geometry.evaluate(rule.points[q]);
+    const Real r = g.x(0);
+    if (!(r > 0)) {
+      throw InvalidArgument(fmt::format(
+          "assemble_axisymmetric_elasticity: quadrature point at r = {} (the mesh must lie in r "
+          "> 0)",
+          r));
+    }
+    const Real dx = rule.weights[q] * std::abs(g.det) * r;  // the factor 2π dropped
+    basis.evaluate(rule.points[q], values, ref_gradients);
+    b.setZero();
+    for (Index a = 0; a < n; ++a) {
+      const Point<2> grad = g.inverse_transpose * ref_gradients[as_size(a)];
+      // (rr, zz, θθ, γ_rz) of φ_a e_r and of φ_a e_z
+      b(0, a) = grad(0);
+      b(2, a) = values[as_size(a)] / r;
+      b(3, a) = grad(1);
+      b(1, n + a) = grad(1);
+      b(3, n + a) = grad(0);
+    }
+    const auto bc = b.cast<Complex>().eval();
+    const AxisymmetricVoigtMatrix c = form.stiffness(g.x);
+    out.matrix += dx * (bc.transpose() * c * bc);
+    if (form.eigenstrain || form.eigenstrain_reference) {
+      AxisymmetricVoigtVector e = AxisymmetricVoigtVector::Zero();
+      if (form.eigenstrain) e += form.eigenstrain(g.x);
+      if (form.eigenstrain_reference) e += form.eigenstrain_reference(rule.points[q], g.x);
+      out.vector += dx * (bc.transpose() * (c * e));
+    }
+    if (form.body_force) {
+      const Eigen::Matrix<Complex, 2, 1> f = form.body_force(g.x);
+      for (int i = 0; i < 2; ++i) {
+        for (Index a = 0; a < n; ++a) out.vector(i * n + a) += dx * values[as_size(a)] * f(i);
+      }
+    }
+  }
+  return out;
+}
+
+}  // namespace
+
+template <int Dim>
+AssembledSystem assemble_elasticity(const fespace::DofMap<Dim>& dofs,
+                                    const ElasticFormFactory<Dim>& form_of_cell, int extra_order,
+                                    StaticCondensation* condensation) {
+  return assemble_blocks<Dim>(
+      dofs,
+      [&form_of_cell](Index c, const fespace::H1Basis<Dim>& basis,
+                      const mesh::CellGeometry<Dim>& geometry, const QuadratureRule<Dim>& rule) {
+        const ElasticForm<Dim> form = form_of_cell(c);
+        if (!form.stiffness) {
+          throw InvalidArgument(fmt::format("assemble_elasticity: cell {} has no stiffness", c));
+        }
+        return element_elasticity<Dim>(basis, geometry, rule, form);
+      },
+      extra_order, condensation, "assemble_elasticity");
+}
+
+AxisymmetricVoigtMatrix axisymmetric_isotropic_stiffness(Real youngs_modulus, Real poisson_ratio) {
+  const VoigtMatrix<3> c3 = isotropic_stiffness<3>(youngs_modulus, poisson_ratio);
+  AxisymmetricVoigtMatrix c = AxisymmetricVoigtMatrix::Zero();
+  c.topLeftCorner<3, 3>() = c3.topLeftCorner<3, 3>();  // rr, zz, θθ like xx, yy, zz
+  c(3, 3) = c3(5, 5);                                  // μ
+  return c;
+}
+
+AssembledSystem assemble_axisymmetric_elasticity(const fespace::DofMap<2>& dofs,
+                                                 const AxisymmetricElasticFormFactory& form_of_cell,
+                                                 int extra_order,
+                                                 StaticCondensation* condensation) {
+  return assemble_blocks<2>(
+      dofs,
+      [&form_of_cell](Index c, const fespace::H1Basis<2>& basis,
+                      const mesh::CellGeometry<2>& geometry, const QuadratureRule<2>& rule) {
+        const AxisymmetricElasticForm form = form_of_cell(c);
+        if (!form.stiffness) {
+          throw InvalidArgument(
+              fmt::format("assemble_axisymmetric_elasticity: cell {} has no stiffness", c));
+        }
+        return element_axisymmetric_elasticity(basis, geometry, rule, form);
+      },
+      extra_order + 1, condensation, "assemble_axisymmetric_elasticity");
 }
 
 template <int Dim>

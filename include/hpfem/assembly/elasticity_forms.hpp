@@ -72,6 +72,37 @@ template <int Dim>
                                                   int extra_order = 2,
                                                   StaticCondensation* condensation = nullptr);
 
+/// Axisymmetric elasticity (m = 0, no torsion) on the meridian half-plane x = r ≥ 0, y = z
+/// (ADR-0016 S5): the unknowns (u_r | u_z) on two copies of the scalar map, the strains in Voigt
+/// order (rr, zz, θθ, rz) with @f$ \varepsilon_{\theta\theta} = u_r / r @f$ and the engineering
+/// shear @f$ \gamma_{rz} = \partial_z u_r + \partial_r u_z @f$, integrals with the weight r (the
+/// factor 2π dropped, as in the axisymmetric Maxwell forms). u_r must vanish on the axis (the
+/// caller eliminates it).
+using AxisymmetricVoigtMatrix = Eigen::Matrix<Complex, 4, 4>;
+using AxisymmetricVoigtVector = Eigen::Matrix<Complex, 4, 1>;
+
+/// Isotropic stiffness in the order (rr, zz, θθ, rz). @throws InvalidArgument as
+/// `isotropic_stiffness`.
+[[nodiscard]] AxisymmetricVoigtMatrix axisymmetric_isotropic_stiffness(Real youngs_modulus,
+                                                                       Real poisson_ratio);
+
+/// Coefficients of one meridian cell; the eigenstrains are Voigt vectors (rr, zz, θθ, γ_rz).
+struct AxisymmetricElasticForm {
+  std::function<AxisymmetricVoigtMatrix(const Point<2>&)> stiffness;        ///< required
+  std::function<Eigen::Matrix<Complex, 2, 1>(const Point<2>&)> body_force;  ///< (f_r, f_z)
+  std::function<AxisymmetricVoigtVector(const Point<2>&)> eigenstrain;
+  std::function<AxisymmetricVoigtVector(const Point<2>& xi, const Point<2>& x)>
+      eigenstrain_reference;
+};
+using AxisymmetricElasticFormFactory = std::function<AxisymmetricElasticForm(Index)>;
+
+/// Stiffness matrix and load of the axisymmetric forms (size 2N), rules exact for degree
+/// 2 p + `extra_order` + 1 (the weight r).
+/// @throws InvalidArgument if a cell has no stiffness or a quadrature point lies at r ≤ 0.
+[[nodiscard]] AssembledSystem assemble_axisymmetric_elasticity(
+    const fespace::DofMap<2>& dofs, const AxisymmetricElasticFormFactory& form_of_cell,
+    int extra_order = 2, StaticCondensation* condensation = nullptr);
+
 /// Displacement (Dim components) of the block coefficients `u` at reference point ξ of cell c.
 template <int Dim>
 [[nodiscard]] Eigen::Matrix<Complex, Dim, 1> evaluate_displacement(const fespace::DofMap<Dim>& dofs,

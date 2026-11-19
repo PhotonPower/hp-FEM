@@ -133,6 +133,45 @@ reference.
     `deformed_mesh(u, ±10⁻⁶)` to 2e-4.
   - It predicts the change under the full shrinkage to 0.9 %, a remainder of order s.
 
+## Bodies of revolution (M20 S5)
+
+With `axisymmetric = true` (2D only) the mesh is the meridian half-plane x = r ≥ 0, y = z. The
+unknowns are (u_r | u_z): azimuthal order 0, without torsion.
+
+**Kinematics.** The strains in Voigt order (rr, zz, θθ, rz) are
+
+$$
+\varepsilon_{rr} = \partial_r u_r,\quad \varepsilon_{zz} = \partial_z u_z,\quad
+\varepsilon_{\theta\theta} = \frac{u_r}{r},\quad \gamma_{rz} = \partial_z u_r + \partial_r u_z .
+$$
+
+**Integrals and stiffness.** The integrals carry the weight r; the factor 2π is dropped, as in the
+axisymmetric Maxwell forms, so energies and loads are per radian. The isotropic stiffness is the
+3D one restricted to (xx, yy, zz, xy) ↔ (rr, zz, θθ, rz).
+
+**The axis.** u_r = 0 is imposed on the facets with `axis_tag`. The remaining basis functions of
+u_r vanish linearly there, so (φ/r)(φ/r) r is a polynomial and the quadrature (2p + extra + 1)
+integrates it.
+
+**Eigenstrains.** Those of the shrinkage and the temperature are isotropic, hoop part included.
+`eigenstrain` gives (rr, zz, rz), and `hoop_eigenstrain` gives its θθ part.
+
+**Free bodies.** The only rigid-body mode is the translation along z: one pin, then the
+r-weighted projection.
+
+**Output.** `stress` returns (rr, rz; rz, zz). `hoop_strain` and `hoop_stress` return the θθ
+parts; on the axis the hoop strain is the limit ∂u_r/∂r.
+
+**Tests** (`tests/unit/physics/test_elasticity_axisymmetric.cpp`):
+- **Patch test.** u_r = a r, u_z = b z + d on the meridian rectangle reproduces the exact uniform
+  stresses, hoop included, for p = 1 … 3.
+- **Free sphere.** On the curved half disc, u = −s x is reproduced to 1e-12 for p = 2 and 3.
+- **Hollow sphere under internal pressure** against Lamé's solution:
+  - On 4 × 12 cells the relative L² error is 1.3e-3, 9.1e-5 and 1.5e-5 for p = 2, 3, 4.
+  - On 8 × 24 cells at p = 4 it is 8.4e-7, and the inner pole agrees to 2.9e-6.
+  - The quadratic geometry of the arcs bounds the error from below. That bound falls like h_θ⁴:
+    1.3e-5 → 8.0e-7 at p = 5 when the angular step is halved.
+
 ## Number type
 
 The matrix is real symmetric positive definite once the Dirichlet data is eliminated. It is
