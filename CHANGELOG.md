@@ -13,6 +13,16 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   - Tests: no layer (A = I), the perfect-mirror closed form, energy conservation and the
     Chance–Prock–Silbey upward power for water on glass, quenching and the plasmon-coupled
     emission angle of a gold film, the envelope round trip.
+- `hpfem.dataports` stage 2 (issue #214, field maps, port F as agreed in BindOptiX #23): one
+  map per incident plane wave with `irradiance_w_m2`, `k_hat`, `polarisation`, `medium` / `media`
+  (keys of their own, BindOptiX #24) and the absorbed power density `q_w_m3`.
+  - `planar_field_map`: the exact stack field, incidence from the solution or through the
+    substrate (Kretschmann).
+  - `grating_field_map`: the map of a `grating.solve` result in the sensor frame, with the Bloch
+    and longitudinal phases.
+  - Tests: the normal-incidence closed forms, the Kretschmann surface field against the Airy
+    recursion and its plasmon peak (DP1), ∫q against the absorptance of a layer and of a
+    grating ridge (DP2), periodicity, the envelope keys.
 - `grating.operator` (issue #216, RTT-Fusion L4): the grating cell as an operator at one in-plane
   wavevector. One assembly and factorisation per (kx, β, ω) solves s and p from the cover and s
   and p from the substrate at the same (kx, β) (the loads in one batched solve of the kept

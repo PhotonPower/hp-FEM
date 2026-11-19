@@ -1,6 +1,7 @@
 """Data ports for BindOptiX (issue #214): emitter response tables of planar stacks and the
 ``raytatouille-result`` writer (``hpfem.dataports``)."""
 
+import hashlib
 import json
 import math
 
@@ -179,6 +180,18 @@ def test_emitter_response_table_envelope_round_trip():
     src = data["source"]
     assert src["commit"] == "abc123" and src["solver"] == "hp-FEM"
     assert len(src["content_hash"]) == 64
+    # the stack in plain text (BindOptiX T4 recomputes the table from it) and its hash
+    stack = json.loads(src["stack"])
+    assert stack["cover"] == [N_W, 0.0] and stack["wavelength_m"] == pytest.approx(LAM)
+    assert stack["layers"] == [
+        [
+            pytest.approx(np.sqrt(EPS_AU).real),
+            pytest.approx(np.sqrt(EPS_AU).imag),
+            pytest.approx(50e-9),
+        ]
+    ]
+    assert stack["substrate"] == [N_G, 0.0]
+    assert src["content_hash"] == hashlib.sha256(src["stack"].encode()).hexdigest()
     assert json.loads(src["convergence"])["energy"] > 0  # absorption in the gold
     # the import checks of BindOptiX, here in the constructor
     rebuilt = dp.EmitterResponseTable(r.table.grid, 0.67, N_W, r.table.detectors, a_tot,
@@ -197,6 +210,138 @@ def test_field_map_envelope():
     data = _decode(fm.to_json(), "FieldMap")
     assert np.array_equal(dp.decode_array(data["e"]), e)
     assert data["delta_t_k"] is None and data["nonlinear"] is False
+    assert data["irradiance_w_m2"] is None and data["k_hat"] is None
     assert dp.encode_array(np.array([np.nan, np.inf]))["values"] == ["NaN", "Infinity"]
     with pytest.raises(ValueError, match="nonlinear"):
         dp.FieldMap(grid, 0.633, e, nonlinear=True)
+
+
+# --- port F: field maps -------------------------------------------------------------------------
+
+
+def _key(fm, key):
+    return _decode(fm.to_json(), "FieldMap")[key]
+
+
+def test_planar_field_map_at_normal_incidence_from_both_sides():
+    """Water on glass at normal incidence: from the solution E_x = e^{−ik1z} + r e^{ik1z}, r =
+    (n_w − n_g)/(n_w + n_g); from the glass E_x = t e^{ik1z}, t = 2 n_g/(n_g + n_w) (the incident
+    wave has E = polarisation at the origin, continued into the glass)."""
+    grid = dp.RegularGrid(([0.0], [0.0], np.linspace(0.0, 0.5, 11)))
+    z = grid.axes_um[2] * 1e-6
+    k1 = K0 * N_W
+    above = dp.planar_field_map(_stack(), LAM, grid, [0, 0, -1], [1, 0, 0])
+    r = (N_W - N_G) / (N_W + N_G)
+    assert (
+        np.abs(above.e[0, 0, :, 0] - (np.exp(-1j * k1 * z) + r * np.exp(1j * k1 * z))).max() < 1e-10
+    )
+    assert np.abs(above.e[..., 1:]).max() < 1e-12
+    below = dp.planar_field_map(_stack(), LAM, grid, [0, 0, 1], [0, 1, 0])
+    t = 2 * N_G / (N_G + N_W)
+    assert np.abs(below.e[0, 0, :, 1] - t * np.exp(1j * k1 * z)).max() < 1e-10
+    assert above.irradiance_w_m2 == pytest.approx(N_W / (2 * hpfem.constants.Z0))
+    assert below.irradiance_w_m2 == pytest.approx(N_G / (2 * hpfem.constants.Z0))
+    assert above.media == ("solution", "substrate") and np.all(above.medium == 0)
+    assert np.array_equal(dp.decode_array(_key(below, "k_hat")), [0.0, 0.0, 1.0])
+    assert _key(below, "irradiance_w_m2") == pytest.approx(below.irradiance_w_m2)
+    assert "phase_reference" in _decode(below.to_json(), "FieldMap")["source"]
+
+
+def test_kretschmann_surface_field_dp1():
+    """DP1 (BindOptiX): p light through the glass onto 50 nm gold under water. The field at the
+    gold surface (z = 0, solution side) equals the transmitted wave of the Airy recursion
+    (|E|² = |t_p|² (|k_x|² + |k_z|²) / n_w² of the evanescent p wave) and peaks near the
+    surface-plasmon resonance angle with a strong enhancement."""
+    gold = hpfem.Material(EPS_AU, 1.0)
+    stack = _stack([(gold, 50e-9)])
+    grid = dp.RegularGrid(([0.0], [0.0], [0.0, 0.02]))
+    angles = np.radians(np.linspace(60.0, 80.0, 41))
+    surface = []
+    for t in angles:
+        k = np.array([math.sin(t), 0.0, math.cos(t)])
+        fm = dp.planar_field_map(stack, LAM, grid, k, [-math.cos(t), 0.0, math.sin(t)])
+        assert np.all(fm.medium == 0)
+        s = N_G * math.sin(t)  # in-plane index
+        _rs, _rp, _ts, tp = dp._fresnel(s / N_G, N_G, [(np.sqrt(EPS_AU), 50e-9)], N_W, K0)
+        kz = np.sqrt(complex(N_W**2 - s * s))
+        expected = abs(tp) ** 2 * (s * s + abs(kz) ** 2) / N_W**2
+        assert np.sum(np.abs(fm.e[0, 0, 0]) ** 2) == pytest.approx(expected, rel=1e-9)
+        surface.append(np.sum(np.abs(fm.e[0, 0, 0]) ** 2))
+    peak = angles[int(np.argmax(surface))]
+    spr = math.asin((np.sqrt(EPS_AU * N_W**2 / (EPS_AU + N_W**2))).real / N_G)
+    assert abs(peak - spr) < math.radians(1.5), (math.degrees(peak), math.degrees(spr))
+    assert max(surface) > 10.0
+
+
+def test_planar_absorption_density_integrates_to_the_absorptance_dp2():
+    """DP2: ∫ q dz over an absorbing layer equals the absorptance of the stack times the incident
+    flux I₀ cos θ (the stack's own power balance, LayerStack3D.plane_wave)."""
+    layer = hpfem.Material(complex(4.0, 0.6), 1.0)
+    d = 80e-9
+    stack = _stack([(layer, d)])
+    theta = 0.4
+    z = np.linspace(-d, 0.0, 801)
+    grid = dp.RegularGrid(([0.0], [0.0], z * 1e6))
+    k = [math.sin(theta), 0.0, -math.cos(theta)]
+    fm = dp.planar_field_map(stack, LAM, grid, k, [0.0, 1.0, 0.0])
+    q = fm.q_w_m3[0, 0]
+    q[-1] = dp.planar_field_map(
+        stack, LAM, dp.RegularGrid(([0.0], [0.0], [-1e-9])), k, [0.0, 1.0, 0.0]
+    ).q_w_m3.ravel()[0]  # the layer side of z = 0
+    absorbed = float(np.sum(0.5 * (q[1:] + q[:-1]) * np.diff(z)))
+    reference = hpfem.LayerStack3D(WATER, [hpfem.Layer(layer, d)], GLASS, 0.0).plane_wave(
+        K0, theta, hpfem.Polarisation.S).absorptance  # fmt: skip
+    assert absorbed / (fm.irradiance_w_m2 * math.cos(theta)) == pytest.approx(reference, rel=1e-5)
+    assert np.all(fm.medium[0, 0, 1:-1] == 1) and fm.medium[0, 0, -1] == 0
+
+
+def _grating_result():
+    from hpfem import grating, units
+
+    sub, ridge, air = 5, 6, 7
+    period, height, h = 0.4e-6, 0.1e-6, 0.05e-6
+    ny = int(round(2.4e-6 / h))
+    mesh = hpfem.rectangle(int(round(period / h)), ny, [0.0, -1.2e-6],
+                           [period, -1.2e-6 + ny * h])  # fmt: skip
+    for c in range(mesh.num_cells):
+        x = np.mean([mesh.vertex(int(v)) for v in mesh.cell_vertices(c)], axis=0)
+        tag = sub if x[1] < 0 else (ridge if x[1] < height and x[0] < period / 2 else air)
+        mesh.set_cell_tag(c, tag)
+    materials = {sub: GLASS, ridge: hpfem.Material(complex(4.0, 0.8), 1.0), air: WATER}
+    result = grating.solve(mesh, materials, _stack(), "p", 0.3, 0.5,
+                           units.angular_frequency(wavelength=LAM), order=3,
+                           pml={"top": 0.4e-6, "bottom": 0.4e-6})  # fmt: skip
+    return result, period, height, ridge
+
+
+def test_grating_field_map_frames_periodicity_and_absorption():
+    """The map of a solved cell: k_hat and polarisation of the incident wave in the sensor frame,
+    the Bloch phase across the lines, the phase e^{iβy} along them, the medium by tag, and DP2:
+    the midpoint sum of q over the lossy ridge equals the solver's absorbed fraction times the
+    incident flux per period."""
+    result, period, height, ridge = _grating_result()
+    n = 30
+    xs = (np.arange(n) + 0.5) * (period / 2) / n * 1e6
+    zs = (np.arange(n) + 0.5) * height / n * 1e6
+    fm = dp.grating_field_map(result, dp.RegularGrid((xs, [0.0], zs)), media={ridge: "ridge"})
+    assert fm.media == ("ridge",)
+    assert np.allclose(fm.k_hat, [math.sin(0.3) * math.cos(0.5), math.sin(0.3) * math.sin(0.5),
+                                  -math.cos(0.3)])  # fmt: skip
+    assert abs(np.dot(fm.k_hat, fm.polarisation)) < 1e-12
+    absorbed = fm.q_w_m3.sum() * (period / 2 / n) * (height / n)
+    incident = fm.irradiance_w_m2 * math.cos(0.3) * period
+    assert absorbed / incident == pytest.approx(result.A_by_tag[ridge], rel=2e-3)
+    grid = dp.RegularGrid(([0.05, 0.05 + period * 1e6], [0.0, 0.3], [0.0, 0.2]))
+    f2 = dp.grating_field_map(result, grid)
+    bloch = np.exp(1j * result.wave.kx * period)
+    assert np.abs(f2.e[1, 0] - f2.e[0, 0] * bloch).max() < 1e-12 * np.abs(f2.e).max()
+    along = np.exp(1j * result.wave.beta * 0.3e-6)
+    assert np.abs(f2.e[0, 1] - f2.e[0, 0] * along).max() < 1e-12 * np.abs(f2.e).max()
+    with pytest.raises(ValueError, match="PML"):
+        dp.grating_field_map(result, dp.RegularGrid(([0.1], [0.0], [1.0])))
+    with pytest.warns(UserWarning, match="exactly z = 0"):
+        dp.grating_field_map(result, dp.RegularGrid(([0.1], [0.0], np.linspace(-0.05, 0.1, 7))))
+    data = _decode(f2.to_json(), "FieldMap")
+    assert data["media"] == list(f2.media)
+    assert dp.decode_array(data["medium"]).shape == grid.shape
+    assert dp.decode_array(data["polarisation"]).dtype == np.complex128

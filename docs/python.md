@@ -989,7 +989,9 @@ A_rad − ΣA_det are measured against A_tot and A_rad, so a difference that van
 (a lossless stack, detectors covering every direction) passes as rounding noise. The provenance
 (`table.source`) carries:
 - the solver, version and method;
-- a SHA-256 of the stack and the wavelength;
+- `stack`: the stack and the wavelength in plain text (JSON: cover, layers top to bottom as
+  [Re n, Im n, thickness in m], substrate, wavelength in m), so that BindOptiX can recompute the
+  table (its test T4), and `content_hash`, the SHA-256 of exactly that string;
 - the convergence data: asymmetry, `radiated_check` (the grid against an adaptive integration),
   and `energy` (the smallest eigenvalue of A_tot − A_rad over the trace; ≈ 0 for a lossless
   stack without guided modes, > 0 with absorption).
@@ -1004,8 +1006,40 @@ result = dataports.planar_emitter_response(
 open("response.json", "w").write(result.table.to_json())
 ```
 
-Field maps (F) from the grating and axisymmetric solvers and response tables of structured
-surfaces (holes, cavities) from the FEM follow in later stages.
+**Field maps (port F, stage 2).** One map per incident plane wave, i.e. per direction and
+polarisation. BindOptiX superposes the maps and converts them to "per mW at the input port"
+itself (BindOptiX #23).
+
+Each map carries:
+- `irradiance_w_m2` = I₀ = n|E₀|²/(2Z₀) of the unit wave, measured normal to the beam in the
+  incidence medium;
+- `k_hat` and `polarisation`: the incident wave in the sensor frame;
+- `medium` / `media`: the medium of each grid point, by index and name;
+- optionally `q_w_m3` = (ω ε0/2) E^H Im ε E, in W/m³ at that irradiance.
+
+Two further conventions:
+- **Phase.** It refers to the incident wave with E = `polarisation` at the origin (`phase_reference`).
+- **Interfaces.** On an interface the value is the limit from the solution side, so the plane
+  z = 0 can lie on the grid.
+
+`to_json()` writes them as keys of their own in the format of BindOptiX #24;
+`phase_reference` stays in `source`. A map normalised to an irradiance is linear.
+
+There are two producers:
+- `planar_field_map(stack, wavelength, grid, k_hat, polarisation)`: the exact stack field.
+  - A `k_hat` pointing down comes from the solution; pointing up, it comes through the lossless
+    substrate (Kretschmann, test case DP1).
+  - Tests: the normal-incidence closed forms from both sides, the gold surface field against
+    the Airy recursion with its plasmon peak, and ∫q dz = absorptance · I₀ cos θ (DP2).
+- `grating_field_map(result, grid)`: the map of a `grating.solve` result (incidence from the
+  cover).
+  - The solver frame (x, y the normal, z along the lines) becomes the sensor frame (x, y along
+    the lines, z the normal). The Bloch phase applies across the lines, e^{iβy} along them.
+  - The medium comes from the cell tags (`media={tag: name}`). Grid points in the PML are
+    refused.
+  - Test (DP2): the sum of q over a lossy ridge equals the solver's `A_by_tag` to 2e-3.
+
+Response tables of structured surfaces (holes, cavities) from the FEM follow in stage 3.
 
 ## GPU backend
 
