@@ -11,7 +11,8 @@
 namespace hpfem::physics {
 
 template <int Dim>
-GridField<Dim>::GridField(std::array<std::vector<Real>, Dim> axes, std::vector<Real> values)
+GridField<Dim>::GridField(std::array<std::vector<Real>, static_cast<std::size_t>(Dim)> axes,
+                          std::vector<Real> values)
     : axes_(std::move(axes)), values_(std::move(values)) {
   std::size_t count = 1;
   for (int k = 0; k < Dim; ++k) {
@@ -36,9 +37,9 @@ GridField<Dim>::GridField(std::array<std::vector<Real>, Dim> axes, std::vector<R
 template <int Dim>
 Real GridField<Dim>::operator()(const Point<Dim>& x) const {
   // per axis: the lower index and the weight of the upper neighbour
-  std::array<std::size_t, Dim> lower{};
-  std::array<Real, Dim> weight{};
-  std::array<std::size_t, Dim> size{};
+  std::array<std::size_t, static_cast<std::size_t>(Dim)> lower{};
+  std::array<Real, static_cast<std::size_t>(Dim)> weight{};
+  std::array<std::size_t, static_cast<std::size_t>(Dim)> size{};
   for (int k = 0; k < Dim; ++k) {
     const auto& a = axes_[as_size(k)];
     size[as_size(k)] = a.size();
