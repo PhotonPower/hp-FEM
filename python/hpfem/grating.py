@@ -1580,9 +1580,8 @@ def solve(
         found = _diagnostics(mesh, pr, stack, materials, order, bottom, orders_max, omega)
         if dg.errors(found):
             raise GratingError("; ".join(str(d) for d in dg.errors(found)))
-    period, x_min, k0, wave, box = pr.period, pr.x_min, pr.k0, pr.wave, pr.box
-    material_map, n_cover, n_sub = pr.material_map, pr.n_cover, pr.n_sub
-    cover_line, substrate_line, transmitted = pr.cover_line, pr.substrate_line, pr.transmitted
+    period, x_min, wave, box = pr.period, pr.x_min, pr.wave, pr.box
+    material_map, cover_line = pr.material_map, pr.cover_line
     timing["setup"] = time.perf_counter() - t0
 
     # --- solve -------------------------------------------------------------------------------
@@ -1636,6 +1635,20 @@ def solve(
             pml=box, cover_line=cover_line, substrate_line=None,
             dofs=int(len(problem.free_dofs)), timing=timing, period=period, x_min=x_min,
         )  # fmt: skip
+    return _grating_result(
+        mesh, materials, stack, pr, problem, solution, wave, polarisation, theta, phi, omega, t0,
+        t2, timing, found, scalar, orders_max, fourier_points, extra_quadrature_order, solver,
+    )  # fmt: skip
+
+
+def _grating_result(mesh, materials, stack, pr: _Prepared, problem, solution, wave, polarisation,
+                    theta, phi, omega, t0, t2, timing, found, scalar, orders_max, fourier_points,
+                    extra_quadrature_order, solver) -> GratingResult:  # fmt: skip
+    """The orders, absorption and balance of a solution for incidence from the cover (the
+    post-processing of :func:`solve`)."""
+    period, x_min, k0, box = pr.period, pr.x_min, pr.k0, pr.box
+    n_cover, n_sub = pr.n_cover, pr.n_sub
+    cover_line, substrate_line, transmitted = pr.cover_line, pr.substrate_line, pr.transmitted
     locator = hpfem.PointLocator2D(mesh)
     lines = (x_min, period, cover_line, substrate_line if transmitted else None)
     r_orders, t_orders, incident_physical = _measure_orders(
@@ -1858,17 +1871,26 @@ def jones(mesh, materials, stack, theta: float, phi: float, omega: float, order=
         pol: solve(mesh, materials, stack, pol, theta, phi, omega, order, **options)
         for pol in ("s", "p")
     }
-    rs, rp = results["s"], results["p"]
+    return _jones_from(results["s"], results["p"])
+
+
+def _jones_from(rs: GratingResult, rp: GratingResult, from_substrate: bool = False) -> JonesResult:
+    """The Jones / Mueller matrices of the propagating orders from the results for incident s
+    and p (conventions of :func:`jones`). ``from_substrate``: the incidence from the substrate
+    (:func:`operator`): the incident wave goes up and is referred to the bottom interface, the
+    reflected orders go down into the substrate, the transmitted ones up into the cover."""
     wave = rs.wave
-    k0 = float(units.vacuum_wavenumber(omega))
+    k0 = float(units.vacuum_wavenumber(rs.inputs["omega"]))
     geometry = rs.problem.setup.background
     top, bottom = geometry.top, geometry.bottom
     p_inc = wave.ky / k0  # incident flux of |E0| = 1 in units of 2 Z0
-    # incident Jones vectors at (x_min, top) in the basis of the incident wave
-    basis_in = _polarisation_basis(wave.kx, complex(wave.ky), wave.beta, up=False)
+    # incident Jones vectors at the left cell edge on the interface the wave enters through, in
+    # the basis of the incident wave
+    y_in = bottom if from_substrate else top
+    basis_in = _polarisation_basis(wave.kx, complex(wave.ky), wave.beta, up=from_substrate)
     incident = np.zeros((2, 2), dtype=complex)
     for col, res in enumerate((rs, rp)):
-        i = np.asarray(res.wave.incident(np.array([rs.x_min, top])), dtype=complex)
+        i = np.asarray(res.wave.incident(np.array([rs.x_min, y_in])), dtype=complex)
         e = np.array([i[0], i[1], 1j * i[2]])  # physical
         incident[:, col] = basis_in.conj().T @ e
     to_columns = np.linalg.inv(incident)
@@ -1876,45 +1898,289 @@ def jones(mesh, materials, stack, theta: float, phi: float, omega: float, order=
     def matrix(rows):
         return np.column_stack(rows) @ to_columns
 
-    r_out = []
-    for o_s, o_p in zip(rs.R_orders, rp.R_orders, strict=True):
-        if not o_s.propagating:
-            continue
-        basis = _polarisation_basis(o_s.kt, o_s.kn, wave.beta, up=True)
+    def isotropic(o_s, o_p, side):
+        # up into the cover (referred to the top interface) or down into the substrate (to the
+        # bottom interface)
+        up = (side == "R") != from_substrate
+        line, interface = (rs.cover_line, top) if up else (rs.substrate_line, bottom)
+        basis = _polarisation_basis(o_s.kt, o_s.kn, wave.beta, up=up)
         scale = np.sqrt(o_s.kn.real / (k0 * p_inc)) * np.exp(
-            -1j * o_s.kn.real * (rs.cover_line - top)
+            (-1j if up else 1j) * o_s.kn.real * (line - interface)
         )
         j = matrix([scale * (basis.conj().T @ o.amplitude) for o in (o_s, o_p)])
-        r_out.append(JonesOrder(o_s.m, "R", j, ("s", "p"), mueller(j)))
+        return JonesOrder(o_s.m, side, j, ("s", "p"), mueller(j))
+
+    r_out = [
+        isotropic(o_s, o_p, "R")
+        for o_s, o_p in zip(rs.R_orders, rp.R_orders, strict=True)
+        if o_s.propagating
+    ]
     t_out = []
     for o_s, o_p in zip(rs.T_orders, rp.T_orders, strict=True):
         if not o_s.propagating:
             continue
         if o_s.channels is None:
-            basis = _polarisation_basis(o_s.kt, o_s.kn, wave.beta, up=False)
-            scale = np.sqrt(o_s.kn.real / (k0 * p_inc)) * np.exp(
-                1j * o_s.kn.real * (rs.substrate_line - bottom)
-            )
-            rows = [scale * (basis.conj().T @ o.amplitude) for o in (o_s, o_p)]
-            names = ("s", "p")
-        else:
-            rows = []
-            for o in (o_s, o_p):
-                column = []
-                for ch in o.channels:
-                    if not ch.propagating or ch.amplitude == 0:
-                        column.append(0.0)
-                        continue
-                    phase = ch.amplitude / abs(ch.amplitude)
-                    column.append(
-                        np.sqrt(ch.efficiency) * phase
-                        * np.exp(1j * ch.kn.real * (rs.substrate_line - bottom))
-                    )  # fmt: skip
-                rows.append(np.array(column, dtype=complex))
-            names = tuple(ch.kind for ch in o_s.channels)
+            t_out.append(isotropic(o_s, o_p, "T"))
+            continue
+        rows = []
+        for o in (o_s, o_p):
+            column = []
+            for ch in o.channels:
+                if not ch.propagating or ch.amplitude == 0:
+                    column.append(0.0)
+                    continue
+                phase = ch.amplitude / abs(ch.amplitude)
+                column.append(
+                    np.sqrt(ch.efficiency) * phase
+                    * np.exp(1j * ch.kn.real * (rs.substrate_line - bottom))
+                )  # fmt: skip
+            rows.append(np.array(column, dtype=complex))
+        names = tuple(ch.kind for ch in o_s.channels)
         j = matrix(rows)
         t_out.append(JonesOrder(o_s.m, "T", j, names, mueller(j)))
     return JonesResult(R_orders=r_out, T_orders=t_out, s=rs, p=rp)
+
+
+@dataclass
+class OperatorResult:
+    """The four blocks of a grating cell at one in-plane wavevector (kx, β) from one
+    factorisation (:func:`operator`, issue #216): the Jones / Mueller matrices of the propagating
+    orders for incidence from the cover and from the substrate."""
+
+    cover: JonesResult
+    """incidence from the cover at (theta, phi): ``R_orders`` back into the cover, ``T_orders``
+    into the substrate; the same as :func:`jones`"""
+    substrate: JonesResult | None
+    """incidence from the substrate at the same (kx, β), polar angle ``theta_substrate``:
+    ``R_orders`` back into the substrate, ``T_orders`` into the cover; the incident and the
+    reflected amplitudes are referred to the bottom interface of the stack, the transmitted ones
+    to its top interface (the conventions of :func:`jones` with the roles of cover and substrate
+    exchanged). ``None`` when not computed (``substrate=False``, or ``"auto"`` with a crystal
+    stack, a lossy substrate, ``bottom="pec"`` or a wave that is evanescent in the substrate)"""
+    theta_substrate: float | None
+    """polar angle of the substrate incidence in the substrate, n_s sin(theta_s) = n_c sin(theta)"""
+    factorisations: int
+    """number of factorisations (1)"""
+    timing: dict[str, float] = field(default_factory=dict)
+    """seconds: ``setup``, ``factorisation`` (assembly, factorisation and the first solve),
+    ``loads`` (the other excitations' loads), ``solves`` (their batched solve) and
+    ``postprocess``, ``total``"""
+
+
+def _substrate_grating_result(mesh, materials, stack, pr: _Prepared, problem, solution, wave,
+                              polarisation, theta_s, phi, omega, orders_max, fourier_points,
+                              extra_quadrature_order, solver) -> GratingResult:  # fmt: skip
+    """The orders and absorption of a solution for incidence from the substrate: ``R_orders``
+    reflected down into the substrate (measured on ``substrate_line``, the upward incident wave
+    subtracted), ``T_orders`` transmitted up into the cover (on ``cover_line``), the
+    efficiencies referred to the incident flux in the substrate."""
+    t0 = time.perf_counter()
+    period, x_min, k0 = pr.period, pr.x_min, pr.k0
+    locator = hpfem.PointLocator2D(mesh)
+
+    def incident_physical(x):
+        i = wave.incident(x)  # the scaled (E_x, E_y, -i E_z) of the upward wave
+        return np.array([i[0], i[1], 1j * i[2]])
+
+    def total(x):
+        return np.asarray(problem.total_field(solution, locator, x))
+
+    def reflected(x):
+        return total(x) - incident_physical(x)
+
+    def orders(field_of, line, n):
+        coefficients = hpfem.conical_fourier_coefficients(
+            field_of, [x_min, line], [1.0, 0.0], period, wave.kx, orders_max, fourier_points
+        )
+        return _orders(coefficients, k0, n, period, wave.kx, wave.beta, wave.ky, orders_max)
+
+    r_orders = orders(reflected, pr.substrate_line, pr.n_sub.real)
+    t_orders = orders(total, pr.cover_line, pr.n_cover.real)
+    absorbed = hpfem.absorbed_power_by_tag(problem, solution)
+    incident_power = 0.5 * period * wave.ky / (k0 * hpfem.constants.Z0)
+    a_total = float(absorbed.total) / incident_power
+    r_total = sum(o.efficiency for o in r_orders)
+    t_total = sum(o.efficiency for o in t_orders)
+    return GratingResult(
+        R_orders=r_orders, T_orders=t_orders, R=r_total, T=t_total, A=a_total,
+        A_by_tag={int(t): float(p) / incident_power for t, p in absorbed.by_tag.items()},
+        power_balance_residual=r_total + t_total + a_total - 1.0, wave=wave, problem=problem,
+        solution=solution, mesh=mesh, pml=pr.box, cover_line=pr.cover_line,
+        substrate_line=pr.substrate_line, dofs=int(len(problem.free_dofs)),
+        timing={"postprocess": time.perf_counter() - t0}, period=period, x_min=x_min,
+        fourier_points=int(fourier_points),
+        inputs={
+            "materials": materials, "stack": stack, "polarisation": polarisation,
+            "theta": float(theta_s), "phi": float(phi), "omega": float(omega),
+            "orders_max": int(orders_max), "extra_quadrature_order": int(extra_quadrature_order),
+            "solver": solver, "side": "substrate",
+        },
+        _locator=locator,
+    )  # fmt: skip
+
+
+def operator(
+    mesh,
+    materials,
+    stack,
+    theta: float,
+    phi: float,
+    omega: float,
+    order=4,
+    *,
+    substrate="auto",
+    pml=None,
+    bottom: str = "pml",
+    orders_max: int = 3,
+    snap_tolerance: float = 1e-9,
+    pml_target: float = 1e-6,
+    pml_wavelengths: float = 0.5,
+    cover_line: float | None = None,
+    substrate_line: float | None = None,
+    fourier_points: int = 256,
+    extra_quadrature_order: int = 4,
+    solver=None,
+    check: bool = True,
+    progress=None,
+    cancel=None,
+) -> OperatorResult:
+    """The grating cell as an operator at one in-plane wavevector (issue #216): assembles and
+    factorises the cell problem once for (kx, β, ω) of the incidence from the cover at
+    (``theta``, ``phi``) and solves the excitations s and p from the cover and, with
+    ``substrate``, s and p from the substrate at the same (kx, β) on that factorisation (one
+    batched solve of the loads, :meth:`hpfem.ConicalScattering.load`). Returns an
+    :class:`OperatorResult` with the Jones / Mueller matrices of the propagating orders of all
+    four blocks; ``cover`` equals :func:`jones` (which solves s and p separately) to the
+    solver's rounding.
+
+    The arguments are those of :func:`solve` (the full block system: no scalar E_z path).
+    ``substrate``: ``"auto"`` (default) adds the incidence from the substrate when it exists for
+    this cell: an isotropic ``LayerStack2D`` (no ``AnisotropicStack``), a lossless substrate with
+    the bottom PML, and a wave that propagates in the substrate, n_c sin(theta) < n_s; ``True``
+    requires it (:class:`GratingError` otherwise), ``False`` skips it. The substrate wave is
+    :func:`hpfem.layered_conical_wave_from_substrate` at the angle ``theta_substrate`` and the
+    same azimuth. ``progress`` / ``cancel`` act on the factorising solve as in :func:`solve`."""
+    from hpfem import diagnostics as dg
+
+    t0 = time.perf_counter()
+    timing: dict[str, float] = {}
+    if substrate not in ("auto", True, False):
+        raise GratingError(f"substrate={substrate!r}: use 'auto', True or False")
+    pr = _prepare(
+        mesh, materials, stack, "s", theta, phi, omega, pml=pml, bottom=bottom,
+        orders_max=orders_max, snap_tolerance=snap_tolerance, pml_target=pml_target,
+        pml_wavelengths=pml_wavelengths, cover_line=cover_line, substrate_line=substrate_line,
+        allow_crystal_stack=True,
+    )  # fmt: skip
+    found = []
+    if check:
+        found = _diagnostics(mesh, pr, stack, materials, order, bottom, orders_max, omega)
+        if dg.errors(found):
+            raise GratingError("; ".join(str(d) for d in dg.errors(found)))
+    k0 = pr.k0
+    crystal = isinstance(stack, hpfem.AnisotropicStack)
+
+    def cover_wave(pol):
+        if crystal:
+            return hpfem.anisotropic_conical_wave(stack, k0, float(theta), float(phi), pol).wave
+        return hpfem.layered_conical_wave(pr.stack, k0, float(theta), float(phi), pol)
+
+    waves = {("cover", "s"): pr.wave, ("cover", "p"): cover_wave(hpfem.Polarisation.P)}
+
+    # --- the incidence from the substrate at the same (kx, beta) -------------------------------
+    n_s = pr.n_sub.real
+    k_parallel = math.hypot(pr.wave.kx, pr.wave.beta)
+    reason = None
+    if crystal:
+        reason = "a crystal stack (AnisotropicStack)"
+    elif bottom != "pml" or not pr.transmitted:
+        reason = "no transmitted orders (a lossy substrate or bottom='pec')"
+    elif not k_parallel < k0 * n_s * (1 - 1e-12):
+        reason = f"the wave is evanescent in the substrate (n_c sin(theta) >= n_s = {n_s:.6g})"
+    if reason is not None and substrate is True:
+        raise GratingError(f"no incidence from the substrate: {reason}")
+    theta_s = None
+    if reason is None and substrate is not False:
+        theta_s = math.asin(k_parallel / (k0 * n_s))
+        for pol in ("s", "p"):
+            waves[("substrate", pol)] = hpfem.layered_conical_wave_from_substrate(
+                pr.stack, k0, theta_s, float(phi), _polarisation(pol)
+            )
+    timing["setup"] = time.perf_counter() - t0
+
+    # --- one factorisation, then the other loads in one batched solve --------------------------
+    t1 = time.perf_counter()
+    orders = [int(order)] * mesh.num_cells if np.isscalar(order) else [int(p) for p in order]
+    nd = hpfem.NedelecDofMap2D(mesh, orders)
+    h1 = hpfem.DofMap2D(mesh, orders)
+
+    def setup_of(wave):
+        setup = _conical_setup(
+            omega, wave, pr.material_map, pr.stack, pr.box, pr.period, extra_quadrature_order,
+            False, pr.bottom,
+        )  # fmt: skip
+        if solver is not None:
+            setup.solver = solver
+        return setup
+
+    keys = list(waves)
+    base = setup_of(waves[keys[0]])
+    base.keep_factorisation = True
+    if progress is not None or cancel is not None:
+
+        def report(event):
+            if progress is not None:
+                progress(event)
+            return not (cancel is not None and cancel())
+
+        base.progress = report
+    try:
+        problems = {keys[0]: hpfem.ConicalScattering(nd, h1, base)}
+    except Exception as error:  # the solver's own diagnostics, with the hint
+        raise GratingError(f"{error} (snapped {pr.moved} vertices)") from error
+    solutions = {keys[0]: problems[keys[0]].solve()}
+    timing["factorisation"] = time.perf_counter() - t1
+    t2 = time.perf_counter()
+    for key in keys[1:]:
+        setup = setup_of(waves[key])
+        # the operator of the base problem: the same Bloch phase and beta to the last bit
+        setup.beta = base.beta
+        setup.periodic = base.periodic
+        problems[key] = hpfem.ConicalScattering(nd, h1, setup)
+    loads = np.column_stack([np.asarray(problems[key].load()) for key in keys[1:]])
+    timing["loads"] = time.perf_counter() - t2
+    t3 = time.perf_counter()
+    coefficients = np.asarray(solutions[keys[0]].factorisation.solve_many(loads))
+    for i, key in enumerate(keys[1:]):
+        solutions[key] = problems[key].solution_from(coefficients[:, i])
+    timing["solves"] = time.perf_counter() - t3
+
+    # --- orders and Jones matrices ---------------------------------------------------------------
+    t4 = time.perf_counter()
+    common = (orders_max, fourier_points, extra_quadrature_order, solver)
+    cover = {}
+    for pol in ("s", "p"):
+        key = ("cover", pol)
+        cover[pol] = _grating_result(
+            mesh, materials, stack, pr, problems[key], solutions[key], waves[key], pol, theta,
+            phi, omega, t0, time.perf_counter(), {}, found, False, *common,
+        )  # fmt: skip
+    from_substrate = None
+    if theta_s is not None:
+        below = {}
+        for pol in ("s", "p"):
+            key = ("substrate", pol)
+            below[pol] = _substrate_grating_result(
+                mesh, materials, stack, pr, problems[key], solutions[key], waves[key], pol,
+                theta_s, phi, omega, *common,
+            )  # fmt: skip
+        from_substrate = _jones_from(below["s"], below["p"], from_substrate=True)
+    timing["postprocess"] = time.perf_counter() - t4
+    timing["total"] = time.perf_counter() - t0
+    return OperatorResult(
+        cover=_jones_from(cover["s"], cover["p"]), substrate=from_substrate,
+        theta_substrate=theta_s, factorisations=1, timing=timing,
+    )  # fmt: skip
 
 
 def _emission_orders(problem, solution, locator, k0, n_line, period, x_min, line, kx, beta,
@@ -3928,9 +4194,11 @@ __all__ = [
     "EmissionResult",
     "GratingError",
     "GratingResult",
+    "OperatorResult",
     "Order",
     "emission_pattern",
     "emit",
+    "operator",
     "solve",
     "validate",
 ]

@@ -358,6 +358,23 @@ power-normalised 2×2 Jones matrix in the `conical_polarisation` s / p basis, or
 channels as rows in a crystal substrate; `mueller`: its 4×4 Mueller matrix,
 `grating.mueller(J)`); `result.order(m, "R")` picks one (docs/theory/anisotropic-stack.md).
 
+**The cell as an operator (issue #216).** `grating.operator(mesh, materials, stack, theta, phi,
+omega, order, substrate="auto", **options)` assembles and factorises the cell once for the
+in-plane wavevector (kx, β) of the incidence from the cover and solves s and p from the cover
+and s and p from the substrate at the same (kx, β) on that one factorisation (the loads of
+`ConicalScattering.load()` in one batched solve of the kept factors). It returns an
+`OperatorResult`: `cover` (a `JonesResult`, equal to `grating.jones`, which factorises twice),
+`substrate` (incidence from below at the substrate angle `theta_substrate`, n_s sin θ_s =
+n_c sin θ: `R_orders` back into the substrate, `T_orders` into the cover, the incident and
+reflected amplitudes referred to the bottom interface, the transmitted ones to the top one),
+`factorisations` (1) and `timing`. The substrate incidence needs an isotropic `LayerStack2D`,
+a lossless substrate with the bottom PML and a wave that propagates in the substrate;
+`substrate="auto"` leaves it `None` otherwise, `True` raises. The substrate wave is
+`hpfem.layered_conical_wave_from_substrate(stack, k0, angle, azimuth, polarisation)` (the stack
+wave of the mirrored stack, mirrored back). Reciprocity: the specular reflection on either side
+has equal diagonals and J_ps(φ) = −J_sp(φ + π), the order-0 transmission from below at φ + π is
+the transpose in magnitude of the one from above at φ.
+
 **A dipole above a crystal stack (M19 S7a).** `hpfem.planar.dipole_above_stack(stack, k0, height,
 moment)` returns the Purcell factor of a point (or the Gaussian FEM) dipole in the cover of an
 `AnisotropicStack` from the 2D plane-wave spectrum (`AnisotropicStack.reflection_at`); the

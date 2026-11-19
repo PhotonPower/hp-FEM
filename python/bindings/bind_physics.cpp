@@ -851,6 +851,12 @@ void bind_physics(py::module_& m) {
         py::arg("angle"), py::arg("azimuth"), py::arg("polarisation"), py::arg("amplitude") = 1.0,
         "Stack wave at the angle from the normal and the azimuth about it; beta = k0 n sin(angle) "
         "sin(azimuth), azimuth 0 is in-plane incidence (E_z polarisation for s)");
+    m.def("layered_conical_wave_from_substrate", &physics::layered_conical_wave_from_substrate,
+          py::arg("stack"), py::arg("k0"), py::arg("angle"), py::arg("azimuth"),
+          py::arg("polarisation"), py::arg("amplitude") = 1.0,
+          "Stack wave incident from the (lossless) substrate, angle from the normal in the "
+          "substrate; incident is the upward substrate wave with phase 1 at x = 0 on the bottom "
+          "interface, ky its normal wavenumber");
     m.def("anisotropic_conical_mode_wave", &physics::anisotropic_conical_mode_wave,
           py::arg("stack"), py::arg("k0"), py::arg("kx"), py::arg("beta"), py::arg("mode"),
           py::arg("amplitude") = 1.0,
@@ -948,6 +954,13 @@ void bind_physics(py::module_& m) {
         .def_property_readonly("free_dofs",
                                [](const ConicalScattering& p) { return to_array(p.free_dofs()); })
         .def("solve", &ConicalScattering::solve, Release())
+        .def("load", &ConicalScattering::load, Release(),
+             "the load of solve over the full block DoFs (E_x, E_y | v), assembled on the source "
+             "cells only: with the KeptFactorisation of a problem on the same operator it solves "
+             "this problem's excitation without a further factorisation")
+        .def("solution_from", &ConicalScattering::solution_from, py::arg("block"),
+             "ConicalSolution of a full block coefficient vector (E_x, E_y | v), e.g. a column of "
+             "KeptFactorisation.solve_many(load)")
         .def("estimate", &ConicalScattering::estimate, py::arg("solution"),
              py::arg("options") = adaptivity::EstimatorOptions{}, Release(),
              "residual indicators of the coupled system (adaptivity.Estimate), the same "

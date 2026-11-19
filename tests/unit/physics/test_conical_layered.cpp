@@ -5,6 +5,7 @@
 #include <cmath>
 #include <complex>
 #include <numbers>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch_approx.hpp>
@@ -12,6 +13,7 @@
 
 #include "hpfem/assembly/periodic.hpp"
 #include "hpfem/core/constants.hpp"
+#include "hpfem/core/error.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/mesh/generators.hpp"
 #include "hpfem/mesh/geometry.hpp"
@@ -152,4 +154,134 @@ TEST_CASE("conical conventions: s and p amplitudes and the phase of the layered 
       for (int c = 0; c < 3; ++c) REQUIRE(std::abs(helper(c) - sign * expected(c)) < 1e-10);
     }
   }
+}
+
+TEST_CASE("conical layered wave from the substrate: conventions, phase and powers",
+          "[physics][conical][layered]") {
+  // mirrored layered_conical_wave: k = k0 n_s (sin th cos phi, cos th, sin th sin phi) upward,
+  // s = (-sin phi, 0, cos phi), p = (-cos th cos phi, sin th, -cos th sin phi), phase 1 at x = 0
+  // on the bottom interface; a lossless stack reflects the same power from both sides
+  const Real k0 = 2 * std::numbers::pi;
+  const Real n_s = 1.5;
+  const LayerStack<2> stack(Material::dielectric(1.0), {{Material::dielectric(2.1), 0.23}},
+                            Material::dielectric(n_s), 0.1);
+  const Real bottom = stack.bottom();
+  for (const auto& [theta_deg, phi_deg] :
+       {std::pair{25.0, 40.0}, std::pair{30.0, 0.0}, std::pair{0.0, 0.0}, std::pair{35.0, 200.0}}) {
+    const Real th = theta_deg * std::numbers::pi / 180.0;
+    const Real ph = phi_deg * std::numbers::pi / 180.0;
+    const Point<3> k(k0 * n_s * std::sin(th) * std::cos(ph), k0 * n_s * std::cos(th),
+                     k0 * n_s * std::sin(th) * std::sin(ph));
+    const Point<3> s_expected(-std::sin(ph), 0.0, std::cos(ph));
+    const Point<3> p_expected(-std::cos(th) * std::cos(ph), std::sin(th),
+                              -std::cos(th) * std::sin(ph));
+    // the incidence from the cover at the same (kx, beta)
+    const Real th_c = std::asin(n_s * std::sin(th));
+    for (const Polarisation pol : {Polarisation::kS, Polarisation::kP}) {
+      INFO("theta " << theta_deg << " phi " << phi_deg << " pol " << static_cast<int>(pol));
+      const auto wave =
+          hpfem::physics::layered_conical_wave_from_substrate(stack, k0, th, ph, pol, 2.0);
+      REQUIRE(wave.kx == Approx(k(0)).margin(1e-12));
+      REQUIRE(wave.beta == Approx(k(2)).margin(1e-12));
+      REQUIRE(wave.ky == Approx(k(1)).margin(1e-12));
+      REQUIRE(wave.reflectance + wave.transmittance == Approx(1.0).epsilon(1e-10));
+      const Point<3>& expected = pol == Polarisation::kS ? s_expected : p_expected;
+      const ConicalVector at_origin = wave.incident(Point<2>(0.0, bottom));
+      const ConicalVector physical(at_origin(0), at_origin(1), kI * at_origin(2));
+      for (int c = 0; c < 3; ++c) REQUIRE(std::abs(physical(c) - 2.0 * expected(c)) < 1e-10);
+      const Point<2> x(0.3, bottom - 0.7);
+      const ConicalVector there = wave.incident(x);
+      const Complex phase = std::exp(kI * (k(0) * x(0) + k(1) * (x(1) - bottom)));
+      for (int c = 0; c < 3; ++c) REQUIRE(std::abs(there(c) - at_origin(c) * phase) < 1e-10);
+      // below the stack: incident + a downward wave; above it: an upward wave alone
+      const Real ky_c = k0 * std::cos(th_c);
+      const Point<2> a(0.2, 0.6), b(0.2, 0.9);
+      const ConicalVector fa = wave.field(a), fb = wave.field(b);
+      const Complex up = std::exp(kI * ky_c * (b(1) - a(1)));
+      for (int c = 0; c < 3; ++c) REQUIRE(std::abs(fb(c) - fa(c) * up) < 1e-10 * fa.norm());
+      // the curl of the full field against central differences
+      const Real h = 1e-6;
+      const Point<2> q(0.25, bottom - 0.4);
+      const ConicalVector dx =
+          (wave.field(q + Point<2>(h, 0.0)) - wave.field(q - Point<2>(h, 0.0))) / (2 * h);
+      const ConicalVector dy =
+          (wave.field(q + Point<2>(0.0, h)) - wave.field(q - Point<2>(0.0, h))) / (2 * h);
+      const ConicalVector e = wave.field(q);
+      // physical E = (e_x, e_y, i v); curl = (d_y E_z - i beta E_y, i beta E_x - d_x E_z,
+      // d_x E_y - d_y E_x)
+      const ConicalVector curl_fd(kI * dy(2) - kI * wave.beta * e(1),
+                                  kI * wave.beta * e(0) - kI * dx(2), dx(1) - dy(0));
+      const ConicalVector curl = wave.field_curl(q);
+      REQUIRE((curl - curl_fd).norm() < 1e-6 * curl.norm());
+      // a lossless stack reflects the same power from both sides
+      const auto from_cover = hpfem::physics::layered_conical_wave(stack, k0, th_c, ph, pol);
+      CHECK(wave.reflectance == Approx(from_cover.reflectance).epsilon(1e-10));
+    }
+  }
+}
+
+TEST_CASE("conical load and kept factorisation: another excitation without a refactorisation",
+          "[physics][conical][layered]") {
+  // a dielectric block on a glass substrate: the s wave from the cover factorises, the p wave
+  // from the substrate reuses the factors through load() and solution_from()
+  const Real k0 = 2 * std::numbers::pi;
+  const Real n2 = 1.5;
+  const Real period = 0.7;
+  const LayerStack<2> stack(Material::dielectric(1.0), {}, Material::dielectric(n2), 0.0);
+  Mesh<2> mesh = hpfem::mesh::rectangle(4, 24, Point<2>(0.0, -2.0), Point<2>(period, 2.0));
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    const Point<2> m = hpfem::mesh::affine_map(mesh, c).centroid();
+    if (m(1) < 0) mesh.set_cell_tag(c, 2);
+    if (m(1) > 0 && m(1) < 1.0 / 6.0 && m(0) < 0.35) mesh.set_cell_tag(c, 3);
+  }
+  const NedelecDofMap<2> nd(mesh, 3);
+  const DofMap<2> h1(mesh, 3);
+  const Real angle = 30.0 * std::numbers::pi / 180.0;
+  const Real azimuth = 40.0 * std::numbers::pi / 180.0;
+  const auto cover =
+      hpfem::physics::layered_conical_wave(stack, k0, angle, azimuth, Polarisation::kS);
+  const auto below = hpfem::physics::layered_conical_wave_from_substrate(
+      stack, k0, std::asin(std::sin(angle) / n2), azimuth, Polarisation::kP);
+  REQUIRE(below.kx == Approx(cover.kx).margin(1e-12));
+  REQUIRE(below.beta == Approx(cover.beta).margin(1e-12));
+  const auto setup_of = [&](const hpfem::physics::LayeredConicalWave& wave) {
+    ConicalScatteringSetup setup;
+    setup.omega = k0 * hpfem::constants::c0;
+    setup.beta = cover.beta;
+    setup.materials.set(2, Material::dielectric(n2));
+    setup.materials.set(3, Material::dielectric(2.0));
+    setup.background = stack;
+    setup.incident = wave.field;
+    setup.pml = PmlBox<2>(Point<2>(0.0, -1.0), Point<2>(period, 1.0),
+                          PmlBox<2>::Thickness{0.0, 0.0, 1.0, 1.0}, k0, 1.0, PmlProfile{2, 1e-10});
+    setup.pec_tags = {box_tag::kYMin, box_tag::kYMax};
+    setup.periodic = {hpfem::assembly::PeriodicPair<2>{
+        box_tag::kXMin, box_tag::kXMax, Point<2>(period, 0.0),
+        hpfem::assembly::bloch_phase<2>(Point<2>(cover.kx, 0.0), Point<2>(period, 0.0))}};
+    return setup;
+  };
+  ConicalScatteringSetup base = setup_of(cover);
+  base.keep_factorisation = true;
+  const ConicalScattering first(nd, h1, base);
+  const auto kept = first.solve();
+  REQUIRE(kept.factorisation);
+  // the load of the first problem reproduces its own solution
+  const auto again = first.solution_from(kept.factorisation->solve(first.load()));
+  CHECK((again.transverse - kept.transverse).norm() < 1e-10 * kept.transverse.norm());
+  CHECK(again.scattered);
+  // the substrate excitation: factorised reuse against its own solve
+  const ConicalScattering second(nd, h1, setup_of(below));
+  const auto direct = second.solve();
+  const auto reused = second.solution_from(kept.factorisation->solve(second.load()));
+  CHECK((reused.transverse - direct.transverse).norm() < 1e-10 * direct.transverse.norm());
+  CHECK((reused.longitudinal - direct.longitudinal).norm() < 1e-10 * direct.longitudinal.norm());
+  CHECK(direct.transverse.norm() > 0.0);
+  // without a contrast the load vanishes; a wrong size throws
+  ConicalScatteringSetup flat = setup_of(cover);
+  flat.materials = hpfem::materials::MaterialMap{};
+  flat.materials.set(2, Material::dielectric(n2));
+  flat.materials.set(3, Material::dielectric(1.0));
+  const ConicalScattering bare(nd, h1, flat);
+  CHECK(bare.load().norm() == 0.0);
+  CHECK_THROWS_AS(first.solution_from(hpfem::Vector::Zero(3)), hpfem::InvalidArgument);
 }
