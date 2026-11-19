@@ -12,6 +12,7 @@
 /// hanging nodes and static condensation are supported. SI units: u [m], E and σ [Pa], f [N/m³],
 /// t [Pa]. See docs/theory/elasticity.md.
 #include <array>
+#include <cstddef>
 #include <functional>
 #include <map>
 #include <optional>
@@ -41,7 +42,7 @@ using DisplacementField = std::function<Eigen::Matrix<Complex, Dim, 1>(const Poi
 template <int Dim>
 struct DisplacementCondition {
   mesh::Tag tag = mesh::kNoTag;
-  std::array<bool, Dim> components{};
+  std::array<bool, static_cast<std::size_t>(Dim)> components{};
   DisplacementField<Dim> value;
 };
 
