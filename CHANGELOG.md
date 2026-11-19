@@ -23,6 +23,9 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   - Tests: the patch test (p = 1 … 3, hanging nodes, condensation), the rigid-body kernel, a
     two-material bar under a traction, a stress-free uniform shrinkage, and a manufactured
     solution with the rates p + 1 / p in 2D and 3D. Theory in `docs/theory/elasticity.md`.
+- `hpfem.materials`: titanium and chromium (`library["Ti"]`, `library["Cr"]`), Johnson & Christy
+  1974 (doi:10.1103/PhysRevB.9.5056) via the refractiveindex.info database (CC0), 0.188–1.94 µm.
+  They are the adhesion layers under gold films (BindOptiX #34, Z6).
 - `hpfem.dataports` (issue #214, stage 1: planar stacks and the writer): the data ports of the
   fusion for BindOptiX in the `raytatouille-result` envelope.
   - `EmitterResponseTable` and `FieldMap` with the import checks of `bindoptix.ports`.
