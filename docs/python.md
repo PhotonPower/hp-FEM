@@ -1020,8 +1020,8 @@ Two further conventions:
 - **Interfaces.** On an interface the value is the limit from the solution side, so the plane
   z = 0 can lie on the grid.
 
-Until BindOptiX reads the new entries as keys of their own, they are written into `source`;
-its reader accepts that.
+`to_json()` writes them as keys of their own in the format of BindOptiX #24;
+`phase_reference` stays in `source`. A map normalised to an irradiance is linear.
 
 There are two producers:
 - `planar_field_map(stack, wavelength, grid, k_hat, polarisation)`: the exact stack field.

@@ -197,6 +197,7 @@ def test_field_map_envelope():
     data = _decode(fm.to_json(), "FieldMap")
     assert np.array_equal(dp.decode_array(data["e"]), e)
     assert data["delta_t_k"] is None and data["nonlinear"] is False
+    assert data["irradiance_w_m2"] is None and data["k_hat"] is None
     assert dp.encode_array(np.array([np.nan, np.inf]))["values"] == ["NaN", "Infinity"]
     with pytest.raises(ValueError, match="nonlinear"):
         dp.FieldMap(grid, 0.633, e, nonlinear=True)
@@ -205,8 +206,8 @@ def test_field_map_envelope():
 # --- port F: field maps -------------------------------------------------------------------------
 
 
-def _source_json(fm, key):
-    return json.loads(_decode(fm.to_json(), "FieldMap")["source"][key])
+def _key(fm, key):
+    return _decode(fm.to_json(), "FieldMap")[key]
 
 
 def test_planar_field_map_at_normal_incidence_from_both_sides():
@@ -228,7 +229,8 @@ def test_planar_field_map_at_normal_incidence_from_both_sides():
     assert above.irradiance_w_m2 == pytest.approx(N_W / (2 * hpfem.constants.Z0))
     assert below.irradiance_w_m2 == pytest.approx(N_G / (2 * hpfem.constants.Z0))
     assert above.media == ("solution", "substrate") and np.all(above.medium == 0)
-    assert _source_json(below, "k_hat") == [0.0, 0.0, 1.0]
+    assert np.array_equal(dp.decode_array(_key(below, "k_hat")), [0.0, 0.0, 1.0])
+    assert _key(below, "irradiance_w_m2") == pytest.approx(below.irradiance_w_m2)
     assert "phase_reference" in _decode(below.to_json(), "FieldMap")["source"]
 
 
@@ -324,6 +326,9 @@ def test_grating_field_map_frames_periodicity_and_absorption():
     assert np.abs(f2.e[0, 1] - f2.e[0, 0] * along).max() < 1e-12 * np.abs(f2.e).max()
     with pytest.raises(ValueError, match="PML"):
         dp.grating_field_map(result, dp.RegularGrid(([0.1], [0.0], [1.0])))
+    with pytest.warns(UserWarning, match="exactly z = 0"):
+        dp.grating_field_map(result, dp.RegularGrid(([0.1], [0.0], np.linspace(-0.05, 0.1, 7))))
     data = _decode(f2.to_json(), "FieldMap")
-    assert json.loads(data["source"]["media"]) == list(f2.media)
-    assert dp.decode_array(json.loads(data["source"]["medium"])).shape == grid.shape
+    assert data["media"] == list(f2.media)
+    assert dp.decode_array(data["medium"]).shape == grid.shape
+    assert dp.decode_array(data["polarisation"]).dtype == np.complex128

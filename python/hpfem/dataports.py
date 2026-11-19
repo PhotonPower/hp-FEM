@@ -28,6 +28,7 @@ import cmath
 import hashlib
 import json
 import math
+import warnings
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -240,9 +241,8 @@ class FieldMap:
     the incidence medium, ``polarisation`` (3,) complex its unit field vector (⟂ ``k_hat``), both
     in the sensor frame; ``medium`` (nx, ny, nz) int the medium of each grid point (an index into
     the names ``media``); the phase refers to the incident wave with E = ``polarisation`` at the
-    origin. Until BindOptiX reads these as their own keys (its PR after #23) they are written into
-    ``source`` (``k_hat``, ``polarisation`` as JSON, ``medium`` as an encoded array,
-    ``media``, ``irradiance_w_m2``, ``phase_reference``), which its reader accepts."""
+    origin (``phase_reference`` in ``source``). ``to_json`` writes them as keys of their own, the
+    format of BindOptiX #24. A map with ``irradiance_w_m2`` is linear (``nonlinear`` refused)."""
 
     grid: RegularGrid
     wavelength_um: float
@@ -276,6 +276,8 @@ class FieldMap:
                 object.__setattr__(self, name, arr)
         if self.irradiance_w_m2 is not None and not self.irradiance_w_m2 > 0:
             raise ValueError("irradiance_w_m2 must be positive")
+        if self.irradiance_w_m2 is not None and self.nonlinear:
+            raise ValueError("a map normalised to an irradiance is linear (nonlinear refused)")
         if self.k_hat is not None:
             k = np.asarray(self.k_hat, dtype=np.float64).reshape(3)
             if abs(np.linalg.norm(k) - 1.0) > 1e-9:
@@ -298,22 +300,10 @@ class FieldMap:
             object.__setattr__(self, "media", tuple(str(m) for m in self.media))
         object.__setattr__(self, "source", {str(k): str(v) for k, v in self.source.items()})
 
-    def _source(self) -> dict:
-        out = dict(self.source)
-        if self.irradiance_w_m2 is not None:
-            out["irradiance_w_m2"] = repr(float(self.irradiance_w_m2))
-        if self.k_hat is not None:
-            out["k_hat"] = json.dumps([float(v) for v in self.k_hat])
-        if self.polarisation is not None:
-            out["polarisation"] = json.dumps([[float(v.real), float(v.imag)]
-                                              for v in self.polarisation])  # fmt: skip
-        if self.medium is not None:
-            out["medium"] = json.dumps(encode_array(self.medium))
-            out["media"] = json.dumps(list(self.media))
-        return out
-
     def to_json(self) -> str:
-        """The ``raytatouille-result`` envelope of type ``FieldMap``."""
+        """The ``raytatouille-result`` envelope of type ``FieldMap``; ``irradiance_w_m2``,
+        ``k_hat``, ``polarisation``, ``medium`` and ``media`` as keys of their own (the format of
+        BindOptiX #24; ``null`` / absent when not set), ``phase_reference`` in ``source``."""
         return _to_json(
             "FieldMap",
             {
@@ -324,7 +314,16 @@ class FieldMap:
                 "power_mw": None if self.power_mw is None else float(self.power_mw),
                 "q_w_m3": None if self.q_w_m3 is None else encode_array(self.q_w_m3),
                 "delta_t_k": None if self.delta_t_k is None else encode_array(self.delta_t_k),
-                "source": self._source(),
+                "irradiance_w_m2": None
+                if self.irradiance_w_m2 is None
+                else float(self.irradiance_w_m2),
+                "k_hat": None if self.k_hat is None else encode_array(self.k_hat),
+                "polarisation": None
+                if self.polarisation is None
+                else encode_array(self.polarisation),
+                "medium": None if self.medium is None else encode_array(self.medium),
+                "media": None if self.media is None else list(self.media),
+                "source": dict(self.source),
             },
         )
 
@@ -760,6 +759,21 @@ _PHASE_REFERENCE = "incident wave: E = polarisation at (0, 0, 0) um, time factor
 _MIRROR_Z = np.array([1.0, 1.0, -1.0])
 
 
+def _check_surface_plane(grid: RegularGrid) -> None:
+    """Warns when the z axis spans the surface without a plane exactly at z = 0: BindOptiX
+    evaluates F at z ≥ 0 only and refuses points whose interpolation cell spans two media, so
+    the surface needs a grid plane of its own (e.g. ``np.linspace`` from −a to b rarely hits 0
+    exactly; build the axis from both sides of 0 instead)."""
+    z = np.asarray(grid.axes_um[2])
+    if z.size > 1 and z.min() < 0.0 < z.max() and not np.any(z == 0.0):
+        warnings.warn(
+            f"the z axis spans the surface but has no plane at exactly z = 0 (closest "
+            f"{z[np.argmin(np.abs(z))]:.3g} um): BindOptiX refuses points near the surface "
+            "whose interpolation cell reaches into the layer below",
+            stacklevel=3,
+        )
+
+
 def _grid_points(grid: RegularGrid) -> np.ndarray:
     """The grid points (nx, ny, nz, 3) [m]."""
     x, y, z = (np.asarray(a) * 1e-6 for a in grid.axes_um)
@@ -817,6 +831,7 @@ def planar_field_map(
     materials = [stack.material(i) for i in range(stack.num_layers + 2)]
     thickness = [float(stack.interface(i - 1) - stack.interface(i))
                  for i in range(1, stack.num_layers + 1)]  # fmt: skip
+    _check_surface_plane(grid)
     k, pol = _unit_incidence(k_hat, polarisation)
     if abs(k[2]) < 1e-12:
         raise ValueError("k_hat must have a normal component (grazing incidence)")
@@ -933,6 +948,7 @@ def grating_field_map(
         raise ValueError("the grating result carries no frequency (solve it with grating.solve)")
     if inputs.get("side") == "substrate":
         raise ValueError("grating_field_map takes a result of incidence from the cover")
+    _check_surface_plane(grid)
     problem, mesh = result.problem, result.mesh
     top = float(problem.setup.background.top)
     k0 = omega / hpfem.constants.c0

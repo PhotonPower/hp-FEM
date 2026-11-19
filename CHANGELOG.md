@@ -15,7 +15,7 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
     emission angle of a gold film, the envelope round trip.
 - `hpfem.dataports` stage 2 (issue #214, field maps, port F as agreed in BindOptiX #23): one
   map per incident plane wave with `irradiance_w_m2`, `k_hat`, `polarisation`, `medium` / `media`
-  and the absorbed power density `q_w_m3`.
+  (keys of their own, BindOptiX #24) and the absorbed power density `q_w_m3`.
   - `planar_field_map`: the exact stack field, incidence from the solution or through the
     substrate (Kretschmann).
   - `grating_field_map`: the map of a `grating.solve` result in the sensor frame, with the Bloch
