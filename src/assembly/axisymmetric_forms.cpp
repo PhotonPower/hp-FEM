@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <span>
 #include <vector>
 
 #include <Eigen/Dense>
@@ -36,7 +37,7 @@ std::vector<Index> axis_cells(const mesh::Mesh<2>& mesh, Real tolerance) {
 AxisymmetricSystem assemble_axisymmetric(const fespace::NedelecDofMap<2>& nedelec,
                                          const fespace::DofMap<2>& h1, int m,
                                          const AxisymmetricFormFactory& form_of_cell,
-                                         int extra_order) {
+                                         int extra_order, std::span<const Index> cells) {
   if (&nedelec.mesh() != &h1.mesh()) {
     throw InvalidArgument("assemble_axisymmetric: the Nédélec and H1 maps must share the mesh");
   }
@@ -58,7 +59,14 @@ AxisymmetricSystem assemble_axisymmetric(const fespace::NedelecDofMap<2>& nedele
   Vector rhs = Vector::Zero(n);
   std::vector<Eigen::Triplet<Complex, Index>> ts;
   std::vector<Eigen::Triplet<Complex, Index>> tm;
-  for (Index c = 0; c < mesh.num_cells(); ++c) {
+  for (const Index c : cells) {
+    if (c < 0 || c >= mesh.num_cells()) {
+      throw InvalidArgument(fmt::format("assemble_axisymmetric: cell {} out of range", c));
+    }
+  }
+  const Index num_selected = cells.empty() ? mesh.num_cells() : static_cast<Index>(cells.size());
+  for (Index k = 0; k < num_selected; ++k) {
+    const Index c = cells.empty() ? k : cells[as_size(k)];
     const AxisymmetricForm form = form_of_cell(c);
     const int p = std::max(nedelec.cell_order(c), h1.cell_order(c));
     const auto geometry = mesh::cell_geometry(mesh, c);
@@ -172,7 +180,7 @@ AxisymmetricSystem assemble_axisymmetric(const fespace::NedelecDofMap<2>& nedele
   out.stiffness.makeCompressed();
   out.mass.makeCompressed();
   log().info("assemble_axisymmetric: m = {}, {} cells, {} + {} DoFs, {} cells on the axis", m,
-             mesh.num_cells(), n_e, n_h, on_axis.size());
+             num_selected, n_e, n_h, on_axis.size());
   return out;
 }
 

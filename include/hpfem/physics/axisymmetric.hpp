@@ -12,7 +12,9 @@
 /// the open one with the cylindrical PML (quasi-normal modes with complex ω, Q factor). See
 /// docs/theory/axisymmetric.md and ADR-0010.
 #include <functional>
+#include <memory>
 #include <optional>
+#include <span>
 #include <vector>
 
 #include "hpfem/adaptivity/residual_estimator.hpp"
@@ -23,6 +25,7 @@
 #include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/mesh.hpp"
 #include "hpfem/physics/absorption.hpp"
+#include "hpfem/physics/kept_factorisation.hpp"
 #include "hpfem/physics/layer_stack.hpp"
 #include "hpfem/physics/postprocess.hpp"
 #include "hpfem/pml/pml.hpp"
@@ -264,6 +267,10 @@ struct AxisymmetricScatteringSetup {
   solvers::DirectSolverBackend solver = solvers::DirectSolverBackend::kAuto;
   int extra_quadrature_order = 4;      ///< added to 2p for the non-polynomial incident field
   int pml_extra_quadrature_order = 6;  ///< added to 2p in PML cells
+  /// Keep the factorised system in the solution (`AxisymmetricScatteredField::factorisation`) for
+  /// further loads on the same operator: other heights of a dipole, other incidences of the same
+  /// order, and the order −m by `AxisymmetricScattering::mirrored` (issue #214).
+  bool keep_factorisation = false;
 };
 
 /// Field of one azimuthal order: the scattered field with an incident field, the total
@@ -272,6 +279,9 @@ struct AxisymmetricScatteredField {
   int azimuthal_order = 0;
   Vector meridian;   ///< (E_r, E_z) coefficients (full size)
   Vector azimuthal;  ///< v = -i r E_phi coefficients (full size)
+  /// The factorised system on the block (e | v) if `AxisymmetricScatteringSetup::
+  /// keep_factorisation` was set, otherwise null.
+  std::shared_ptr<const KeptFactorisation> factorisation;
 };
 
 /// Assembles the order-m operator @f$ S - k_0^2 M @f$ with the PML and the volume source and
@@ -296,6 +306,28 @@ class AxisymmetricScattering {
   [[nodiscard]] assembly::AxisymmetricForm form_of_cell(Index cell) const;
   /// @throws Error if the factorisation fails.
   [[nodiscard]] AxisymmetricScatteredField solve() const;
+  /// The load of `solve` over the full block DoFs (e | v), before the axis and PEC elimination:
+  /// the scattered-field source of the cells whose material deviates from the background, or
+  /// the current. Assembled on `cells` if given (the support of a localised current such as
+  /// `axisymmetric_gaussian_dipole`, which is otherwise integrated over every cell), else on the
+  /// cells with a source; zero if there are none. Problems of the same order that differ only in
+  /// the excitation share the operator, so the factorisation one of them kept
+  /// (`KeptFactorisation::solve_many`) solves the loads of the others without assembling or
+  /// factorising again.
+  /// @throws InvalidArgument if a cell index is out of range.
+  [[nodiscard]] Vector load(std::span<const Index> cells = {}) const;
+  /// The solution of a full block coefficient vector (e | v), e.g. a column of
+  /// `KeptFactorisation::solve_many` of `load()`.
+  /// @throws InvalidArgument if the size is not the number of block DoFs.
+  [[nodiscard]] AxisymmetricScatteredField solution_from(const Vector& block) const;
+  /// The block vector with the sign of the azimuthal part v flipped, @f$ D = \mathrm{diag}(I,
+  /// -I) @f$. The operators of the orders ±m are related by @f$ A_{-m} = D A_m D @f$ (m enters the
+  /// forms as m² on the diagonal blocks and linearly in the e–v coupling; the axis conditions
+  /// depend on m ≠ 0 only; the material tensors are diagonal in (r, φ, z), mirror-symmetric
+  /// in φ), so the order −m is solved on the factorisation of +m:
+  /// @f$ x_{-m} = D A_m^{-1} D b_{-m} @f$ (`mirrored(kept.solve(mirrored(load)))`).
+  /// @throws InvalidArgument if the size is not the number of block DoFs.
+  [[nodiscard]] Vector mirrored(const Vector& block) const;
   /// Element indicators of a solution (`adaptivity::axisymmetric_residual_estimate` with the
   /// per-cell forms of this problem and k0²): the residual of the equation actually solved,
   /// PML and contrast source included.

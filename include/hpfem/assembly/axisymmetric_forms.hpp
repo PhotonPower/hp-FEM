@@ -19,6 +19,7 @@
 /// problem classes as Dirichlet data. See docs/theory/axisymmetric.md and ADR-0010.
 #include <functional>
 #include <optional>
+#include <span>
 #include <vector>
 
 #include <Eigen/Core>
@@ -57,13 +58,16 @@ struct AxisymmetricSystem {
   Index num_h1 = 0;
 };
 
-/// Assembles the forms of azimuthal order m over all cells with rules exact for degree
+/// Assembles the forms of azimuthal order m over all cells (or over `cells` only, e.g. the
+/// support of a source for a new load on a kept factorisation) with rules exact for degree
 /// `2 p_c + extra_order` (plus 2 on cells touching the axis r = 0 and on curved cells).
-/// @throws InvalidArgument if the maps belong to different meshes or a vertex has r < 0.
+/// @throws InvalidArgument if the maps belong to different meshes, a vertex has r < 0 or a cell
+///         index is out of range.
 [[nodiscard]] AxisymmetricSystem assemble_axisymmetric(const fespace::NedelecDofMap<2>& nedelec,
                                                        const fespace::DofMap<2>& h1, int m,
                                                        const AxisymmetricFormFactory& form_of_cell,
-                                                       int extra_order = 2);
+                                                       int extra_order = 2,
+                                                       std::span<const Index> cells = {});
 
 /// Gradient of order m on the block space: @f$ K_m = [G;\ m I] @f$ maps the H1 coefficients
 /// of ψ to the block coefficients of @f$ \nabla(\psi e^{im\varphi}) @f$ (G the 2D discrete

@@ -36,6 +36,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
     mesh for water on glass), a hole in the film, refusals. The field map without a body equals
     the exact stack field (1e-8 normal, 5e-7 oblique), and the map of a hole is
     rotation-covariant (1e-9).
+- Kept factorisation of the axisymmetric solver (issue #214): `AxisymmetricScatteringSetup::
+  keep_factorisation`, `AxisymmetricScattering::load(cells)` (the load on a cell list, e.g. the
+  support of a Gaussian dipole; `assemble_axisymmetric` takes the list), `solution_from` and
+  `mirrored` (the order −m on the factorisation of +m, A₋ₘ = D Aₘ D).
+  - `axisymmetric_emitter_response` factorises the orders 0 and 1 once for all heights: 12
+    heights at p = 4 in 15 s instead of about 2 min.
+  - `axisymmetric_field_map` factorises once per |m| for s, p and ±m: about half the time.
+  - Tests: other heights and the order −1 on one factorisation against direct solves (1e-10),
+    the table of several heights against one call per height, the count of factorisations.
 - `grating.operator` (issue #216, RTT-Fusion L4): the grating cell as an operator at one in-plane
   wavevector. One assembly and factorisation per (kx, β, ω) solves s and p from the cover and s
   and p from the substrate at the same (kx, β) (the loads in one batched solve of the kept

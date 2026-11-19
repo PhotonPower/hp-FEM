@@ -1046,9 +1046,13 @@ a cavity, a pillar) with the axisymmetric FEM.
 
 - **Mesh.** `meridian_mesh(r_lines, z_lines, tag_at)` builds a structured meridian mesh. Put
   the interfaces, walls and PML boundaries on grid lines; the axis facets get tag 77.
-- **Solves.** Each height costs two solves with a Gaussian dipole: the axial dipole (order
+- **Solves.** Each height needs two solves with a Gaussian dipole: the axial dipole (order
   m = 0) gives A_zz, the transverse one (m = ±1, equal by symmetry) gives A_xx = A_yy. On the
-  axis the tensors are diagonal.
+  axis the tensors are diagonal. The two orders are factorised once for all heights: the
+  operator does not depend on the source, so a further height costs one solve on the kept
+  factorisation with the load on the support of its Gaussian (`AxisymmetricScatteringSetup.
+  keep_factorisation`, `AxisymmetricScattering.load(cells)` and `solution_from`). 12 heights at
+  p = 4 take 15 s instead of about 2 min on a laptop.
 - **A_tot.** The Poynting flux around the emitter, through the host cells within 6σ, divided
   by the bulk power of the same smeared dipole. The smearing cancels.
 - **A_rad, A_det.** From the far field by reciprocity in both half-spaces
@@ -1068,7 +1072,12 @@ gives port F of the same structures for one incident plane wave (the conventions
 - **Orders.** The stack wave is expanded in the azimuthal orders m, in the frame turned by the
   azimuth of `k_hat`. Normal incidence needs m = ±1 only; oblique incidence needs |m| ≤
   `max_order`, by default ⌈k_ρ r_max⌉ + 6.
-- **Solves.** One scattered-field solve per order and per s / p component of the polarisation.
+- **Solves.** One scattered-field solve per order and per s / p component of the polarisation,
+  on one factorisation per |m|. The operators of ±m are related by A₋ₘ = D Aₘ D with
+  D = diag(I, −I) on the block (e | v): m enters the forms as m² on the diagonal blocks and
+  linearly in the e–v coupling, and the materials are diagonal in (r, φ, z).
+  `AxisymmetricScattering.mirrored` applies D, so the order −m is
+  `mirrored(kept.solve(mirrored(load)))`. The provenance records `solves` and `factorisations`.
 - **Evaluation.** The total field Σ_m (E_scat + E_stack) e^{imφ} is evaluated on the grid with
   `hpfem.axisymmetric_fields_at`, the new point evaluation of axisymmetric solutions.
 - **Axis.** On the axis the regular limit is used: m = ±1 give (E_x, E_y) ∝ (1, ±i), m = 0
