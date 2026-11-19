@@ -24,6 +24,8 @@ Si       Green 2008 (intrinsic c-Si, 300 K)               0.25 – 1.45
 SiO2     Malitson 1965 Sellmeier (fused silica)           0.21 – 6.7
 Au       Johnson & Christy 1972                           0.188 – 1.94
 Ag       Johnson & Christy 1972                           0.188 – 1.94
+Ti       Johnson & Christy 1974                           0.188 – 1.94
+Cr       Johnson & Christy 1974                           0.188 – 1.94
 Al       Rakić 1995 (Kramers–Kronig consistent)           0.000124 – 200
 TiO2     Devore 1951 Sellmeier (rutile, ordinary ray)     0.43 – 1.53
 Al2O3    Malitson & Dodge 1972 Sellmeier (sapphire, o/e)  0.2 – 5.0
@@ -563,7 +565,7 @@ def _tabulated(name: str) -> Tabulated:
 
 def _build_library() -> dict[str, Dispersive]:
     lib: dict[str, Dispersive] = {}
-    for name in ("Si", "Au", "Ag", "Al", "GaAs", "MAPbI3"):
+    for name in ("Si", "Au", "Ag", "Ti", "Cr", "Al", "GaAs", "MAPbI3"):
         lib[name] = _tabulated(name)
     lib["SiO2"] = Sellmeier(
         0.0,
