@@ -53,7 +53,9 @@ __all__ = [
     "decode_array",
     "encode_array",
     "envelope",
+    "grating_field_map",
     "planar_emitter_response",
+    "planar_field_map",
 ]
 
 
@@ -226,10 +228,21 @@ class EmitterResponseTable:
 
 @dataclass(frozen=True)
 class FieldMap:
-    """Excitation field on a grid (``bindoptix.ports.FieldMap``): ``e`` complex (nx, ny, nz, 3)
-    [V/m] per 1 mW incident power, time factor e^(−iωt); ``nonlinear`` (computed with temperature
-    feedback, then valid only at ``power_mw``); optional absorbed power density ``q_w_m3`` and
-    temperature rise ``delta_t_k`` per mW, shape (nx, ny, nz)."""
+    """Excitation field on a grid (``bindoptix.ports.FieldMap``, port F): ``e`` complex
+    (nx, ny, nz, 3) [V/m] of one incident plane wave, time factor e^(−iωt); ``nonlinear``
+    (computed with temperature feedback, then valid only at ``power_mw``); optional absorbed power
+    density ``q_w_m3`` and temperature rise ``delta_t_k``, shape (nx, ny, nz).
+
+    Normalisation (BindOptiX #23): the map belongs to a plane wave of irradiance
+    ``irradiance_w_m2`` = I₀ = n |E₀|² / (2 Z₀), measured normal to the beam in the incidence
+    medium; BindOptiX converts it to "per mW at the input port" with the irradiance at the spot per
+    mW from the illumination side. ``k_hat`` (3,) is the unit wavevector of the incident wave in
+    the incidence medium, ``polarisation`` (3,) complex its unit field vector (⟂ ``k_hat``), both
+    in the sensor frame; ``medium`` (nx, ny, nz) int the medium of each grid point (an index into
+    the names ``media``); the phase refers to the incident wave with E = ``polarisation`` at the
+    origin. Until BindOptiX reads these as their own keys (its PR after #23) they are written into
+    ``source`` (``k_hat``, ``polarisation`` as JSON, ``medium`` as an encoded array,
+    ``media``, ``irradiance_w_m2``, ``phase_reference``), which its reader accepts."""
 
     grid: RegularGrid
     wavelength_um: float
@@ -239,6 +252,11 @@ class FieldMap:
     q_w_m3: np.ndarray | None = None
     delta_t_k: np.ndarray | None = None
     source: dict = field(default_factory=dict)
+    irradiance_w_m2: float | None = None
+    k_hat: np.ndarray | None = None
+    polarisation: np.ndarray | None = None
+    medium: np.ndarray | None = None
+    media: tuple | None = None
 
     def __post_init__(self) -> None:
         if not (math.isfinite(self.wavelength_um) and self.wavelength_um > 0.0):
@@ -256,7 +274,43 @@ class FieldMap:
                 if arr.shape != self.grid.shape or not np.isfinite(arr).all():
                     raise ValueError(f"{name} must be finite with the grid shape")
                 object.__setattr__(self, name, arr)
+        if self.irradiance_w_m2 is not None and not self.irradiance_w_m2 > 0:
+            raise ValueError("irradiance_w_m2 must be positive")
+        if self.k_hat is not None:
+            k = np.asarray(self.k_hat, dtype=np.float64).reshape(3)
+            if abs(np.linalg.norm(k) - 1.0) > 1e-9:
+                raise ValueError("k_hat must be a unit vector")
+            object.__setattr__(self, "k_hat", k)
+        if self.polarisation is not None:
+            pol = np.asarray(self.polarisation, dtype=np.complex128).reshape(3)
+            if abs(np.linalg.norm(pol) - 1.0) > 1e-9:
+                raise ValueError("polarisation must be a unit vector")
+            if self.k_hat is not None and abs(np.dot(self.k_hat, pol)) > 1e-9:
+                raise ValueError("polarisation must be perpendicular to k_hat")
+            object.__setattr__(self, "polarisation", pol)
+        if self.medium is not None:
+            med = np.asarray(self.medium)
+            if med.shape != self.grid.shape or not np.issubdtype(med.dtype, np.integer):
+                raise ValueError("medium must be an integer array with the grid shape")
+            if self.media is None or med.min() < 0 or med.max() >= len(self.media):
+                raise ValueError("medium indexes the names in media")
+            object.__setattr__(self, "medium", med.astype(np.int64))
+            object.__setattr__(self, "media", tuple(str(m) for m in self.media))
         object.__setattr__(self, "source", {str(k): str(v) for k, v in self.source.items()})
+
+    def _source(self) -> dict:
+        out = dict(self.source)
+        if self.irradiance_w_m2 is not None:
+            out["irradiance_w_m2"] = repr(float(self.irradiance_w_m2))
+        if self.k_hat is not None:
+            out["k_hat"] = json.dumps([float(v) for v in self.k_hat])
+        if self.polarisation is not None:
+            out["polarisation"] = json.dumps([[float(v.real), float(v.imag)]
+                                              for v in self.polarisation])  # fmt: skip
+        if self.medium is not None:
+            out["medium"] = json.dumps(encode_array(self.medium))
+            out["media"] = json.dumps(list(self.media))
+        return out
 
     def to_json(self) -> str:
         """The ``raytatouille-result`` envelope of type ``FieldMap``."""
@@ -270,7 +324,7 @@ class FieldMap:
                 "power_mw": None if self.power_mw is None else float(self.power_mw),
                 "q_w_m3": None if self.q_w_m3 is None else encode_array(self.q_w_m3),
                 "delta_t_k": None if self.delta_t_k is None else encode_array(self.delta_t_k),
-                "source": dict(self.source),
+                "source": self._source(),
             },
         )
 
@@ -698,3 +752,249 @@ def planar_emitter_response(
         source=provenance,
     )
     return PlanarEmitterResponse(table=table, far_field=far, convergence=convergence)
+
+
+# --- field maps (port F) -------------------------------------------------------------------------
+
+_PHASE_REFERENCE = "incident wave: E = polarisation at (0, 0, 0) um, time factor exp(-i omega t)"
+_MIRROR_Z = np.array([1.0, 1.0, -1.0])
+
+
+def _grid_points(grid: RegularGrid) -> np.ndarray:
+    """The grid points (nx, ny, nz, 3) [m]."""
+    x, y, z = (np.asarray(a) * 1e-6 for a in grid.axes_um)
+    return np.stack(np.meshgrid(x, y, z, indexing="ij"), axis=-1)
+
+
+def _unit_incidence(k_hat, polarisation):
+    k = np.asarray(k_hat, dtype=float).reshape(3)
+    if not np.linalg.norm(k) > 0:
+        raise ValueError("k_hat must not vanish")
+    k = k / np.linalg.norm(k)
+    pol = np.asarray(polarisation, dtype=complex).reshape(3)
+    if not np.linalg.norm(pol) > 0:
+        raise ValueError("polarisation must not vanish")
+    pol = pol / np.linalg.norm(pol)
+    if abs(np.dot(k, pol)) > 1e-9:
+        raise ValueError("polarisation must be perpendicular to k_hat (a transverse plane wave)")
+    return k, pol
+
+
+def _absorbed_density(e: np.ndarray, eps: np.ndarray, omega: float) -> np.ndarray:
+    """q = (ω ε0 / 2) E^H Im_h(ε) E with Im_h(ε) = (ε − ε^H)/(2i) per point; ``eps`` (…, 3, 3)."""
+    im = (eps - np.conj(np.swapaxes(eps, -1, -2))) / 2j
+    return 0.5 * omega * hpfem.constants.eps0 * np.einsum("...i,...ij,...j->...", e.conj(), im,
+                                                          e).real  # fmt: skip
+
+
+def planar_field_map(
+    stack,
+    wavelength: float,
+    grid: RegularGrid,
+    k_hat,
+    polarisation,
+    *,
+    media: Sequence[str] | None = None,
+    absorbed: bool = True,
+    source: dict | None = None,
+) -> FieldMap:
+    """Port F of a planar stack of isotropic media for one incident plane wave (BindOptiX #23):
+    the exact stack field on ``grid`` (sensor frame, µm: the top interface at z = 0, the solution
+    above it) for the wave of unit amplitude with the unit wavevector ``k_hat`` (sensor frame) and
+    the field vector ``polarisation`` (complex, ⟂ ``k_hat``; normalised). ``k_hat`` pointing down
+    (k_z < 0) comes from the solution, pointing up from the substrate (lossless; the Kretschmann
+    configuration through the glass).
+
+    The map carries ``irradiance_w_m2`` = n |E₀|²/(2 Z₀) of the incidence medium (|E₀| = 1 V/m),
+    ``k_hat``, ``polarisation``, ``medium`` (0 the solution, 1..N the layers, N + 1 the substrate;
+    names ``media``, default ``solution``, ``layer 1``, …, ``substrate``) and, with ``absorbed``,
+    ``q_w_m3`` = (ω ε0/2) Im ε |E|² at that irradiance. On an interface the value is the limit
+    from above (the solution side at z = 0, as BindOptiX evaluates F at z ≥ 0 only). The phase
+    refers to the incident wave with E = polarisation at the origin (continued analytically into
+    the solution or the substrate)."""
+    n1, layers, n3, z_bottom = _media(stack)
+    del n1, n3, z_bottom
+    materials = [stack.material(i) for i in range(stack.num_layers + 2)]
+    thickness = [float(stack.interface(i - 1) - stack.interface(i))
+                 for i in range(1, stack.num_layers + 1)]  # fmt: skip
+    k, pol = _unit_incidence(k_hat, polarisation)
+    if abs(k[2]) < 1e-12:
+        raise ValueError("k_hat must have a normal component (grazing incidence)")
+    from_substrate = k[2] > 0
+    lab = hpfem.LayerStack3D(materials[0], [hpfem.Layer(m, d) for m, d in
+                                            zip(materials[1:-1], thickness, strict=True)],
+                             materials[-1], 0.0)  # fmt: skip
+    if from_substrate:
+        sub = complex(materials[-1].refractive_index)
+        if abs(sub.imag) > 1e-12:
+            raise ValueError("incidence from the substrate needs a lossless substrate")
+        # the stack mirrored at z = 0: the substrate on top, its top interface at the depth
+        frame = hpfem.LayerStack3D(materials[-1], [hpfem.Layer(m, d) for m, d in
+                                                   zip(materials[-2:0:-1], thickness[::-1],
+                                                       strict=True)],
+                                   materials[0], float(sum(thickness)))  # fmt: skip
+        mirror = _MIRROR_Z
+        n_inc = sub.real
+    else:
+        frame, mirror, n_inc = lab, np.ones(3), complex(materials[0].refractive_index).real
+    k_frame = k * mirror  # pointing down in the frame of the incidence
+    angle = math.acos(-k_frame[2])
+    azimuth = math.atan2(k_frame[1], k_frame[0]) if math.hypot(k_frame[0], k_frame[1]) > 0 else 0.0
+    k0 = 2 * math.pi / float(wavelength)
+    waves = [frame.plane_wave(k0, angle, p, 1.0, azimuth)
+             for p in (hpfem.Polarisation.S, hpfem.Polarisation.P)]  # fmt: skip
+    # the field vectors of s and p at the origin (in the sensor frame) and the decomposition of
+    # the requested polarisation; the incident wave then has E = polarisation at the origin
+    basis = np.column_stack([mirror * np.asarray(w.incident_wave.value([0.0, 0.0, 0.0]),
+                                                 dtype=complex) for w in waves])  # fmt: skip
+    coefficients, *_ = np.linalg.lstsq(basis, pol, rcond=None)
+    if np.linalg.norm(basis @ coefficients - pol) > 1e-9:
+        raise ValueError("the polarisation is not transverse to the incident wave")
+    points = _grid_points(grid)
+    flat = points.reshape(-1, 3)
+    interfaces = [float(lab.interface(i)) for i in range(lab.num_layers + 1)]
+    delta = 1e-12 * float(wavelength)
+    e = np.zeros((flat.shape[0], 3), dtype=complex)
+    medium = np.zeros(flat.shape[0], dtype=np.int64)
+    eps = np.zeros((flat.shape[0], 3, 3), dtype=complex)
+    tensors = [np.asarray(m.eps_tensor, dtype=complex) for m in materials]
+    for i, r in enumerate(flat):
+        z = float(r[2])
+        if any(z == zi for zi in interfaces):
+            z += delta  # the limit from above (the solution side)
+        q = np.array([r[0], r[1], z]) * mirror
+        value = sum(c * np.asarray(w.field.value(q), dtype=complex)
+                    for c, w in zip(coefficients, waves, strict=True))  # fmt: skip
+        e[i] = mirror * value
+        medium[i] = int(lab.region(float(r[2])))
+        eps[i] = tensors[medium[i]]
+    irradiance = n_inc / (2 * hpfem.constants.Z0)
+    names = (
+        media
+        if media is not None
+        else (["solution"] + [f"layer {i}" for i in range(1, lab.num_layers + 1)] + ["substrate"])
+    )
+    if len(names) != lab.num_layers + 2:
+        raise ValueError(f"media needs {lab.num_layers + 2} names (solution, layers, substrate)")
+    provenance = {
+        "solver": "hp-FEM",
+        "version": hpfem.__version__,
+        "method": "hpfem.dataports.planar_field_map (stack plane wave, exact)",
+        "content_hash": _content_hash(*_media(stack)[:3], float(wavelength)),
+        "phase_reference": _PHASE_REFERENCE,
+        "incidence": "substrate" if from_substrate else "solution",
+    }
+    provenance.update(source or {})
+    shape = grid.shape
+    return FieldMap(
+        grid=grid,
+        wavelength_um=float(wavelength) * 1e6,
+        e=e.reshape(*shape, 3),
+        q_w_m3=_absorbed_density(e, eps, k0 * hpfem.constants.c0).reshape(shape)
+        if absorbed
+        else None,
+        source=provenance,
+        irradiance_w_m2=irradiance,
+        k_hat=k,
+        polarisation=pol,
+        medium=medium.reshape(shape),
+        media=tuple(names),
+    )
+
+
+def grating_field_map(
+    result,
+    grid: RegularGrid,
+    *,
+    media: dict | None = None,
+    absorbed: bool = True,
+    source: dict | None = None,
+) -> FieldMap:
+    """Port F of a periodic structure from a solved grating cell (``hpfem.grating.solve``, any
+    polarisation and incidence from the cover, BindOptiX #23).
+
+    Frames: the solver frame of the cell (x across the lines, y the normal, z along them) is the
+    sensor frame (x across, y along the lines, z the normal) with y and z exchanged, the top
+    interface of the stack at the sensor z = 0, the cover the solution. The total field at the
+    sensor point (x, y, z) is P E_cell(x', z) e^{i kx (x − x')} e^{i β y} with x' in the cell
+    (the Bloch periodicity across the lines, the invariance along them) and P the exchange of the
+    y and z components. Grid points must lie in the cell's height range outside the PML; on a
+    horizontal mesh line the value is the limit from above (the solution side at z = 0).
+
+    The map carries ``irradiance_w_m2`` = n_c / (2 Z₀) of the unit incident wave, ``k_hat`` and
+    ``polarisation`` of the incident wave (sensor frame, E = polarisation at the origin: the
+    phase reference of the stack wave, x = 0 on the top interface), ``medium`` by cell tag (names
+    from ``media`` {tag: name}, default ``"tag <n>"``) and, with ``absorbed``, ``q_w_m3`` =
+    (ω ε0/2) E^H Im ε E of each cell's material (W/m³ at that irradiance)."""
+    wave = result.wave
+    inputs = result.inputs or {}
+    omega = float(inputs.get("omega", 0.0))
+    if not omega > 0:
+        raise ValueError("the grating result carries no frequency (solve it with grating.solve)")
+    if inputs.get("side") == "substrate":
+        raise ValueError("grating_field_map takes a result of incidence from the cover")
+    problem, mesh = result.problem, result.mesh
+    top = float(problem.setup.background.top)
+    k0 = omega / hpfem.constants.c0
+    n_c = complex(problem.setup.background.incidence_medium.refractive_index).real
+    period, x_min = float(result.period), float(result.x_min)
+    box = result.pml
+    y_lo, y_hi = float(box.lower[1]), float(box.upper[1])
+    points = _grid_points(grid)
+    flat = points.reshape(-1, 3)
+    y_solver = flat[:, 2] + top
+    if np.any(y_solver < y_lo - 1e-12 * period) or np.any(y_solver > y_hi + 1e-12 * period):
+        raise ValueError("grid points outside the cell's physical region (in the PML or beyond)")
+    # horizontal mesh lines: the limit from above
+    lines = {round(float(mesh.vertex(v)[1]) / period, 12) for v in range(mesh.num_vertices)}
+    on_line = np.array([round(y / period, 12) in lines for y in y_solver])
+    y_eval = np.where(on_line, y_solver + 1e-9 * period, y_solver)
+    shift = np.floor((flat[:, 0] - x_min) / period)
+    x_cell = flat[:, 0] - shift * period
+    cell_points = np.column_stack([x_cell, y_eval])
+    e_cell = np.asarray(result.field(cell_points, "E"), dtype=complex)  # solver frame, physical
+    phase = np.exp(1j * wave.kx * shift * period) * np.exp(1j * wave.beta * flat[:, 1])
+    e_cell = e_cell * phase[:, None]
+    # materials per point (the cell the solver used)
+    locator = hpfem.PointLocator2D(mesh)
+    materials = problem.setup.materials
+    tags = np.zeros(flat.shape[0], dtype=np.int64)
+    eps = np.zeros((flat.shape[0], 3, 3), dtype=complex)
+    for i, p in enumerate(cell_points):
+        found = locator.locate(np.asarray(p))
+        if found is None:
+            raise ValueError(f"grid point {flat[i] * 1e6} um is outside the cell")
+        tags[i] = int(mesh.cell_tag(found.cell))
+        eps[i] = np.asarray(materials.of_cell(mesh, found.cell).eps_tensor, dtype=complex)
+    unique = sorted(set(tags.tolist()))
+    names = media or {}
+    medium = np.array([unique.index(t) for t in tags], dtype=np.int64)
+    q = _absorbed_density(e_cell, eps, omega) if absorbed else None
+    e_sensor = e_cell[:, [0, 2, 1]]
+    incident = np.asarray(wave.incident(np.array([0.0, top])), dtype=complex)
+    pol_solver = np.array([incident[0], incident[1], 1j * incident[2]])
+    pol = pol_solver[[0, 2, 1]]
+    k_hat = np.array([wave.kx, wave.beta, -wave.ky]) / (k0 * n_c)
+    provenance = {
+        "solver": "hp-FEM",
+        "version": hpfem.__version__,
+        "method": "hpfem.dataports.grating_field_map (conical FEM, grating.solve)",
+        "phase_reference": _PHASE_REFERENCE,
+        "incidence": "solution",
+        "dofs": str(int(result.dofs)),
+        "power_balance_residual": repr(float(result.power_balance_residual)),
+    }
+    provenance.update(source or {})
+    shape = grid.shape
+    return FieldMap(
+        grid=grid,
+        wavelength_um=2 * math.pi / k0 * 1e6,
+        e=e_sensor.reshape(*shape, 3),
+        q_w_m3=None if q is None else q.reshape(shape),
+        source=provenance,
+        irradiance_w_m2=n_c / (2 * hpfem.constants.Z0),
+        k_hat=k_hat / np.linalg.norm(k_hat),
+        polarisation=pol / np.linalg.norm(pol),
+        medium=medium.reshape(shape),
+        media=tuple(names.get(t, f"tag {t}") for t in unique),
+    )

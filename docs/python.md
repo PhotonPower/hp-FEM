@@ -1004,8 +1004,40 @@ result = dataports.planar_emitter_response(
 open("response.json", "w").write(result.table.to_json())
 ```
 
-Field maps (F) from the grating and axisymmetric solvers and response tables of structured
-surfaces (holes, cavities) from the FEM follow in later stages.
+**Field maps (port F, stage 2).** One map per incident plane wave, i.e. per direction and
+polarisation. BindOptiX superposes the maps and converts them to "per mW at the input port"
+itself (BindOptiX #23).
+
+Each map carries:
+- `irradiance_w_m2` = I₀ = n|E₀|²/(2Z₀) of the unit wave, measured normal to the beam in the
+  incidence medium;
+- `k_hat` and `polarisation`: the incident wave in the sensor frame;
+- `medium` / `media`: the medium of each grid point, by index and name;
+- optionally `q_w_m3` = (ω ε0/2) E^H Im ε E, in W/m³ at that irradiance.
+
+Two further conventions:
+- **Phase.** It refers to the incident wave with E = `polarisation` at the origin (`phase_reference`).
+- **Interfaces.** On an interface the value is the limit from the solution side, so the plane
+  z = 0 can lie on the grid.
+
+Until BindOptiX reads the new entries as keys of their own, they are written into `source`;
+its reader accepts that.
+
+There are two producers:
+- `planar_field_map(stack, wavelength, grid, k_hat, polarisation)`: the exact stack field.
+  - A `k_hat` pointing down comes from the solution; pointing up, it comes through the lossless
+    substrate (Kretschmann, test case DP1).
+  - Tests: the normal-incidence closed forms from both sides, the gold surface field against
+    the Airy recursion with its plasmon peak, and ∫q dz = absorptance · I₀ cos θ (DP2).
+- `grating_field_map(result, grid)`: the map of a `grating.solve` result (incidence from the
+  cover).
+  - The solver frame (x, y the normal, z along the lines) becomes the sensor frame (x, y along
+    the lines, z the normal). The Bloch phase applies across the lines, e^{iβy} along them.
+  - The medium comes from the cell tags (`media={tag: name}`). Grid points in the PML are
+    refused.
+  - Test (DP2): the sum of q over a lossy ridge equals the solver's `A_by_tag` to 2e-3.
+
+Response tables of structured surfaces (holes, cavities) from the FEM follow in stage 3.
 
 ## GPU backend
 
