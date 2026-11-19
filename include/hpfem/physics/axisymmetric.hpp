@@ -204,6 +204,29 @@ enum class AxisDipole { kAxial, kTransverse };
                                                              AxisDipole orientation, Real sigma,
                                                              Real omega, int m);
 
+/// Volume source @f$ f = i\omega\mu_0 J @f$ of order m of a point dipole off the axis, at the
+/// radius `radius` = ρ0 ≥ 0, azimuth φ = 0 and height `position` = z0, with the Cartesian current
+/// moment `moment` = (p_x, p_y, p_z) [A m] at that point, smeared over the normalised 3D Gaussian
+/// of `axisymmetric_gaussian_dipole` centred there (issue #214). With
+/// @f$ \kappa = r\rho_0/\sigma^2 @f$, @f$ \tilde I_n = e^{-\kappa}I_n(\kappa) @f$ and
+/// @f$ G = \frac{i\omega\mu_0}{(2\pi)^{3/2}\sigma^3} e^{-((r-\rho_0)^2 + (z-z_0)^2)/2\sigma^2} @f$
+/// the order-m components @f$ \frac{1}{2\pi}\int f e^{-im\varphi} d\varphi @f$ are
+/// @f[ f_r = G\left[p_x \tfrac{\tilde I_{m-1} + \tilde I_{m+1}}{2} + p_y \tfrac{\tilde I_{m-1} -
+/// \tilde I_{m+1}}{2i}\right],\quad f_\varphi = G\left[-p_x \tfrac{\tilde I_{m-1} - \tilde
+/// I_{m+1}}{2i} + p_y \tfrac{\tilde I_{m-1} + \tilde I_{m+1}}{2}\right],\quad f_z = G\,p_z
+/// \tilde I_m @f]
+/// in the scaled components (f_r, f_v = −i r f_φ, f_z); the orders sum to the 3D Gaussian. The
+/// source is cut to zero beyond 10σ from (ρ0, z0) in the meridian plane (below e^{-50} of the
+/// peak), so assembling it away from the emitter costs nothing.
+/// ρ0 = 0 gives `axisymmetric_gaussian_dipole` (m = 0 for p_z, m = ±1 for p_x). Parity under
+/// the mirror φ → −φ: the sources of p_x and p_z satisfy @f$ f_{-m} = D f_m @f$, that of p_y
+/// @f$ f_{-m} = -D f_m @f$ (D negates f_v), so with `AxisymmetricScattering::mirrored` the orders
+/// m ≥ 0 determine all. The order content falls off as @f$ e^{-m^2\sigma^2/2\rho_0^2} @f$.
+/// @throws InvalidArgument for σ ≤ 0 or ρ0 < 0.
+[[nodiscard]] AxisymmetricField axisymmetric_offaxis_gaussian_dipole(
+    Real radius, Real position, const Eigen::Matrix<Complex, 3, 1>& moment, Real sigma, Real omega,
+    int m);
+
 /// Load @f$ b_J @f$ of an order-m current density @f$ (J_r,\ -i r J_\varphi,\ J_z) @f$ in the
 /// scaled components on the block space (e, v), without the factor @f$ i\omega\mu_0 @f$ and
 /// without the azimuthal factor 2π (the convention of the block forms): the source of a

@@ -152,4 +152,42 @@ using SpecialMathPolicy = boost::math::policies::policy<
   return j;
 }
 
+/// Exponentially scaled modified Bessel functions @f$ e^{-x} I_n(x) @f$ of the integer orders
+/// n = 0 … `max_order` for x ≥ 0 (@f$ I_{-n} = I_n @f$): Miller's backward recurrence
+/// @f$ I_{n-1} = \frac{2n}{x} I_n + I_{n+1} @f$, normalised by @f$ e^{-x}(I_0 + 2\sum_{k\ge1} I_k)
+/// = 1 @f$. Stable for every x (no overflow: the scaled values are ≤ 1); the start order
+/// @f$ N = n_{max} + 32 + \lceil\sqrt{80x}\rceil @f$ lies where @f$ e^{-x}I_N @f$ is below
+/// @f$ e^{-40} @f$ of the largest term. The azimuthal orders of a Gaussian off the axis.
+/// @throws InvalidArgument for max_order < 0 or x < 0.
+[[nodiscard]] inline std::vector<Real> bessel_i_scaled(int max_order, Real x) {
+  if (max_order < 0) throw InvalidArgument("bessel_i_scaled: max_order must be non-negative");
+  if (!(x >= 0)) throw InvalidArgument("bessel_i_scaled: x must be non-negative");
+  std::vector<Real> out(static_cast<std::size_t>(max_order) + 1, 0.0);
+  if (x < 1e-150) {  // I_n(x) = (x/2)^n / n! + …: below 1e-150 for n ≥ 1
+    out[0] = 1.0;
+    return out;
+  }
+  const int start = max_order + 32 + static_cast<int>(std::ceil(std::sqrt(80.0 * x)));
+  Real next = 0.0;        // I_{n+1}
+  Real current = 1e-300;  // I_n, arbitrary scale
+  Real sum = 0.0;         // 2 Σ_{k ≥ n} I_k
+  for (int n = start; n > 0; --n) {
+    sum += 2.0 * current;
+    const Real previous = 2.0 * n / x * current + next;  // I_{n-1}
+    next = current;
+    current = previous;
+    if (n - 1 <= max_order) out[static_cast<std::size_t>(n - 1)] = current;
+    if (current > 1e200) {  // rescale against overflow
+      constexpr Real kScale = 1e-200;
+      current *= kScale;
+      next *= kScale;
+      sum *= kScale;
+      for (auto& v : out) v *= kScale;
+    }
+  }
+  sum += current;  // + I_0
+  for (auto& v : out) v /= sum;
+  return out;
+}
+
 }  // namespace hpfem

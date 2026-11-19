@@ -425,6 +425,37 @@ AxisymmetricField axisymmetric_gaussian_dipole(Real position, Complex moment,
   };
 }
 
+AxisymmetricField axisymmetric_offaxis_gaussian_dipole(Real radius, Real position,
+                                                       const Eigen::Matrix<Complex, 3, 1>& moment,
+                                                       Real sigma, Real omega, int m) {
+  if (sigma <= 0) {
+    throw InvalidArgument("axisymmetric_offaxis_gaussian_dipole: sigma must be positive");
+  }
+  if (!(radius >= 0)) {
+    throw InvalidArgument("axisymmetric_offaxis_gaussian_dipole: the radius must be >= 0");
+  }
+  const Real norm = 1.0 / (std::pow(2 * constants::pi, 1.5) * sigma * sigma * sigma);
+  const Complex factor = kI * omega * constants::mu0 * norm;
+  return [radius, position, moment, sigma, factor, m](const Point<2>& x) {
+    const Real r = x(0);
+    const Real dr = r - radius;
+    const Real dz = x(1) - position;
+    const Real exponent = (dr * dr + dz * dz) / (2 * sigma * sigma);
+    // cut at 10 σ (e^{-50} of the peak): the Bessel functions are not evaluated far away
+    if (exponent > 50.0) return Eigen::Matrix<Complex, 3, 1>::Zero().eval();
+    const Real envelope = std::exp(-exponent);
+    // e^{-κ} I_n(κ) for n = m - 1, m, m + 1 (I_{-n} = I_n)
+    const std::vector<Real> scaled = bessel_i_scaled(std::abs(m) + 1, r * radius / (sigma * sigma));
+    const auto bessel = [&scaled](int n) { return scaled[as_size(std::abs(n))]; };
+    const Real sum = 0.5 * (bessel(m - 1) + bessel(m + 1));            // ↔ cos φ
+    const Complex odd = (bessel(m - 1) - bessel(m + 1)) / (2.0 * kI);  // ↔ sin φ
+    const Complex g = factor * envelope;
+    const Complex f_r = g * (moment(0) * sum + moment(1) * odd);
+    const Complex f_phi = g * (-moment(0) * odd + moment(1) * sum);
+    return Eigen::Matrix<Complex, 3, 1>(f_r, -kI * r * f_phi, g * moment(2) * bessel(m));
+  };
+}
+
 Real dipole_vacuum_power(Complex moment, Real omega) {
   const Real k0 = omega / constants::c0;
   return constants::Z0 * k0 * k0 * std::norm(moment) / (12 * constants::pi);

@@ -172,3 +172,68 @@ def test_axisymmetric_field_map_of_a_hole_is_rotation_covariant():
     assert ex.media == ("water",)  # the grid lies in the hole and above it
     flat = dp.planar_field_map(STACK, LAM, grid, [0, 0, -1], [1, 0, 0])
     assert np.abs(ex.e - flat.e).max() > 1e-2 * np.abs(flat.e).max()
+
+
+# --- emitters off the axis ------------------------------------------------------------------
+
+
+def test_offaxis_sum_at_the_axis_equals_the_on_axis_table():
+    """``radii=[0]``: the sum over the azimuthal orders stops after m = 1 (the higher orders of a
+    dipole on the axis vanish) and gives the on-axis table."""
+    mesh = dp.meridian_mesh(R_LINES, Z_LINES, _hole)
+    args = (mesh, MATERIALS, STACK, LAM, [-0.05 * UM, 0.15 * UM])
+    opts = {"pml": PML, "order": 2, "sigma": 0.008 * UM}
+    on = dp.axisymmetric_emitter_response(*args, **opts).table
+    general = dp.axisymmetric_emitter_response(*args, radii=[0.0], **opts)
+    assert general.convergence["azimuthal_orders"] == 3
+    for name in ("a_tot", "a_rad", "a_det"):
+        got, want = getattr(general.table, name), getattr(on, name)
+        assert np.abs(got - want).max() < 1e-10 * np.abs(want).max(), name
+
+
+def test_offaxis_emitters_in_a_flat_film_equal_the_planar_table():
+    """A flat stack is invariant under translation: an emitter at ρ0 = 0.1 µm gives the planar
+    table (1e-2 at p = 3, as on the axis; p = 2 is off by 4 % on the axis too) with A_xz = 0;
+    the orders converge."""
+    mesh = dp.meridian_mesh(R_LINES, Z_LINES, _flat)
+    heights = [0.15 * UM]
+    fem = dp.axisymmetric_emitter_response(mesh, MATERIALS, STACK, LAM, heights, pml=PML,
+                                           order=3, sigma=0.02 * UM, radii=[0.1 * UM],
+                                           order_tolerance=1e-6)  # fmt: skip
+    ref = dp.planar_emitter_response(STACK, LAM, heights)
+    for name in ("a_tot", "a_rad"):
+        want = np.diagonal(getattr(ref.table, name)[0, 0, 0])
+        got = getattr(fem.table, name)[0, 0, 0]
+        assert np.abs(np.diagonal(got) / want - 1).max() < 1e-2, name
+        assert abs(got[0, 2]) < 1e-2 * got[0, 0]
+        assert got[0, 1] == got[1, 2] == 0.0
+    det = np.diagonal(fem.table.a_det[0, 0, 0], axis1=1, axis2=2)
+    want = np.diagonal(ref.table.a_det[0, 0, 0], axis1=1, axis2=2)
+    assert np.abs(det / want - 1).max() < 1e-2
+    conv = fem.convergence
+    assert 3 < conv["azimuthal_orders"] < 20
+    assert conv["factorisations"] == conv["azimuthal_orders"] + 1
+    assert fem.table.grid.axes_um[0] == pytest.approx([0.1])
+
+
+def test_offaxis_emitter_near_the_edge_of_a_hole():
+    """An emitter above the film next to the edge of the hole: the mirror symmetry φ → −φ leaves
+    A_xz ≠ 0 and A_xx ≠ A_yy (both vanish on the axis), a valid table for BindOptiX."""
+    mesh = dp.meridian_mesh(R_LINES, Z_LINES, _hole)
+    fem = dp.axisymmetric_emitter_response(mesh, MATERIALS, STACK, LAM, [0.1 * UM], pml=PML,
+                                           order=2, sigma=0.015 * UM, radii=[0.0, 0.15 * UM],
+                                           order_tolerance=1e-6)  # fmt: skip
+    a = fem.table.a_tot[:, 0, 0]
+    assert abs(a[0, 0, 2]) < 1e-12 * a[0, 0, 0]  # on the axis: diagonal, A_xx = A_yy
+    assert a[0, 0, 0] == pytest.approx(a[0, 1, 1], rel=1e-10)
+    assert abs(a[1, 0, 2]) > 1e-3 * a[1, 0, 0]
+    assert abs(a[1, 0, 0] / a[1, 1, 1] - 1) > 1e-3
+    data = json.loads(fem.table.to_json())
+    assert data["type"] == "EmitterResponseTable"
+    with pytest.raises(ValueError, match="radii"):
+        dp.axisymmetric_emitter_response(mesh, MATERIALS, STACK, LAM, [0.1 * UM], pml=PML,
+                                         radii=[0.1 * UM, 0.0])  # fmt: skip
+    with pytest.raises(ValueError, match="did not converge"):
+        dp.axisymmetric_emitter_response(mesh, MATERIALS, STACK, LAM, [0.1 * UM], pml=PML,
+                                         order=2, sigma=0.015 * UM, radii=[0.15 * UM],
+                                         max_azimuthal_order=2)  # fmt: skip

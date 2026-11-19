@@ -36,6 +36,18 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
     mesh for water on glass), a hole in the film, refusals. The field map without a body equals
     the exact stack field (1e-8 normal, 5e-7 oblique), and the map of a hole is
     rotation-covariant (1e-9).
+- Emitters off the axis of a body of revolution (issue #214): `axisymmetric_emitter_response(...,
+  radii=[ρ0, …])` sums the Gaussian dipole over all azimuthal orders.
+  - New in the library: `axisymmetric_offaxis_gaussian_dipole` (the order-m source in closed
+    form) and `bessel_i_scaled` (e^{−x}I_n(x) by Miller's recurrence, C++ and Python).
+  - The full tensor: A_xz from the cross power, A_xy = A_yz = 0 by the mirror symmetry.
+  - Orders m ≥ 0 only (the orders ±m are mirror images), one factorisation per order for all
+    positions and orientations, adaptive stop at `order_tolerance`.
+  - Tests:
+    - C++: the axis limit, the sum of the orders against the 3D Gaussian (1e-12), parity, the
+      scaled Bessel values against scipy (1e-12).
+    - Python: `radii=[0]` against the on-axis table (4e-15), a flat film off the axis against
+      the planar table, A_xz ≠ 0 near the edge of a hole.
 - Kept factorisation of the axisymmetric solver (issue #214): `AxisymmetricScatteringSetup::
   keep_factorisation`, `AxisymmetricScattering::load(cells)` (the load on a cell list, e.g. the
   support of a Gaussian dipole; `assemble_axisymmetric` takes the list), `solution_from` and
