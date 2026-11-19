@@ -3,6 +3,11 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- M17 S3 validation on a plasmonic film (`docs/theory/maxwell.md` "Stage B", server run, record
+  `benchmarks/results/2026-11-07-validation-m17-silver-server.json`): a dipole in a dielectric 80 nm
+  above silver by array scanning with the lossy surface-plasmon poles (844 poles, 18380 cell
+  problems at p = 4, 65 h) against the layered Sommerfeld integral: Purcell factor to 3e-4, upward
+  power to 1.3e-4, quenched power to 2e-3 relative. Closes M17 S3.
 - `examples/ring_resonator_3d` (M12 stage B, driver): the add-drop SOI ring in 3D between four
   modal ports on a curved Gmsh mesh (`ring_mesh.py`, variable order near the cores), the
   resonance as the common pole of the through and drop amplitudes (`fit_pole`), the isolated
@@ -448,11 +453,24 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   side-wall angle tolerances of a silicon grating propagated to its reflectance spectrum.
 
 ### Changed
+- The library builds on macOS with Apple Clang / libc++ (ADR-0001 amendment): the Bessel
+  functions go through `hpfem::cyl_bessel_j`, `cyl_neumann`, `sph_bessel`, `sph_neumann`
+  (`core/special_functions.hpp`), which use the C++17 standard functions where they exist and
+  the header-only Boost.Math 1.86 (standalone, fetched only then) under libc++; missing
+  `<numbers>` includes added. fmt 11.0.2 → 11.1.4 and spdlog v1.15.0 → v1.15.1, because fmt
+  11.0's `FMT_STRING` does not compile with recent Clang (consteval error in `os.cc`).
 - CI actions updated: `actions/checkout` v7, `actions/setup-python` v7, `actions/upload-artifact`
   v7 / `actions/download-artifact` v8 (together), `softprops/action-gh-release` v3;
   `pymdown-extensions >= 12.3` for the docs (Dependabot #179–#184).
 
 ### Fixed
+- `grating.dipole_emission` with crystals and guided modes (M19 S7e-2b): the β pre-pass that
+  splits the β rule at the pinch points of the guided poles now also runs for crystals without a
+  coupling along the lines (ε_xz = ε_yz = 0 in the solver frame; the poles are then even in kx by
+  the z mirror and reciprocity), and a lossy pinch is graded on both sides of the full β range.
+  Without it the β rule integrated across the square-root points: the server runs of issue #205
+  stayed at 2e-3 to 6e-3 and were not monotone in 6 / 8 / 10 β nodes. A crystal coupling the
+  lines direction keeps the old rule, with a warning.
 - `hpfem.opt.multi_fidelity_optimize` with BoTorch >= 0.15: `project_to_target_fidelity` needs
   the input dimension `d`, which is passed when the installed version takes it (the BoTorch
   tests had not run, CI has no BoTorch).

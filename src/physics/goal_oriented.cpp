@@ -1,6 +1,7 @@
 #include "hpfem/physics/goal_oriented.hpp"
 
 #include <cmath>
+#include <numbers>
 #include <vector>
 
 #include <fmt/format.h>

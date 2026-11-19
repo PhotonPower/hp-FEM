@@ -469,3 +469,41 @@ def test_guided_modes_on_a_deformed_path():
                                               tolerance=1e-9) - values[0])  # fmt: skip
     assert abs(differences[1]) < 1e-5
     assert differences[0] / differences[1] == pytest.approx(2.0, rel=0.05)
+
+
+@pytest.mark.parametrize("axis, prepass", [([0.8, 0.0, 0.6], True), ([0.6, 0.48, 0.64], False)])
+def test_guided_pre_pass_runs_for_crystals_without_coupling_along_the_lines(monkeypatch, axis,
+                                                                            prepass):  # fmt: skip
+    """M19 S7e-2b: ``dipole_emission`` takes the β pre-pass of the guided poles for a crystal
+    whose optic axis lies in the cross-section (poles even in kx, the pinches at kx = 0 and π/P)
+    and skips it, with a warning, for an axis with a component along the lines."""
+    from hpfem import grating
+
+    class PrePass(Exception):
+        pass
+
+    class Plan(Exception):
+        pass
+
+    def guided_breaks(*_args, **_kwargs):
+        raise PrePass
+
+    def emission_plan(*_args, **_kwargs):
+        raise Plan
+
+    monkeypatch.setattr(grating, "_guided_breaks", guided_breaks)
+    monkeypatch.setattr(grating, "_emission_plan", emission_plan)
+    axis = np.asarray(axis) / np.linalg.norm(axis)
+    crystal = hpfem.Material.anisotropic(3.2 * np.eye(3) + 0.9 * np.outer(axis, axis))
+    glass = hpfem.Material.dielectric(1.45)
+    d = 0.2 * UM  # on the mesh lines of emitter_cell
+    stack = hpfem.AnisotropicStack(hpfem.Material.dielectric(1.0), [hpfem.Layer(crystal, d)],
+                                   glass)  # fmt: skip
+    dipole = {"position": (0.05 * UM, 0.32 * UM), "sigma": SIGMA}
+    with pytest.warns(UserWarning) as record:
+        with pytest.raises(PrePass if prepass else Plan):
+            grating.dipole_emission(emitter_cell(d), {4: crystal, 5: glass}, stack, dipole, OMEGA,
+                                    order=1, pml={"top": UM, "bottom": UM}, channels=False,
+                                    guided=True)  # fmt: skip
+    coupled = [w for w in record if "couples the lines direction" in str(w.message)]
+    assert bool(coupled) == (not prepass)

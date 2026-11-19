@@ -165,6 +165,17 @@ CMake and Ninja (installed via winget), Git for Windows. **Not MSVC.**
   APIs in the library, use `std::filesystem` for paths, and keep line endings
   as configured in `.editorconfig`.
 
+### 4b. Local development on macOS (Apple Clang + Homebrew)
+
+- `brew install cmake ninja libomp`; Apple Clang from the Xcode command line tools.
+- Configure with the Homebrew OpenMP: `cmake --preset release -DOpenMP_ROOT=$(brew --prefix libomp)`
+  (without it the assembly runs serially). Then build and test as above.
+- libc++ lacks the C++17 special math functions; CMake then fetches Boost.Math (standalone)
+  automatically (ADR-0001 amendment). Call `hpfem::cyl_bessel_j` etc. from
+  `core/special_functions.hpp`, never `std::cyl_bessel_j` directly, and include `<numbers>`
+  where `std::numbers` is used (libc++ does not include it transitively).
+- On machines with little RAM (8 GB) build with `-j 4`.
+
 ## 5. Coding conventions (C++)
 
 - **Standard:** C++20. No compiler extensions. Must compile with GCC ≥ 12, Clang ≥ 15.
@@ -376,14 +387,22 @@ dispersive materials, flux balance and the scalar E_z path (F2, F6, F7, F13), th
 conical post-processing, resonances and bands (F10, F11, F14), field sampling, exact
 absorption, H field and sweep acceleration (F3, F4, F8, F12, gpu agent) and the wheels
 workflow with `hpfem-gui` (F15). **M12** is complete except the full ring in 3D: material and
-shape sensitivities by the adjoint solve (ADR-0011) and the 3D directional coupler with modal
-ports validated against coupled-mode theory on the cuDSS backend (`docs/validation.md` F).
+shape sensitivities by the adjoint solve (ADR-0011), the 3D directional coupler with modal
+ports validated against coupled-mode theory on the cuDSS backend (`docs/validation.md` F), and
+the 3D add-drop ring as a driver (`examples/ring_resonator_3d`, half model with
+`WaveguidePort::pmc_tags`).
 **M16 (optimisation, calibration, UQ, `hpfem.opt`)** is complete, with the validation studies
 of S8 in `docs/validation.md` H–L (the study view S9b is in GUI-hpFEM). **M17 (dipole emitters in
-periodic structures, ADR-0013)**: phased array, reciprocity and the job-runner task are done;
-the array scanning `grating.dipole_emission` (S3) lacks only the FEM validation of the
-plasmonic film against the layered Sommerfeld integral (a long local run, about 18 h).
+periodic structures, ADR-0013)** is complete: phased array, reciprocity, the array scanning
+`grating.dipole_emission` with the guided and surface-plasmon poles (validated against the
+layered Sommerfeld integral, the plasmonic film in a server run) and the job-runner task.
 **M18 (layered background for the axisymmetric solver, ADR-0014)** is complete.
+**M19 (optically anisotropic materials, ADR-0015)** is complete except one validation: ε tensors
+in `materials::Material`, the volume, conical and axisymmetric solvers, `physics::AnisotropicStack`
+(Berreman 4×4), mode-resolved orders in crystal half-spaces with the modal transparent boundary,
+`grating.jones` (Jones / Mueller), dipole emitters above crystals and the GUI material editor;
+the guided-mode poles in the array scan of crystal structures (S7e-2b) are implemented but await
+the long validation run (`benchmarks/m19_crystal_guided_scan.py`, server).
 Open: the items above, the full ring resonator in 3D (backlog, beyond the GPU memory at useful
 accuracy) and the optional MPI item.
 See `docs/roadmap.md`.

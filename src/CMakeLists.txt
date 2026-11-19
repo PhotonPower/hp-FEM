@@ -98,6 +98,10 @@ target_link_libraries(hpfem
   PUBLIC Eigen3::Eigen fmt::fmt spdlog::spdlog nlohmann_json::nlohmann_json
   PRIVATE Spectra::Spectra)
 
+if(TARGET hpfem::boost_math)
+  target_link_libraries(hpfem PUBLIC hpfem::boost_math)
+endif()
+
 target_compile_features(hpfem PUBLIC cxx_std_20)
 if(MINGW AND HPFEM_STATIC_RUNTIME)
   # whole-archive for winpthread: its DllMain-style init must not be dropped by the linker

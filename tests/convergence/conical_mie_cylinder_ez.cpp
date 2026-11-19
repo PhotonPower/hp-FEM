@@ -15,6 +15,7 @@
 
 #include "hpfem/assembly/interpolation.hpp"
 #include "hpfem/core/constants.hpp"
+#include "hpfem/core/special_functions.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/mesh/generators.hpp"
 #include "hpfem/mesh/geometry.hpp"
@@ -52,12 +53,12 @@ constexpr hpfem::mesh::Tag kDisc = 2;
 constexpr hpfem::mesh::Tag kInside = 7;  // vacuum cells inside the measurement surface
 
 Real bessel_j(int n, Real x) {
-  if (n < 0) return (n % 2 == 0 ? 1.0 : -1.0) * std::cyl_bessel_j(static_cast<Real>(-n), x);
-  return std::cyl_bessel_j(static_cast<Real>(n), x);
+  if (n < 0) return (n % 2 == 0 ? 1.0 : -1.0) * hpfem::cyl_bessel_j(static_cast<Real>(-n), x);
+  return hpfem::cyl_bessel_j(static_cast<Real>(n), x);
 }
 Real bessel_y(int n, Real x) {
-  if (n < 0) return (n % 2 == 0 ? 1.0 : -1.0) * std::cyl_neumann(static_cast<Real>(-n), x);
-  return std::cyl_neumann(static_cast<Real>(n), x);
+  if (n < 0) return (n % 2 == 0 ? 1.0 : -1.0) * hpfem::cyl_neumann(static_cast<Real>(-n), x);
+  return hpfem::cyl_neumann(static_cast<Real>(n), x);
 }
 Complex hankel(int n, Real x) {
   return {bessel_j(n, x), bessel_y(n, x)};

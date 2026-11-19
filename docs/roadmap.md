@@ -469,7 +469,7 @@ radiated power into cover and substrate per direction, guided and absorbed power
 - [x] S2: `grating.emission_pattern` by reciprocity (angle-resolved emission: one solve per
   direction and polarisation, cover and substrate, normalised to P_bulk; checked against the
   homogeneous and the Fresnel closed forms and against Stage A; written by `opt-jobs`)
-- [ ] S3 (ongoing): `grating.dipole_emission` (array scanning, guided-mode poles, parallel samples on
+- [x] S3: `grating.dipole_emission` (array scanning, guided-mode poles, parallel samples on
   ConicalSweep, cost estimate before the run); tests: mirror, planar multilayer (Sommerfeld),
   period independence, plasmonic film, reciprocity against S2. Done: the kx integral on the
   complex contour of ADR-0013 §3a with the analytic Bloch elimination
@@ -483,8 +483,10 @@ radiated power into cover and substrate per direction, guided and absorbed power
   `emission_cost`; a dipole above a perfect mirror against the image dipole (F_P to 6e-4, all
   power up); the lossy surface-plasmon poles with graded β panels towards their pinch (checked on
   the analytic spectrum of a dipole above silver); parallel samples (`workers`, threads in one
-  process). Open: the FEM validation of the plasmonic film against the layered Sommerfeld
-  integral (`benchmarks/m17_dipole_scan.py --cases silver`, a long local run)
+  process; the FEM validation of the plasmonic film against the layered Sommerfeld integral
+  (`benchmarks/m17_dipole_scan.py --cases silver`, server run of 65 h, record
+  `2026-11-07-validation-m17-silver-server.json`): a dipole in n = 1.5 80 nm above silver, F_P to
+  3e-4, up to 1.3e-4, the quenched rest to 2e-3 relative at p = 4)
 - [x] S4: job-runner task `emitter` (schema 2) with events, cancellation and the cost estimate
   before the run (`grating.emission_cost`, `dry_run`), extraction into a numerical aperture
   (`grating.emission_cone`); docs (maxwell.md "Stage B", python.md), example
@@ -528,7 +530,7 @@ particles on substrates, nanoparticle-on-mirror, holes and grooves in films (neg
 ## M19 — Optically anisotropic materials (ADR-0015)
 Proposal of 1 November 2026, reviewed and accepted the same day: substrates, unstructured layers
 and structured parts of anisotropic crystals (uniaxial, biaxial, rotated optic axis) as used in
-semiconductor metrology; Jones and Mueller matrices. Nothing implemented yet. Out of scope of the
+semiconductor metrology; Jones and Mueller matrices. Out of scope of the
 first step: gyrotropy / optical activity, a μ tensor, anisotropic cover media, tilted axes in the
 axisymmetric solver, isolated structures in a tilted substrate; the anisotropic emitter scan comes
 last.
@@ -555,7 +557,7 @@ last.
   paths); done in `Scattering`, `Resonance`, `BandStructure`, the losses and `Thermal`, 2D on
   the in-plane block (plane-to-z coupling refused); finding: aligned biaxial crystals also fail
   the PML condition, along their intermediate axis (ADR-0015 S2 amendment)
-- [ ] S3: conical solver: full tensors in `ConicalForm`, derivation in the conical section of
+- [x] S3: conical solver: full tensors in `ConicalForm`, derivation in the conical section of
   `docs/theory/maxwell.md`, estimators; first ε_xz = ε_yz = 0 (symmetric), then the general tensor
   with the transposed paths (adjoint of `conical_goal`, emission pattern by reciprocity at −β,
   power matrix on `ConicalSweep`, sensitivities), `scalar_ez` rejecting coupling tensors; tests:
@@ -584,7 +586,7 @@ last.
       the conical solver against 3D cells with the lines along z and with grating, crystal, wave
       and probe rotated by 90° about the normal; 5e-5 at p = 4
       (`tests/convergence/anisotropic_conical_vs_3d.cpp`)
-- [ ] S4: anisotropic `LayerStack`: 4×4 system per layer (ε_zz ≠ 0), ordered complex Schur form
+- [x] S4: anisotropic `LayerStack`: 4×4 system per layer (ε_zz ≠ 0), ordered complex Schur form
   and 2×2 block exponentials, stable S-matrix recursion on the up / down subspaces, substrate modes
   (o / e by the axis, biaxial by power orthogonality), Jones matrix, analytic stack field for the
   scattered-field source; tests: independent eigenvector 4×4 transfer matrix (thin layers), closed
@@ -684,9 +686,12 @@ last.
         `dipole_above_stack(depth=...)`); tests: an isotropic slab against Airy, a crystal slab
         independent of the depth and the small-loss limit
       - [ ] S7e-2b: the guided-mode poles in the array scan of crystal structures: implemented
-        (detection and causal bumps per β node, no β pre-pass; `dipole_emission` warns);
-        validation pending: `benchmarks/m19_crystal_guided_scan.py` against
-        `dipole_above_stack(depth=0.03)` (a long run, to be done on a server)
+        (detection and causal bumps per β node; `dipole_emission` warns); without the β
+        pre-pass the server runs stayed at 2e-3 to 6e-3, not monotone in 6 / 8 / 10 β nodes
+        (issue #205): the pre-pass now runs for crystals without a coupling along the lines
+        (poles even in kx by the z mirror and reciprocity); validation pending:
+        `benchmarks/m19_crystal_guided_scan.py` against `dipole_above_stack(depth=0.03)` (a long
+        run, to be done on a server)
 - [x] S8: GUI material editor (isotropic / uniaxial / biaxial / full, axis angles, per part and
   layer) and display of the Jones / Mueller elements (`GUI-hpFEM` PR #4: crystal spec in the
   laboratory frame, `AnisotropicStack` for crystal layers / substrate, `grating.jones` with the

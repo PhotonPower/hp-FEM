@@ -3,28 +3,86 @@
 /// Cylindrical Bessel and Hankel functions of real argument (line sources, Mie series for the
 /// cylinder) and spherical Bessel functions of real and complex argument (Mie series for the
 /// sphere). Thin wrappers around the C++17
-/// special functions of the standard library (available in libstdc++ and the MSVC STL,
-/// not in libc++). Convention exp(−iωt): @f$ H_n^{(1)} = J_n + iY_n @f$ is outgoing.
+/// special functions of the standard library (available in libstdc++ and the MSVC STL);
+/// with libc++ (Apple Clang), which lacks them, around Boost.Math in standalone mode
+/// (`HPFEM_USE_BOOST_MATH`, set by cmake/Dependencies.cmake). Code outside this header calls
+/// `hpfem::cyl_bessel_j` etc., never the `std::` functions directly.
+/// Convention exp(−iωt): @f$ H_n^{(1)} = J_n + iY_n @f$ is outgoing.
 
 #include <cmath>
 #include <complex>
 #include <vector>
+
+#if defined(HPFEM_USE_BOOST_MATH)
+#include <boost/math/special_functions/bessel.hpp>
+#endif
 
 #include "hpfem/core/error.hpp"
 #include "hpfem/core/types.hpp"
 
 namespace hpfem {
 
+#if defined(HPFEM_USE_BOOST_MATH)
+namespace detail {
+/// Boost policy with the error behaviour of the standard functions: NaN / ±inf instead of
+/// exceptions, and double evaluated in double.
+using SpecialMathPolicy = boost::math::policies::policy<
+    boost::math::policies::domain_error<boost::math::policies::errno_on_error>,
+    boost::math::policies::pole_error<boost::math::policies::errno_on_error>,
+    boost::math::policies::overflow_error<boost::math::policies::errno_on_error>,
+    boost::math::policies::evaluation_error<boost::math::policies::errno_on_error>,
+    boost::math::policies::promote_double<false>>;
+}  // namespace detail
+#endif
+
+/// Bessel function of the first kind @f$ J_\nu(x) @f$ of real order ν ≥ 0, x ≥ 0
+/// (`std::cyl_bessel_j`).
+[[nodiscard]] inline Real cyl_bessel_j(Real nu, Real x) {
+#if defined(HPFEM_USE_BOOST_MATH)
+  return boost::math::cyl_bessel_j(nu, x, detail::SpecialMathPolicy());
+#else
+  return std::cyl_bessel_j(nu, x);
+#endif
+}
+
+/// Bessel function of the second kind @f$ Y_\nu(x) @f$ of real order ν ≥ 0, x > 0
+/// (`std::cyl_neumann`).
+[[nodiscard]] inline Real cyl_neumann(Real nu, Real x) {
+#if defined(HPFEM_USE_BOOST_MATH)
+  return boost::math::cyl_neumann(nu, x, detail::SpecialMathPolicy());
+#else
+  return std::cyl_neumann(nu, x);
+#endif
+}
+
+/// Spherical Bessel function of the first kind @f$ j_n(x) @f$, x ≥ 0 (`std::sph_bessel`).
+[[nodiscard]] inline Real sph_bessel(unsigned order, Real x) {
+#if defined(HPFEM_USE_BOOST_MATH)
+  return boost::math::sph_bessel(order, x, detail::SpecialMathPolicy());
+#else
+  return std::sph_bessel(order, x);
+#endif
+}
+
+/// Spherical Bessel function of the second kind @f$ y_n(x) @f$, x > 0 (`std::sph_neumann`).
+[[nodiscard]] inline Real sph_neumann(unsigned order, Real x) {
+#if defined(HPFEM_USE_BOOST_MATH)
+  return boost::math::sph_neumann(order, x, detail::SpecialMathPolicy());
+#else
+  return std::sph_neumann(order, x);
+#endif
+}
+
 /// Bessel function of the first kind @f$ J_n(x) @f$, any integer order (@f$ J_{-n} = (-1)^n J_n
 /// @f$).
 [[nodiscard]] inline Real bessel_j(int order, Real x) {
-  const Real value = std::cyl_bessel_j(static_cast<Real>(order < 0 ? -order : order), x);
+  const Real value = cyl_bessel_j(static_cast<Real>(order < 0 ? -order : order), x);
   return (order < 0 && (order % 2) != 0) ? -value : value;
 }
 
 /// Bessel function of the second kind @f$ Y_n(x) @f$, x > 0, any integer order.
 [[nodiscard]] inline Real bessel_y(int order, Real x) {
-  const Real value = std::cyl_neumann(static_cast<Real>(order < 0 ? -order : order), x);
+  const Real value = cyl_neumann(static_cast<Real>(order < 0 ? -order : order), x);
   return (order < 0 && (order % 2) != 0) ? -value : value;
 }
 
@@ -47,12 +105,12 @@ namespace hpfem {
 
 /// Spherical Bessel function of the first kind @f$ j_n(x) @f$, n ≥ 0, real x ≥ 0.
 [[nodiscard]] inline Real spherical_bessel_j(int order, Real x) {
-  return std::sph_bessel(static_cast<unsigned>(order), x);
+  return sph_bessel(static_cast<unsigned>(order), x);
 }
 
 /// Spherical Bessel function of the second kind @f$ y_n(x) @f$, n ≥ 0, x > 0.
 [[nodiscard]] inline Real spherical_bessel_y(int order, Real x) {
-  return std::sph_neumann(static_cast<unsigned>(order), x);
+  return sph_neumann(static_cast<unsigned>(order), x);
 }
 
 /// Spherical Hankel function of the first kind @f$ h_n^{(1)}(x) = j_n(x) + i y_n(x) @f$

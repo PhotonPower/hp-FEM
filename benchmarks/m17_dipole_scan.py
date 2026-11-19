@@ -28,8 +28,8 @@ Every case runs for ``--nodes`` β points per panel (default 6 and 8) with ``--k
 (default 4) at ``--order`` (default 3). The record
 ``benchmarks/results/<date>-validation-m17-scan.json`` is rewritten after every run and keyed
 by case/order/nodes, so a rerun skips what is done. Runtime about 15 min (nodes 4) to 40 min
-(nodes 6) per case on 16 cores; ``silver`` is far larger (13452 samples at p = 4, nodes 6:
-about 18 h on 12 cores with ``--workers 4`` and ``OMP_NUM_THREADS=3``, 4.9 s per sample).
+(nodes 6) per case on 16 cores; ``silver`` is far larger (18380 samples at p = 4, nodes 6:
+65 h on 16 cores with ``--workers 4`` and ``OMP_NUM_THREADS=4``, 12.7 s per sample).
 
     python benchmarks/m17_dipole_scan.py [--cases homogeneous glass] [--nodes 4 6] [--order 3]
         [--workers 4]

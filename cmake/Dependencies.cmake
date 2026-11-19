@@ -23,11 +23,11 @@ endif()
 # --- fmt + spdlog (logging) ---------------------------------------------------
 FetchContent_Declare(fmt
   GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-  GIT_TAG 11.0.2 GIT_SHALLOW TRUE
+  GIT_TAG 11.1.4 GIT_SHALLOW TRUE
   SYSTEM)
 FetchContent_Declare(spdlog
   GIT_REPOSITORY https://github.com/gabime/spdlog.git
-  GIT_TAG v1.15.0 GIT_SHALLOW TRUE
+  GIT_TAG v1.15.1 GIT_SHALLOW TRUE
   SYSTEM)
 set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(fmt spdlog)
@@ -53,6 +53,32 @@ add_library(Spectra INTERFACE)
 add_library(Spectra::Spectra ALIAS Spectra)
 target_include_directories(Spectra SYSTEM INTERFACE ${spectra_SOURCE_DIR}/include)
 target_link_libraries(Spectra INTERFACE Eigen3::Eigen)
+
+# --- Boost.Math (special functions, only where the standard library lacks them) -------
+# The C++17 mathematical special functions (std::cyl_bessel_j, std::sph_bessel, ...) exist in
+# libstdc++ and the MSVC STL but not in libc++ (Apple Clang on macOS). There the header-only
+# Boost.Math in standalone mode provides them with the same signatures; elsewhere it is not
+# downloaded (core/special_functions.hpp, HPFEM_USE_BOOST_MATH).
+include(CheckCXXSourceCompiles)
+set(CMAKE_REQUIRED_QUIET ON)
+check_cxx_source_compiles([=[
+#include <cmath>
+int main() { return std::cyl_bessel_j(0.5, 1.0) + std::sph_neumann(1u, 1.0) > 0.0 ? 0 : 1; }
+]=] HPFEM_HAVE_STD_SPECIAL_MATH)
+unset(CMAKE_REQUIRED_QUIET)
+if(NOT HPFEM_HAVE_STD_SPECIAL_MATH)
+  message(STATUS "std special math functions missing (libc++): using Boost.Math standalone")
+  FetchContent_Declare(boost_math
+    GIT_REPOSITORY https://github.com/boostorg/math.git
+    GIT_TAG boost-1.86.0 GIT_SHALLOW TRUE
+    SOURCE_SUBDIR cmake_disabled)
+  FetchContent_MakeAvailable(boost_math)
+  add_library(hpfem_boost_math INTERFACE)
+  add_library(hpfem::boost_math ALIAS hpfem_boost_math)
+  target_include_directories(hpfem_boost_math SYSTEM INTERFACE ${boost_math_SOURCE_DIR}/include)
+  target_compile_definitions(hpfem_boost_math INTERFACE BOOST_MATH_STANDALONE=1
+    HPFEM_USE_BOOST_MATH)
+endif()
 
 # --- Catch2 (tests) -----------------------------------------------------------
 if(HPFEM_BUILD_TESTS)
