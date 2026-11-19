@@ -5,6 +5,7 @@
 /// polymerisation of a printed part (ADR-0016 §5, `hpfem.dataports.RegularGrid`). An axis of
 /// length 1 means invariance along it. Lengths in metres.
 #include <array>
+#include <cstddef>
 #include <vector>
 
 #include "hpfem/core/types.hpp"
@@ -19,15 +20,19 @@ class GridField {
   /// i2]` is laid out.
   /// @throws InvalidArgument for an empty or non-increasing axis, non-finite data, or a value
   ///         count that does not match the axes.
-  GridField(std::array<std::vector<Real>, Dim> axes, std::vector<Real> values);
+  GridField(std::array<std::vector<Real>, static_cast<std::size_t>(Dim)> axes,
+            std::vector<Real> values);
   /// The interpolated value at x.
   /// @throws InvalidArgument if x lies outside the grid (beyond 1e-9 of an axis extent) along an
   ///         axis with more than one value.
   [[nodiscard]] Real operator()(const Point<Dim>& x) const;
-  [[nodiscard]] const std::array<std::vector<Real>, Dim>& axes() const noexcept { return axes_; }
+  [[nodiscard]] const std::array<std::vector<Real>, static_cast<std::size_t>(Dim)>& axes()
+      const noexcept {
+    return axes_;
+  }
 
  private:
-  std::array<std::vector<Real>, Dim> axes_;
+  std::array<std::vector<Real>, static_cast<std::size_t>(Dim)> axes_;
   std::vector<Real> values_;
 };
 
