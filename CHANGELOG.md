@@ -13,6 +13,16 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   - Tests: no layer (A = I), the perfect-mirror closed form, energy conservation and the
     Chance–Prock–Silbey upward power for water on glass, quenching and the plasmon-coupled
     emission angle of a gold film, the envelope round trip.
+- `grating.operator` (issue #216, RTT-Fusion L4): the grating cell as an operator at one in-plane
+  wavevector. One assembly and factorisation per (kx, β, ω) solves s and p from the cover and s
+  and p from the substrate at the same (kx, β) (the loads in one batched solve of the kept
+  factors) and returns the Jones / Mueller matrices of all four blocks (`OperatorResult`; the
+  cover blocks equal `grating.jones`, which factorises twice). New in the library:
+  `ConicalScattering::load()` and `solution_from()` (another excitation on a kept
+  factorisation), `layered_conical_wave_from_substrate` (the stack wave incident from below).
+  Tests: the cover blocks against `grating.jones` for 20 random angles (1e-8, the run-to-run
+  rounding of the parallel assembly; 1e-10 with one thread), one
+  factorisation, reciprocity, the substrate blocks against the mirrored cell.
 - M17 S3 validation on a plasmonic film (`docs/theory/maxwell.md` "Stage B", server run, record
   `benchmarks/results/2026-11-07-validation-m17-silver-server.json`): a dipole in a dielectric 80 nm
   above silver by array scanning with the lossy surface-plasmon poles (844 poles, 18380 cell

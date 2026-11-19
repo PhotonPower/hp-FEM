@@ -408,6 +408,37 @@ ConicalSolution ConicalScattering::solve() const {
              reduced.size(), setup_.scalar_ez ? ", scalar E_z" : "", out.timing.at("total"));
   return out;
 }
+Vector ConicalScattering::load() const {
+  const Index n = transverse_->num_dofs() + longitudinal_->num_dofs();
+  const auto& mesh = transverse_->mesh();
+  std::vector<Index> cells;
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    if (form_of_cell(c).source) cells.push_back(c);
+  }
+  // an empty cell list would assemble every cell
+  if (cells.empty()) return Vector::Zero(n);
+  return assembly::assemble_conical(
+             *transverse_, *longitudinal_, setup_.beta, [this](Index c) { return form_of_cell(c); },
+             setup_.extra_quadrature_order, cells)
+      .rhs;
+}
+
+ConicalSolution ConicalScattering::solution_from(const Vector& block) const {
+  const Index n_e = transverse_->num_dofs();
+  const Index n_v = longitudinal_->num_dofs();
+  if (block.size() != n_e + n_v) {
+    throw InvalidArgument(
+        fmt::format("ConicalScattering::solution_from: {} coefficients for {} block DoFs",
+                    block.size(), n_e + n_v));
+  }
+  ConicalSolution out;
+  out.beta = setup_.beta;
+  out.scattered = static_cast<bool>(setup_.incident);
+  out.transverse = block.head(n_e);
+  out.longitudinal = block.tail(n_v);
+  return out;
+}
+
 adaptivity::Estimate ConicalScattering::estimate(
     const ConicalSolution& solution, const adaptivity::EstimatorOptions& options) const {
   return adaptivity::conical_residual_estimate(
@@ -917,6 +948,39 @@ LayeredConicalWave layered_conical_wave(const LayerStack<2>& stack, Real k0, Rea
   out.incident_curl = [curl_d, kx, ky](const Point<2>& x) {
     return ConicalVector(curl_d * std::exp(kI * (kx * x(0) - ky * x(1))));
   };
+  return out;
+}
+
+LayeredConicalWave layered_conical_wave_from_substrate(const LayerStack<2>& stack, Real k0,
+                                                       Real angle, Real azimuth, Polarisation pol,
+                                                       Real amplitude) {
+  // the stack mirrored at y = 0: the substrate on top, the layers reversed, the bottom
+  // interface at -bottom()
+  std::vector<Layer> layers;
+  for (int i = stack.num_layers(); i >= 1; --i) {
+    layers.push_back(Layer{stack.material(i), stack.interface(i - 1) - stack.interface(i)});
+  }
+  const LayerStack<2> mirrored(stack.substrate(), layers, stack.incidence_medium(),
+                               -stack.bottom());
+  const LayeredConicalWave w = layered_conical_wave(mirrored, k0, angle, azimuth, pol, amplitude);
+  // E(x, y) = M E'(x, -y) with M = diag(1, -1, 1); the curl is a pseudo-vector: -M curl'
+  const auto mirror_field = [](ConicalField f) {
+    return ConicalField([f = std::move(f)](const Point<2>& x) {
+      const ConicalVector e = f(Point<2>(x(0), -x(1)));
+      return ConicalVector(e(0), -e(1), e(2));
+    });
+  };
+  const auto mirror_curl = [](ConicalField f) {
+    return ConicalField([f = std::move(f)](const Point<2>& x) {
+      const ConicalVector c = f(Point<2>(x(0), -x(1)));
+      return ConicalVector(-c(0), c(1), -c(2));
+    });
+  };
+  LayeredConicalWave out = w;
+  out.field = mirror_field(w.field);
+  out.incident = mirror_field(w.incident);
+  out.field_curl = mirror_curl(w.field_curl);
+  out.incident_curl = mirror_curl(w.incident_curl);
   return out;
 }
 

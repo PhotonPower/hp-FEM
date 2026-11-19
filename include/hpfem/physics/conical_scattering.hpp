@@ -206,6 +206,19 @@ class ConicalScattering {
   }
   /// @throws Error if the factorisation fails.
   [[nodiscard]] ConicalSolution solve() const;
+  /// The load of `solve` over the full block DoFs (E_x, E_y | v), before the PEC elimination and
+  /// the constraints: the scattered-field source @f$ k_0^2(\varepsilon - \varepsilon_b)E^{inc}
+  /// @f$ of the cells whose permittivity deviates from the background, or the current; assembled
+  /// on the source cells only (zero if there are none). Problems that differ only in the
+  /// excitation share the operator, so the factorisation one of them kept
+  /// (`KeptFactorisation::solve_many`) solves the loads of the others without assembling or
+  /// factorising again (the incidences from cover and substrate of a grating cell, issue #216).
+  [[nodiscard]] Vector load() const;
+  /// The solution of a full block coefficient vector (E_x, E_y | v), e.g. a column of
+  /// `KeptFactorisation::solve_many` of `load()`: the scattered field with an incident field,
+  /// the total field with a current.
+  /// @throws InvalidArgument if the size is not the number of block DoFs.
+  [[nodiscard]] ConicalSolution solution_from(const Vector& block) const;
   /// Element indicators of a solution (`adaptivity::conical_residual_estimate` with the
   /// per-cell forms of this problem, β and k0²).
   [[nodiscard]] adaptivity::Estimate estimate(
@@ -347,6 +360,25 @@ struct LayeredConicalWave {
 [[nodiscard]] LayeredConicalWave layered_conical_wave(const LayerStack<2>& stack, Real k0,
                                                       Real angle, Real azimuth, Polarisation pol,
                                                       Real amplitude = 1.0);
+
+/// The stack wave incident from the substrate of `stack` (lossless, isotropic layers and
+/// substrate): `layered_conical_wave` of the stack mirrored at its bottom interface (substrate
+/// on top, layers reversed), mirrored back (y → −y; the scaled field becomes (E_x, −E_y, v),
+/// the physical curl, a pseudo-vector, (−c_x, c_y, −c_z)). `angle` is the angle from the normal
+/// in the substrate, the wave vector @f$ k = k_0n_s(\sin\theta\cos\varphi, \cos\theta,
+/// \sin\theta\sin\varphi) @f$ points up; the same kx and β as the incidence from the cover at
+/// @f$ n_c\sin\theta_c = n_s\sin\theta @f$. `incident` is the upward wave of the substrate alone
+/// with the phase 1 at x = 0 on the bottom interface, `ky` its normal wavenumber
+/// @f$ k_0n_s\cos\theta @f$ (> 0), `reflectance` / `transmittance` those of the bare stack for
+/// this incidence. The s and p amplitudes are those of `layered_conical_wave` in the mirrored
+/// frame, mapped back: @f$ \hat s = (-\sin\varphi, 0, \cos\varphi) @f$,
+/// @f$ \hat p = (-\cos\theta\cos\varphi, \sin\theta, -\cos\theta\sin\varphi) @f$.
+/// @throws InvalidArgument as `LayerStack<3>::plane_wave` of the mirrored stack (a lossy
+/// substrate, crystals).
+[[nodiscard]] LayeredConicalWave layered_conical_wave_from_substrate(const LayerStack<2>& stack,
+                                                                     Real k0, Real angle,
+                                                                     Real azimuth, Polarisation pol,
+                                                                     Real amplitude = 1.0);
 
 /// A crystal stack as the layered background of the conical solver (ADR-0015 §5): the geometry
 /// in the solver frame and the stack wave.
