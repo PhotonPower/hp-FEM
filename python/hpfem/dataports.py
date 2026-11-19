@@ -142,18 +142,21 @@ class RegularGrid:
         return {"axes_um": [encode_array(a) for a in self.axes_um]}
 
 
-def _check_psd(name: str, a: np.ndarray) -> None:
-    """The acceptance of ``bindoptix.ports``: finite, symmetric to 1e-12 of the largest entry,
-    eigenvalues ≥ −1e-9 |trace| (of the checked matrix itself)."""
+def _check_psd(name: str, a: np.ndarray, reference: np.ndarray | None = None) -> None:
+    """The acceptance of ``bindoptix.ports`` (after BindOptiX #20): finite, symmetric to 1e-12 of
+    the largest entry of ``reference`` (default ``a``), eigenvalues of the symmetric part
+    ≥ −1e-9 |trace of reference|. The differences A_tot − A_rad and A_rad − ΣA_det are measured
+    against A_tot and A_rad: where they vanish physically they are rounding noise."""
     if a.size == 0:
         return
     if not np.isfinite(a).all():
         raise ValueError(f"{name} contains non-finite values")
-    scale = max(float(np.max(np.abs(a))), 1e-300)
+    ref = a if reference is None else reference
+    scale = max(float(np.max(np.abs(ref))), 1e-300)
     if np.max(np.abs(a - np.swapaxes(a, -1, -2))) > SYMMETRY_TOL * scale:
         raise ValueError(f"{name} is not symmetric")
-    ev = np.linalg.eigvalsh(a)
-    tr = np.abs(np.trace(a, axis1=-2, axis2=-1))[..., None]
+    ev = np.linalg.eigvalsh(0.5 * (a + np.swapaxes(a, -1, -2)))
+    tr = np.abs(np.trace(ref, axis1=-2, axis2=-1))[..., None]
     worst = float(np.min(ev / np.maximum(tr, 1e-300)))
     if worst < -PSD_TOL:
         raise ValueError(
@@ -194,8 +197,10 @@ class EmitterResponseTable:
         _check_psd("a_tot", tot)
         _check_psd("a_rad", rad)
         _check_psd("a_det", det)
-        _check_psd("a_tot - a_rad (absorbed power)", tot - rad)
-        _check_psd("a_rad - sum(a_det) (power missing the detectors)", rad - det.sum(axis=3))
+        _check_psd("a_tot - a_rad (absorbed power)", tot - rad, reference=tot)
+        _check_psd(
+            "a_rad - sum(a_det) (power missing the detectors)", rad - det.sum(axis=3), reference=rad
+        )
         object.__setattr__(self, "detectors", tuple(str(d) for d in self.detectors))
         object.__setattr__(self, "a_tot", tot)
         object.__setattr__(self, "a_rad", rad)
@@ -557,14 +562,6 @@ def _symmetrise(a: np.ndarray) -> tuple[np.ndarray, float]:
     return 0.5 * (a + np.swapaxes(a, -1, -2)), asym
 
 
-def _psd_floor(a: np.ndarray, floor: np.ndarray) -> np.ndarray:
-    """The symmetric (…, 3, 3) matrices with their eigenvalues raised to at least ``floor`` (…)."""
-    w, v = np.linalg.eigh(0.5 * (a + np.swapaxes(a, -1, -2)))
-    w = np.maximum(w, floor[..., None])
-    out = np.einsum("...ik,...k,...jk->...ij", v, w, v)
-    return 0.5 * (out + np.swapaxes(out, -1, -2))
-
-
 def _content_hash(n1, layers, n3, wavelength) -> str:
     data = {
         "cover": [n1, 0.0],
@@ -607,18 +604,15 @@ def planar_emitter_response(
     are its quadratic forms on that grid, so A_det ≤ A_rad holds by construction. A lossy
     substrate takes no far field (its power counts as absorbed).
 
-    BindOptiX rejects tables whose differences A_rad − ΣA_det and A_tot − A_rad have negative
-    eigenvalues relative to their own trace; where a difference vanishes physically (detectors
-    covering all directions, a lossless stack without guided modes) it is pure rounding or
-    quadrature noise, so both are raised to eigenvalues ≥ 1e-12 tr(A) (``psd_projection``: the
-    largest change; above the quadrature error the call raises ``ValueError``).
+    A_tot − A_rad < 0 beyond 1e-9 tr A_tot (the import check of BindOptiX) raises ``ValueError``
+    with the hint to refine the quadratures.
 
     Convergence (in ``convergence`` and ``table.source["convergence"]``): the asymmetry of A_rad,
     ``radiated_check`` = the largest deviation of the diagonal of A_rad from an adaptive
     integration of the same far field, ``energy`` = min eig(A_tot − A_rad) / tr A_tot (≈ 0 for a
-    lossless stack without guided modes, > 0 with absorption or guided modes) and
-    ``psd_projection``. ``source``: extra provenance entries (e.g. ``"commit"``), merged over the
-    defaults (solver, version, method, content hash of the stack and wavelength)."""
+    lossless stack without guided modes, > 0 with absorption or guided modes). ``source``: extra
+    provenance entries (e.g. ``"commit"``), merged over the defaults (solver, version, method,
+    content hash of the stack and wavelength)."""
     n1, layers, n3, z_bottom = _media(stack)
     heights = np.asarray(heights, dtype=float).ravel()
     if heights.size < 1 or np.any(heights <= 0) or np.any(np.diff(heights) <= 0):
@@ -670,32 +664,16 @@ def planar_emitter_response(
         check = max(check, float(np.max(np.abs(grid - exact))))
     balance = np.linalg.eigvalsh(a_tot - a_rad) / np.trace(a_tot, axis1=1, axis2=2)[:, None]
 
-    # BindOptiX checks A_rad − ΣA_det and A_tot − A_rad for negative eigenvalues relative to their
-    # own trace: a difference that vanishes physically (detectors covering all directions, a
-    # lossless stack without guided modes) is rounding or quadrature noise and would fail at
-    # random. Both differences are therefore raised to eigenvalues >= 1e-12 tr(A); the change
-    # must stay within the quadrature error.
-    tr_rad = np.trace(a_rad, axis1=1, axis2=2)
-    tr_tot = np.trace(a_tot, axis1=1, axis2=2)
-    det_sum = a_det.sum(axis=1)
-    if np.any(np.linalg.eigvalsh(a_rad - det_sum) < -1e-9 * tr_rad[:, None]):
-        raise ValueError("the detector regions overlap: the sum of A_det exceeds A_rad")
-    rad_fixed = det_sum + _psd_floor(a_rad - det_sum, 1e-12 * tr_rad)
-    tot_fixed = rad_fixed + _psd_floor(a_tot - rad_fixed, 1e-12 * tr_tot)
-    projection = max(float(np.max(np.abs(rad_fixed - a_rad))),
-                     float(np.max(np.abs(tot_fixed - a_tot))))  # fmt: skip
-    allowed = 10.0 * check + 1e-9 * float(np.max(tr_tot))
-    if projection > allowed:
+    if float(np.min(balance)) < -PSD_TOL:
         raise ValueError(
-            f"A_tot < A_rad by {projection:.2e}, beyond the quadrature error {check:.2e}: raise "
-            "theta_points (the far-field grid) or points (the Sommerfeld path)"
+            f"A_tot < A_rad by {-float(np.min(balance)):.2e} of the trace, beyond the import "
+            f"tolerance of BindOptiX (quadrature error {check:.2e}): raise theta_points (the "
+            "far-field grid) or points (the Sommerfeld path)"
         )
-    a_rad, a_tot = rad_fixed, tot_fixed
     convergence = {
         "asymmetry_a_rad": asymmetry,
         "radiated_check": check,
         "energy": float(np.min(balance)),
-        "psd_projection": projection,
         "theta_points": int(theta_points),
         "phi_points": int(phi_points),
         "path_depth": float(depth),

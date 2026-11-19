@@ -984,16 +984,15 @@ no mesh. The grid runs along z only: x and y are invariant.
   limit matches the image-dipole closed form, and the plasmon-coupled emission of a gold
   film peaks at the surface-plasmon resonance angle (`python/tests/test_dataports.py`).
 
-A difference that vanishes physically consists only of rounding: A_tot − A_rad of a lossless
-stack, or A_rad − ΣA_det when the detectors cover every direction. BindOptiX measures negative
-eigenvalues against the trace of the difference itself, so such a table would fail at random.
-Both differences are therefore raised to eigenvalues ≥ 1e-12·tr A; the change is recorded as
-`psd_projection` and must stay within the quadrature error. The provenance (`table.source`)
-carries:
+The checks match those of BindOptiX after its #20: the differences A_tot − A_rad and
+A_rad − ΣA_det are measured against A_tot and A_rad, so a difference that vanishes physically
+(a lossless stack, detectors covering every direction) passes as rounding noise. The provenance
+(`table.source`) carries:
 - the solver, version and method;
 - a SHA-256 of the stack and the wavelength;
 - the convergence data: asymmetry, `radiated_check` (the grid against an adaptive integration),
-  `energy` (the smallest eigenvalue of A_tot − A_rad over the trace) and the projection.
+  and `energy` (the smallest eigenvalue of A_tot − A_rad over the trace; ≈ 0 for a lossless
+  stack without guided modes, > 0 with absorption).
 
 ```python
 from hpfem import dataports

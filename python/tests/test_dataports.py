@@ -78,7 +78,7 @@ def test_water_on_glass_conserves_energy_and_matches_cps():
     ]
     r = dp.planar_emitter_response(_stack(), LAM, heights, detectors=detectors)
     t = r.table
-    assert np.allclose(t.a_rad, t.a_tot, rtol=1e-9, atol=0)
+    assert np.allclose(t.a_rad, t.a_tot, rtol=1e-9, atol=1e-15)
     assert abs(r.convergence["energy"]) < 1e-9
 
     def fresnel(s):
@@ -101,7 +101,7 @@ def test_water_on_glass_conserves_energy_and_matches_cps():
         water = t.a_det[0, 0, i, 0]
         assert water[2, 2] == pytest.approx(quad(up, 0, math.pi / 2, args=(0,))[0], rel=1e-9)
         assert water[0, 0] == pytest.approx(quad(up, 0, math.pi / 2, args=(1,))[0], rel=1e-9)
-        assert np.allclose(t.a_det[0, 0, i].sum(axis=0), t.a_rad[0, 0, i], rtol=1e-10, atol=1e-15)
+        assert np.allclose(t.a_det[0, 0, i].sum(axis=0), t.a_rad[0, 0, i], rtol=1e-12, atol=1e-15)
     # close to the interface most of the glass light is supercritical; far away none
     super_near = t.a_det[0, 0, 0, 2, 2, 2] / t.a_rad[0, 0, 0, 2, 2]
     super_far = t.a_det[0, 0, 2, 2, 0, 0] / t.a_rad[0, 0, 2, 0, 0]
@@ -179,7 +179,7 @@ def test_emitter_response_table_envelope_round_trip():
     src = data["source"]
     assert src["commit"] == "abc123" and src["solver"] == "hp-FEM"
     assert len(src["content_hash"]) == 64
-    assert json.loads(src["convergence"])["psd_projection"] < 1e-9
+    assert json.loads(src["convergence"])["energy"] > 0  # absorption in the gold
     # the import checks of BindOptiX, here in the constructor
     rebuilt = dp.EmitterResponseTable(r.table.grid, 0.67, N_W, r.table.detectors, a_tot,
                                       dp.decode_array(data["a_rad"]),
