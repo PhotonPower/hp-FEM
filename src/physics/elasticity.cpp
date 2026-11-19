@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -386,6 +387,78 @@ assembly::ComplexTensor<Dim> Elasticity<Dim>::stress(const Vector& u, Index c,
                                                      const Point<Dim>& xi) const {
   const assembly::ComplexTensor<Dim> e = strain(u, c, xi) - eigenstrain(c, xi);
   return assembly::from_voigt_stress<Dim>(stiffness_of_cell(c) * assembly::to_voigt_strain<Dim>(e));
+}
+
+template <int Dim>
+Eigen::Matrix<Complex, Eigen::Dynamic, Dim> Elasticity<Dim>::displacements_at(
+    const Vector& u, const Eigen::Matrix<Real, Eigen::Dynamic, Dim>& points) const {
+  const mesh::PointLocator<Dim> locator(dofs_->mesh());
+  Eigen::Matrix<Complex, Eigen::Dynamic, Dim> out(points.rows(), Dim);
+  const Complex nan{std::numeric_limits<Real>::quiet_NaN(), 0.0};
+  for (Index i = 0; i < points.rows(); ++i) {
+    const auto value = displacement_at(u, locator, points.row(i).transpose());
+    for (int k = 0; k < Dim; ++k) out(i, k) = value ? (*value)(k) : nan;
+  }
+  return out;
+}
+
+template <int Dim>
+Real Elasticity<Dim>::strain_energy(const Vector& u) const {
+  const auto& mesh = dofs_->mesh();
+  Real energy = 0;
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    const auto geometry = mesh::cell_geometry(mesh, c);
+    const auto rule = assembly::simplex_quadrature<Dim>(
+        2 * dofs_->cell_order(c) + setup_.extra_quadrature_order + (geometry->is_affine() ? 0 : 2));
+    const assembly::VoigtMatrix<Dim> stiffness = stiffness_of_cell(c);
+    for (std::size_t q = 0; q < rule.size(); ++q) {
+      const Real dx = rule.weights[q] * std::abs(geometry->evaluate(rule.points[q]).det);
+      const auto e = assembly::to_voigt_strain<Dim>(strain(u, c, rule.points[q]) -
+                                                    eigenstrain(c, rule.points[q]));
+      energy += 0.5 * dx * e.dot(stiffness * e).real();
+    }
+  }
+  return energy;
+}
+
+template <int Dim>
+mesh::Mesh<Dim> Elasticity<Dim>::deformed_mesh(const Vector& u, Real scale) const {
+  const auto& mesh = dofs_->mesh();
+  if (u.size() != num_dofs()) {
+    throw InvalidArgument(fmt::format("Elasticity::deformed_mesh: {} coefficients for {} DoFs",
+                                      u.size(), num_dofs()));
+  }
+  const Index scalar = dofs_->num_dofs();
+  mesh::Mesh<Dim> out = mesh;
+  int p_max = 1;
+  for (Index c = 0; c < mesh.num_cells(); ++c) p_max = std::max(p_max, dofs_->cell_order(c));
+  std::vector<typename mesh::Mesh<Dim>::Vertex> nodes;
+  if (mesh.geometry_order() == 2 || p_max >= 2) {
+    // one node per edge: the (curved) edge midpoint moved by the displacement there
+    nodes.resize(as_size(mesh.num_edges()));
+    std::vector<bool> done(as_size(mesh.num_edges()), false);
+    for (Index c = 0; c < mesh.num_cells(); ++c) {
+      const auto geometry = mesh::cell_geometry(mesh, c);
+      const auto& cv = mesh.cell_vertices(c);
+      for (const Index e : mesh.cell_edges(c)) {
+        if (done[as_size(e)]) continue;
+        Point<Dim> xi = Point<Dim>::Zero();
+        for (const Index v : mesh.edge_vertices(e)) {
+          const auto local = std::distance(cv.begin(), std::find(cv.begin(), cv.end(), v));
+          if (local > 0) xi(local - 1) += 0.5;  // reference vertex j > 0 is the unit vector j − 1
+        }
+        nodes[as_size(e)] = geometry->evaluate(xi).x + scale * displacement(u, c, xi).real();
+        done[as_size(e)] = true;
+      }
+    }
+  }
+  for (Index v = 0; v < mesh.num_vertices(); ++v) {
+    typename mesh::Mesh<Dim>::Vertex x = mesh.vertex(v);
+    for (int i = 0; i < Dim; ++i) x(i) += scale * u(i * scalar + v).real();
+    out.set_vertex(v, x);
+  }
+  if (!nodes.empty()) out.set_edge_nodes(std::move(nodes));
+  return out;
 }
 
 template <int Dim>

@@ -1012,3 +1012,44 @@ gets within 0.05 on two seeds but not within 0.01 in 40 evaluations. Together wi
 a global surrogate stage is needed on multimodal design problems, and gradient enhancement
 pays where a least-squares objective sharpens the minimum (H) more than where a smooth maximum
 is to be found (L). Three seeds, one cell, one budget.
+
+## M. Bonded bimetal strip under a misfit strain (Timoshenko 1925, M20 S3)
+
+**Source.** S. Timoshenko, "Analysis of bi-metal thermostats", *J. Opt. Soc. Am.* **11**,
+233–255 (1925). The curvature of two bonded layers with a misfit strain Δε:
+
+$$
+\kappa = \frac{6\,\Delta\varepsilon\,(1+m)^2}{h\left[3(1+m)^2 + (1+mn)\left(m^2 + \frac{1}{mn}\right)\right]},
+\qquad m = \frac{h_1}{h_2},\; n = \frac{E_1}{E_2},\; h = h_1 + h_2 .
+$$
+
+**Set-up.**
+- **Layers.** A printed polymer film (E = 2.5 GPa, ν = 0.35, thickness 0.5) on glass
+  (70 GPa, ν = 0.22, thickness 1.0).
+- **Load.** The film shrinks by s = 10⁻³ along the strip (ε\*_xx = −s).
+- **Geometry and model.** A free strip of length 40 h in plane strain, i.e. cylindrical bending
+  of a plate, so the moduli in the formula are E/(1 − ν²). The rigid-body modes are removed
+  (`remove_rigid_modes`).
+- **Discretisation.** p = 3, 80 × 4 cells, the interface on a mesh line, static condensation.
+- **Measurement.** The curvature is twice the quadratic coefficient of the deflection u_y,
+  fitted over the central half of the strip.
+
+**Result** (`python/tests/test_elasticity.py`):
+
+| L/h | cells | p | κ / κ_Timoshenko − 1 |
+|---|---|---|---|
+| 20 | 40 × 4 | 3 | −3·10⁻⁹ |
+| 40 | 80 × 4 | 3 | +2·10⁻⁹ |
+| 40 | 80 × 4 | 4 | +6·10⁻⁹ |
+| 40 | 160 × 8 | 3 | +8·10⁻⁹ |
+| 80 | 160 × 4 | 3 | +2·10⁻⁸ |
+
+**Assessment.** Away from the ends, Timoshenko's solution is an exact quadratic solution of plane
+elasticity: the strain is linear through the thickness, σ_yy = 0, and there is no shear. The edge
+disturbance decays within a few thicknesses. The FEM reproduces the solution in the centre
+exactly, independently of L/h, of the mesh and of p ≥ 2, so the remaining 10⁻⁹–10⁻⁸ is the noise
+of the polynomial fit.
+
+The test confirms three parts of the code: the eigenstrain load, the treatment of two materials,
+and the free-body handling. It does not test the edge stresses, which beam theory does not
+describe.

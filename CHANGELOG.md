@@ -3,6 +3,14 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Elasticity output, Python API, validation and an example (M20 S3).
+  - Output: `displacements_at`, `strain_energy`, `deformed_mesh`.
+  - Python: `hpfem.Elasticity2D` / `3D` with the setups, conditions, `ElasticMaterial` and
+    `GridField2D` / `3D` (`set_shrinkage_grid`).
+  - Validation: the bonded strip against Timoshenko's bimetal formula, to 1e-8
+    (`docs/validation.md` M).
+  - Example: `examples/printed_block_shrinkage`, the shape error and wall pull-in of a printed
+    resin block on glass.
 - Elasticity: eigenstrain sources and free bodies (M20 S2).
   - `ElasticitySetup::shrinkage` (isotropic s(x)).
   - Thermal strain from a temperature on the same map (`temperature`, `thermal_expansion`,

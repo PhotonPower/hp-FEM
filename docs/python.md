@@ -1104,6 +1104,53 @@ gives port F of the same structures for one incident plane wave (the conventions
   5e-7 at oblique incidence with |m| ≤ 6. For a hole, the y-polarised map is the x-polarised
   one turned by 90° (1e-9).
 
+## Linear elasticity (`hpfem.Elasticity3D`)
+
+Small-strain linear elasticity with an eigenstrain on Dim copies of the scalar H1 space
+(ADR-0016, milestone M20; theory in [Linear elasticity](theory/elasticity.md)). `Elasticity2D` is
+plane strain. The motivating case is the shrinkage of two-photon printed parts (issue #213).
+
+```python
+mesh = hpfem.box(10, 10, 4, [0, 0, 0], [20e-6, 20e-6, 2e-6])
+setup = hpfem.ElasticitySetup3D()
+setup.background = hpfem.ElasticMaterial(4.5e9, 0.35)        # E [Pa], nu
+setup.materials = {2: hpfem.ElasticMaterial(70e9, 0.22)}      # by cell tag
+tag = hpfem.box_tag
+setup.displacements = [
+    hpfem.DisplacementCondition3D(tag.Z_MIN, [True, True, True]),   # clamped
+    hpfem.DisplacementCondition3D(tag.X_MIN, [True, False, False]), # symmetry plane
+]
+setup.set_shrinkage_grid(hpfem.GridField3D([[0.0], [0.0], z], s))  # s(z) from a data port
+problem = hpfem.Elasticity3D(hpfem.DofMap3D(mesh, 3), setup)
+u = problem.solve()                                           # (u_x | u_y | u_z) coefficients
+problem.displacements_at(u, points)                           # (n, 3), NaN outside
+problem.stress(u, cell, xi); problem.strain_energy(u)
+problem.deformed_mesh(u)                                      # e.g. for an optical solve
+```
+
+**Inputs.**
+- **Displacement conditions** prescribe chosen components on tagged facets, for clamping and
+  axis-aligned symmetry planes. `TractionCondition3D(tag, t)` gives σn = t.
+- **Body force:** `body_force`.
+- **Eigenstrain sources.** They add up:
+  - `eigenstrain(x)`, a 3×3 tensor;
+  - `shrinkage(x)`, an isotropic −s I. `set_shrinkage_grid` evaluates a `GridField` in C++ and
+    is much faster than a Python callable;
+  - a `temperature` on the same scalar map, for example from `Thermal3D`, with `thermal_expansion`
+    by tag and `reference_temperature`.
+- **Free bodies.** `remove_rigid_modes = True` fixes three vertices by the 3-2-1 rule and refuses
+  unbalanced loads. It then projects out the rigid motion, so the mean translation and the mean
+  rotation are zero.
+- **Static condensation:** `static_condensation`.
+
+**Tests.**
+- `python/tests/test_elasticity.py`:
+  - the constrained layer, with point values, the energy and the deformed mesh;
+  - the free sphere with the shrinkage from a grid field;
+  - the bonded strip against Timoshenko's bimetal formula, which agrees to 1e-8
+    (`docs/validation.md` M).
+- The example `examples/printed_block_shrinkage`.
+
 ## GPU backend
 
 With the separately built GPU library (`gpu/README.md`, `HPFEM_ENABLE_CUDA`) the direct

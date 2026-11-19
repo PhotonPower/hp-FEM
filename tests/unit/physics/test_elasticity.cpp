@@ -417,6 +417,20 @@ TEST_CASE("elasticity: laterally constrained shrinking layer on a clamped base",
   REQUIRE(sigma(0, 0).real() == Approx(kS * kE / (1 - kNu)).epsilon(1e-10));
   REQUIRE(sigma(1, 1).real() == Approx(kS * kE / (1 - kNu)).epsilon(1e-10));
   REQUIRE(std::abs(sigma(2, 2)) < 1e-8 * kS * kE);
+  // output (S3): the energy of the uniform state 1/2 σ : (ε − ε*) = σ_xx s over the volume, the
+  // values at points (NaN outside) and the deformed mesh
+  REQUIRE(problem.strain_energy(u) == Approx(kS * kE / (1 - kNu) * kS * kH).epsilon(1e-10));
+  Eigen::Matrix<Real, Eigen::Dynamic, 3> points(2, 3);
+  points << 0.3, 0.4, 0.1, 2.0, 0.0, 0.0;
+  const auto values = problem.displacements_at(u, points);
+  REQUIRE(values(0, 2).real() == Approx(-kS * 0.1 * (1 + kNu) / (1 - kNu)).epsilon(1e-12));
+  REQUIRE(std::isnan(values(1, 0).real()));
+  const Mesh<3> deformed = problem.deformed_mesh(u, 2.0);
+  REQUIRE(deformed.geometry_order() == 2);
+  for (Index v = 0; v < mesh.num_vertices(); ++v) {
+    const Real z = mesh.vertex(v)(2);
+    REQUIRE(deformed.vertex(v)(2) == Approx(z - 2 * kS * z * (1 + kNu) / (1 - kNu)).margin(1e-15));
+  }
 }
 
 TEST_CASE("elasticity: thermal strain of a linear temperature in a free cube is stress-free",

@@ -98,6 +98,15 @@ machinery:
 3. After the solve, the L2 projection onto the six modes (three in 2D) is subtracted, so that the
    mean translation and the mean rotation vanish.
 
+## Output (M20 S3)
+
+- **`displacements_at(u, points)`.** Point location and evaluation, NaN outside the mesh.
+- **`strain_energy(u)`.** ½∫ (ε − ε\*) : C : (ε − ε\*).
+- **`deformed_mesh(u, scale)`.** The vertices move by their coefficients, which are their
+  values. For p ≥ 2 or a curved mesh, one node per edge moves with the displacement at the edge
+  midpoint, which gives geometry order 2. The deformed mesh carries quadratic displacements
+  exactly and higher ones as their quadratic interpolant.
+
 ## Number type
 
 The matrix is real symmetric positive definite once the Dirichlet data is eliminated. It is

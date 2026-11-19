@@ -721,9 +721,13 @@ existing solver stack.
   (u = −s x to 1e-12 for p = 2, 3, also with condensation and from a grid), the laterally
   constrained layer (u_z = −s z (1 + ν)/(1 − ν), σ_xx = s E/(1 − ν)), a linear temperature in a
   free cube (stress-free) and a two-material one (stresses), the unbalanced-load refusal
-- [ ] S3: output (point and surface values, strain, stress, strain energy, the deformed mesh),
-  Python `hpfem.Elasticity3D` / `2D`, the bonded plate against Timoshenko (validation,
-  `docs/validation.md`), an example (a printed micro-lens or cube shrinking) with a README
+- [x] S3: output (`displacements_at` for point and surface values with NaN outside,
+  `strain_energy`, `deformed_mesh` with the edge nodes moved for p ≥ 2), the Python API
+  (`hpfem.Elasticity2D` / `3D`, `ElasticitySetup`, `DisplacementCondition`, `TractionCondition`,
+  `ElasticMaterial`, `GridField2D` / `3D` with `set_shrinkage_grid`), the bonded strip against
+  Timoshenko (1925) (agreement to 1e-8 at the centre, `docs/validation.md` M), the example
+  `examples/printed_block_shrinkage` (shape error and wall pull-in of a printed block, a
+  constrained-layer check inside) with its regression test
 - [ ] S4: coupling to the optics: an optical solve on the deformed mesh, and u as the ADR-0011
   shape velocity (first-order change of an optical quantity, e.g. the focal shift), checked
   against the solve on the deformed mesh

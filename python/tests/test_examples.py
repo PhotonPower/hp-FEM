@@ -315,3 +315,16 @@ def test_grating_emitter_extraction_and_purcell(tmp_path):
     assert 0.35 < flat["up"] < 0.6
     # the glass ridge under the dot pulls the emission into the substrate
     assert grating["up"] < flat["up"] - 0.1
+
+
+def test_printed_block_shrinkage_layer_check_and_curling(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    example = load_example("printed_block_shrinkage")
+    fem, layer = example.check_layer(order=2, n=6)
+    assert abs(fem / layer - 1) < 1e-3  # the centre of the wide block is a constrained layer
+    out = example.main(quick=True)
+    r = out["result"]
+    assert r["uz_top_centre_nm"] == pytest.approx(layer, rel=1e-3)  # the mean shrinkage, 3 %
+    assert r["sag_nm"] < 0 and r["pull_in_nm"] < 0  # the corners lift, the walls pull in
+    assert r["strain_energy_pj"] > 0
+    assert (tmp_path / "printed_block_shrinkage.json").exists()

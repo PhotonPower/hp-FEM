@@ -16,7 +16,9 @@
 #include "hpfem/physics/conical_scattering.hpp"
 #include "hpfem/physics/conical_sweep.hpp"
 #include "hpfem/physics/dipole_emission.hpp"
+#include "hpfem/physics/elasticity.hpp"
 #include "hpfem/physics/field_sampling.hpp"
+#include "hpfem/physics/grid_field.hpp"
 #include "hpfem/physics/kept_factorisation.hpp"
 #include "hpfem/physics/propagating_mode.hpp"
 #include "hpfem/physics/resonance.hpp"
@@ -446,6 +448,108 @@ void bind_physics_dim(py::module_& m) {
            "temperature for an assembled load, e.g. absorbed_power_load")
       .def("total_power", &Thermal<Dim>::total_power, py::arg("q"), Release(),
            "integral of source coefficients q [W] (3D) or [W/m] (2D)");
+  // --- linear elasticity (ADR-0016, M20) ---
+  using physics::Elasticity;
+  using physics::ElasticitySetup;
+  using physics::GridField;
+  py::class_<GridField<Dim>>(m, named("GridField", Dim).c_str(),
+                             "Volume field on a regular grid [m], bi- / trilinear; values in C "
+                             "order (NumPy values[i0, i1(, i2)]); an axis of length 1 means "
+                             "invariance")
+      .def(py::init([](const std::vector<std::vector<Real>>& axes, const Eigen::VectorXd& values) {
+             if (axes.size() != static_cast<std::size_t>(Dim)) {
+               throw InvalidArgument(
+                   fmt::format("GridField: {} axes for dimension {}", axes.size(), Dim));
+             }
+             std::array<std::vector<Real>, Dim> a;
+             for (int k = 0; k < Dim; ++k) a[as_size(k)] = axes[as_size(k)];
+             return GridField<Dim>(std::move(a),
+                                   std::vector<Real>(values.data(), values.data() + values.size()));
+           }),
+           py::arg("axes"), py::arg("values"), "values flattened in C order (values.ravel())")
+      .def(
+          "__call__", [](const GridField<Dim>& g, const Point<Dim>& x) { return g(x); },
+          py::arg("x"));
+  py::class_<physics::DisplacementCondition<Dim>>(
+      m, named("DisplacementCondition", Dim).c_str(),
+      "Prescribed displacement components on the facets of a tag: components (bools), value "
+      "(callable x -> u, None for zero)")
+      .def(py::init([](mesh::Tag tag, std::array<bool, Dim> components,
+                       physics::DisplacementField<Dim> value) {
+             return physics::DisplacementCondition<Dim>{tag, components, std::move(value)};
+           }),
+           py::arg("tag"), py::arg("components"), py::arg("value") = nullptr)
+      .def_readwrite("tag", &physics::DisplacementCondition<Dim>::tag)
+      .def_readwrite("components", &physics::DisplacementCondition<Dim>::components)
+      .def_readwrite("value", &physics::DisplacementCondition<Dim>::value);
+  py::class_<physics::TractionCondition<Dim>>(m, named("TractionCondition", Dim).c_str(),
+                                              "Traction sigma n = t(x) [Pa] on the facets of a tag")
+      .def(py::init([](mesh::Tag tag, physics::DisplacementField<Dim> traction) {
+             return physics::TractionCondition<Dim>{tag, std::move(traction)};
+           }),
+           py::arg("tag"), py::arg("traction"))
+      .def_readwrite("tag", &physics::TractionCondition<Dim>::tag)
+      .def_readwrite("traction", &physics::TractionCondition<Dim>::traction);
+  py::class_<ElasticitySetup<Dim>>(
+      m, named("ElasticitySetup", Dim).c_str(),
+      "Linear elasticity with eigenstrain: materials (ElasticMaterial) by cell tag, displacement "
+      "conditions, tractions, body force, eigenstrain / shrinkage / temperature, free body")
+      .def(py::init<>())
+      .def_readwrite("background", &ElasticitySetup<Dim>::background)
+      .def_readwrite("materials", &ElasticitySetup<Dim>::materials)
+      .def_readwrite("displacements", &ElasticitySetup<Dim>::displacements)
+      .def_readwrite("tractions", &ElasticitySetup<Dim>::tractions)
+      .def_readwrite("body_force", &ElasticitySetup<Dim>::body_force)
+      .def_readwrite("eigenstrain", &ElasticitySetup<Dim>::eigenstrain)
+      .def_readwrite("shrinkage", &ElasticitySetup<Dim>::shrinkage,
+                     "callable x -> s (Python, evaluated per quadrature point); a GridField is "
+                     "faster through set_shrinkage_grid")
+      .def(
+          "set_shrinkage_grid",
+          [](ElasticitySetup<Dim>& s, const GridField<Dim>& grid) {
+            s.shrinkage = [grid](const Point<Dim>& x) { return grid(x); };
+          },
+          py::arg("grid"), "isotropic shrinkage s(x) from a GridField (evaluated in C++)")
+      .def_readwrite("temperature", &ElasticitySetup<Dim>::temperature)
+      .def_readwrite("reference_temperature", &ElasticitySetup<Dim>::reference_temperature)
+      .def_readwrite("background_expansion", &ElasticitySetup<Dim>::background_expansion)
+      .def_readwrite("thermal_expansion", &ElasticitySetup<Dim>::thermal_expansion)
+      .def_readwrite("remove_rigid_modes", &ElasticitySetup<Dim>::remove_rigid_modes)
+      .def_readwrite("static_condensation", &ElasticitySetup<Dim>::static_condensation)
+      .def_readwrite("solver", &ElasticitySetup<Dim>::solver)
+      .def_readwrite("extra_quadrature_order", &ElasticitySetup<Dim>::extra_quadrature_order);
+  py::class_<Elasticity<Dim>>(m, named("Elasticity", Dim).c_str(),
+                              "Small-strain linear elasticity on Dim copies of the scalar H1 "
+                              "space (ADR-0016); 2D is plane strain")
+      .def(py::init<const H1&, ElasticitySetup<Dim>>(), py::arg("dofs"), py::arg("setup"),
+           py::keep_alive<1, 2>())
+      .def_property_readonly("dofs", &Elasticity<Dim>::dofs,
+                             py::return_value_policy::reference_internal)
+      .def_property_readonly("setup", &Elasticity<Dim>::setup,
+                             py::return_value_policy::reference_internal)
+      .def_property_readonly("num_dofs", &Elasticity<Dim>::num_dofs)
+      .def("solve", &Elasticity<Dim>::solve, Release(),
+           "displacement coefficients, component-major (u_x | u_y | u_z)")
+      .def("displacement", &Elasticity<Dim>::displacement, py::arg("u"), py::arg("cell"),
+           py::arg("xi"))
+      .def("displacements_at", &Elasticity<Dim>::displacements_at, py::arg("u"), py::arg("points"),
+           Release(), "(n, Dim) displacements at the points, NaN outside")
+      .def("strain", &Elasticity<Dim>::strain, py::arg("u"), py::arg("cell"), py::arg("xi"))
+      .def("stress", &Elasticity<Dim>::stress, py::arg("u"), py::arg("cell"), py::arg("xi"),
+           "sigma = C : (eps(u) - eps*) [Pa]")
+      .def("eigenstrain", &Elasticity<Dim>::eigenstrain, py::arg("cell"), py::arg("xi"))
+      .def("strain_energy", &Elasticity<Dim>::strain_energy, py::arg("u"), Release(),
+           "1/2 int (eps - eps*) : C : (eps - eps*) [J] (3D) or [J/m] (2D)")
+      .def("deformed_mesh", &Elasticity<Dim>::deformed_mesh, py::arg("u"), py::arg("scale") = 1.0,
+           Release(),
+           "the mesh with its geometry moved by scale * Re u (geometry order 2 for p >= 2)")
+      .def("rigid_modes", &Elasticity<Dim>::rigid_modes)
+      .def("l2_product", &Elasticity<Dim>::l2_product, py::arg("a"), py::arg("b"));
+  m.def(
+      named("isotropic_stiffness", Dim).c_str(),
+      [](Real e, Real nu) { return assembly::isotropic_stiffness<Dim>(e, nu); },
+      py::arg("youngs_modulus"), py::arg("poisson_ratio"),
+      "Voigt stiffness of an isotropic material (2D: plane strain)");
   using physics::ThermoOptical;
   using physics::ThermoOpticalSetup;
   using physics::ThermoOpticalState;
@@ -768,6 +872,12 @@ void bind_riesz_common(py::module_& m) {
 }  // namespace
 
 void bind_physics(py::module_& m) {
+  py::class_<physics::ElasticMaterial>(m, "ElasticMaterial",
+                                       "Isotropic linear-elastic material: E [Pa], nu")
+      .def(py::init([](Real e, Real nu) { return physics::ElasticMaterial{e, nu}; }),
+           py::arg("youngs_modulus"), py::arg("poisson_ratio"))
+      .def_readwrite("youngs_modulus", &physics::ElasticMaterial::youngs_modulus)
+      .def_readwrite("poisson_ratio", &physics::ElasticMaterial::poisson_ratio);
   py::class_<physics::KeptFactorisation, std::shared_ptr<physics::KeptFactorisation>>(
       m, "KeptFactorisation",
       "Factorised system of a solve kept for tangent (A s = r) and adjoint (A^T z = q) solves "
