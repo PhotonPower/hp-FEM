@@ -24,6 +24,7 @@
 #include "hpfem/fespace/h1_basis.hpp"
 #include "hpfem/fespace/nedelec_basis.hpp"
 #include "hpfem/mesh/geometry.hpp"
+#include "hpfem/mesh/point_location.hpp"
 #include "hpfem/physics/riesz_projection.hpp"
 #include "hpfem/solvers/eigen_solver.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
@@ -860,6 +861,55 @@ AbsorbedPower axisymmetric_absorbed_power(
   }
   result.by_tag.assign(tags.begin(), tags.end());
   return result;
+}
+
+Eigen::Matrix<Complex, Eigen::Dynamic, 3> axisymmetric_fields_at(
+    const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
+    const Vector& meridian_coefficients, const Vector& azimuthal_coefficients,
+    const Eigen::Matrix<Real, Eigen::Dynamic, 2>& points) {
+  if (meridian_coefficients.size() != meridian.num_dofs() ||
+      azimuthal_coefficients.size() != azimuthal.num_dofs()) {
+    throw InvalidArgument("axisymmetric_fields_at: coefficients do not match the maps");
+  }
+  const auto& mesh = meridian.mesh();
+  const mesh::PointLocator<2> locator(mesh);
+  const Real nan = std::numeric_limits<Real>::quiet_NaN();
+  Eigen::Matrix<Complex, Eigen::Dynamic, 3> out(points.rows(), 3);
+  for (Index i = 0; i < points.rows(); ++i) {
+    Point<2> x(points(i, 0), points(i, 1));
+    if (x(0) < 0) {
+      throw InvalidArgument(fmt::format("axisymmetric_fields_at: point {} has r < 0", i));
+    }
+    auto located = locator.locate(x);
+    if (located) {
+      // on the axis E_phi = i v / r is the limit: evaluate just off the axis
+      const Real h = mesh::affine_map(mesh, located->cell).h;
+      if (x(0) < 1e-9 * h) {
+        x(0) = 1e-9 * h;
+        located = locator.locate(x, located->cell);
+      }
+    }
+    if (!located) {
+      out.row(i).setConstant(Complex{nan, nan});
+      continue;
+    }
+    const Index c = located->cell;
+    const assembly::ComplexVector<2> e =
+        assembly::evaluate_hcurl<2>(meridian, meridian_coefficients, c, located->xi);
+    const fespace::H1Basis<2> basis(azimuthal.cell_layout(c));
+    std::vector<Real> psi(as_size(basis.size()));
+    std::vector<Point<2>> ref_grad(as_size(basis.size()));
+    basis.evaluate(located->xi, psi, ref_grad);
+    const auto dofs = azimuthal.cell_dofs(c);
+    Complex v = 0;
+    for (Index k = 0; k < basis.size(); ++k) {
+      v += azimuthal_coefficients(dofs[as_size(k)]) * psi[as_size(k)];
+    }
+    out(i, 0) = e(0);
+    out(i, 1) = kI * v / x(0);
+    out(i, 2) = e(1);
+  }
+  return out;
 }
 
 AbsorbedPower AxisymmetricScattering::absorbed_power(const AxisymmetricScatteredField& field,

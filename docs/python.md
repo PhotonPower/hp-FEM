@@ -1039,7 +1039,43 @@ There are two producers:
     refused.
   - Test (DP2): the sum of q over a lossy ridge equals the solver's `A_by_tag` to 2e-3.
 
-Response tables of structured surfaces (holes, cavities) from the FEM follow in stage 3.
+**Structured surfaces (stage 3).** `axisymmetric_emitter_response(mesh, materials, stack,
+wavelength, heights, pml={"r": t, "top": t, "bottom": t}, order=3, sigma=None, detectors=None)`
+computes the table for emitters on the axis of a body of revolution in a planar stack (a hole,
+a cavity, a pillar) with the axisymmetric FEM.
+
+- **Mesh.** `meridian_mesh(r_lines, z_lines, tag_at)` builds a structured meridian mesh. Put
+  the interfaces, walls and PML boundaries on grid lines; the axis facets get tag 77.
+- **Solves.** Each height costs two solves with a Gaussian dipole: the axial dipole (order
+  m = 0) gives A_zz, the transverse one (m = ±1, equal by symmetry) gives A_xx = A_yy. On the
+  axis the tensors are diagonal.
+- **A_tot.** The Poynting flux around the emitter, through the host cells within 6σ, divided
+  by the bulk power of the same smeared dipole. The smearing cancels.
+- **A_rad, A_det.** From the far field by reciprocity in both half-spaces
+  (`axisymmetric_layered_far_field`), on cosine-mapped Gauss nodes split at the critical
+  angle and the detector edges. Detectors take no Jones matrices here.
+- **Discretisation error.** In a lossless structure the FEM error can push A_rad slightly
+  above A_tot. A_tot is then raised and the change recorded (`energy_projection`, at most
+  `balance_tolerance`).
+- **Accuracy.** A flat stack reproduces the planar table: 6e-3 at p = 3 on a 0.1 λ mesh,
+  1.4e-4 on the twice finer one (`python/tests/test_dataports_axisymmetric.py`).
+- **Limits.** Off-axis emitters need all azimuthal orders or the 3D solver; neither is
+  available yet.
+
+`axisymmetric_field_map(mesh, materials, stack, wavelength, grid, k_hat, polarisation, pml=...)`
+gives port F of the same structures for one incident plane wave (the conventions of
+`planar_field_map`).
+- **Orders.** The stack wave is expanded in the azimuthal orders m, in the frame turned by the
+  azimuth of `k_hat`. Normal incidence needs m = ±1 only; oblique incidence needs |m| ≤
+  `max_order`, by default ⌈k_ρ r_max⌉ + 6.
+- **Solves.** One scattered-field solve per order and per s / p component of the polarisation.
+- **Evaluation.** The total field Σ_m (E_scat + E_stack) e^{imφ} is evaluated on the grid with
+  `hpfem.axisymmetric_fields_at`, the new point evaluation of axisymmetric solutions.
+- **Axis.** On the axis the regular limit is used: m = ±1 give (E_x, E_y) ∝ (1, ±i), m = 0
+  gives E_z. The value is then independent of the direction of approach.
+- **Tests.** Without a body the map equals the exact stack field: 1e-8 at normal incidence and
+  5e-7 at oblique incidence with |m| ≤ 6. For a hole, the y-polarised map is the x-polarised
+  one turned by 90° (1e-9).
 
 ## GPU backend
 

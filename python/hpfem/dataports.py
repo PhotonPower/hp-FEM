@@ -45,6 +45,7 @@ SYMMETRY_TOL = 1e-12
 PSD_TOL = 1e-9
 
 __all__ = [
+    "AxisymmetricEmitterResponse",
     "Detector",
     "EmitterResponseTable",
     "FarField",
@@ -54,7 +55,10 @@ __all__ = [
     "decode_array",
     "encode_array",
     "envelope",
+    "axisymmetric_emitter_response",
+    "axisymmetric_field_map",
     "grating_field_map",
+    "meridian_mesh",
     "planar_emitter_response",
     "planar_field_map",
 ]
@@ -806,6 +810,58 @@ def _absorbed_density(e: np.ndarray, eps: np.ndarray, omega: float) -> np.ndarra
                                                           e).real  # fmt: skip
 
 
+@dataclass
+class _PlaneWaves:
+    """The s and p stack waves of one incidence (sensor frame: ``lab`` the stack with its top
+    interface at z = 0; for incidence from the substrate ``frame`` is the stack mirrored at
+    z = 0 and ``mirror`` = diag(1, 1, −1)); ``basis`` (3, 2): their field vectors at the origin."""
+
+    lab: object
+    frame: object
+    mirror: np.ndarray
+    waves: list
+    basis: np.ndarray
+    n_inc: float
+    from_substrate: bool
+    materials: list
+    angle: float
+
+
+def _stack_plane_waves(stack, wavelength: float, k: np.ndarray) -> _PlaneWaves:
+    _media(stack)  # isotropic media, lossless cover
+    materials = [stack.material(i) for i in range(stack.num_layers + 2)]
+    thickness = [float(stack.interface(i - 1) - stack.interface(i))
+                 for i in range(1, stack.num_layers + 1)]  # fmt: skip
+    if abs(k[2]) < 1e-12:
+        raise ValueError("k_hat must have a normal component (grazing incidence)")
+    from_substrate = bool(k[2] > 0)
+    lab = hpfem.LayerStack3D(materials[0], [hpfem.Layer(m, d) for m, d in
+                                            zip(materials[1:-1], thickness, strict=True)],
+                             materials[-1], 0.0)  # fmt: skip
+    if from_substrate:
+        sub = complex(materials[-1].refractive_index)
+        if abs(sub.imag) > 1e-12:
+            raise ValueError("incidence from the substrate needs a lossless substrate")
+        # the stack mirrored at z = 0: the substrate on top, its top interface at the depth
+        frame = hpfem.LayerStack3D(materials[-1], [hpfem.Layer(m, d) for m, d in
+                                                   zip(materials[-2:0:-1], thickness[::-1],
+                                                       strict=True)],
+                                   materials[0], float(sum(thickness)))  # fmt: skip
+        mirror = _MIRROR_Z
+        n_inc = sub.real
+    else:
+        frame, mirror, n_inc = lab, np.ones(3), complex(materials[0].refractive_index).real
+    k_frame = k * mirror  # pointing down in the frame of the incidence
+    angle = math.acos(min(1.0, -k_frame[2]))
+    azimuth = math.atan2(k_frame[1], k_frame[0]) if math.hypot(k_frame[0], k_frame[1]) > 0 else 0.0
+    k0 = 2 * math.pi / float(wavelength)
+    waves = [frame.plane_wave(k0, angle, p, 1.0, azimuth)
+             for p in (hpfem.Polarisation.S, hpfem.Polarisation.P)]  # fmt: skip
+    basis = np.column_stack([mirror * np.asarray(w.incident_wave.value([0.0, 0.0, 0.0]),
+                                                 dtype=complex) for w in waves])  # fmt: skip
+    return _PlaneWaves(lab, frame, mirror, waves, basis, n_inc, from_substrate, materials, angle)
+
+
 def planar_field_map(
     stack,
     wavelength: float,
@@ -831,44 +887,15 @@ def planar_field_map(
     from above (the solution side at z = 0, as BindOptiX evaluates F at z ≥ 0 only). The phase
     refers to the incident wave with E = polarisation at the origin (continued analytically into
     the solution or the substrate)."""
-    n1, layers, n3, z_bottom = _media(stack)
-    del n1, n3, z_bottom
-    materials = [stack.material(i) for i in range(stack.num_layers + 2)]
-    thickness = [float(stack.interface(i - 1) - stack.interface(i))
-                 for i in range(1, stack.num_layers + 1)]  # fmt: skip
     _check_surface_plane(grid)
     k, pol = _unit_incidence(k_hat, polarisation)
-    if abs(k[2]) < 1e-12:
-        raise ValueError("k_hat must have a normal component (grazing incidence)")
-    from_substrate = k[2] > 0
-    lab = hpfem.LayerStack3D(materials[0], [hpfem.Layer(m, d) for m, d in
-                                            zip(materials[1:-1], thickness, strict=True)],
-                             materials[-1], 0.0)  # fmt: skip
-    if from_substrate:
-        sub = complex(materials[-1].refractive_index)
-        if abs(sub.imag) > 1e-12:
-            raise ValueError("incidence from the substrate needs a lossless substrate")
-        # the stack mirrored at z = 0: the substrate on top, its top interface at the depth
-        frame = hpfem.LayerStack3D(materials[-1], [hpfem.Layer(m, d) for m, d in
-                                                   zip(materials[-2:0:-1], thickness[::-1],
-                                                       strict=True)],
-                                   materials[0], float(sum(thickness)))  # fmt: skip
-        mirror = _MIRROR_Z
-        n_inc = sub.real
-    else:
-        frame, mirror, n_inc = lab, np.ones(3), complex(materials[0].refractive_index).real
-    k_frame = k * mirror  # pointing down in the frame of the incidence
-    angle = math.acos(-k_frame[2])
-    azimuth = math.atan2(k_frame[1], k_frame[0]) if math.hypot(k_frame[0], k_frame[1]) > 0 else 0.0
+    pw = _stack_plane_waves(stack, wavelength, k)
+    lab, mirror, waves, n_inc = pw.lab, pw.mirror, pw.waves, pw.n_inc
+    from_substrate = pw.from_substrate
     k0 = 2 * math.pi / float(wavelength)
-    waves = [frame.plane_wave(k0, angle, p, 1.0, azimuth)
-             for p in (hpfem.Polarisation.S, hpfem.Polarisation.P)]  # fmt: skip
-    # the field vectors of s and p at the origin (in the sensor frame) and the decomposition of
-    # the requested polarisation; the incident wave then has E = polarisation at the origin
-    basis = np.column_stack([mirror * np.asarray(w.incident_wave.value([0.0, 0.0, 0.0]),
-                                                 dtype=complex) for w in waves])  # fmt: skip
-    coefficients, *_ = np.linalg.lstsq(basis, pol, rcond=None)
-    if np.linalg.norm(basis @ coefficients - pol) > 1e-9:
+    materials = pw.materials
+    coefficients, *_ = np.linalg.lstsq(pw.basis, pol, rcond=None)
+    if np.linalg.norm(pw.basis @ coefficients - pol) > 1e-9:
         raise ValueError("the polarisation is not transverse to the incident wave")
     points = _grid_points(grid)
     flat = points.reshape(-1, 3)
@@ -1016,6 +1043,521 @@ def grating_field_map(
         irradiance_w_m2=n_c / (2 * hpfem.constants.Z0),
         k_hat=k_hat / np.linalg.norm(k_hat),
         polarisation=pol / np.linalg.norm(pol),
+        medium=medium.reshape(shape),
+        media=tuple(names.get(t, f"tag {t}") for t in unique),
+    )
+
+
+# --- structured surfaces: bodies of revolution (stage 3) ------------------------------------------
+
+
+def meridian_mesh(r_lines, z_lines, tag_at: Callable, axis_tag: int = 77):
+    """A structured triangle mesh of the meridian half-plane r ≥ 0 for the axisymmetric solver:
+    the tensor grid of the increasing coordinates ``r_lines`` (from 0) and ``z_lines`` [m], two
+    triangles per rectangle, each cell tagged by ``tag_at(r, z)`` of its centroid. The facets on
+    the axis carry ``axis_tag``, the outer ones ``box_tag.X_MAX`` / ``Y_MIN`` / ``Y_MAX``. Put
+    the stack interfaces, the walls of holes and cavities and the PML boundaries on grid lines,
+    and grade the lines towards the emitters."""
+    r = np.asarray(r_lines, dtype=float)
+    z = np.asarray(z_lines, dtype=float)
+    if r[0] != 0.0 or np.any(np.diff(r) <= 0) or np.any(np.diff(z) <= 0):
+        raise ValueError("r_lines must start at 0 and both line sets increase strictly")
+    nr = r.size
+    vertices = [(float(ri), float(zj)) for zj in z for ri in r]
+    cells, tags = [], []
+    for j in range(z.size - 1):
+        for i in range(nr - 1):
+            a = j * nr + i
+            b, c, d = a + 1, a + nr + 1, a + nr
+            for tri in ((a, b, c), (a, c, d)):
+                cells.append(tri)
+                cr = sum(vertices[v][0] for v in tri) / 3.0
+                cz = sum(vertices[v][1] for v in tri) / 3.0
+                tags.append(int(tag_at(cr, cz)))
+    mesh = hpfem.Mesh2D(vertices, cells, tags)
+    tol = 1e-9 * float(r[-1])
+    for f in mesh.boundary_facets:
+        v = mesh.facet_vertices(int(f))
+        p0, p1 = mesh.vertex(int(v[0])), mesh.vertex(int(v[1]))
+        mr, mz = 0.5 * (p0[0] + p1[0]), 0.5 * (p0[1] + p1[1])
+        if abs(p0[0]) < tol and abs(p1[0]) < tol:
+            mesh.set_facet_tag(int(f), int(axis_tag))
+        elif abs(mr - r[-1]) < tol:
+            mesh.set_facet_tag(int(f), hpfem.box_tag.X_MAX)
+        elif abs(mz - z[0]) < tol:
+            mesh.set_facet_tag(int(f), hpfem.box_tag.Y_MIN)
+        elif abs(mz - z[-1]) < tol:
+            mesh.set_facet_tag(int(f), hpfem.box_tag.Y_MAX)
+    return mesh
+
+
+def _surface_around(mesh, cells: set, axis_tag: int):
+    """The closed surface (normal outwards) around a set of cells, the facets on the axis left
+    out (no flux through r = 0)."""
+    facets = []
+    for c in cells:
+        for f in mesh.cell_facets(int(c)):
+            f = int(f)
+            if mesh.facet_tag(f) == axis_tag:
+                continue
+            neighbours = [int(k) for k in mesh.facet_cells(f)]
+            if all(k in cells for k in neighbours):
+                continue
+            facets.append(hpfem.Surface2D.Facet(f, int(c)))
+    surface = hpfem.Surface2D()
+    surface.facets = facets
+    return surface
+
+
+@dataclass
+class AxisymmetricEmitterResponse:
+    """Result of :func:`axisymmetric_emitter_response`: the ``table``, the far fields per height
+    (``far_field[i]["axial" | "transverse"]["cover" | "substrate"]``: the
+    ``AxisymmetricFarField`` of the order m = 0 / m = 1 on the Gauss nodes) and ``convergence``
+    (also in ``table.source``)."""
+
+    table: EmitterResponseTable
+    far_field: list
+    convergence: dict
+
+
+def _structure_hash(mesh, materials, stack, wavelength, order, sigma) -> str:
+    h = hashlib.sha256()
+    h.update(np.asarray(mesh.vertices, dtype=float).tobytes())
+    h.update(np.asarray(mesh.cells, dtype=np.int64).tobytes())
+    h.update(np.asarray(mesh.cell_tags, dtype=np.int64).tobytes())
+    for tag in sorted(materials):
+        eps = np.asarray(materials[tag].eps_tensor, dtype=complex)
+        h.update(str(int(tag)).encode() + eps.tobytes())
+    n1, layers, n3, _z = _media(stack)
+    h.update(_stack_provenance(n1, layers, n3, wavelength)["stack"].encode())
+    h.update(f"{int(order)} {float(sigma)!r}".encode())
+    return h.hexdigest()
+
+
+def axisymmetric_emitter_response(
+    mesh,
+    materials: dict,
+    stack,
+    wavelength: float,
+    heights,
+    *,
+    pml: dict,
+    order: int = 3,
+    sigma: float | None = None,
+    axis_tag: int = 77,
+    detectors: Sequence[Detector] | None = None,
+    theta_points: int = 64,
+    balance_tolerance: float = 1e-2,
+    source: dict | None = None,
+) -> AxisymmetricEmitterResponse:
+    """The emitter response table of emitters on the axis of a body of revolution (a hole, a
+    cavity, a pillar) in a planar stack, by the axisymmetric FEM (issue #214, stage 3).
+
+    ``mesh``: the meridian half-plane (r = x ≥ 0, z = y; e.g. :func:`meridian_mesh`) with the
+    facets on the axis tagged ``axis_tag``, cells tagged by material (``materials`` {tag:
+    Material}, every tag used); the stack (``LayerStack2D`` / ``3D`` of isotropic media, its
+    top interface the surface z = 0 of the sensor frame) is the background of the far field.
+    ``pml``: {"r": t, "top": t, "bottom": t} thicknesses [m] of the PML inside the mesh.
+    ``heights``: the emitter positions z [m] on the axis (strictly increasing, in one lossless
+    host medium, the solution above the surface or the solution filling a hole below it); the
+    table's grid is (0, 0, heights in µm).
+
+    Per height two solves (total field of a Gaussian dipole of width ``sigma``, default
+    λ/(40 n_host); it must stay ≥ 5σ away from other media): the axial dipole (order m = 0)
+    gives A_zz, the transverse one (m = ±1, equal by symmetry) A_xx = A_yy; on the axis the
+    tensors are diagonal. A_tot is the Poynting flux through a closed surface of the host cells
+    within 6σ of the emitter divided by the power of the same smeared dipole in the bulk host
+    (the smearing cancels, as for the array scanning of ADR-0013); A_rad and A_det come from the
+    far field in both half-spaces by reciprocity through the boundary of the region inside the
+    PML (``axisymmetric_layered_far_field``), integrated on cosine-mapped Gauss nodes in θ
+    (``theta_points`` per interval between 0, the critical angle, the detector edges and π/2).
+    Detectors as in :func:`planar_emitter_response`, without Jones matrices (on the axis the
+    tensors stay diagonal only for rotation-invariant detectors).
+
+    In a lossless structure without guided modes A_tot − A_rad vanishes up to the discretisation
+    error and may come out slightly negative, which BindOptiX refuses: A_tot is then raised to
+    A_rad on that diagonal entry and the change recorded (``energy_projection``, relative to A_tot);
+    above ``balance_tolerance`` the call raises ``ValueError`` (refine the mesh or raise
+    ``order``). Off-axis emitters need all azimuthal orders or the 3D solver (not here)."""
+    n1, layers, n3, z_bottom = _media(stack)
+    heights = np.asarray(heights, dtype=float).ravel()
+    if heights.size < 1 or np.any(np.diff(heights) <= 0):
+        raise ValueError("heights must be strictly increasing")
+    if detectors is None:
+        detectors = [Detector("solution", "cover"), Detector("substrate", "substrate")]
+    detectors = list(detectors)
+    if not detectors:
+        raise ValueError("at least one detector region is needed (BindOptiX reads no empty axis)")
+    for d in detectors:
+        if d.jones is not None:
+            raise ValueError("axisymmetric_emitter_response: detectors without Jones matrices")
+        if d.side not in ("cover", "substrate"):
+            raise ValueError(f"detector {d.name!r}: side must be 'cover' or 'substrate'")
+    k0 = 2 * math.pi / float(wavelength)
+    omega = k0 * hpfem.constants.c0
+    lab = hpfem.LayerStack3D(stack.material(0), [hpfem.Layer(stack.material(i), d) for i, (_n, d)
+                                                 in enumerate(layers, start=1)],
+                             stack.material(stack.num_layers + 1), 0.0)  # fmt: skip
+    material_map = hpfem.MaterialMap()
+    for tag, mat in materials.items():
+        material_map.set(int(tag), mat)
+    tags = np.asarray(mesh.cell_tags, dtype=int)
+    missing = set(tags.tolist()) - set(int(t) for t in materials)
+    if missing:
+        raise ValueError(f"cell tags without a material: {sorted(missing)}")
+    vertices = np.asarray(mesh.vertices, dtype=float)
+    cells = np.asarray(mesh.cells, dtype=int)
+    centroids = vertices[cells].mean(axis=1)
+    r_max, z_min, z_max = vertices[:, 0].max(), vertices[:, 1].min(), vertices[:, 1].max()
+    t_r, t_top, t_bottom = float(pml["r"]), float(pml["top"]), float(pml["bottom"])
+    inner = (
+        (centroids[:, 0] < r_max - t_r)
+        & (centroids[:, 1] > z_min + t_bottom)
+        & (centroids[:, 1] < z_max - t_top)
+    )
+    # the host medium at the emitters
+    locator = hpfem.PointLocator2D(mesh)
+    host_tags = set()
+    for z0 in heights:
+        found = locator.locate(np.array([0.0, float(z0)]))
+        if found is None or not inner[found.cell]:
+            raise ValueError(f"emitter at z = {z0:.3g} m outside the region inside the PML")
+        host_tags.add(int(tags[found.cell]))
+    host = {complex(materials[t].refractive_index) for t in host_tags}
+    if len(host) != 1:
+        raise ValueError("all emitters must lie in one host medium")
+    n_host_c = host.pop()
+    if abs(n_host_c.imag) > 1e-12:
+        raise ValueError("the host medium of the emitters must be lossless")
+    n_host = n_host_c.real
+    if sigma is None:
+        sigma = float(wavelength) / (40 * n_host)
+    host_cells = {c for c in range(mesh.num_cells)
+                  if complex(materials[int(tags[c])].refractive_index) == n_host_c}  # fmt: skip
+    n_ref = min(n1, complex(n3).real) if complex(n3).real > 0 else n1
+    pml_box = hpfem.PmlBox2D(
+        [0.0, z_min + t_bottom],
+        [r_max - t_r, z_max - t_top],
+        [0.0, t_r, t_bottom, t_top],
+        k0,
+        n_ref,
+    )
+    far_surface = _surface_around(mesh, {c for c in range(mesh.num_cells) if inner[c]}, axis_tag)
+    nd = hpfem.NedelecDofMap2D(mesh, int(order))
+    h1 = hpfem.DofMap2D(mesh, int(order))
+
+    # direction grids
+    up_breaks = [0.0, 0.5 * math.pi] + [b for d in detectors if d.side == "cover"
+                                        for b in (d.theta_min, d.theta_max)]  # fmt: skip
+    theta_up, w_up = _theta_grid(sorted(set(up_breaks)), theta_points)
+    n3c = complex(n3)
+    radiating_substrate = abs(n3c.imag) <= 1e-12 and n3c.real > 0
+    theta_down = w_down = np.zeros(0)
+    if radiating_substrate:
+        sub_breaks = [0.0, 0.5 * math.pi] + [b for d in detectors if d.side == "substrate"
+                                             for b in (d.theta_min, d.theta_max)]  # fmt: skip
+        if n3c.real > n1:
+            sub_breaks.append(math.asin(n1 / n3c.real))
+        theta_s, w_down = _theta_grid(sorted(set(sub_breaks)), theta_points)
+        theta_down = math.pi - theta_s  # polar angle from +z
+    bulk = n_host * hpfem.dipole_vacuum_power(1.0, omega) * math.exp(-((n_host * k0 * sigma) ** 2))
+
+    a_tot = np.zeros((heights.size, 3, 3))
+    a_rad = np.zeros((heights.size, 3, 3))
+    a_det = np.zeros((heights.size, len(detectors), 3, 3))
+    far_fields = []
+    projection = 0.0
+    for iz, z0 in enumerate(heights):
+        # the Gaussian must stay in the host: 6σ ball of host cells around the emitter
+        dist = np.hypot(centroids[:, 0], centroids[:, 1] - z0)
+        ball = {c for c in np.nonzero(dist < 6 * sigma)[0].tolist()}
+        if not ball or not ball <= host_cells:
+            raise ValueError(
+                f"the dipole at z = {z0:.3g} m (6 sigma = {6 * sigma:.3g} m) reaches another "
+                "medium or has no cells around it: lower sigma or move it"
+            )
+        src_surface = _surface_around(mesh, ball, axis_tag)
+        entry = {}
+        for name, m, orientation, factor, comps in (
+            ("axial", 0, hpfem.AxisDipole.AXIAL, 1.0, (2,)),
+            ("transverse", 1, hpfem.AxisDipole.TRANSVERSE, 2.0, (0, 1)),
+        ):
+            setup = hpfem.AxisymmetricScatteringSetup()
+            setup.omega = omega
+            setup.materials = material_map
+            setup.axis_tag = int(axis_tag)
+            setup.azimuthal_order = m
+            setup.pml = pml_box
+            setup.background = lab
+            setup.current = hpfem.axisymmetric_gaussian_dipole(float(z0), 1.0, orientation,
+                                                               float(sigma), omega, m)  # fmt: skip
+            setup.extra_quadrature_order = 6
+            field = hpfem.AxisymmetricScattering(nd, h1, setup).solve()
+            emitted = factor * hpfem.axisymmetric_poynting_flux(
+                nd, h1, field.meridian, field.azimuthal, m, omega, material_map, src_surface
+            )
+            far = hpfem.axisymmetric_layered_far_field(
+                nd, h1, field.meridian, field.azimuthal, m, omega, material_map, far_surface,
+                lab, theta_up.tolist(), theta_down.tolist())  # fmt: skip
+            sides = {"cover": (far.up, w_up, theta_up)}
+            if radiating_substrate:
+                sides["substrate"] = (far.down, w_down, math.pi - theta_down)
+            powers = {}
+            for side, (ff, w, theta_side) in sides.items():
+                density = np.abs(np.asarray(ff.f_theta)) ** 2 + np.abs(np.asarray(ff.f_phi)) ** 2
+                powers[side] = (factor * math.pi / ff.impedance * density * np.sin(theta_side) * w,
+                                theta_side)  # fmt: skip
+            radiated = sum(float(p.sum()) for p, _t in powers.values())
+            for comp in comps:
+                a_tot[iz, comp, comp] = emitted / bulk
+                a_rad[iz, comp, comp] = radiated / bulk
+                for k, d in enumerate(detectors):
+                    if d.side not in powers:
+                        continue
+                    p, theta_side = powers[d.side]
+                    inside = (theta_side >= d.theta_min) & (theta_side <= d.theta_max)
+                    a_det[iz, k, comp, comp] = float(p[inside].sum()) / bulk
+            entry[name] = {"cover": far.up, "substrate": far.down if radiating_substrate else None}
+        far_fields.append(entry)
+        # discretisation: A_tot may fall below A_rad in a lossless structure
+        for comp in range(3):
+            gap = a_rad[iz, comp, comp] - a_tot[iz, comp, comp]
+            if gap > 0:
+                projection = max(projection, gap / a_tot[iz, comp, comp])
+                a_tot[iz, comp, comp] = a_rad[iz, comp, comp]
+    if projection > balance_tolerance:
+        raise ValueError(
+            f"A_rad exceeds A_tot by {projection:.2e} (relative), beyond balance_tolerance "
+            f"{balance_tolerance:.1e}: refine the mesh near the emitter or raise the order"
+        )
+    for side in ("cover", "substrate"):
+        spans = sorted((d.theta_min, d.theta_max, d.name) for d in detectors if d.side == side)
+        for (_a0, b0, n0), (a1, _b1, n1_) in zip(spans[:-1], spans[1:], strict=True):
+            if a1 < b0:
+                raise ValueError(f"the detector regions {n0!r} and {n1_!r} overlap")
+    balance = np.min((np.diagonal(a_tot, axis1=1, axis2=2) - np.diagonal(a_rad, axis1=1,
+                                                                            axis2=2))
+                     / np.diagonal(a_tot, axis1=1, axis2=2))  # fmt: skip
+    convergence = {
+        "order": int(order),
+        "dofs": int(nd.num_dofs + h1.num_dofs),
+        "cells": int(mesh.num_cells),
+        "sigma_m": float(sigma),
+        "energy": float(balance),
+        "energy_projection": float(projection),
+        "theta_points": int(theta_points),
+    }
+    provenance = {
+        "solver": "hp-FEM",
+        "version": hpfem.__version__,
+        "method": "hpfem.dataports.axisymmetric_emitter_response (axisymmetric FEM, on-axis "
+        "Gaussian dipoles, far field by reciprocity)",
+        "content_hash": _structure_hash(mesh, materials, stack, float(wavelength), order, sigma),
+        "convergence": json.dumps(convergence, sort_keys=True),
+    }
+    provenance.update(source or {})
+    table = EmitterResponseTable(
+        grid=RegularGrid(([0.0], [0.0], heights * 1e6)),
+        wavelength_um=float(wavelength) * 1e6,
+        n_host=n_host,
+        detectors=tuple(d.name for d in detectors),
+        a_tot=a_tot[None, None],
+        a_rad=a_rad[None, None],
+        a_det=a_det[None, None],
+        source=provenance,
+    )
+    return AxisymmetricEmitterResponse(table=table, far_field=far_fields, convergence=convergence)
+
+
+def _rotation_z(angle: float) -> np.ndarray:
+    c, s = math.cos(angle), math.sin(angle)
+    return np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+
+
+def axisymmetric_field_map(
+    mesh,
+    materials: dict,
+    stack,
+    wavelength: float,
+    grid: RegularGrid,
+    k_hat,
+    polarisation,
+    *,
+    pml: dict,
+    order: int = 3,
+    axis_tag: int = 77,
+    max_order: int | None = None,
+    media: dict | None = None,
+    absorbed: bool = True,
+    source: dict | None = None,
+) -> FieldMap:
+    """Port F of a body of revolution (a hole, a cavity, a pillar) in a planar stack for one
+    incident plane wave, by the axisymmetric FEM (issue #214, stage 3; conventions of
+    :func:`planar_field_map`).
+
+    ``mesh``, ``materials``, ``stack``, ``pml``, ``order`` and ``axis_tag`` as in
+    :func:`axisymmetric_emitter_response` (the axis of the body is the z axis of the sensor
+    frame). The stack wave of ``k_hat`` (from the solution, k_z < 0, or through the lossless
+    substrate) is expanded in the azimuthal orders m (`layered_axisymmetric_wave` in the frame
+    turned by the azimuth of ``k_hat``); every order is one scattered-field solve per
+    polarisation component (s, p) that ``polarisation`` contains, and the total field
+    Σ_m (E_scat,m + E_stack,m) e^{imφ} is evaluated on ``grid`` (``axisymmetric_fields_at``).
+    Normal incidence needs m = ±1 only; oblique incidence |m| ≤ ``max_order`` (default
+    ⌈k_ρ r_max⌉ + 6 with r_max the largest radius of the grid and the in-plane wavenumber k_ρ of
+    the incidence). Grid points must lie inside the PML; on horizontal mesh lines the value is
+    the limit from above. Without a body the map equals :func:`planar_field_map` (the test)."""
+    _check_surface_plane(grid)
+    k, pol = _unit_incidence(k_hat, polarisation)
+    k0 = 2 * math.pi / float(wavelength)
+    omega = k0 * hpfem.constants.c0
+    phi_k = math.atan2(k[1], k[0]) if math.hypot(k[0], k[1]) > 1e-15 else 0.0
+    turn = _rotation_z(phi_k)  # frame (in-plane k along +x) -> sensor
+    k_frame = turn.T @ k
+    pw = _stack_plane_waves(stack, wavelength, k_frame)
+    pol_frame = turn.T @ pol
+    coefficients, *_ = np.linalg.lstsq(pw.basis, pol_frame, rcond=None)
+    if np.linalg.norm(pw.basis @ coefficients - pol_frame) > 1e-9:
+        raise ValueError("the polarisation is not transverse to the incident wave")
+    side = "bottom" if pw.from_substrate else "top"
+    theta = pw.angle
+    k_rho = k0 * pw.n_inc * math.sin(theta)
+    points = _grid_points(grid)
+    flat = points.reshape(-1, 3)
+    radius = np.hypot(flat[:, 0], flat[:, 1])
+    if theta < 1e-12:
+        orders = [-1, 1]
+    else:
+        m_max = max_order if max_order is not None else math.ceil(k_rho * radius.max()) + 6
+        orders = list(range(-int(m_max), int(m_max) + 1))
+    # the solver setup (as axisymmetric_emitter_response)
+    material_map = hpfem.MaterialMap()
+    for tag, mat in materials.items():
+        material_map.set(int(tag), mat)
+    tags = np.asarray(mesh.cell_tags, dtype=int)
+    missing = set(tags.tolist()) - set(int(t) for t in materials)
+    if missing:
+        raise ValueError(f"cell tags without a material: {sorted(missing)}")
+    vertices = np.asarray(mesh.vertices, dtype=float)
+    r_max, z_min, z_max = vertices[:, 0].max(), vertices[:, 1].min(), vertices[:, 1].max()
+    t_r, t_top, t_bottom = float(pml["r"]), float(pml["top"]), float(pml["bottom"])
+    if (np.any(radius > r_max - t_r) or np.any(flat[:, 2] < z_min + t_bottom)
+            or np.any(flat[:, 2] > z_max - t_top)):  # fmt: skip
+        raise ValueError("grid points outside the region inside the PML")
+    n1, _layers, n3, _z = _media(stack)
+    n_ref = min(n1, complex(n3).real) if complex(n3).real > 0 else n1
+    pml_box = hpfem.PmlBox2D(
+        [0.0, z_min + t_bottom],
+        [r_max - t_r, z_max - t_top],
+        [0.0, t_r, t_bottom, t_top],
+        k0,
+        n_ref,
+    )
+    nd = hpfem.NedelecDofMap2D(mesh, int(order))
+    h1 = hpfem.DofMap2D(mesh, int(order))
+    # the evaluation points in the frame: (r, z) with z on a horizontal mesh line taken from above
+    lines = {round(float(v), 12) for v in vertices[:, 1] / float(wavelength)}
+    nudge = np.array([round(z / float(wavelength), 12) in lines for z in flat[:, 2]])
+    z_eval = np.where(nudge, flat[:, 2] + 1e-9 * float(wavelength), flat[:, 2])
+    r_eval = np.maximum(radius, 1e-9 * float(wavelength))  # the axis: the limit along +x'
+    xy_frame = flat[:, :2] @ turn[:2, :2]  # rows (x', y') = turn^T (x, y)
+    phi = np.where(radius > 0, np.arctan2(xy_frame[:, 1], xy_frame[:, 0]), 0.0)
+    rz = np.column_stack([r_eval, z_eval])
+    on_axis = radius == 0
+    c, sn = np.cos(phi), np.sin(phi)  # phi = 0 on the axis
+    e_frame = np.zeros((flat.shape[0], 3), dtype=complex)
+    solves = 0
+    for p_index, pol_name in enumerate(("s", "p")):
+        a = complex(coefficients[p_index])
+        if abs(a) < 1e-14:
+            continue
+        # the scale of layered_axisymmetric_wave against the planar wave of unit amplitude at the
+        # origin: compared at a probe point off the axis in the incidence medium
+        probe_r = 0.05 * float(wavelength) / pw.n_inc
+        probe_z = (0.1 if side == "top" else -0.1) * float(wavelength) + (
+            0.0 if side == "top" else float(stack.bottom - stack.top)
+        )
+        analytic = np.zeros(3, dtype=complex)
+        for m in orders:
+            wave = hpfem.layered_axisymmetric_wave(pw.lab, k0, theta, pol_name, m, side)
+            e = np.asarray(wave.value([probe_r, probe_z]), dtype=complex)
+            analytic += np.array([e[0], 1j * e[1] / probe_r, e[2]])
+        q = pw.mirror * np.array([probe_r, 0.0, probe_z])
+        planar = pw.mirror * np.asarray(pw.waves[p_index].field.value(q), dtype=complex)
+        alpha = np.vdot(planar, analytic) / np.vdot(planar, planar)
+        if np.linalg.norm(analytic - alpha * planar) > 1e-6 * np.linalg.norm(planar):
+            raise ValueError("the azimuthal orders do not reproduce the stack wave at the probe "
+                             "point: raise max_order")  # fmt: skip
+        weight = a / alpha
+        for m in orders:
+            wave = hpfem.layered_axisymmetric_wave(pw.lab, k0, theta, pol_name, m, side)
+            setup = hpfem.AxisymmetricScatteringSetup()
+            setup.omega = omega
+            setup.materials = material_map
+            setup.axis_tag = int(axis_tag)
+            setup.azimuthal_order = m
+            setup.pml = pml_box
+            setup.background = pw.lab
+            setup.incident = wave.value
+            field = hpfem.AxisymmetricScattering(nd, h1, setup).solve()
+            solves += 1
+            scattered = np.asarray(hpfem.axisymmetric_fields_at(
+                nd, h1, field.meridian, field.azimuthal, rz), dtype=complex)  # fmt: skip
+            incident = np.array([np.asarray(wave.value(list(p)), dtype=complex) for p in rz])
+            incident[:, 1] = 1j * incident[:, 1] / r_eval  # v -> E_phi
+            total = weight * (scattered + incident)  # (E_r, E_phi, E_z) of order m
+            if not np.all(np.isfinite(total)):
+                raise ValueError("grid points outside the mesh")
+            rot = np.exp(1j * m * phi)
+            e_frame[:, 0] += (total[:, 0] * c - total[:, 1] * sn) * rot
+            e_frame[:, 1] += (total[:, 0] * sn + total[:, 1] * c) * rot
+            e_frame[:, 2] += total[:, 2] * rot
+            # on the axis the regular limit, independent of the direction of approach (the
+            # discrete field satisfies E_phi = ±i E_r there only to the discretisation error)
+            if np.any(on_axis):
+                a = total[on_axis]
+                if abs(m) == 1:
+                    amp = 0.5 * (a[:, 0] - m * 1j * a[:, 1])
+                    e_frame[on_axis] += np.column_stack([amp, m * 1j * amp, 0 * amp]) - (
+                        np.column_stack([a[:, 0], a[:, 1], a[:, 2]])
+                    )
+                elif m == 0:
+                    e_frame[on_axis] += np.column_stack([-a[:, 0], -a[:, 1], 0 * a[:, 2]])
+                else:
+                    e_frame[on_axis] -= a
+    e = e_frame @ turn.T
+    # media and absorption per point
+    locator = hpfem.PointLocator2D(mesh)
+    point_tags = np.zeros(flat.shape[0], dtype=np.int64)
+    eps = np.zeros((flat.shape[0], 3, 3), dtype=complex)
+    for i, p in enumerate(rz):
+        found = locator.locate(np.asarray(p))
+        point_tags[i] = int(tags[found.cell])
+        eps[i] = np.asarray(materials[int(point_tags[i])].eps_tensor, dtype=complex)
+    unique = sorted(set(point_tags.tolist()))
+    names = media or {}
+    medium = np.array([unique.index(t) for t in point_tags], dtype=np.int64)
+    provenance = {
+        "solver": "hp-FEM",
+        "version": hpfem.__version__,
+        "method": "hpfem.dataports.axisymmetric_field_map (axisymmetric FEM, layered background)",
+        "content_hash": _structure_hash(mesh, materials, stack, float(wavelength), order, 0.0),
+        "phase_reference": _PHASE_REFERENCE,
+        "incidence": "substrate" if pw.from_substrate else "solution",
+        "azimuthal_orders": json.dumps(orders),
+        "solves": str(solves),
+    }
+    provenance.update(source or {})
+    shape = grid.shape
+    return FieldMap(
+        grid=grid,
+        wavelength_um=float(wavelength) * 1e6,
+        e=e.reshape(*shape, 3),
+        q_w_m3=_absorbed_density(e, eps, omega).reshape(shape) if absorbed else None,
+        source=provenance,
+        irradiance_w_m2=pw.n_inc / (2 * hpfem.constants.Z0),
+        k_hat=k,
+        polarisation=pol,
         medium=medium.reshape(shape),
         media=tuple(names.get(t, f"tag {t}") for t in unique),
     )
