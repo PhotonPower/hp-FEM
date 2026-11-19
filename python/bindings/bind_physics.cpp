@@ -1441,12 +1441,21 @@ void bind_physics(py::module_& m) {
         .def_readwrite("extra_quadrature_order",
                        &AxisymmetricScatteringSetup::extra_quadrature_order)
         .def_readwrite("pml_extra_quadrature_order",
-                       &AxisymmetricScatteringSetup::pml_extra_quadrature_order);
+                       &AxisymmetricScatteringSetup::pml_extra_quadrature_order)
+        .def_readwrite("keep_factorisation", &AxisymmetricScatteringSetup::keep_factorisation,
+                       "keep the factorised system in the solution for further loads of the "
+                       "orders +m and -m (KeptFactorisation)");
     py::class_<AxisymmetricScatteredField>(m, "AxisymmetricScatteredField",
                                            "Scattered field of one order")
         .def_readonly("azimuthal_order", &AxisymmetricScatteredField::azimuthal_order)
         .def_readonly("meridian", &AxisymmetricScatteredField::meridian)
-        .def_readonly("azimuthal", &AxisymmetricScatteredField::azimuthal);
+        .def_readonly("azimuthal", &AxisymmetricScatteredField::azimuthal)
+        .def_property_readonly(
+            "factorisation",
+            [](const AxisymmetricScatteredField& s) {
+              return std::const_pointer_cast<physics::KeptFactorisation>(s.factorisation);
+            },
+            "the kept factorised system on the block (e | v) (KeptFactorisation) or None");
     py::class_<AxisymmetricScattering>(m, "AxisymmetricScattering",
                                        "Assembles S - k0^2 M with PML and source and solves")
         .def(py::init<const NedelecDofMap<2>&, const DofMap<2>&, AxisymmetricScatteringSetup>(),
@@ -1460,6 +1469,21 @@ void bind_physics(py::module_& m) {
              "the stack layer at the cell centroid (layered background), otherwise "
              "materials.background")
         .def("solve", &AxisymmetricScattering::solve, Release(), "scattered field of order m")
+        .def(
+            "load",
+            [](const AxisymmetricScattering& p, const std::vector<Index>& cells) {
+              return p.load(cells);
+            },
+            py::arg("cells") = std::vector<Index>{}, Release(),
+            "the load of solve over the full block DoFs (e | v), assembled on `cells` (the "
+            "support of a localised current) or on the source cells: with the KeptFactorisation "
+            "of a problem of the same order it solves this excitation without a further "
+            "factorisation")
+        .def("solution_from", &AxisymmetricScattering::solution_from, py::arg("block"),
+             "AxisymmetricScatteredField of a full block coefficient vector (e | v)")
+        .def("mirrored", &AxisymmetricScattering::mirrored, py::arg("block"),
+             "the block vector with v negated: A_{-m} = D A_m D, so the order -m is "
+             "mirrored(kept_m.solve(mirrored(load_-m)))")
         .def("absorbed_power", &AxisymmetricScattering::absorbed_power, py::arg("field"),
              py::arg("extra_order") = 4, Release(),
              "absorbed power of the total field (incident field added), PML cells left out")

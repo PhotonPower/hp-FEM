@@ -6,6 +6,7 @@
 #include <map>
 #include <memory>
 #include <numeric>
+#include <span>
 #include <vector>
 
 #include <fmt/format.h>
@@ -588,14 +589,69 @@ AxisymmetricScatteredField AxisymmetricScattering::solve() const {
     a = std::move(reduced_system.first);
     rhs = std::move(reduced_system.second);
   }
-  const Vector reduced = solvers::solve_direct(a, rhs, setup_.solver, solvers::Symmetry::kDetect);
+  auto solver = solvers::make_direct_solver(setup_.solver, solvers::Symmetry::kDetect);
+  solver->factorize(a);
+  const Vector reduced = solver->solve(rhs);
   AxisymmetricScatteredField out;
   out.azimuthal_order = m;
   const Index n_e = meridian_->num_dofs();
   const Vector full = expand_to_full(reduced, sets_, n_e + azimuthal_->num_dofs());
   out.meridian = full.head(n_e);
   out.azimuthal = full.tail(azimuthal_->num_dofs());
+  if (setup_.keep_factorisation) {
+    KeptFactorisation::Parts parts;
+    parts.solver = std::move(solver);
+    parts.num_dofs = full.size();
+    parts.selection = sets_.free;
+    parts.constraints = sets_.constraints;
+    out.factorisation = std::make_shared<const KeptFactorisation>(std::move(parts));
+  }
   log().info("AxisymmetricScattering: solved m = {} ({} unknowns)", m, reduced.size());
+  return out;
+}
+
+Vector AxisymmetricScattering::load(std::span<const Index> cells) const {
+  const Index n = meridian_->num_dofs() + azimuthal_->num_dofs();
+  std::vector<Index> sources;
+  if (cells.empty()) {
+    for (Index c = 0; c < meridian_->mesh().num_cells(); ++c) {
+      if (form_of_cell(c).source) sources.push_back(c);
+    }
+    // an empty cell list would assemble every cell
+    if (sources.empty()) return Vector::Zero(n);
+    cells = sources;
+  }
+  return assembly::assemble_axisymmetric(
+             *meridian_, *azimuthal_, setup_.azimuthal_order,
+             [this](Index c) { return form_of_cell(c); }, setup_.extra_quadrature_order, cells)
+      .rhs;
+}
+
+AxisymmetricScatteredField AxisymmetricScattering::solution_from(const Vector& block) const {
+  const Index n_e = meridian_->num_dofs();
+  const Index n_v = azimuthal_->num_dofs();
+  if (block.size() != n_e + n_v) {
+    throw InvalidArgument(
+        fmt::format("AxisymmetricScattering::solution_from: {} coefficients for {} block DoFs",
+                    block.size(), n_e + n_v));
+  }
+  AxisymmetricScatteredField out;
+  out.azimuthal_order = setup_.azimuthal_order;
+  out.meridian = block.head(n_e);
+  out.azimuthal = block.tail(n_v);
+  return out;
+}
+
+Vector AxisymmetricScattering::mirrored(const Vector& block) const {
+  const Index n_e = meridian_->num_dofs();
+  const Index n_v = azimuthal_->num_dofs();
+  if (block.size() != n_e + n_v) {
+    throw InvalidArgument(
+        fmt::format("AxisymmetricScattering::mirrored: {} coefficients for {} block DoFs",
+                    block.size(), n_e + n_v));
+  }
+  Vector out = block;
+  out.tail(n_v) *= -1.0;
   return out;
 }
 

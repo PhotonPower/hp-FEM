@@ -2,6 +2,7 @@
 // near the Larmor value, the transverse orders m = +-1 equal, the Purcell enhancement of
 // the axial dipole at the centre of a dielectric sphere peaks at the TM_1 Mie pole found
 // by the resonance solver, and the total-field setup is validated.
+#include <algorithm>
 #include <cmath>
 #include <complex>
 #include <vector>
@@ -92,4 +93,70 @@ TEST_CASE("dipole in vacuum and at the centre of a sphere", "[physics][axisymmet
   bad.incident = {};
   REQUIRE_THROWS_AS(AxisymmetricScattering(*axial.meridian, *axial.azimuthal, bad),
                     hpfem::InvalidArgument);
+}
+
+TEST_CASE("kept factorisation: other heights and the order -m on one factorisation",
+          "[physics][axisymmetric]") {
+  using namespace hpfem::physics::test;
+  using hpfem::Index;
+  using hpfem::Vector;
+  const Real x = 1.5;
+  const Real sigma = 0.08;
+  // a dielectric sphere and the PML: materials, stretch and the e-v coupling all enter
+  const auto plus = dipole_problem(2.0, 4, 2, x, AxisDipole::kTransverse, 1, sigma);
+  AxisymmetricScatteringSetup kept_setup = plus.scattering->setup();
+  kept_setup.keep_factorisation = true;
+  const AxisymmetricScattering kept_problem(*plus.meridian, *plus.azimuthal, kept_setup);
+  const auto field = kept_problem.solve();
+  REQUIRE(field.factorisation != nullptr);
+  REQUIRE(plus.scattering->solve().factorisation == nullptr);
+  const auto& kept = *field.factorisation;
+  const auto block = [](const hpfem::physics::AxisymmetricScatteredField& f) {
+    Vector out(f.meridian.size() + f.azimuthal.size());
+    out << f.meridian, f.azimuthal;
+    return out;
+  };
+  const Vector reference = block(field);
+  const auto relative = [&](const Vector& a, const Vector& b) { return (a - b).norm() / b.norm(); };
+  // the load of the problem itself (the current lives in every cell) gives back the solution
+  REQUIRE(relative(kept.solve(kept_problem.load()), reference) < 1e-10);
+
+  // another height: the load on the support of the Gaussian only (10 sigma around z0)
+  const Real z0 = 0.2;
+  AxisymmetricScatteringSetup shifted = plus.scattering->setup();
+  shifted.current = axisymmetric_gaussian_dipole(z0, Complex{1.0, 0.0}, AxisDipole::kTransverse,
+                                                 sigma, shifted.omega, 1);
+  const AxisymmetricScattering shifted_problem(*plus.meridian, *plus.azimuthal, shifted);
+  std::vector<Index> support;
+  const auto& mesh = *plus.mesh;
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    Point<2> centroid = Point<2>::Zero();
+    Real diameter = 0;
+    const auto& cv = mesh.cell_vertices(c);
+    for (const Index v : cv) centroid += mesh.vertex(v) / static_cast<Real>(cv.size());
+    for (const Index v : cv) diameter = std::max(diameter, (mesh.vertex(v) - centroid).norm());
+    if ((centroid - Point<2>(0.0, z0)).norm() < 10 * sigma + diameter) support.push_back(c);
+  }
+  REQUIRE(support.size() < static_cast<std::size_t>(mesh.num_cells()) / 2);
+  const Vector shifted_direct = block(shifted_problem.solve());
+  const Vector shifted_load = shifted_problem.load(support);
+  REQUIRE(relative(shifted_problem.solution_from(kept.solve(shifted_load)).meridian,
+                   shifted_direct.head(plus.meridian->num_dofs())) < 1e-10);
+  REQUIRE(relative(kept.solve(shifted_load), shifted_direct) < 1e-10);
+
+  // the order -1 on the factorisation of +1: x_{-m} = D A_m^{-1} D b_{-m}
+  AxisymmetricScatteringSetup minus_setup = plus.scattering->setup();
+  minus_setup.azimuthal_order = -1;
+  minus_setup.current = axisymmetric_gaussian_dipole(z0, Complex{1.0, 0.0}, AxisDipole::kTransverse,
+                                                     sigma, minus_setup.omega, -1);
+  const AxisymmetricScattering minus_problem(*plus.meridian, *plus.azimuthal, minus_setup);
+  const Vector mirrored =
+      minus_problem.mirrored(kept.solve(minus_problem.mirrored(minus_problem.load())));
+  REQUIRE(relative(mirrored, block(minus_problem.solve())) < 1e-10);
+
+  // validation
+  REQUIRE_THROWS_AS(kept_problem.solution_from(Vector::Zero(3)), hpfem::InvalidArgument);
+  REQUIRE_THROWS_AS(kept_problem.mirrored(Vector::Zero(3)), hpfem::InvalidArgument);
+  const std::vector<Index> outside{mesh.num_cells()};
+  REQUIRE_THROWS_AS(kept_problem.load(outside), hpfem::InvalidArgument);
 }

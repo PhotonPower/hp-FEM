@@ -96,6 +96,21 @@ def test_hole_in_the_film():
     assert abs(t.a_tot[0, 0, 1, 2, 2] / flat.table.a_tot[0, 0, 0, 2, 2] - 1) > 1e-3
 
 
+def test_heights_on_one_factorisation_equal_separate_solves():
+    """The heights after the first are solved on the kept factorisation with the load on the
+    support of their Gaussian: the same table as one call per height."""
+    mesh = dp.meridian_mesh(R_LINES, Z_LINES, _hole)
+    heights = [0.15 * UM, 0.3 * UM]
+    args = (mesh, MATERIALS, STACK, LAM)
+    opts = {"pml": PML, "order": 2, "sigma": 0.02 * UM}
+    both = dp.axisymmetric_emitter_response(*args, heights, **opts).table
+    for i, h in enumerate(heights):
+        one = dp.axisymmetric_emitter_response(*args, [h], **opts).table
+        for name in ("a_tot", "a_rad", "a_det"):
+            got, want = getattr(both, name)[0, 0, i], getattr(one, name)[0, 0, 0]
+            assert np.abs(got - want).max() < 1e-10 * np.abs(want).max(), name
+
+
 def test_refusals():
     mesh = dp.meridian_mesh(R_LINES, Z_LINES, _flat)
     with pytest.raises(ValueError, match="reaches"):
@@ -132,6 +147,8 @@ def test_axisymmetric_field_map_without_a_body_equals_the_planar_map():
         assert fem.media == ("tag 1", "tag 3")
         assert np.array_equal(fem.medium[..., 2], np.zeros((3, 2), dtype=int))  # z = 0: water
     assert json.loads(fem.source["azimuthal_orders"]) == list(range(-4, 5))
+    # s polarised: nine orders on five factorisations (|m| = 0 … 4, A_{-m} = D A_m D)
+    assert (fem.source["solves"], fem.source["factorisations"]) == ("9", "5")
 
 
 def test_axisymmetric_field_map_of_a_hole_is_rotation_covariant():

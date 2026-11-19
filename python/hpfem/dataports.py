@@ -1166,8 +1166,11 @@ def axisymmetric_emitter_response(
     Per height two solves (total field of a Gaussian dipole of width ``sigma``, default
     λ/(40 n_host); it must stay ≥ 5σ away from other media): the axial dipole (order m = 0)
     gives A_zz, the transverse one (m = ±1, equal by symmetry) A_xx = A_yy; on the axis the
-    tensors are diagonal. A_tot is the Poynting flux through a closed surface of the host cells
-    within 6σ of the emitter divided by the power of the same smeared dipole in the bulk host
+    tensors are diagonal. The two orders are factorised once for all heights (the operator does
+    not depend on the source; a further height is one solve with the kept factorisation and a
+    load on the support of its Gaussian). A_tot is the Poynting flux through a closed surface of
+    the host cells within 6σ of the emitter divided by the power of the same smeared dipole in
+    the bulk host
     (the smearing cancels, as for the array scanning of ADR-0013); A_rad and A_det come from the
     far field in both half-spaces by reciprocity through the boundary of the region inside the
     PML (``axisymmetric_layered_far_field``), integrated on cosine-mapped Gauss nodes in θ
@@ -1268,6 +1271,10 @@ def axisymmetric_emitter_response(
     a_det = np.zeros((heights.size, len(detectors), 3, 3))
     far_fields = []
     projection = 0.0
+    # one factorisation per order for all heights: the operator does not depend on the source,
+    # the load of a further height is assembled on the support of its Gaussian (10 σ, e^-50)
+    kept = {}
+    radius = np.linalg.norm(vertices[cells] - centroids[:, None, :], axis=2).max(axis=1)
     for iz, z0 in enumerate(heights):
         # the Gaussian must stay in the host: 6σ ball of host cells around the emitter
         dist = np.hypot(centroids[:, 0], centroids[:, 1] - z0)
@@ -1293,7 +1300,14 @@ def axisymmetric_emitter_response(
             setup.current = hpfem.axisymmetric_gaussian_dipole(float(z0), 1.0, orientation,
                                                                float(sigma), omega, m)  # fmt: skip
             setup.extra_quadrature_order = 6
-            field = hpfem.AxisymmetricScattering(nd, h1, setup).solve()
+            setup.keep_factorisation = m not in kept
+            problem = hpfem.AxisymmetricScattering(nd, h1, setup)
+            if m in kept:
+                support = np.nonzero(dist < 10 * sigma + radius)[0].tolist()
+                field = problem.solution_from(kept[m].solve(problem.load(support)))
+            else:
+                field = problem.solve()
+                kept[m] = field.factorisation
             emitted = factor * hpfem.axisymmetric_poynting_flux(
                 nd, h1, field.meridian, field.azimuthal, m, omega, material_map, src_surface
             )
@@ -1403,6 +1417,9 @@ def axisymmetric_field_map(
     turned by the azimuth of ``k_hat``); every order is one scattered-field solve per
     polarisation component (s, p) that ``polarisation`` contains, and the total field
     Σ_m (E_scat,m + E_stack,m) e^{imφ} is evaluated on ``grid`` (``axisymmetric_fields_at``).
+    One factorisation per |m| serves both polarisations and both signs of m (the operators of ±m
+    are related by A_{-m} = D A_m D, ``AxisymmetricScattering.mirrored``); the provenance records
+    ``solves`` and ``factorisations``.
     Normal incidence needs m = ±1 only; oblique incidence |m| ≤ ``max_order`` (default
     ⌈k_ρ r_max⌉ + 6 with r_max the largest radius of the grid and the in-plane wavenumber k_ρ of
     the incidence). Grid points must lie inside the PML; on horizontal mesh lines the value is
@@ -1467,6 +1484,8 @@ def axisymmetric_field_map(
     c, sn = np.cos(phi), np.sin(phi)  # phi = 0 on the axis
     e_frame = np.zeros((flat.shape[0], 3), dtype=complex)
     solves = 0
+    # one factorisation per |m| for both polarisations and both signs: A_{-m} = D A_m D
+    kept = {}
     for p_index, pol_name in enumerate(("s", "p")):
         a = complex(coefficients[p_index])
         if abs(a) < 1e-14:
@@ -1499,7 +1518,19 @@ def axisymmetric_field_map(
             setup.pml = pml_box
             setup.background = pw.lab
             setup.incident = wave.value
-            field = hpfem.AxisymmetricScattering(nd, h1, setup).solve()
+            setup.keep_factorisation = abs(m) not in kept
+            problem = hpfem.AxisymmetricScattering(nd, h1, setup)
+            if abs(m) not in kept:
+                field = problem.solve()
+                kept[abs(m)] = (m, field.factorisation)
+            else:
+                m_kept, factorisation = kept[abs(m)]
+                load = problem.load()
+                if m == m_kept:
+                    block = factorisation.solve(load)
+                else:
+                    block = problem.mirrored(factorisation.solve(problem.mirrored(load)))
+                field = problem.solution_from(block)
             solves += 1
             scattered = np.asarray(hpfem.axisymmetric_fields_at(
                 nd, h1, field.meridian, field.azimuthal, rz), dtype=complex)  # fmt: skip
@@ -1546,6 +1577,7 @@ def axisymmetric_field_map(
         "incidence": "substrate" if pw.from_substrate else "solution",
         "azimuthal_orders": json.dumps(orders),
         "solves": str(solves),
+        "factorisations": str(len(kept)),
     }
     provenance.update(source or {})
     shape = grid.shape
