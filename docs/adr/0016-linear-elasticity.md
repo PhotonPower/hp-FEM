@@ -1,6 +1,6 @@
 # 0016 — Linear elasticity with eigenstrain on a vector H1 space
 
-**Status:** proposed
+**Status:** accepted (2026-11-19)
 **Date:** 2026-11-19
 
 ## Context
