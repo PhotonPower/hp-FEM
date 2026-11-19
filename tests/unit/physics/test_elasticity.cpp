@@ -19,6 +19,8 @@
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/mesh/point_location.hpp"
 #include "hpfem/physics/elasticity.hpp"
+#include "hpfem/physics/grid_field.hpp"
+#include "hpfem/physics/thermal.hpp"
 
 using Catch::Approx;
 using hpfem::Complex;
@@ -309,4 +311,172 @@ TEST_CASE("elasticity: setup checks", "[physics][elasticity]") {
   ElasticitySetup<2> warn = base_setup<2>();
   warn.background.poisson_ratio = 0.49;  // warns, accepted
   REQUIRE_NOTHROW(Elasticity<2>(dofs, warn));
+}
+
+// --- M20 S2: eigenstrain sources, free bodies --------------------------------------------------
+
+TEST_CASE("grid field: multilinear interpolation, invariant axes and the checks",
+          "[physics][elasticity]") {
+  using hpfem::physics::GridField;
+  const std::vector<Real> xs{0.0, 0.3, 1.0};
+  const std::vector<Real> ys{-1.0, 2.0};
+  const std::vector<Real> zs{0.5, 0.7, 0.9, 1.5};
+  const auto f = [](Real x, Real y, Real z) { return 1.0 + 2.0 * x - 3.0 * y + 0.5 * z; };
+  std::vector<Real> values;
+  for (const Real x : xs) {
+    for (const Real y : ys) {
+      for (const Real z : zs) values.push_back(f(x, y, z));  // C order, z fastest
+    }
+  }
+  const GridField<3> field({xs, ys, zs}, values);
+  for (const Point<3>& p :
+       {Point<3>(0.1, 0.4, 0.6), Point<3>(1.0, -1.0, 1.5), Point<3>(0.65, 1.9, 1.2)}) {
+    REQUIRE(field(p) == Approx(f(p(0), p(1), p(2))).epsilon(1e-14));
+  }
+  REQUIRE_THROWS_AS(field(Point<3>(1.2, 0.0, 1.0)), hpfem::InvalidArgument);
+  // a single value along y: invariance
+  const GridField<2> strip({std::vector<Real>{0.0, 1.0}, std::vector<Real>{0.0}},
+                           std::vector<Real>{1.0, 3.0});
+  REQUIRE(strip(Point<2>(0.25, 42.0)) == Approx(1.5));
+  REQUIRE_THROWS_AS(GridField<2>({std::vector<Real>{0.0, 0.0}, std::vector<Real>{0.0}},
+                                 std::vector<Real>{1.0, 3.0}),
+                    hpfem::InvalidArgument);
+  REQUIRE_THROWS_AS(
+      GridField<2>({std::vector<Real>{0.0, 1.0}, std::vector<Real>{0.0}}, std::vector<Real>{1.0}),
+      hpfem::InvalidArgument);
+}
+
+TEST_CASE("elasticity: free sphere with homogeneous shrinkage, u = -s r", "[physics][elasticity]") {
+  // a free body: the rigid-body modes are fixed and projected out; on the quadratic geometry
+  // the linear field −s x is in the space for p ≥ 2, so it is reproduced to round-off
+  constexpr Real kS = 0.03;
+  const Mesh<3> mesh = hpfem::mesh::ball(2, Point<3>::Zero(), 1.0, true);
+  for (const int p : {2, 3}) {
+    const DofMap<3> dofs(mesh, p);
+    ElasticitySetup<3> setup = base_setup<3>();
+    setup.remove_rigid_modes = true;
+    setup.static_condensation = p == 3;
+    setup.shrinkage = [](const Point<3>&) { return kS; };
+    const Elasticity<3> problem(dofs, setup);
+    const Vector u = problem.solve();
+    REQUIRE(max_error<3>(
+                problem, u, +[](const Point<3>& x) {
+                  return Vec<3>((-kS * x).template cast<Complex>());
+                }) < 1e-12);
+    REQUIRE(problem.stress(u, 7, Point<3>::Constant(0.2)).norm() < 1e-6 * kE * kS);
+    // zero mean translation and rotation
+    for (const Vector& r : problem.rigid_modes()) {
+      REQUIRE(std::abs(problem.l2_product(r, u)) < 1e-14);
+    }
+  }
+  // the same shrinkage from a data port on a grid
+  const hpfem::physics::GridField<3> grid(
+      {std::vector<Real>{-1.0, 1.0}, std::vector<Real>{-1.0, 1.0}, std::vector<Real>{-1.0, 1.0}},
+      std::vector<Real>(8, kS));
+  const DofMap<3> dofs(mesh, 2);
+  ElasticitySetup<3> setup = base_setup<3>();
+  setup.remove_rigid_modes = true;
+  setup.shrinkage = [grid](const Point<3>& x) { return grid(x); };
+  const Elasticity<3> problem(dofs, setup);
+  const Vector u = problem.solve();
+  REQUIRE(max_error<3>(
+              problem, u, +[](const Point<3>& x) {
+                return Vec<3>((-kS * x).template cast<Complex>());
+              }) < 1e-12);
+}
+
+TEST_CASE("elasticity: laterally constrained shrinking layer on a clamped base",
+          "[physics][elasticity]") {
+  // [0, 1]^2 x [0, h], the sides are symmetry planes, the base is clamped, the top free:
+  // u_z = −s z (1 + ν)/(1 − ν), σ_xx = σ_yy = s E/(1 − ν), σ_zz = 0
+  constexpr Real kS = 0.01;
+  constexpr Real kH = 0.2;
+  const Mesh<3> mesh = hpfem::mesh::box(2, 2, 2, Point<3>::Zero(), Point<3>(1.0, 1.0, kH));
+  const DofMap<3> dofs(mesh, 2);
+  ElasticitySetup<3> setup = base_setup<3>();
+  const std::array<std::pair<hpfem::mesh::Tag, int>, 4> sides{
+      {{box_tag::kXMin, 0}, {box_tag::kXMax, 0}, {box_tag::kYMin, 1}, {box_tag::kYMax, 1}}};
+  for (const auto& [tag, component] : sides) {
+    DisplacementCondition<3> d;
+    d.tag = tag;
+    d.components[static_cast<std::size_t>(component)] = true;
+    setup.displacements.push_back(d);
+  }
+  DisplacementCondition<3> base;
+  base.tag = box_tag::kZMin;
+  base.components.fill(true);
+  setup.displacements.push_back(base);
+  setup.shrinkage = [](const Point<3>&) { return kS; };
+  const Elasticity<3> problem(dofs, setup);
+  const Vector u = problem.solve();
+  REQUIRE(max_error<3>(
+              problem, u, +[](const Point<3>& x) {
+                return Vec<3>(0.0, 0.0, -kS * x(2) * (1 + kNu) / (1 - kNu));
+              }) < 1e-12 * kS);
+  const auto sigma = problem.stress(u, 9, Point<3>::Constant(0.25));
+  REQUIRE(sigma(0, 0).real() == Approx(kS * kE / (1 - kNu)).epsilon(1e-10));
+  REQUIRE(sigma(1, 1).real() == Approx(kS * kE / (1 - kNu)).epsilon(1e-10));
+  REQUIRE(std::abs(sigma(2, 2)) < 1e-8 * kS * kE);
+}
+
+TEST_CASE("elasticity: thermal strain of a linear temperature in a free cube is stress-free",
+          "[physics][elasticity]") {
+  // T = T0 + g x from the heat equation (fixed temperatures at x = 0 and 1, adiabatic sides);
+  // ε* = α g x I is compatible: u = α g ((x² − y² − z²)/2, x y, x z) up to a rigid motion, σ = 0
+  constexpr Real kT0 = 293.0;
+  constexpr Real kGradient = 40.0;
+  constexpr Real kAlpha = 7e-5;
+  const Mesh<3> mesh = hpfem::mesh::box(2, 2, 2);
+  const DofMap<3> dofs(mesh, 2);
+  hpfem::physics::ThermalSetup heat;
+  heat.fixed_temperature = {{box_tag::kXMin, kT0}, {box_tag::kXMax, kT0 + kGradient}};
+  const Vector temperature =
+      hpfem::physics::Thermal<3>(dofs, heat).solve_load(Vector::Zero(dofs.num_dofs()));
+  ElasticitySetup<3> setup = base_setup<3>();
+  setup.remove_rigid_modes = true;
+  setup.temperature = temperature;
+  setup.reference_temperature = kT0;
+  setup.background_expansion = kAlpha;
+  const Elasticity<3> problem(dofs, setup);
+  const Vector u = problem.solve();
+  for (Index c = 0; c < mesh.num_cells(); c += 5) {
+    const Point<3> xi = Point<3>::Constant(0.2);
+    const Real x = hpfem::mesh::cell_geometry(mesh, c)->evaluate(xi).x(0);
+    REQUIRE((problem.strain(u, c, xi) -
+             ComplexTensor<3>(kAlpha * kGradient * x * ComplexTensor<3>::Identity()))
+                .norm() < 1e-10 * kAlpha * kGradient);
+    REQUIRE(problem.stress(u, c, xi).norm() < 1e-6 * kE * kAlpha * kGradient);
+  }
+  // with a second tag of a different expansion the strain is incompatible: stresses appear
+  Mesh<3> two = hpfem::mesh::box(2, 2, 2);
+  for (Index c = 0; c < two.num_cells(); ++c) {
+    if (hpfem::mesh::cell_geometry(two, c)->evaluate(Point<3>::Constant(0.25)).x(2) > 0.5) {
+      two.set_cell_tag(c, 2);
+    }
+  }
+  const DofMap<3> dofs2(two, 2);
+  setup.temperature =
+      hpfem::physics::Thermal<3>(dofs2, heat).solve_load(Vector::Zero(dofs2.num_dofs()));
+  setup.thermal_expansion[2] = 3 * kAlpha;
+  const Elasticity<3> bimetal(dofs2, setup);
+  const Vector u2 = bimetal.solve();
+  REQUIRE(bimetal.stress(u2, 0, Point<3>::Constant(0.25)).norm() > 1e-3 * kE * kAlpha * kGradient);
+}
+
+TEST_CASE("elasticity: free-body checks", "[physics][elasticity]") {
+  const Mesh<3> mesh = hpfem::mesh::box(1, 1, 1);
+  const DofMap<3> dofs(mesh, 1);
+  ElasticitySetup<3> setup = base_setup<3>();
+  setup.remove_rigid_modes = true;
+  setup.body_force = [](const Point<3>&) { return Vec<3>(1.0, 0.0, 0.0); };  // unbalanced
+  REQUIRE_THROWS_AS(Elasticity<3>(dofs, setup).solve(), hpfem::InvalidArgument);
+  setup.body_force = {};
+  DisplacementCondition<3> d;
+  d.tag = box_tag::kXMin;
+  d.components.fill(true);
+  setup.displacements.push_back(d);
+  REQUIRE_THROWS_AS(Elasticity<3>(dofs, setup), hpfem::InvalidArgument);
+  ElasticitySetup<3> bad = base_setup<3>();
+  bad.temperature = Vector::Zero(3);
+  REQUIRE_THROWS_AS(Elasticity<3>(dofs, bad), hpfem::InvalidArgument);
 }

@@ -714,10 +714,13 @@ existing solver stack.
   rigid-body kernel, a two-material bar under a traction with symmetry planes, a stress-free
   uniform eigenstrain, and the manufactured solution (rates p + 1 in L², p in H1 for p = 1 … 4 in
   2D and 1 … 3 in 3D, `tests/convergence/elasticity.cpp`); `docs/theory/elasticity.md`
-- [ ] S2: eigenstrain fields (ε*(x), isotropic s(x), thermal α_th (T − T₀) I from `Thermal`), the
-  data-port input on a `RegularGrid` (trilinear), `remove_rigid_modes`; tests: the free sphere
-  with homogeneous shrinkage (u = −s r; full sphere and 1/8 with symmetry planes), the laterally
-  constrained layer on a clamped base (u_z = −s z (1 + ν)/(1 − ν), σ_xx = s E/(1 − ν))
+- [x] S2: eigenstrain sources (ε*(x), isotropic s(x), the thermal strain α (T − T₀) I from a
+  temperature on the same map, e.g. `Thermal`), `GridField<Dim>` (bi- / trilinear on a regular
+  grid, the data-port path), `remove_rigid_modes` (3-2-1 pins, equilibrium check, L2 projection
+  onto the rigid-body modes, ADR-0016 §4a); tests: the free sphere on the curved ball mesh
+  (u = −s x to 1e-12 for p = 2, 3, also with condensation and from a grid), the laterally
+  constrained layer (u_z = −s z (1 + ν)/(1 − ν), σ_xx = s E/(1 − ν)), a linear temperature in a
+  free cube (stress-free) and a two-material one (stresses), the unbalanced-load refusal
 - [ ] S3: output (point and surface values, strain, stress, strain energy, the deformed mesh),
   Python `hpfem.Elasticity3D` / `2D`, the bonded plate against Timoshenko (validation,
   `docs/validation.md`), an example (a printed micro-lens or cube shrinking) with a README

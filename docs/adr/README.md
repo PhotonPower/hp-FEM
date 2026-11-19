@@ -33,4 +33,4 @@ Template:
 | 0013 | Dipole emitters in periodic structures by array scanning of the conical cell problem | accepted |
 | 0014 | Layered background for the axisymmetric solver | accepted |
 | 0015 | Optically anisotropic materials (substrates, layers, structured parts) | accepted |
-| 0016 | Linear elasticity with eigenstrain on a vector H1 space | accepted |
+| 0016 | Linear elasticity with eigenstrain on a vector H1 space | accepted, §4a amendment |

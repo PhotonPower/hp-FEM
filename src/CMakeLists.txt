@@ -71,6 +71,7 @@ add_library(hpfem
   physics/resonance.cpp
   physics/riesz_projection.cpp
   physics/elasticity.cpp
+  physics/grid_field.cpp
   physics/thermal.cpp
   physics/thermo_optical.cpp
   physics/band_structure.cpp

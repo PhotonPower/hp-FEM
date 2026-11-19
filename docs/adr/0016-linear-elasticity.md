@@ -1,6 +1,6 @@
 # 0016 — Linear elasticity with eigenstrain on a vector H1 space
 
-**Status:** accepted (2026-11-19)
+**Status:** accepted (2026-11-19); §4a amendment (2026-11-19, M20 S2)
 **Date:** 2026-11-19
 
 ## Context
@@ -109,6 +109,25 @@ LDLᵀ in MUMPS and cuDSS.
   zero. The bordered system is symmetric indefinite, and the direct solvers handle it. We choose
   this over pinning single DoFs because it does not depend on the mesh and leaves the stresses
   untouched.
+
+### 4a. Amendment (M20 S2): rigid-body modes by pins and a projection
+
+§4 asked for Lagrange multipliers. They do not combine cleanly with the static condensation: the
+mean of u over the cells involves the bubble DoFs, which the condensation eliminates. The
+implementation reaches the same result in two steps.
+
+1. **Pins.** Before the solve, six DoFs in 3D (three in 2D) at three far-apart vertices are set
+   to zero (the 3-2-1 rule). This removes the singular directions.
+2. **Projection.** After the solve, the L2 projection onto the rigid-body modes is subtracted.
+   - The modes are the translations and the rotations about the centroid of the mesh,
+     interpolated in the space. They are exact on quadratic cells for p ≥ 2.
+   - The solution then has zero mean translation and rotation, so the result does not depend on
+     the mesh, as with the multipliers.
+
+The loads must be in equilibrium. `solve` checks that the load is orthogonal to the modes and
+refuses unbalanced loads. Eigenstrains are always in equilibrium. For a balanced load the pins
+carry no reaction, so there are no stress concentrations. The pins are not on DoFs constrained by
+hanging nodes.
 
 ### 5. Eigenstrain and data input
 
