@@ -29,8 +29,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   - A_tot from the Poynting flux around the Gaussian dipole (orders m = 0 and ±1).
   - A_rad and A_det from the layered far field by reciprocity.
   - `meridian_mesh` for structured meridian meshes.
+  - `axisymmetric_field_map`: port F of the same structures for one incident plane wave, summing
+    the azimuthal orders. It uses the new point evaluation `axisymmetric_fields_at` (C++ and
+    Python) and the regular axis limit.
   - Tests: a flat absorbing film against the planar table (1e-2 at p = 3, 1.4e-4 on the finer
-    mesh for water on glass), a hole in the film, refusals.
+    mesh for water on glass), a hole in the film, refusals. The field map without a body equals
+    the exact stack field (1e-8 normal, 5e-7 oblique), and the map of a hole is
+    rotation-covariant (1e-9).
 - `grating.operator` (issue #216, RTT-Fusion L4): the grating cell as an operator at one in-plane
   wavevector. One assembly and factorisation per (kx, β, ω) solves s and p from the cover and s
   and p from the substrate at the same (kx, β) (the loads in one batched solve of the kept

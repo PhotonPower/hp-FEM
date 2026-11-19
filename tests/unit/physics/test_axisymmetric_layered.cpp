@@ -386,3 +386,45 @@ TEST_CASE("axisymmetric scattering: a homogeneous stack reproduces the uniform b
   const Real mie = mie_scattering_efficiency(x, n) * hpfem::constants::pi;
   REQUIRE(sigma == Approx(mie).epsilon(5e-2));
 }
+
+TEST_CASE("axisymmetric fields at points: the axis limit, outside points and the checks",
+          "[physics][axisymmetric][layered]") {
+  LayeredProblem problem = layered_problem(1);
+  constexpr hpfem::mesh::Tag kHole = 5;
+  for (Index c = 0; c < problem.mesh->num_cells(); ++c) {
+    const Point<2> centroid = hpfem::mesh::affine_map(*problem.mesh, c).centroid();
+    if (centroid(0) < 0.3 && centroid(1) < 0 && centroid(1) > -0.3) {
+      problem.mesh->set_cell_tag(c, kHole);
+    }
+  }
+  problem.setup.materials.set(kHole, Material::vacuum());
+  const AxisymmetricScattering hole(*problem.meridian, *problem.azimuthal, problem.setup);
+  const auto field = hole.solve();
+  Eigen::Matrix<Real, Eigen::Dynamic, 2> points(5, 2);
+  points << 0.0, 0.2,  // on the axis
+      1e-7, 0.2,       // next to it
+      0.4, -0.1,       // in the glass layer
+      0.4, 0.3,        // above the stack
+      0.4, 1e3;        // outside the mesh
+  const auto e = hpfem::physics::axisymmetric_fields_at(*problem.meridian, *problem.azimuthal,
+                                                        field.meridian, field.azimuthal, points);
+  REQUIRE(e.rows() == 5);
+  // order m = 1: E_r and E_phi are finite and continuous on the axis; the regularity
+  // E_phi = i E_r holds there to the discretisation error (1e-2 at p = 2 on this coarse mesh)
+  REQUIRE(std::abs(e(0, 0)) > 0);
+  CHECK((e.row(0) - e.row(1)).norm() < 1e-5 * e.row(0).norm());
+  CHECK(std::abs(e(0, 1) - kI * e(0, 0)) < 3e-2 * std::abs(e(0, 0)));
+  CHECK(e.row(2).allFinite());
+  CHECK(e.row(3).allFinite());
+  CHECK(std::isnan(e(4, 0).real()));
+  Eigen::Matrix<Real, Eigen::Dynamic, 2> negative(1, 2);
+  negative << -0.1, 0.0;
+  REQUIRE_THROWS_AS(
+      hpfem::physics::axisymmetric_fields_at(*problem.meridian, *problem.azimuthal, field.meridian,
+                                             field.azimuthal, negative),
+      hpfem::InvalidArgument);
+  REQUIRE_THROWS_AS(
+      hpfem::physics::axisymmetric_fields_at(*problem.meridian, *problem.azimuthal,
+                                             field.meridian.head(3), field.azimuthal, points),
+      hpfem::InvalidArgument);
+}

@@ -350,6 +350,18 @@ class AxisymmetricScattering {
     Real omega, const materials::MaterialMap& materials, const Surface<2>& surface, int order = 8,
     const AxisymmetricField& added_value = {}, const AxisymmetricField& added_curl = {});
 
+/// Physical cylindrical components (E_r, E_φ, E_z) of an order-m field with the given coefficients
+/// (the unknown of `AxisymmetricScattering::solve`: the scattered field with an incident field,
+/// the total field with a current) at the physical points (r, z), one per row of `points`
+/// (r ≥ 0); the azimuthal factor @f$ e^{im\varphi} @f$ is left out. @f$ E_\varphi = iv/r @f$; on
+/// the axis (r below 1e-9 of the cell size h) it is taken at r = 1e-9 h, the limit of v / r.
+/// Rows outside the mesh are NaN. Field maps on grids (`hpfem.dataports`, issue #214).
+/// @throws InvalidArgument if the coefficient vectors do not match the maps or a point has r < 0.
+[[nodiscard]] Eigen::Matrix<Complex, Eigen::Dynamic, 3> axisymmetric_fields_at(
+    const fespace::NedelecDofMap<2>& meridian, const fespace::DofMap<2>& azimuthal,
+    const Vector& meridian_coefficients, const Vector& azimuthal_coefficients,
+    const Eigen::Matrix<Real, Eigen::Dynamic, 2>& points);
+
 /// Power through a surface split by the layers of a stack (ADR-0014 §4): the part through the
 /// surface above the top interface (`up`, into the cover), below the bottom interface (`down`,
 /// into the substrate) and between them (`lateral`, radially along the layers: guided and

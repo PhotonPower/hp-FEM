@@ -1586,6 +1586,11 @@ void bind_physics(py::module_& m) {
     m.def("superpose_far_field", &physics::superpose_far_field, py::arg("patterns"),
           py::arg("orders"), py::arg("phi"),
           "Far-field pattern sum_m F_m(theta) e^{i m phi} of the orders at the azimuth phi");
+    m.def("axisymmetric_fields_at", &physics::axisymmetric_fields_at, py::arg("meridian"),
+          py::arg("azimuthal"), py::arg("meridian_coefficients"), py::arg("azimuthal_coefficients"),
+          py::arg("points"), Release(),
+          "(E_r, E_phi, E_z) of an order-m field at the points (n, 2) of (r, z), without the "
+          "factor e^{i m phi}; on the axis the limit of E_phi = i v / r; NaN outside the mesh");
     m.def("axisymmetric_poynting_flux", &physics::axisymmetric_poynting_flux, py::arg("meridian"),
           py::arg("azimuthal"), py::arg("meridian_coefficients"), py::arg("azimuthal_coefficients"),
           py::arg("azimuthal_order"), py::arg("omega"), py::arg("materials"), py::arg("surface"),

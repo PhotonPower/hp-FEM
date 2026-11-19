@@ -1062,6 +1062,21 @@ a cavity, a pillar) with the axisymmetric FEM.
 - **Limits.** Off-axis emitters need all azimuthal orders or the 3D solver; neither is
   available yet.
 
+`axisymmetric_field_map(mesh, materials, stack, wavelength, grid, k_hat, polarisation, pml=...)`
+gives port F of the same structures for one incident plane wave (the conventions of
+`planar_field_map`).
+- **Orders.** The stack wave is expanded in the azimuthal orders m, in the frame turned by the
+  azimuth of `k_hat`. Normal incidence needs m = ±1 only; oblique incidence needs |m| ≤
+  `max_order`, by default ⌈k_ρ r_max⌉ + 6.
+- **Solves.** One scattered-field solve per order and per s / p component of the polarisation.
+- **Evaluation.** The total field Σ_m (E_scat + E_stack) e^{imφ} is evaluated on the grid with
+  `hpfem.axisymmetric_fields_at`, the new point evaluation of axisymmetric solutions.
+- **Axis.** On the axis the regular limit is used: m = ±1 give (E_x, E_y) ∝ (1, ±i), m = 0
+  gives E_z. The value is then independent of the direction of approach.
+- **Tests.** Without a body the map equals the exact stack field: 1e-8 at normal incidence and
+  5e-7 at oblique incidence with |m| ≤ 6. For a hole, the y-polarised map is the x-polarised
+  one turned by 90° (1e-9).
+
 ## GPU backend
 
 With the separately built GPU library (`gpu/README.md`, `HPFEM_ENABLE_CUDA`) the direct

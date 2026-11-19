@@ -109,3 +109,49 @@ def test_refusals():
             detectors=[dp.Detector("a", "cover", jones=lambda t, p: np.eye(2))])  # fmt: skip
     with pytest.raises(ValueError, match="without a material"):
         dp.axisymmetric_emitter_response(mesh, {SOLUTION: WATER}, STACK, LAM, [0.3 * UM], pml=PML)
+
+
+# --- field maps of bodies of revolution -----------------------------------------------------
+
+
+def test_axisymmetric_field_map_without_a_body_equals_the_planar_map():
+    """The flat film in the axisymmetric map against the exact stack field: normal incidence (the
+    orders m = ±1) to 1e-7 and oblique incidence through the glass (|m| ≤ 4, Jacobi–Anger) to
+    1e-4, with the same phase reference, medium labels and absorption density."""
+    mesh = dp.meridian_mesh(R_LINES, Z_LINES, _flat)
+    grid = dp.RegularGrid(([-0.1, 0.0, 0.1], [0.0, 0.08], [-0.1, -0.05, 0.0, 0.1, 0.3]))
+    for k, pol, m_max in (([0.0, 0.0, -1.0], [1.0, 0.0, 0.0], None),
+                          ([0.3, 0.0, np.sqrt(1 - 0.09)], [0.0, 1.0, 0.0], 4)):  # fmt: skip
+        fem = dp.axisymmetric_field_map(mesh, MATERIALS, STACK, LAM, grid, k, pol, pml=PML,
+                                        max_order=m_max)  # fmt: skip
+        ref = dp.planar_field_map(STACK, LAM, grid, k, pol)
+        tol = 1e-7 if m_max is None else 1e-4  # |m| <= 4: J_5 of k_rho r; 5e-7 at |m| <= 6
+        assert np.abs(fem.e - ref.e).max() < tol * np.abs(ref.e).max()
+        assert np.abs(fem.q_w_m3 - ref.q_w_m3).max() < tol * np.abs(ref.q_w_m3).max()
+        assert fem.irradiance_w_m2 == pytest.approx(ref.irradiance_w_m2)
+        assert fem.media == ("tag 1", "tag 3")
+        assert np.array_equal(fem.medium[..., 2], np.zeros((3, 2), dtype=int))  # z = 0: water
+    assert json.loads(fem.source["azimuthal_orders"]) == list(range(-4, 5))
+
+
+def test_axisymmetric_field_map_of_a_hole_is_rotation_covariant():
+    """A hole in the absorbing film at normal incidence: the map of the y-polarised wave is the
+    map of the x-polarised one turned by 90° about the axis (the FEM fields of the orders ±1
+    summed and rotated), the field differs from the flat film near the hole, the points in the
+    hole are water."""
+    mesh = dp.meridian_mesh(R_LINES, Z_LINES, _hole)
+    axis = [-0.1, 0.0, 0.1]
+    grid = dp.RegularGrid((axis, axis, [-0.05, 0.0, 0.05]))
+    ex = dp.axisymmetric_field_map(mesh, MATERIALS, STACK, LAM, grid, [0, 0, -1], [1, 0, 0],
+                                   pml=PML, media={SOLUTION: "water", LAYER: "film"})  # fmt: skip
+    ey = dp.axisymmetric_field_map(mesh, MATERIALS, STACK, LAM, grid, [0, 0, -1], [0, 1, 0],
+                                   pml=PML)  # fmt: skip
+    turn = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+    for i in range(3):
+        for j in range(3):
+            # the point (x, y) turned by 90° is (−y, x): grid index (2 − j, i)
+            rotated = ex.e[i, j] @ turn.T  # rows: the z points
+            assert np.abs(ey.e[2 - j, i] - rotated).max() < 1e-9 * np.abs(ex.e).max()
+    assert ex.media == ("water",)  # the grid lies in the hole and above it
+    flat = dp.planar_field_map(STACK, LAM, grid, [0, 0, -1], [1, 0, 0])
+    assert np.abs(ex.e - flat.e).max() > 1e-2 * np.abs(flat.e).max()
