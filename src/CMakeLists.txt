@@ -50,6 +50,7 @@ add_library(hpfem
   fespace/constraints.cpp
   assembly/sparse_assembler.cpp
   assembly/condensation.cpp
+  assembly/elasticity_forms.cpp
   assembly/h1_forms.cpp
   assembly/dirichlet.cpp
   assembly/interpolation.cpp
@@ -69,6 +70,7 @@ add_library(hpfem
   physics/sweep.cpp
   physics/resonance.cpp
   physics/riesz_projection.cpp
+  physics/elasticity.cpp
   physics/thermal.cpp
   physics/thermo_optical.cpp
   physics/band_structure.cpp

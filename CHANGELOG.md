@@ -3,6 +3,17 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Linear elasticity with eigenstrain (M20 S1, ADR-0016, issue #213): `physics::Elasticity<Dim>`
+  on Dim copies of the scalar H1 space (component-major), plane strain in 2D.
+  - Supports isotropic (E, ν) per cell tag, prescribed displacement components on tagged facets
+    (clamping, symmetry planes), tractions, a body force and an eigenstrain field.
+  - Works on meshes with hanging nodes and supports static condensation.
+  - Point values, strain and stress.
+  - Forms in `assembly/elasticity_forms.hpp`: Voigt helpers, `isotropic_stiffness`,
+    `assemble_elasticity`, `elasticity_error`.
+  - Tests: the patch test (p = 1 … 3, hanging nodes, condensation), the rigid-body kernel, a
+    two-material bar under a traction, a stress-free uniform shrinkage, and a manufactured
+    solution with the rates p + 1 / p in 2D and 3D. Theory in `docs/theory/elasticity.md`.
 - `hpfem.materials`: titanium and chromium (`library["Ti"]`, `library["Cr"]`), Johnson & Christy
   1974 (doi:10.1103/PhysRevB.9.5056) via the refractiveindex.info database (CC0), 0.188–1.94 µm.
   They are the adhesion layers under gold films (BindOptiX #34, Z6).
