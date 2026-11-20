@@ -75,11 +75,11 @@ manylinux-x86_64-image = "manylinux_2_28"
 archs = ["x86_64"]
 
 # macOS arm64 with Apple Clang and the Homebrew libomp (bundled into the wheel by delocate);
-# the deployment target is the runner's macOS major version, that of its libomp bottle
+# the deployment target is that of the libomp bottle on the macos-15 runner (wheels.yml)
 [tool.cibuildwheel.macos]
 archs = ["arm64"]
 before-all = "brew install libomp"
-environment = { MACOSX_DEPLOYMENT_TARGET = "$(sw_vers -productVersion | cut -d. -f1).0", CMAKE_ARGS = "-DOpenMP_ROOT=$(brew --prefix libomp)" }
+environment = { MACOSX_DEPLOYMENT_TARGET = "15.0", CMAKE_ARGS = "-DOpenMP_ROOT=$(brew --prefix libomp)" }
 
 [tool.ruff]
 line-length = 100
