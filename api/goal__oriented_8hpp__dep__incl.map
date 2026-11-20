@@ -1,0 +1,14 @@
+<map id="include/hpfem/physics/goal_oriented.hpp" name="include/hpfem/physics/goal_oriented.hpp">
+<area shape="rect" id="Node000001" title=" " alt="" coords="197,5,365,45"/>
+<area shape="rect" id="Node000002" href="$conical__goal_8hpp.html" title=" " alt="" coords="137,93,305,133"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="262,58,237,95,232,92,258,55"/>
+<area shape="rect" id="Node000003" href="$shape__sensitivity_8hpp.html" title=" " alt="" coords="197,181,365,221"/>
+<area shape="poly" id="edge6_Node000001_Node000003" title=" " alt="" coords="304,56,320,93,323,113,320,134,310,160,297,183,292,180,305,158,315,133,318,113,315,94,299,58"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="245,143,270,180,266,183,240,146"/>
+<area shape="rect" id="Node000004" href="$band__sensitivity_8hpp.html" title=" " alt="" coords="5,269,173,309"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="228,229,132,272,130,267,226,225"/>
+<area shape="rect" id="Node000005" href="$eigen__sensitivity_8hpp.html" title=" " alt="" coords="197,269,365,309"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="284,235,284,269,279,269,279,235"/>
+<area shape="rect" id="Node000006" href="$elasticity_8hpp.html" title=" " alt="" coords="389,269,557,309"/>
+<area shape="poly" id="edge5_Node000003_Node000006" title=" " alt="" coords="337,225,432,267,430,272,335,229"/>
+</map>

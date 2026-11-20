@@ -1,0 +1,2262 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/llm-reference/">
+      
+      
+        <link rel="prev" href="../python/">
+      
+      
+        <link rel="next" href="../applications/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
+    
+    
+      
+        <title>Agent reference - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#hpfem-command-reference-for-agents" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Agent reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/elasticity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear elasticity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/materials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Materials and anisotropy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/anisotropic-stack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anisotropic layer stacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent reference
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-conventions-get-these-right" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Conventions (get these right)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-object-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Object map
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Object map">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spaces
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#materials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Materials
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sources-pml-boundaries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sources, PML, boundaries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#physics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Physics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Post-processing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adaptivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adaptivity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#solvers-threads-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Solvers, threads, memory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-level-gratings-hpfemgrating" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-level: gratings (hpfem.grating)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-level-other-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-level: other modules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-recipes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Recipes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Recipes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#r1-mie-cylinder-2d-scattering-with-pml-in-plane-e" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R1 Mie cylinder, 2D scattering with PML (in-plane E)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r2-slab-waveguide-mode-effective-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R2 Slab waveguide mode (effective index)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r3-resonance-quasi-normal-mode-of-a-fabryperot-slab-with-pml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R3 Resonance (quasi-normal mode) of a Fabry–Pérot slab with PML
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r4-closed-pec-cavity-gauged-no-spurious-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R4 Closed PEC cavity (gauged, no spurious modes)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r5-grating-efficiencies-conical-incidence-with-hpfemgratingsolve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R5 Grating efficiencies (conical incidence) with hpfem.grating.solve
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r6-hp-adaptive-loop-l-shaped-domain-exact-corner-field-as-boundary-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R6 hp-adaptive loop (L-shaped domain, exact corner field as boundary data)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r7-elasticity-shrinkage-of-a-block-bonded-at-its-base-quarter-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R7 Elasticity: shrinkage of a block bonded at its base (quarter model)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r8-gold-nanowire-absorbed-power-then-temperature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R8 Gold nanowire: absorbed power, then temperature
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r9-project-file-cli-no-python-modelling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R9 Project file + CLI (no Python modelling)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r10-grating-job-through-the-runner-json-lines-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R10 Grating job through the runner (JSON-lines events)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r11-optimisation-study-resumable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R11 Optimisation study (resumable)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-gotchas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Gotchas
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-conventions-get-these-right" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Conventions (get these right)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-object-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Object map
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Object map">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spaces
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#materials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Materials
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sources-pml-boundaries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sources, PML, boundaries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#physics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Physics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Post-processing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adaptivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adaptivity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#solvers-threads-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Solvers, threads, memory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-level-gratings-hpfemgrating" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-level: gratings (hpfem.grating)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-level-other-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-level: other modules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-recipes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Recipes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Recipes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#r1-mie-cylinder-2d-scattering-with-pml-in-plane-e" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R1 Mie cylinder, 2D scattering with PML (in-plane E)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r2-slab-waveguide-mode-effective-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R2 Slab waveguide mode (effective index)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r3-resonance-quasi-normal-mode-of-a-fabryperot-slab-with-pml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R3 Resonance (quasi-normal mode) of a Fabry–Pérot slab with PML
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r4-closed-pec-cavity-gauged-no-spurious-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R4 Closed PEC cavity (gauged, no spurious modes)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r5-grating-efficiencies-conical-incidence-with-hpfemgratingsolve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R5 Grating efficiencies (conical incidence) with hpfem.grating.solve
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r6-hp-adaptive-loop-l-shaped-domain-exact-corner-field-as-boundary-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R6 hp-adaptive loop (L-shaped domain, exact corner field as boundary data)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r7-elasticity-shrinkage-of-a-block-bonded-at-its-base-quarter-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R7 Elasticity: shrinkage of a block bonded at its base (quarter model)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r8-gold-nanowire-absorbed-power-then-temperature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R8 Gold nanowire: absorbed power, then temperature
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r9-project-file-cli-no-python-modelling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R9 Project file + CLI (no Python modelling)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r10-grating-job-through-the-runner-json-lines-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R10 Grating job through the runner (JSON-lines events)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#r11-optimisation-study-resumable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        R11 Optimisation study (resumable)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-gotchas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Gotchas
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<!-- The text below is python/hpfem/llm_reference.md, shipped inside the wheel:
+     hpfem.reference() returns it and `hpfem reference` prints it. Edit that file, not this page. -->
+
+<h1 id="hpfem-command-reference-for-agents">hpfem command reference (for agents)</h1>
+<p>hpfem is an adaptive hp-FEM suite for nano-optics: time-harmonic Maxwell with Nédélec elements,
+PML, gratings (Bloch, conical incidence), waveguide modes, resonances, emitters, band structures,
+time domain, plus heat conduction and linear elasticity. The core is C++ (<code>hpfem._hpfem</code>); the
+Python API is NumPy / SciPy at the boundary.</p>
+<p>Discover at runtime:</p>
+<ul>
+<li><code>hpfem.reference()</code> returns this text; <code>hpfem reference</code> prints it.</li>
+<li><code>help(hpfem.Scattering2D)</code>, <code>help(hpfem.grating.solve)</code>: bound signatures and docstrings.
+  <code>dir(hpfem)</code> lists the API; overloaded functions list every overload in <code>help</code>.</li>
+<li><code>hpfem.__version__</code>, <code>hpfem.version_info()</code> (version, platform, OpenMP, threads, backends,
+  gmsh), <code>hpfem.available_backends()</code>, <code>hpfem.has_openmp()</code>.</li>
+<li>CLI: <code>hpfem info | materials | reference | validate P | run P [-o out.json] [-t N] [-q]</code>
+  (also <code>python -m hpfem ...</code>); job runner <code>python -m hpfem.run job.json --out DIR</code>.</li>
+<li>Not imported by <code>import hpfem</code>: <code>import hpfem.opt</code>, <code>from hpfem import planar, dataports, gui</code>.</li>
+</ul>
+<h2 id="1-conventions-get-these-right">1. Conventions (get these right)</h2>
+<ul>
+<li>Time dependence <strong>exp(-iωt)</strong>. Lossy media have <strong>Im ε_r &gt; 0</strong>; a decaying resonance has
+  <strong>Im ω &lt; 0</strong>; Q = Re ω / (−2 Im ω).</li>
+<li><strong>SI units everywhere</strong> in the core: metres, rad/s, V/m, W. Convert at the boundary with
+  <code>hpfem.units</code>: multiply into SI (<code>633 * units.nm</code>), divide out (<code>omega / units.THz</code>).
+  Angles passed to <code>hpfem.grating.*</code> are radians (<code>50 * units.deg</code>);
+  <code>hpfem.PmlProfile.for_angle</code> takes <strong>degrees</strong>.</li>
+<li><code>units.angular_frequency(wavelength=|frequency=|energy=|wavenumber=)</code> (exactly one keyword),
+  <code>units.wavelength(omega)</code>, <code>units.frequency(omega)</code>, <code>units.photon_energy(omega)</code>,
+  <code>units.vacuum_wavenumber(omega)</code>. Multipliers: <code>m cm mm um nm pm angstrom s ns ps fs Hz kHz
+  MHz GHz THz PHz J eV meV rad deg V_per_m W mW</code>. Constants: <code>hpfem.constants.c0</code>, <code>eps0</code>,
+  <code>mu0</code>, <code>Z0</code>, <code>h_planck</code>, <code>e_charge</code>, <code>pi</code>.</li>
+<li>Unknown: the electric field E, curl(μ⁻¹ curl E) − ω² ε E = iω J. H is post-processed.</li>
+<li><strong>2D vs 3D by name</strong>: <code>Mesh2D/3D</code>, <code>NedelecDofMap2D/3D</code>, <code>Scattering2D/3D</code>, <code>PmlBox2D/3D</code>, ...
+  Free functions are overloaded on the argument type (<code>hpfem.refine_uniform(mesh)</code> works in both).</li>
+<li><strong><code>Scattering2D</code> solves the in-plane field (E_x, E_y)</strong> (H_z polarisation). E_z polarisation and
+  oblique / conical incidence use <code>hpfem.ConicalScattering</code> (β = 0 for E_z) or <code>hpfem.grating</code>.</li>
+<li>Arrays: coefficient vectors are complex NumPy arrays of length <code>dofs.num_dofs</code>; sparse
+  matrices are complex <code>scipy.sparse.csr_matrix</code>; points are (n, dim) float arrays.</li>
+<li>Elasticity / multi-component H1 vectors are <strong>component-major</strong>: (u_x block | u_y block | u_z
+  block), length dim × <code>DofMap.num_dofs</code>.</li>
+<li>Tags: cells untagged = tag 0 (<code>hpfem.NO_TAG</code>) → background material. Generators tag their
+  sides <code>hpfem.box_tag.X_MIN=1, X_MAX=2, Y_MIN=3, Y_MAX=4, Z_MIN=5, Z_MAX=6</code> (<code>tag_sides=True</code>);
+  disc / ball boundary <code>hpfem.DISC_BOUNDARY</code>; inclusions of <code>square_with_disc</code> / <code>box_with_ball</code>
+  get <code>inclusion_tag</code> (default 2).</li>
+<li>Materials by cell tag: <code>setup.materials.set(tag, hpfem.Material.dielectric(n))</code>;
+  <code>hpfem.Material(eps_r, mu_r)</code>, <code>hpfem.Material.vacuum()</code>, <code>hpfem.Material.anisotropic(eps3x3)</code>.</li>
+<li>Solvers return: <code>Scattering*.solve()</code> → solution with <code>.unknown</code> (coefficients), <code>.timing</code>;
+  eigen solvers → list of mode objects; <code>Elasticity*.solve()</code> / <code>Thermal*.solve()</code> → coefficient
+  array; <code>hpfem.grating.solve</code> → <code>GratingResult</code> dataclass.</li>
+<li>Formulation default is <code>TOTAL_FIELD</code>; with a PML use <code>SCATTERED_FIELD</code>, then <code>.unknown</code> is the
+  scattered field (total = <code>unknown + hpfem.interpolate(dofs, setup.incident.value)</code>).</li>
+<li>Errors: invalid input → <code>ValueError</code>, not implemented → <code>NotImplementedError</code>, other core
+  errors → <code>RuntimeError</code>; cancellation → <code>hpfem.Cancelled</code>.</li>
+</ul>
+<h2 id="2-object-map">2. Object map</h2>
+<p><code>name(args) -&gt; result — purpose</code>. "2D" names have a "3D" twin unless stated.</p>
+<h3 id="mesh">Mesh</h3>
+<ul>
+<li><code>hpfem.rectangle(nx, ny, lower=[0,0], upper=[1,1], tag_sides=True) -&gt; Mesh2D</code></li>
+<li><code>hpfem.box(nx, ny, nz, lower, upper, tag_sides=True) -&gt; Mesh3D</code></li>
+<li><code>hpfem.disc(n, center, radius=1, curved=True)</code>, <code>hpfem.ball(n, center, radius, curved)</code></li>
+<li><code>hpfem.square_with_disc(n, radius, half_width, outer, inclusion_tag=2) -&gt; Mesh2D</code> — curved
+  disc in a square [−half_width, half_width]², padded to [−outer, outer]² (room for a PML).</li>
+<li><code>hpfem.box_with_ball(n, radius, half_width, outer, inclusion_tag=2) -&gt; Mesh3D</code></li>
+<li><code>hpfem.Mesh2D(vertices (n,2), cells (m,3) int, cell_tags=None)</code> — from arrays.</li>
+<li><code>hpfem.read_gmsh(file, scale=1.0, dim=3)</code> — Gmsh 4.1 ASCII; <strong>pass dim=2 for 2D</strong>; scale to
+  metres (1e-9 for nm). <code>hpfem.read_gmsh_periodic(...) -&gt; (mesh, [(master, slave, shift)])</code>,
+  <code>hpfem.read_gmsh_string(text, scale, dim)</code>.</li>
+<li>Mesh members: <code>num_cells num_vertices num_facets vertices cells cell_tags facet_tags
+  cell_centroids cell_volumes boundary_facets geometry_order</code>, <code>cell_centroid(c)</code>,
+  <code>cell_vertices(c)</code>, <code>vertex(v)</code>, <code>set_vertex(v, x)</code>, <code>set_cell_tag(c, t)</code>, <code>set_facet_tag(f,
+  t)</code>, <code>cells_with_tag(t)</code>, <code>facets_with_tag(t)</code>, <code>facet_vertices(f)</code>, <code>facet_cells(f)</code>, <code>copy()</code>.</li>
+<li><code>hpfem.extract(mesh, cells | keep(centroid)-&gt;bool) -&gt; Mesh</code> — submesh (e.g. an L-shape).</li>
+<li><code>hpfem.refine_uniform(mesh) -&gt; Refined2D</code> (<code>.mesh</code>, <code>.parent_cell</code>); <code>hpfem.subdivide(mesh, n)</code>.</li>
+<li><code>hpfem.mesh_report(mesh) -&gt; dict</code> (angles, aspect ratio, invalid / untagged cells).</li>
+<li><code>hpfem.check_periodic(mesh, master, slave, shift)</code>; <code>hpfem.move_nodes(mesh, velocity, t)</code>;
+  <code>hpfem.region_normal_velocity(mesh, tag)</code>; <code>hpfem.num_geometry_nodes(mesh)</code>.</li>
+<li><code>hpfem.PointLocator2D(mesh)</code>; <code>.locate(x) -&gt; LocatedPoint2D | None</code> (<code>.cell</code>, <code>.xi</code>).</li>
+<li><code>hpfem.meshing</code> (unit cells of gratings): <code>UnitCell(period, y_bottom, y_top, slabs=[Slab(tag,
+  y0, y1)], shapes=[Shape(kind, tag, params)], background_tag=0)</code> with kinds <code>"rectangle"</code>,
+  <code>"trapezoid"</code>, <code>"ellipse"</code>, <code>"polygon"</code>; <code>hpfem.meshing.structured_unit_cell(cell, nx, rows)</code>
+  (no Gmsh; rows = [[y0, y1, n], ...]); <code>hpfem.meshing.unit_cell_mesh(cell, sizes) -&gt; (mesh,
+  links)</code> (needs <code>pip install gmsh</code>); <code>hpfem.meshing.element_sizes(materials, omega, p)</code>;
+  <code>hpfem.meshing.report(mesh, materials)</code>.</li>
+</ul>
+<h3 id="spaces">Spaces</h3>
+<ul>
+<li><code>hpfem.NedelecDofMap2D(mesh, order | cell_orders)</code> — H(curl) space for E (never Lagrange for E).</li>
+<li><code>hpfem.DofMap2D(mesh, order | cell_orders)</code> — H1 space (scalars, longitudinal parts,
+  temperature, displacement components).</li>
+<li>Members: <code>num_dofs</code>, <code>mesh</code>, <code>max_order</code>, <code>cell_orders</code>, <code>cell_dofs(c)</code>, <code>facet_dofs(f)</code>,
+  <code>dofs_on_tag(tag)</code>.</li>
+<li><code>hpfem.interpolate(dofs, g) -&gt; coeffs</code>, <code>hpfem.evaluate_h1(h1, u, locator, x)</code>,
+  <code>hpfem.evaluate_hcurl(nd, e, cell, xi)</code>, <code>hpfem.sample_hcurl(nd, e, cells, xi, curl=False)</code>,
+  <code>hpfem.discrete_gradient(h1, nd) -&gt; csr</code>, <code>hpfem.free_dofs(n, constrained)</code>,
+  <code>hpfem.cell_averages(dofs, coeffs)</code>.</li>
+</ul>
+<h3 id="materials">Materials</h3>
+<ul>
+<li>Core: <code>hpfem.Material</code>, <code>hpfem.MaterialMap(background)</code> (<code>.set(tag, m)</code>, <code>.set_cell(c, m)</code>,
+  <code>.at(tag)</code>, <code>.of_cell(mesh, c)</code>). Lossy metal: Im eps_r &gt; 0.</li>
+<li><code>hpfem.materials.get(name)</code> — library <code>Si SiO2 Au Ag Ti Cr Al TiO2 Al2O3 GaAs MAPbI3 water
+  vacuum air</code> (tabulated / Sellmeier with sources; <code>hpfem materials</code> lists ranges).</li>
+<li>Dispersive models (<code>.at(omega) -&gt; hpfem.Material</code>, <code>.eps_r(omega)</code>, <code>.refractive_index(omega)</code>,
+  <code>.at_wavelength(lam)</code>):
+  <code>hpfem.materials.Tabulated</code>, <code>hpfem.materials.Sellmeier</code>,
+  <code>hpfem.materials.DrudeLorentz(eps_inf, omega_p, gamma, oscillators)</code>,
+  <code>hpfem.materials.Drude(eps_inf, omega_p, gamma)</code>, <code>hpfem.materials.Constant(value)</code>.</li>
+<li><code>hpfem.materials.DispersiveMap(background)</code> — <code>.set(tag, model | name | number)</code>, <code>.at(omega)
+  -&gt; MaterialMap</code>, <code>.apply(setup, omega)</code> (sets omega and materials).</li>
+<li><code>hpfem.materials.with_policy(m, "clamp")</code> — tabulated data outside range: default raises.</li>
+<li><code>hpfem.materials.fit_drude_lorentz(m, (lam0, lam1, count), oscillators=n) -&gt; (model, max_err)</code>.</li>
+<li>Crystals: <code>hpfem.materials.Uniaxial(ordinary, extraordinary, theta, phi)</code>,
+  <code>hpfem.materials.Anisotropic((e1, e2, e3), hpfem.materials.euler_rotation(a, b, c))</code>.</li>
+</ul>
+<h3 id="sources-pml-boundaries">Sources, PML, boundaries</h3>
+<ul>
+<li><code>hpfem.plane_wave(amplitude, wave_vector) -&gt; IncidentField2D</code> (<code>.value(x)</code>, <code>.curl(x)</code>);
+  amplitude ⟂ wave_vector, |k| = n·ω/c0.</li>
+<li><code>hpfem.dipole_field(position, moment, k)</code>; <code>hpfem.gaussian_current(position, moment, sigma,
+  omega)</code> (smooth current for <code>setup.current</code>); <code>hpfem.IncidentField2D(value, curl)</code> (custom).</li>
+<li><code>hpfem.PmlBox2D(lower, upper, thickness[x_min, x_max, y_min, y_max(, z_min, z_max)], k0,
+  background_index=1, profile)</code>; <code>hpfem.PmlBox2D.uniform(lower, upper, t, k0, n, profile)</code>.
+  [lower, upper] is the <strong>interior</strong>; the layers lie outside it and must be meshed.</li>
+<li><code>hpfem.PmlProfile(order=3, reflection=1e-8)</code>, <code>hpfem.PmlProfile.for_angle(theta_max_deg,
+  target)</code>; <code>PmlBox2D.recommended_thickness(...)</code>, <code>PmlBox2D.max_resolution(...)</code>.</li>
+<li>Setup fields: <code>pec_tags</code> (tangential E = 0), PMC is natural (untagged boundary),
+  <code>incident_tags</code> (prescribe the incident trace), <code>periodic = [hpfem.PeriodicPair2D(master,
+  slave, shift, phase)]</code> with <code>hpfem.bloch_phase(k, shift)</code>, <code>ports = [hpfem.WaveguidePort(tag,
+  num_modes)]</code>, <code>background = LayerStack2D</code> (layered scattered-field background).</li>
+<li>Layered media: <code>hpfem.Layer(material, thickness)</code>, <code>hpfem.LayerStack2D(incidence, [layers],
+  substrate, top=0.0)</code> (normal along y in 2D, z in 3D), <code>.plane_wave(k0, angle, pol)</code> (Fresnel
+  R / T); <code>hpfem.AnisotropicStack(...)</code> (Berreman 4×4); <code>hpfem.Polarisation.S</code> / <code>.P</code>.</li>
+</ul>
+<h3 id="physics">Physics</h3>
+<ul>
+<li><code>hpfem.ScatteringSetup2D()</code> fields: <code>omega materials incident formulation pml pec_tags
+  incident_tags periodic ports current background solver condense keep_factorisation progress</code>.
+  <code>hpfem.Scattering2D(nd, setup)</code>: <code>.solve()</code>, <code>.estimate(sol)</code>, <code>.error(sol, exact)</code>,
+  <code>.total_field(sol, locator, x)</code> (None outside), <code>.scattered_field(...)</code>,
+  <code>.sample(sol, locator, points, quantity="E"|"H"|"S") -&gt; (values, cells)</code> (NaN / −1 outside),
+  <code>.triangulate(sol, subdivisions)</code>, <code>.assemble()</code>, <code>.interior_cells()</code>.
+  <code>hpfem.Formulation.SCATTERED_FIELD</code> / <code>.TOTAL_FIELD</code>.</li>
+<li><code>hpfem.ScatteringOperator2D(problem)</code> — one factorisation, <code>.solve(incident)</code>,
+  <code>.solve_many([...])</code>; <code>hpfem.plane_wave_sweep(problem, wave_vectors, polarisation_fn)</code>;
+  <code>hpfem.ReducedBasis(num_dofs)</code>; <code>hpfem.s_parameters(nd, setup)</code> (ports).</li>
+<li><code>hpfem.WaveguideSetup()</code> (<code>omega materials pec_tags num_modes</code>) +
+  <code>hpfem.PropagatingMode(nd, h1, setup).solve() -&gt; [WaveguideMode]</code> (<code>effective_index</code>, <code>beta</code>,
+  <code>transverse</code>, <code>longitudinal</code>) — modes of a 2D cross-section.</li>
+<li><code>hpfem.ResonanceSetup2D()</code> (<code>target_omega materials pml pec_tags num_modes krylov_dimension</code>)</li>
+<li><code>hpfem.Resonance2D(nd, setup).solve() -&gt; [ResonantMode]</code> (<code>omega</code> complex, <code>quality</code>,
+  <code>wavelength</code>, <code>residual</code>, <code>field</code>) — quasi-normal modes with PML.</li>
+<li>Closed cavities: <code>hpfem.assemble_maxwell(nd, hpfem.MaxwellForm2D())</code> (<code>.stiffness</code>, <code>.mass</code>)</li>
+<li><code>hpfem.gauged_curl_curl_eigenpairs(K, M, G, free_nd, free_h1, hpfem.EigenOptions(...))</code>
+  (no spurious zero modes). Generic pencils: <code>hpfem.complex_eigenpairs_near(A, B, sigma, opts)</code>.</li>
+<li><code>hpfem.RieszProjection2D(resonance, hpfem.RieszSetup())</code> — modal expansion of a source problem.</li>
+<li><code>hpfem.BandStructureSetup2D()</code> (<code>lattice=[PeriodicPair2D...]</code>, <code>num_bands</code>, <code>keep_modes</code>) +
+  <code>hpfem.BandStructure2D(nd, h1, setup)</code>: <code>.bands(k) -&gt; Bands2D</code> (<code>wavenumber</code>, <code>normalised(a)</code>),
+  <code>.path(corners, segments)</code>; <code>hpfem.group_velocity(problem, bands)</code>,
+  <code>hpfem.band_permittivity_derivative</code>, <code>hpfem.band_shape_derivative</code>.</li>
+<li><code>hpfem.TimeDomainSetup2D()</code> (<code>dt pec_tags absorbing_tags current signal</code>) +
+  <code>hpfem.TimeDomain2D(nd, setup)</code>: <code>.initialize(u0, v0)</code>, <code>.run(state, steps, observer)</code>,
+  <code>.energy(state)</code>; signals <code>hpfem.gaussian_pulse(t0, w)</code>, <code>hpfem.modulated_gaussian(omega, t0,
+  w)</code>, <code>hpfem.TimeSignal(f, df)</code>. Newmark-β.</li>
+<li><code>hpfem.ConicalScatteringSetup()</code> (<code>omega beta materials incident pml pec_tags periodic
+  background scalar_ez</code>) + <code>hpfem.ConicalScattering(nd, h1, setup)</code> — 2.5D: x-y cross-section,
+  invariant along z with exp(iβz); solution has <code>.transverse</code>, <code>.longitudinal</code> blocks (scaled);
+  read physical (E_x, E_y, E_z) via <code>.total_field</code>, <code>.sample</code>. Waves:
+  <code>hpfem.conical_plane_wave(amp3, k3)</code>, <code>hpfem.layered_conical_wave(stack, k0, angle, azimuth,
+  pol)</code> (<code>.field</code>, <code>.beta</code>, <code>.kx</code>, <code>.reflectance</code>). <code>hpfem.ConicalSweep(nd, h1, setup)</code> reuses
+  the assembly over a sweep; <code>hpfem.ConicalResonance</code> for cell resonances.</li>
+<li>Axisymmetric 2.5D (meridian mesh, x = r ≥ 0): <code>hpfem.AxisymmetricScatteringSetup()</code> (<code>omega
+  materials axis_tag azimuthal_order incident pml background</code>) +
+  <code>hpfem.AxisymmetricScattering(nd, h1, setup)</code>; <code>hpfem.axial_plane_wave(amp, k, m)</code>,
+  <code>hpfem.layered_axisymmetric_wave(stack3d, k0, theta, "s"|"p", m)</code>,
+  <code>hpfem.axisymmetric_poynting_flux</code>, <code>hpfem.axisymmetric_far_field</code>,
+  <code>hpfem.axisymmetric_fields_at</code>; <code>hpfem.AxisymmetricCavity</code>, <code>hpfem.AxisymmetricResonance</code>.
+  Sum results over the azimuthal orders m.</li>
+<li>Heat: <code>hpfem.ThermalSetup()</code> (<code>background_conductivity</code>, <code>conductivity={tag: k}</code>,
+  <code>fixed_temperature=[(tag, T)]</code>) + <code>hpfem.Thermal2D(h1, setup)</code>: <code>.solve(q)</code> (q = source
+  density coeffs), <code>.solve_load(load)</code>; optical load from <code>hpfem.absorbed_power_load(nd, E_total,
+  omega, materials, h1)</code>.</li>
+<li><code>hpfem.ThermoOpticalSetup2D()</code> (<code>optical</code> = ScatteringSetup2D, <code>thermal</code> = ThermalSetup,
+  <code>thermo_optic={tag: dε/dT}</code>, <code>tolerance</code>) + <code>hpfem.ThermoOptical2D(nd, h1, setup).solve()</code> →
+  state (<code>temperature</code>, <code>materials</code>, <code>absorbed_power</code>, <code>converged</code>).</li>
+<li>Elasticity (small strain, eigenstrain; 2D = plane strain):
+  <code>hpfem.ElasticitySetup3D()</code> fields <code>background=hpfem.ElasticMaterial(E, nu)</code>, <code>materials={tag:
+  ElasticMaterial}</code>, <code>displacements=[hpfem.DisplacementCondition3D(tag, [bx, by, bz], value=None)]</code>,
+  <code>tractions=[hpfem.TractionCondition3D(tag, t(x))]</code>, <code>body_force</code>, <code>eigenstrain(x)</code> (3×3),
+  <code>shrinkage(x)</code> (isotropic −s I), <code>set_shrinkage_grid(hpfem.GridField3D(axes, values))</code>,
+  <code>temperature</code>, <code>thermal_expansion</code>, <code>reference_temperature</code>, <code>remove_rigid_modes</code>,
+  <code>static_condensation</code>, <code>axisymmetric</code> + <code>axis_tag</code> (2D meridian, (u_r, u_z)).
+  <code>hpfem.Elasticity3D(h1, setup)</code>: <code>.solve() -&gt; u</code>, <code>.displacements_at(u, pts)</code> (NaN outside),
+  <code>.stress(u, cell, xi)</code>, <code>.strain(...)</code>, <code>.strain_energy(u)</code>, <code>.deformed_mesh(u, scale=1)</code>,
+  <code>.mesh_velocity(u)</code>, <code>.hoop_stress(...)</code>, <code>.estimate(u)</code>, <code>.energy_error(u, exact, grad)</code>.</li>
+<li>Analytic references: <code>hpfem.mie_cylinder_scattering_width(k, r, n)</code>, <code>hpfem.mie_sphere(k, r,
+  eps_r, background_index)</code> (<code>.scattering_cross_section()</code>, ...).</li>
+</ul>
+<h3 id="post-processing">Post-processing</h3>
+<ul>
+<li><code>hpfem.Surface2D.around_cells(mesh, tag)</code>, <code>.boundary(mesh, facet_tag)</code>, <code>.plane(mesh, axis,
+  coord, direction)</code>, <code>.whole_boundary(mesh)</code>.</li>
+<li><code>hpfem.cross_sections(problem, sol, surface, incident_amplitude) -&gt; CrossSections</code>
+  (<code>scattering</code>, <code>absorption</code>, <code>extinction</code>; per unit length in 2D).</li>
+<li><code>hpfem.FarField2D(mesh, surface, hpfem.discrete_field(nd, sol.unknown), omega, background,
+  order)</code>: <code>.pattern(direction)</code>, <code>.radiated_power()</code>, <code>.scattering_cross_section(amp)</code>.</li>
+<li><code>hpfem.poynting_flux(mesh, surface, field, omega, materials, order)</code>.</li>
+<li><code>hpfem.absorbed_power(problem, sol)</code>, <code>hpfem.absorbed_power_by_tag(problem, sol)</code> (<code>.total</code>,
+  <code>.by_tag</code>, <code>.per_cell</code>), <code>hpfem.absorption_density(problem, sol)</code>,
+  <code>hpfem.absorbed_power_per_cell(nd, e, omega, materials)</code>.</li>
+<li>Gratings by hand: <code>hpfem.diffraction_orders</code>, <code>hpfem.fourier_coefficients</code>,
+  <code>hpfem.diffraction_efficiencies</code>, <code>hpfem.power_balance</code>, <code>hpfem.bloch_constraints</code>,
+  <code>hpfem.conical_fourier_coefficients</code>, <code>hpfem.conical_diffraction_efficiencies</code>,
+  <code>hpfem.conical_cross_sections</code>, <code>hpfem.ConicalFarField</code>, <code>hpfem.conical_power_balance</code>.</li>
+<li>Errors vs exact: <code>hpfem.hcurl_error(nd, e, field, curl)</code>, <code>hpfem.h1_error(h1, u, g, grad_g)</code>.</li>
+<li>Export: <code>hpfem.FieldExporter2D(mesh, subdivisions).hcurl("E", nd, e).h1("T", h1, u)
+  .write("f.vtu")</code>; <code>hpfem.VtkWriter2D(mesh)</code>; <code>hpfem.write_vtu_facets(mesh, file)</code>.</li>
+<li><code>hpfem.interop</code>: <code>to_meshio</code>, <code>from_meshio</code>, <code>field_to_meshio</code>, <code>to_pyvista</code>,
+  <code>field_to_pyvista</code>, <code>plot_mesh</code>, <code>plot_field(dofs, e)</code>, <code>plot_convergence</code>, <code>plot_far_field</code>
+  (<code>hpfem.interop.plot_field</code> etc.; optional meshio / pyvista / matplotlib).</li>
+</ul>
+<h3 id="adaptivity">Adaptivity</h3>
+<ul>
+<li><code>problem.estimate(sol) -&gt; Estimate</code> (<code>.indicators</code> per cell, <code>.total()</code>).</li>
+<li><code>hpfem.dorfler_marking(indicators, theta)</code>, <code>hpfem.maximum_marking(indicators, gamma)</code>.</li>
+<li><code>hpfem.hp_decide_by_prediction(indicators, predicted, marked) -&gt; HpDecision</code> (<code>h_marked</code>,
+  <code>p_marked</code>); <code>hpfem.hp_decide(h1, u, marked)</code> (coefficient decay).</li>
+<li><code>hpfem.AdaptiveMesh2D(root)</code> (<code>.mesh</code> = <strong>copy</strong> of the leaf mesh, <code>.max_level</code>,
+  <code>.set_periodic</code>); <code>hpfem.hp_refine(adaptive, orders, h_marked, p_marked) -&gt; HpStep</code> (<code>.orders</code>,
+  <code>.step</code>); <code>hpfem.predict_indicators(indicators, orders, hp)</code>; <code>hpfem.p_refine(orders, marked)</code>;
+  <code>hpfem.refine_at_points(adaptive, points, levels)</code>.</li>
+<li><code>hpfem.prolongate(old_dofs, old_coeffs, new_dofs, hp.step)</code> — transfer a solution.</li>
+<li>Goal-oriented: <code>hpfem.dwr_estimate(problem, sol, hpfem.point_value_functional(x, w))</code>,
+  <code>hpfem.conical_dwr_estimate(problem, sol, hpfem.conical_point_functional(x, w))</code>,
+  <code>hpfem.conical_order_functional(...)</code> → <code>GoalEstimate</code> (<code>value</code>, <code>error</code>, <code>indicators</code>).</li>
+<li>Driver: <code>hpfem.adaptive_solve(adaptive, factory(mesh, orders) -&gt; (problem, sol), observe=,
+  goal=, tolerance=, max_dofs=)</code> yields <code>hpfem.AdaptiveStep</code> (<code>dofs</code>, <code>eta</code>, <code>observables</code>,
+  <code>goal_error</code>, <code>converged</code>); needs a problem with <code>free_dofs</code> (ConicalScattering).</li>
+<li>Guaranteed bounds: <code>hpfem.dual_solution</code>, <code>hpfem.hypercircle_estimate</code>.</li>
+</ul>
+<h3 id="solvers-threads-memory">Solvers, threads, memory</h3>
+<ul>
+<li>Every setup has <code>solver = hpfem.DirectSolverBackend.AUTO | SPARSE_LU | MUMPS | CUDSS</code>;
+  PyPI wheels ship SPARSE_LU only — check <code>hpfem.available_backends()</code>, <code>hpfem.available(b)</code>,
+  <code>hpfem.cudss_status()</code>.</li>
+<li><code>hpfem.solve_direct(A, b)</code>, <code>hpfem.make_direct_solver()</code> (<code>.factorize(A)</code>, <code>.solve(b)</code>,
+  <code>.solve_many</code>); <code>hpfem.EigenOptions(num_eigenvalues, shift, krylov_dimension, tolerance)</code>.</li>
+<li><code>hpfem.estimate_memory(mesh, order)</code> / <code>(nd)</code> → <code>MemoryEstimate</code> (<code>.describe()</code>) — run before
+  large 3D solves; <code>hpfem.grating.estimate_memory(mesh, order)</code>.</li>
+<li><code>hpfem.set_num_threads(n)</code>, <code>hpfem.num_threads()</code>, <code>hpfem.set_log_level("warn")</code>.</li>
+<li>Progress / cancel: <code>setup.progress = callback(hpfem.ProgressEvent)</code>; grating functions take
+  <code>progress=</code>, <code>cancel=</code> (raises <code>hpfem.Cancelled</code>).</li>
+<li><code>hpfem.sweep.solve_sweep(task, values, processes=4)</code> — parallel sweeps over processes (task at
+  module level, picklable results).</li>
+</ul>
+<h3 id="high-level-gratings-hpfemgrating">High-level: gratings (<code>hpfem.grating</code>)</h3>
+<p>Unit cell: period along x, stack normal along y, Bloch faces tagged <code>box_tag.X_MIN</code> / <code>X_MAX</code>,
+PML regions included at top and bottom of the mesh, z = direction of the lines.
+- <code>hpfem.grating.solve(mesh, materials{tag: Material|model}, stack, "s"|"p", theta, phi, omega,
+  order=4, *, pml=None|{"top": t, "bottom": t}, bottom="pml"|"pec"|"modal", orders_max=3,
+  keep_factorisation=False, progress, cancel) -&gt; GratingResult</code>: <code>R_orders</code>, <code>T_orders</code>
+  (<code>m</code>, <code>efficiency</code>, <code>amplitude</code>, <code>kt</code>, <code>kn</code>, <code>propagating</code>), <code>R</code>, <code>T</code>, <code>A</code>, <code>A_by_tag</code>,
+  <code>power_balance_residual</code>, <code>flux_balance</code>, <code>field(points, quantity)</code>, <code>diagnostics</code>, <code>timing</code>.
+- <code>hpfem.grating.validate(...)</code> (same args) → list of <code>hpfem.diagnostics.Diagnostic</code> (<code>code</code>,
+  <code>severity</code>, <code>text</code>, <code>hint</code>); errors raise <code>hpfem.grating.GratingError</code>.
+- <code>hpfem.grating.jones(...) -&gt; JonesResult</code> (2×2 Jones, <code>mueller</code>), <code>hpfem.grating.mueller(J)</code>,
+  <code>hpfem.grating.operator(...)</code> (cover + substrate incidence on one factorisation).
+- Derivatives: <code>hpfem.grating.sensitivity(result, tag, order=0, side="R")</code>,
+  <code>hpfem.grating.shape_sensitivity(result, velocity)</code>, <code>hpfem.grating.jacobian(result,
+  [("eps", tag), ("shape", V), "theta", "wavelength"]) -&gt; (J, rows, cols)</code>.
+- Resonances: <code>hpfem.grating.resonances(mesh, materials, stack, omega_target, kx=0, beta=0,
+  num_modes=4) -&gt; ResonanceResult</code> (<code>modes[i].omega</code>, <code>.Q</code>, <code>.wavelength</code>, <code>.field(points)</code>),
+  <code>hpfem.grating.bands(..., kx_values)</code>, <code>hpfem.grating.refine_resonance</code>,
+  <code>hpfem.grating.resonance_sensitivity</code>.
+- Emitters in the cell (dipole dict <code>{"position": (x, y), "moment": (px, py, pz) | "x" |
+  "isotropic", "sigma": s}</code>): <code>hpfem.grating.emit</code> (Bloch array), <code>hpfem.grating.dipole_emission</code>
+  (single dipole, Purcell, up / down / nonradiated), <code>hpfem.grating.emission_pattern</code> (dP/dΩ),
+  <code>hpfem.grating.emission_cone(…, aperture)</code>, <code>hpfem.grating.emission_cost</code> (dry run cost).
+- Diagnostics alone: <code>hpfem.diagnostics.validate_scattering(mesh, setup, orders)</code>,
+  <code>hpfem.diagnostics.raise_on_errors(found)</code>.</p>
+<h3 id="high-level-other-modules">High-level: other modules</h3>
+<ul>
+<li><code>hpfem.planar.dipole_above_stack(stack, k0, height, moment) -&gt; Purcell factor</code> (semi-analytic).</li>
+<li><code>hpfem.project</code>: <code>load(path)</code>, <code>validate(spec)</code>, <code>run(spec | path) -&gt; dict</code> (JSON-able,
+  complex as [re, im]); <code>hpfem.project.ProjectError</code>. Problems: scattering, waveguide, cavity,
+  resonance.</li>
+<li><code>hpfem.run.run_job(job, out_dir, emit, cancel) -&gt; dict</code> — grating jobs (schema v1: model /
+  mesh / materials / stack / incidence / sweep / solver / maps; v2 tasks <code>optimize</code>,
+  <code>reconstruct</code>, <code>uq</code>, <code>emitter</code>, plus <code>resonances</code>, <code>bands</code>); full schema in
+  <code>help(hpfem.run)</code>. <code>hpfem.run.JobError</code>.</li>
+<li><code>hpfem.opt</code> (needs <code>import hpfem.opt</code>): <code>DesignSpace</code>, <code>Continuous</code>, <code>Integer</code>,
+  <code>Categorical</code>, <code>LinearConstraint</code>, <code>Study(evaluator, path, space)</code> (cached, resumable JSON-lines
+  store), <code>minimize</code>, <code>fit</code> (Levenberg–Marquardt + Laplace errors), <code>bayesian_optimize</code>,
+  <code>OutcomeConstraint</code>, <code>pareto_front</code>, <code>GaussianProcess</code>, <code>GratingEvaluator(morph, materials,
+  stack, [Configuration(wavelength, theta, phi, polarisation, orders)])</code>, <code>Morph(cell, mesh,
+  params)</code>, <code>MaterialParameter</code>, <code>GeometryParameter</code>, <code>trapezoid_parameters</code>,
+  <code>linear_propagation</code>, <code>build_global_surrogate</code>, <code>monte_carlo</code>, <code>sobol_indices</code>, <code>Normal</code>,
+  <code>Uniform</code>, <code>sample</code> (emcee, extra <code>opt-mcmc</code>). E.g. <code>hpfem.opt.minimize</code>, <code>hpfem.opt.fit</code>.</li>
+<li><code>hpfem.dataports</code> (BindOptiX envelopes): <code>planar_emitter_response(stack, wavelength, heights,
+  detectors=[Detector(name, side, theta_min, theta_max)])</code> → <code>.table.to_json()</code>,
+  <code>planar_field_map</code>, <code>grating_field_map(result, RegularGrid)</code>, <code>axisymmetric_emitter_response</code>,
+  <code>axisymmetric_field_map</code>, <code>meridian_mesh</code> (e.g. <code>hpfem.dataports.planar_emitter_response</code>).</li>
+<li><code>hpfem.pv</code>: <code>generation_per_cell(nd, e, omega, materials)</code>, <code>spectral_weights</code>,
+  <code>spectral_sum</code>, <code>depth_profile</code>, <code>write_generation</code> (carrier generation for device solvers).</li>
+<li><code>hpfem.gui.main</code> — <code>hpfem-gui</code> launcher (Streamlit; <code>pip install "hpfem[gui]"</code>).</li>
+</ul>
+<h2 id="3-recipes">3. Recipes</h2>
+<h3 id="r1-mie-cylinder-2d-scattering-with-pml-in-plane-e">R1 Mie cylinder, 2D scattering with PML (in-plane E)</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">hpfem</span>
+<span class="n">hpfem</span><span class="o">.</span><span class="n">set_log_level</span><span class="p">(</span><span class="s2">"warn"</span><span class="p">)</span>
+<span class="n">k</span> <span class="o">=</span> <span class="mf">6.0</span>                                                   <span class="c1"># vacuum wavenumber [1/m]</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">square_with_disc</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>       <span class="c1"># disc r=0.25 tag 2, PML room to |x|=2</span>
+<span class="n">nd</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">NedelecDofMap2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">s</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">ScatteringSetup2D</span><span class="p">()</span>
+<span class="n">s</span><span class="o">.</span><span class="n">omega</span> <span class="o">=</span> <span class="n">k</span> <span class="o">*</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">constants</span><span class="o">.</span><span class="n">c0</span>
+<span class="n">s</span><span class="o">.</span><span class="n">materials</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Material</span><span class="o">.</span><span class="n">dielectric</span><span class="p">(</span><span class="mf">1.5</span><span class="p">))</span>
+<span class="n">s</span><span class="o">.</span><span class="n">incident</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">plane_wave</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+<span class="n">s</span><span class="o">.</span><span class="n">formulation</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Formulation</span><span class="o">.</span><span class="n">SCATTERED_FIELD</span>
+<span class="n">s</span><span class="o">.</span><span class="n">pml</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">PmlBox2D</span><span class="o">.</span><span class="n">uniform</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">PmlProfile</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mf">1e-10</span><span class="p">))</span>
+<span class="n">s</span><span class="o">.</span><span class="n">pec_tags</span> <span class="o">=</span> <span class="p">[</span><span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">X_MIN</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">X_MAX</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">Y_MIN</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">Y_MAX</span><span class="p">]</span>
+<span class="n">problem</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Scattering2D</span><span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="n">s</span><span class="p">);</span> <span class="n">sol</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+<span class="n">cs</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">cross_sections</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">sol</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Surface2D</span><span class="o">.</span><span class="n">around_cells</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="mf">1.0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">scattering</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">mie_cylinder_scattering_width</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">))</span>
+<span class="n">E</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">total_field</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">PointLocator2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">),</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">])</span>
+</code></pre></div>
+<h3 id="r2-slab-waveguide-mode-effective-index">R2 Slab waveguide mode (effective index)</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">hpfem</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">rectangle</span><span class="p">(</span><span class="mi">96</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="mf">12.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">12.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">])</span>
+<span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">cell_centroids</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mf">0.5</span><span class="p">:</span>
+        <span class="n">mesh</span><span class="o">.</span><span class="n">set_cell_tag</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>                           <span class="c1"># core of thickness 1</span>
+<span class="n">setup</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">WaveguideSetup</span><span class="p">()</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">omega</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">constants</span><span class="o">.</span><span class="n">c0</span>                    <span class="c1"># k0 = 2</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">materials</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Material</span><span class="o">.</span><span class="n">dielectric</span><span class="p">(</span><span class="mf">1.5</span><span class="p">))</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">pec_tags</span> <span class="o">=</span> <span class="p">[</span><span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">X_MIN</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">X_MAX</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">Y_MIN</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">Y_MAX</span><span class="p">]</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">num_modes</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">modes</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">PropagatingMode</span><span class="p">(</span><span class="n">hpfem</span><span class="o">.</span><span class="n">NedelecDofMap2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">DofMap2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">setup</span><span class="p">)</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">modes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">effective_index</span><span class="p">,</span> <span class="n">modes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">beta</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="r3-resonance-quasi-normal-mode-of-a-fabryperot-slab-with-pml">R3 Resonance (quasi-normal mode) of a Fabry–Pérot slab with PML</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">hpfem</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">rectangle</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">0.125</span><span class="p">])</span>
+<span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">cell_centroids</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mf">0.5</span><span class="p">:</span>
+        <span class="n">mesh</span><span class="o">.</span><span class="n">set_cell_tag</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">k_ref</span> <span class="o">=</span> <span class="mf">0.97</span> <span class="o">*</span> <span class="mf">3.14159</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">/</span> <span class="mf">3.5</span>
+<span class="n">setup</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">ResonanceSetup2D</span><span class="p">()</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">target_omega</span> <span class="o">=</span> <span class="n">k_ref</span> <span class="o">*</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">constants</span><span class="o">.</span><span class="n">c0</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">materials</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Material</span><span class="o">.</span><span class="n">dielectric</span><span class="p">(</span><span class="mf">3.5</span><span class="p">))</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">pec_tags</span> <span class="o">=</span> <span class="p">[</span><span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">Y_MIN</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">Y_MAX</span><span class="p">]</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">pml</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">PmlBox2D</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.125</span><span class="p">],</span> <span class="p">[</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="n">k_ref</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span>
+                           <span class="n">hpfem</span><span class="o">.</span><span class="n">PmlProfile</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mf">1e-10</span><span class="p">))</span>
+<span class="n">setup</span><span class="o">.</span><span class="n">num_modes</span><span class="p">,</span> <span class="n">setup</span><span class="o">.</span><span class="n">krylov_dimension</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">40</span>
+<span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Resonance2D</span><span class="p">(</span><span class="n">hpfem</span><span class="o">.</span><span class="n">NedelecDofMap2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">setup</span><span class="p">)</span><span class="o">.</span><span class="n">solve</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">omega</span> <span class="o">/</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">constants</span><span class="o">.</span><span class="n">c0</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">quality</span><span class="p">)</span>        <span class="c1"># Im &lt; 0: decaying</span>
+</code></pre></div>
+<h3 id="r4-closed-pec-cavity-gauged-no-spurious-modes">R4 Closed PEC cavity (gauged, no spurious modes)</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span><span class="o">,</span><span class="w"> </span><span class="nn">hpfem</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">rectangle</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+<span class="n">nd</span><span class="p">,</span> <span class="n">h1</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">NedelecDofMap2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">DofMap2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">boundary</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">d</span><span class="o">.</span><span class="n">facet_dofs</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">mesh</span><span class="o">.</span><span class="n">boundary_facets</span><span class="p">]))</span>
+<span class="n">sys_</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">assemble_maxwell</span><span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">MaxwellForm2D</span><span class="p">())</span>
+<span class="n">res</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">gauged_curl_curl_eigenpairs</span><span class="p">(</span>
+    <span class="n">sys_</span><span class="o">.</span><span class="n">stiffness</span><span class="p">,</span> <span class="n">sys_</span><span class="o">.</span><span class="n">mass</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">discrete_gradient</span><span class="p">(</span><span class="n">h1</span><span class="p">,</span> <span class="n">nd</span><span class="p">),</span>
+    <span class="n">hpfem</span><span class="o">.</span><span class="n">free_dofs</span><span class="p">(</span><span class="n">nd</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">,</span> <span class="n">boundary</span><span class="p">(</span><span class="n">nd</span><span class="p">)),</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">free_dofs</span><span class="p">(</span><span class="n">h1</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">,</span> <span class="n">boundary</span><span class="p">(</span><span class="n">h1</span><span class="p">)),</span>
+    <span class="n">hpfem</span><span class="o">.</span><span class="n">EigenOptions</span><span class="p">(</span><span class="n">num_eigenvalues</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">krylov_dimension</span><span class="o">=</span><span class="mi">30</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">eigenvalues</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>                         <span class="c1"># 1, 1, 2, 4, 4</span>
+</code></pre></div>
+<h3 id="r5-grating-efficiencies-conical-incidence-with-hpfemgratingsolve">R5 Grating efficiencies (conical incidence) with <code>hpfem.grating.solve</code></h3>
+<p><div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">hpfem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hpfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">grating</span><span class="p">,</span> <span class="n">units</span>
+<span class="n">nm</span> <span class="o">=</span> <span class="n">units</span><span class="o">.</span><span class="n">nm</span><span class="p">;</span> <span class="n">P</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="mi">400</span> <span class="o">*</span> <span class="n">nm</span><span class="p">,</span> <span class="mi">148</span> <span class="o">*</span> <span class="n">nm</span><span class="p">,</span> <span class="mi">148</span> <span class="o">*</span> <span class="n">nm</span> <span class="o">/</span> <span class="mi">6</span><span class="p">;</span> <span class="n">SUB</span><span class="p">,</span> <span class="n">RIDGE</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">rectangle</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">71</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="n">P</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">33</span> <span class="o">*</span> <span class="n">c</span><span class="p">],</span> <span class="p">[</span><span class="n">P</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">38</span> <span class="o">*</span> <span class="n">c</span><span class="p">])</span>   <span class="c1"># y = stack normal</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">num_cells</span><span class="p">):</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">cell_centroid</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">y</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span> <span class="n">mesh</span><span class="o">.</span><span class="n">set_cell_tag</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">SUB</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">y</span> <span class="o">&lt;</span> <span class="n">H</span> <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">nm</span><span class="p">:</span> <span class="n">mesh</span><span class="o">.</span><span class="n">set_cell_tag</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">RIDGE</span><span class="p">)</span>
+<span class="n">glass</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Material</span><span class="o">.</span><span class="n">dielectric</span><span class="p">(</span><span class="mf">1.5</span><span class="p">)</span>
+<span class="n">stack</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">LayerStack2D</span><span class="p">(</span><span class="n">hpfem</span><span class="o">.</span><span class="n">Material</span><span class="o">.</span><span class="n">dielectric</span><span class="p">(</span><span class="mf">1.0</span><span class="p">),</span> <span class="p">[],</span> <span class="n">glass</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+<span class="n">omega</span> <span class="o">=</span> <span class="n">units</span><span class="o">.</span><span class="n">angular_frequency</span><span class="p">(</span><span class="n">wavelength</span><span class="o">=</span><span class="mi">405</span> <span class="o">*</span> <span class="n">nm</span><span class="p">)</span>
+<span class="n">r</span> <span class="o">=</span> <span class="n">grating</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="p">{</span><span class="n">SUB</span><span class="p">:</span> <span class="n">glass</span><span class="p">,</span> <span class="n">RIDGE</span><span class="p">:</span> <span class="n">glass</span><span class="p">},</span> <span class="n">stack</span><span class="p">,</span> <span class="s2">"p"</span><span class="p">,</span> <span class="mi">50</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="mi">30</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span>
+                  <span class="n">omega</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">pml</span><span class="o">=</span><span class="p">{</span><span class="s2">"top"</span><span class="p">:</span> <span class="mi">17</span> <span class="o">*</span> <span class="n">c</span><span class="p">,</span> <span class="s2">"bottom"</span><span class="p">:</span> <span class="mi">17</span> <span class="o">*</span> <span class="n">c</span><span class="p">},</span> <span class="n">orders_max</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">({</span><span class="n">o</span><span class="o">.</span><span class="n">m</span><span class="p">:</span> <span class="n">o</span><span class="o">.</span><span class="n">efficiency</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">r</span><span class="o">.</span><span class="n">R_orders</span> <span class="k">if</span> <span class="n">o</span><span class="o">.</span><span class="n">propagating</span><span class="p">},</span> <span class="n">r</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">power_balance_residual</span><span class="p">)</span>
+</code></pre></div>
+(Dispersive: pass <code>hpfem.materials.get("Au")</code> in the dict; it is evaluated at <code>omega</code>.)</p>
+<h3 id="r6-hp-adaptive-loop-l-shaped-domain-exact-corner-field-as-boundary-data">R6 hp-adaptive loop (L-shaped domain, exact corner field as boundary data)</h3>
+<p><div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span><span class="o">,</span><span class="w"> </span><span class="nn">hpfem</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">E</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>                                     <span class="c1"># grad(r^(2/3) sin(2t/3)): re-entrant corner field</span>
+    <span class="n">r</span><span class="p">,</span> <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hypot</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">arctan2</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">r</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span> <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="nb">complex</span><span class="p">)</span>
+    <span class="n">dr</span><span class="p">,</span> <span class="n">dt</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">r</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">t</span> <span class="o">/</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">r</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">t</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">dr</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">dt</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">dr</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">dt</span><span class="p">],</span> <span class="nb">complex</span><span class="p">)</span>
+<span class="n">root</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">hpfem</span><span class="o">.</span><span class="n">rectangle</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span> <span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="ow">not</span> <span class="p">(</span><span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">boundary_facets</span><span class="p">:</span> <span class="n">root</span><span class="o">.</span><span class="n">set_facet_tag</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="mi">9</span><span class="p">)</span>
+<span class="n">s</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">ScatteringSetup2D</span><span class="p">();</span> <span class="n">s</span><span class="o">.</span><span class="n">omega</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">constants</span><span class="o">.</span><span class="n">c0</span>            <span class="c1"># k = 1</span>
+<span class="n">s</span><span class="o">.</span><span class="n">incident</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">IncidentField2D</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">complex</span><span class="p">))</span>  <span class="c1"># exact field, curl 0</span>
+<span class="n">s</span><span class="o">.</span><span class="n">incident_tags</span> <span class="o">=</span> <span class="p">[</span><span class="mi">9</span><span class="p">];</span> <span class="n">s</span><span class="o">.</span><span class="n">current</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="o">-</span><span class="n">E</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>                    <span class="c1"># curl curl E - k^2 E = f</span>
+<span class="n">adaptive</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">AdaptiveMesh2D</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+<span class="n">orders</span><span class="p">,</span> <span class="n">predicted</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">):</span>
+    <span class="n">mesh</span> <span class="o">=</span> <span class="n">adaptive</span><span class="o">.</span><span class="n">mesh</span>                                  <span class="c1"># a copy: take it once per step</span>
+    <span class="n">problem</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Scattering2D</span><span class="p">(</span><span class="n">hpfem</span><span class="o">.</span><span class="n">NedelecDofMap2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">orders</span><span class="o">.</span><span class="n">tolist</span><span class="p">()),</span> <span class="n">s</span><span class="p">)</span>
+    <span class="n">sol</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">solve</span><span class="p">();</span> <span class="n">est</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">estimate</span><span class="p">(</span><span class="n">sol</span><span class="p">);</span> <span class="n">err</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">incident</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">dofs</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">,</span> <span class="n">est</span><span class="o">.</span><span class="n">total</span><span class="p">(),</span> <span class="n">np</span><span class="o">.</span><span class="n">hypot</span><span class="p">(</span><span class="n">err</span><span class="o">.</span><span class="n">l2</span><span class="p">,</span> <span class="n">err</span><span class="o">.</span><span class="n">curl</span><span class="p">))</span>
+    <span class="n">marked</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">dorfler_marking</span><span class="p">(</span><span class="n">est</span><span class="o">.</span><span class="n">indicators</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">hp_decide_by_prediction</span><span class="p">(</span><span class="n">est</span><span class="o">.</span><span class="n">indicators</span><span class="p">,</span> <span class="n">predicted</span><span class="p">,</span> <span class="n">marked</span><span class="p">)</span>
+    <span class="n">hp</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">hp_refine</span><span class="p">(</span><span class="n">adaptive</span><span class="p">,</span> <span class="n">orders</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">d</span><span class="o">.</span><span class="n">h_marked</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">p_marked</span><span class="p">)</span>
+    <span class="n">predicted</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">predict_indicators</span><span class="p">(</span><span class="n">est</span><span class="o">.</span><span class="n">indicators</span><span class="p">,</span> <span class="n">orders</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">hp</span><span class="p">)</span>
+    <span class="n">orders</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">hp</span><span class="o">.</span><span class="n">orders</span><span class="p">)</span>
+</code></pre></div>
+Same loop for <code>ConicalScattering</code> (both maps get <code>orders</code>) and <code>Elasticity2D/3D</code> (<code>estimate(u)</code>);
+transfer old solutions with <code>hpfem.prolongate(old_nd, old_coeffs, new_nd, hp.step)</code>.</p>
+<h3 id="r7-elasticity-shrinkage-of-a-block-bonded-at-its-base-quarter-model">R7 Elasticity: shrinkage of a block bonded at its base (quarter model)</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span><span class="o">,</span><span class="w"> </span><span class="nn">hpfem</span>
+<span class="n">a</span><span class="p">,</span> <span class="n">h</span> <span class="o">=</span> <span class="mf">20e-6</span><span class="p">,</span> <span class="mf">2e-6</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">h</span><span class="p">])</span>
+<span class="n">tag</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span>
+<span class="n">st</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">ElasticitySetup3D</span><span class="p">()</span>
+<span class="n">st</span><span class="o">.</span><span class="n">background</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">ElasticMaterial</span><span class="p">(</span><span class="mf">4.5e9</span><span class="p">,</span> <span class="mf">0.35</span><span class="p">)</span>                 <span class="c1"># E [Pa], nu</span>
+<span class="n">st</span><span class="o">.</span><span class="n">displacements</span> <span class="o">=</span> <span class="p">[</span><span class="n">hpfem</span><span class="o">.</span><span class="n">DisplacementCondition3D</span><span class="p">(</span><span class="n">tag</span><span class="o">.</span><span class="n">X_MIN</span><span class="p">,</span> <span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">]),</span>  <span class="c1"># symmetry</span>
+                    <span class="n">hpfem</span><span class="o">.</span><span class="n">DisplacementCondition3D</span><span class="p">(</span><span class="n">tag</span><span class="o">.</span><span class="n">Y_MIN</span><span class="p">,</span> <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">]),</span>
+                    <span class="n">hpfem</span><span class="o">.</span><span class="n">DisplacementCondition3D</span><span class="p">(</span><span class="n">tag</span><span class="o">.</span><span class="n">Z_MIN</span><span class="p">,</span> <span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">])]</span>   <span class="c1"># clamped</span>
+<span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+<span class="n">st</span><span class="o">.</span><span class="n">set_shrinkage_grid</span><span class="p">(</span><span class="n">hpfem</span><span class="o">.</span><span class="n">GridField3D</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">],</span> <span class="nb">list</span><span class="p">(</span><span class="n">z</span><span class="p">)],</span> <span class="mf">0.02</span> <span class="o">+</span> <span class="mf">0.02</span> <span class="o">*</span> <span class="n">z</span> <span class="o">/</span> <span class="n">h</span><span class="p">))</span>
+<span class="n">st</span><span class="o">.</span><span class="n">static_condensation</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">problem</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Elasticity3D</span><span class="p">(</span><span class="n">hpfem</span><span class="o">.</span><span class="n">DofMap3D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">st</span><span class="p">)</span>
+<span class="n">u</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>                                       <span class="c1"># component-major coefficients</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">displacements_at</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">h</span><span class="p">],</span> <span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">h</span><span class="p">]]))</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">problem</span><span class="o">.</span><span class="n">strain_energy</span><span class="p">(</span><span class="n">u</span><span class="p">))</span>
+<span class="n">eta</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">estimate</span><span class="p">(</span><span class="n">u</span><span class="p">)</span><span class="o">.</span><span class="n">total</span><span class="p">();</span> <span class="n">moved</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">deformed_mesh</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="r8-gold-nanowire-absorbed-power-then-temperature">R8 Gold nanowire: absorbed power, then temperature</h3>
+<p><div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">hpfem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hpfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">materials</span><span class="p">,</span> <span class="n">units</span>
+<span class="n">r</span><span class="p">,</span> <span class="n">omega</span> <span class="o">=</span> <span class="mi">50</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">nm</span><span class="p">,</span> <span class="n">units</span><span class="o">.</span><span class="n">angular_frequency</span><span class="p">(</span><span class="n">wavelength</span><span class="o">=</span><span class="mi">520</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">nm</span><span class="p">)</span>
+<span class="n">k0</span> <span class="o">=</span> <span class="n">units</span><span class="o">.</span><span class="n">vacuum_wavenumber</span><span class="p">(</span><span class="n">omega</span><span class="p">)</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">square_with_disc</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">r</span><span class="p">,</span> <span class="mi">8</span> <span class="o">*</span> <span class="n">r</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">nd</span><span class="p">,</span> <span class="n">h1</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">NedelecDofMap2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">DofMap2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">sides</span> <span class="o">=</span> <span class="p">[</span><span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">X_MIN</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">X_MAX</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">Y_MIN</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">box_tag</span><span class="o">.</span><span class="n">Y_MAX</span><span class="p">]</span>
+<span class="n">s</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">ScatteringSetup2D</span><span class="p">();</span> <span class="n">s</span><span class="o">.</span><span class="n">omega</span> <span class="o">=</span> <span class="n">omega</span><span class="p">;</span> <span class="n">s</span><span class="o">.</span><span class="n">pec_tags</span> <span class="o">=</span> <span class="n">sides</span>
+<span class="n">s</span><span class="o">.</span><span class="n">materials</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">materials</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Au"</span><span class="p">)</span><span class="o">.</span><span class="n">at</span><span class="p">(</span><span class="n">omega</span><span class="p">))</span>                  <span class="c1"># Im eps_r &gt; 0</span>
+<span class="n">s</span><span class="o">.</span><span class="n">incident</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">plane_wave</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0e6</span><span class="p">],</span> <span class="p">[</span><span class="n">k0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>               <span class="c1"># 1 MV/m</span>
+<span class="n">s</span><span class="o">.</span><span class="n">formulation</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Formulation</span><span class="o">.</span><span class="n">SCATTERED_FIELD</span>
+<span class="n">s</span><span class="o">.</span><span class="n">pml</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">PmlBox2D</span><span class="o">.</span><span class="n">uniform</span><span class="p">([</span><span class="o">-</span><span class="mi">4</span> <span class="o">*</span> <span class="n">r</span><span class="p">,</span> <span class="o">-</span><span class="mi">4</span> <span class="o">*</span> <span class="n">r</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span> <span class="o">*</span> <span class="n">r</span><span class="p">,</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">r</span><span class="p">],</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">r</span><span class="p">,</span> <span class="n">k0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">PmlProfile</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mf">1e-10</span><span class="p">))</span>
+<span class="n">sol</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Scattering2D</span><span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+<span class="n">total</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">unknown</span> <span class="o">+</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">incident</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>      <span class="c1"># scattered -&gt; total field</span>
+<span class="n">load</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">absorbed_power_load</span><span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">materials</span><span class="p">,</span> <span class="n">h1</span><span class="p">)</span>  <span class="c1"># W/m per H1 DoF</span>
+<span class="n">th</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">ThermalSetup</span><span class="p">();</span> <span class="n">th</span><span class="o">.</span><span class="n">background_conductivity</span> <span class="o">=</span> <span class="mf">0.6</span><span class="p">;</span> <span class="n">th</span><span class="o">.</span><span class="n">conductivity</span> <span class="o">=</span> <span class="p">{</span><span class="mi">2</span><span class="p">:</span> <span class="mf">315.0</span><span class="p">}</span>
+<span class="n">th</span><span class="o">.</span><span class="n">fixed_temperature</span> <span class="o">=</span> <span class="p">[(</span><span class="n">t</span><span class="p">,</span> <span class="mf">300.0</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">sides</span><span class="p">]</span>                 <span class="c1"># K on the outer walls</span>
+<span class="n">T</span> <span class="o">=</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">Thermal2D</span><span class="p">(</span><span class="n">h1</span><span class="p">,</span> <span class="n">th</span><span class="p">)</span><span class="o">.</span><span class="n">solve_load</span><span class="p">(</span><span class="n">load</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">hpfem</span><span class="o">.</span><span class="n">evaluate_h1</span><span class="p">(</span><span class="n">h1</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">hpfem</span><span class="o">.</span><span class="n">PointLocator2D</span><span class="p">(</span><span class="n">mesh</span><span class="p">),</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
+</code></pre></div>
+Self-consistent coupling: <code>hpfem.ThermoOptical2D(nd, h1, setup).solve()</code> with
+<code>setup.optical = s</code>, <code>setup.thermal = th</code>, <code>setup.thermo_optic = {2: deps_dT}</code>.</p>
+<h3 id="r9-project-file-cli-no-python-modelling">R9 Project file + CLI (no Python modelling)</h3>
+<p><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">"problem"</span><span class="p">:</span><span class="w"> </span><span class="s2">"scattering"</span><span class="p">,</span><span class="w"> </span><span class="nt">"dim"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"length_unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"m"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"mesh"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"square_with_disc"</span><span class="p">,</span><span class="w"> </span><span class="nt">"n"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">"radius"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.25</span><span class="p">,</span><span class="w"> </span><span class="nt">"half_width"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"outer"</span><span class="p">:</span><span class="w"> </span><span class="mf">2.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"inclusion_tag"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">},</span>
+<span class="w"> </span><span class="nt">"order"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"wavelength"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"value"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0471975511965976</span><span class="p">,</span><span class="w"> </span><span class="nt">"unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"m"</span><span class="p">},</span>
+<span class="w"> </span><span class="nt">"materials"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"background"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vacuum"</span><span class="p">,</span><span class="w"> </span><span class="nt">"2"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"n"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.5</span><span class="p">}},</span><span class="w"> </span><span class="nt">"formulation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"scattered_field"</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">"source"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"plane_wave"</span><span class="p">,</span><span class="w"> </span><span class="nt">"angle"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"angle_unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"deg"</span><span class="p">,</span><span class="w"> </span><span class="nt">"polarisation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TE"</span><span class="p">},</span>
+<span class="w"> </span><span class="nt">"pml"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"lower"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">-1</span><span class="p">,</span><span class="w"> </span><span class="mi">-1</span><span class="p">],</span><span class="w"> </span><span class="nt">"upper"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="nt">"thickness"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="nt">"profile"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"order"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"reflection"</span><span class="p">:</span><span class="w"> </span><span class="mf">1e-10</span><span class="p">}},</span>
+<span class="w"> </span><span class="nt">"boundaries"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"pec"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"x_min"</span><span class="p">,</span><span class="w"> </span><span class="s2">"x_max"</span><span class="p">,</span><span class="w"> </span><span class="s2">"y_min"</span><span class="p">,</span><span class="w"> </span><span class="s2">"y_max"</span><span class="p">]},</span>
+<span class="w"> </span><span class="nt">"outputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"cross_sections"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"around_tag"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">},</span><span class="w"> </span><span class="nt">"far_field"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"around_tag"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"directions"</span><span class="p">:</span><span class="w"> </span><span class="mi">36</span><span class="p">},</span>
+<span class="w">             </span><span class="nt">"points"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mf">0.5</span><span class="p">,</span><span class="w"> </span><span class="mf">0.1</span><span class="p">]]}}</span>
+</code></pre></div>
+<code>hpfem validate p.json &amp;&amp; hpfem run p.json -o results.json</code>, or
+<code>hpfem.project.run(hpfem.project.load("p.json"))["results"][0]["cross_sections"]</code>.
+Materials: library name, <code>{"n": 1.5}</code>, <code>{"eps_r": [re, im]}</code>; a list in <code>wavelength.value</code> sweeps.</p>
+<h3 id="r10-grating-job-through-the-runner-json-lines-events">R10 Grating job through the runner (JSON-lines events)</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">hpfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">run</span>
+<span class="n">job</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"version"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"problem"</span><span class="p">:</span> <span class="s2">"grating"</span><span class="p">,</span> <span class="s2">"unit"</span><span class="p">:</span> <span class="mf">1e-9</span><span class="p">,</span>
+       <span class="s2">"model"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"period"</span><span class="p">:</span> <span class="mi">400</span><span class="p">,</span> <span class="s2">"y_bottom"</span><span class="p">:</span> <span class="o">-</span><span class="mi">800</span><span class="p">,</span> <span class="s2">"y_top"</span><span class="p">:</span> <span class="mi">950</span><span class="p">,</span> <span class="s2">"background_tag"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                 <span class="s2">"slabs"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"tag"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">"y0"</span><span class="p">:</span> <span class="o">-</span><span class="mi">800</span><span class="p">,</span> <span class="s2">"y1"</span><span class="p">:</span> <span class="mi">0</span><span class="p">}],</span>
+                 <span class="s2">"shapes"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"kind"</span><span class="p">:</span> <span class="s2">"rectangle"</span><span class="p">,</span> <span class="s2">"tag"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+                             <span class="s2">"params"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"x"</span><span class="p">:</span> <span class="o">-</span><span class="mi">100</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"width"</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span> <span class="s2">"height"</span><span class="p">:</span> <span class="mi">148</span><span class="p">}}]},</span>
+       <span class="s2">"mesh"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"structured"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"nx"</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span> <span class="s2">"rows"</span><span class="p">:</span> <span class="p">[[</span><span class="o">-</span><span class="mi">800</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">32</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">148</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="p">[</span><span class="mi">148</span><span class="p">,</span> <span class="mi">950</span><span class="p">,</span> <span class="mi">32</span><span class="p">]]}},</span>
+       <span class="s2">"materials"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"1"</span><span class="p">:</span> <span class="s2">"air"</span><span class="p">,</span> <span class="s2">"2"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"n"</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]},</span> <span class="s2">"3"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"eps"</span><span class="p">:</span> <span class="p">[</span><span class="mf">2.25</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]}},</span>
+       <span class="s2">"stack"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"incidence"</span><span class="p">:</span> <span class="s2">"air"</span><span class="p">,</span> <span class="s2">"substrate"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"n"</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]},</span> <span class="s2">"layers"</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">"top"</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+       <span class="s2">"incidence"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"polarisation"</span><span class="p">:</span> <span class="s2">"p"</span><span class="p">,</span> <span class="s2">"theta_deg"</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span> <span class="s2">"phi_deg"</span><span class="p">:</span> <span class="mi">30</span><span class="p">},</span>
+       <span class="s2">"sweep"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"wavelength"</span><span class="p">:</span> <span class="p">[</span><span class="mi">405</span><span class="p">]},</span>
+       <span class="s2">"solver"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"order"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">"pml"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"top"</span><span class="p">:</span> <span class="mi">419</span><span class="p">,</span> <span class="s2">"bottom"</span><span class="p">:</span> <span class="mi">419</span><span class="p">},</span> <span class="s2">"orders_max"</span><span class="p">:</span> <span class="mi">2</span><span class="p">}}</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">run</span><span class="o">.</span><span class="n">run_job</span><span class="p">(</span><span class="n">job</span><span class="p">,</span> <span class="s2">"out"</span><span class="p">,</span> <span class="nb">print</span><span class="p">)</span>            <span class="c1"># or: python -m hpfem.run job.json --out out</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s2">"points"</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">"R"</span><span class="p">],</span> <span class="n">results</span><span class="p">[</span><span class="s2">"points"</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">"T"</span><span class="p">])</span>
+</code></pre></div>
+<h3 id="r11-optimisation-study-resumable">R11 Optimisation study (resumable)</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">hpfem.opt</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">opt</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">rosenbrock</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">jacobian</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s2">"x"</span><span class="p">],</span> <span class="n">p</span><span class="p">[</span><span class="s2">"y"</span><span class="p">];</span> <span class="n">f</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">100</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="mi">400</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">),</span> <span class="mi">200</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">)])</span> <span class="k">if</span> <span class="n">jacobian</span> <span class="k">else</span> <span class="n">f</span>
+<span class="n">space</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">DesignSpace</span><span class="p">([</span><span class="n">opt</span><span class="o">.</span><span class="n">Continuous</span><span class="p">(</span><span class="s2">"x"</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">opt</span><span class="o">.</span><span class="n">Continuous</span><span class="p">(</span><span class="s2">"y"</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)])</span>
+<span class="n">study</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">Study</span><span class="p">(</span><span class="n">rosenbrock</span><span class="p">,</span> <span class="s2">"rb.study.jsonl"</span><span class="p">,</span> <span class="n">space</span><span class="p">)</span>   <span class="c1"># rerun = replay from the store</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">study</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mf">1.2</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])</span>            <span class="c1"># L-BFGS-B with the Jacobian</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">study</span><span class="o">.</span><span class="n">best</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="4-gotchas">4. Gotchas</h2>
+<ul>
+<li><code>hpfem.read_gmsh</code> defaults to <code>dim=3</code>: a 2D mesh needs <code>dim=2</code>; set <code>scale</code> to metres.</li>
+<li><code>AdaptiveMesh2D.mesh</code> returns a new copy each access: take it once per step and build all maps,
+  locators and exporters of that step on that object.</li>
+<li>PML: [lower, upper] is the interior; the mesh must contain the layers outside it; end the
+  outer boundary with <code>pec_tags</code>. Thickness list order x_min, x_max, y_min, y_max(, z_min, z_max).
+  Use <code>SCATTERED_FIELD</code> with a PML; <code>TOTAL_FIELD</code> is the default.</li>
+<li><code>Scattering2D</code> has no E_z; for E_z use <code>ConicalScattering</code> (β = 0) or <code>grating.solve(..., "s")</code>.</li>
+<li>Tensor materials (<code>hpfem.Material.anisotropic</code>, <code>hpfem.materials.Uniaxial</code>): <code>Scattering2D</code>
+  refuses a tensor that couples the plane to z (use <code>ConicalScattering</code>); a feature that does not
+  take crystals reports the diagnostic <code>anisotropic_unsupported</code>.</li>
+<li>Plane-wave amplitude must be perpendicular to the wave vector; |k| = n ω / c0 in the medium.</li>
+<li>Dispersive models must be frozen with <code>.at(omega)</code> before going into a core setup;
+  <code>hpfem.grating.*</code> and <code>DispersiveMap.apply</code> do it for you. Tabulated data outside its range
+  raises unless <code>materials.with_policy(m, "clamp")</code>.</li>
+<li>Python callbacks (<code>current</code>, <code>eigenstrain</code>, custom fields) run under the GIL inside the
+  assembly: correct but slow; prefer <code>plane_wave</code>, materials by tag, <code>set_shrinkage_grid</code>.</li>
+<li>In <code>hpfem.grating</code> the mesh must have the period along x and the stack normal along y, with
+  PML cells inside the mesh; cells straddling a stack interface raise <code>GratingError</code> (put
+  interfaces on mesh lines). Angles in radians.</li>
+<li>Resonance eigen solvers return the <code>num_modes</code> closest to <code>target_omega</code>; filter PML modes by
+  residual / quality / field location. Raise <code>krylov_dimension</code> if not converged.</li>
+<li>3D direct solves are memory-bound: check <code>hpfem.estimate_memory(mesh, order)</code> first; PyPI wheels
+  have only SparseLU.</li>
+<li>A free elastic body needs <code>remove_rigid_modes = True</code> (loads must balance).</li>
+<li><code>hpfem.opt</code>, <code>hpfem.planar</code>, <code>hpfem.dataports</code> must be imported explicitly. BoTorch drivers
+  (<code>pareto_optimize</code>, <code>multi_fidelity_optimize</code>) are experimental and need the <code>opt-bo</code> extra.</li>
+<li>Results are per unit length in 2D (W/m, cross-sections in m); 3D in W, m².</li>
+<li>Silence per-solve logging with <code>hpfem.set_log_level("warn")</code>.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
