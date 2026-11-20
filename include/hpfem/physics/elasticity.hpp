@@ -20,6 +20,7 @@
 
 #include "hpfem/assembly/elasticity_forms.hpp"
 #include "hpfem/core/types.hpp"
+#include "hpfem/fespace/constraints.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/mesh/mesh.hpp"
 #include "hpfem/mesh/point_location.hpp"
@@ -61,8 +62,23 @@ struct ElasticitySetup {
   std::vector<DisplacementCondition<Dim>> displacements;
   std::vector<TractionCondition<Dim>> tractions;
   DisplacementField<Dim> body_force;  ///< f [N/m³]; empty means zero
-  /// Eigenstrain ε*(x) (symmetric); empty means zero.
+  /// Eigenstrain ε*(x) (symmetric); empty means zero. The eigenstrains of `eigenstrain`,
+  /// `shrinkage` and the temperature add up.
   std::function<assembly::ComplexTensor<Dim>(const Point<Dim>&)> eigenstrain;
+  /// Isotropic shrinkage s(x), the eigenstrain −s I (a printed resin: s from the degree of
+  /// polymerisation, e.g. a `GridField` of a data port); empty means zero.
+  std::function<Real(const Point<Dim>&)> shrinkage;
+  /// Temperature coefficients on the scalar `dofs` (e.g. `Thermal::solve` on the same map) for
+  /// the thermal strain α (T − T₀) I; empty means none.
+  Vector temperature;
+  Real reference_temperature = 0;               ///< T₀ [K]
+  Real background_expansion = 0;                ///< α [1/K] of unlisted cell tags
+  std::map<mesh::Tag, Real> thermal_expansion;  ///< α [1/K] by cell tag
+  /// A free body: the rigid-body modes are fixed by six (2D: three) DoFs at three far-apart
+  /// vertices (the 3-2-1 rule) and removed afterwards by the L2 projection onto them, so that
+  /// the solution has zero mean translation and rotation (ADR-0016 §4a). Requires loads in
+  /// equilibrium (eigenstrains always are) and no displacement conditions.
+  bool remove_rigid_modes = false;
   bool static_condensation = false;  ///< condense the interior DoFs of all components
   solvers::DirectSolverBackend solver = solvers::DirectSolverBackend::kAuto;
   int extra_quadrature_order = 2;  ///< added to 2p (non-polynomial data, curved cells)
@@ -73,8 +89,10 @@ template <int Dim>
 class Elasticity {
  public:
   /// @throws InvalidArgument for E ≤ 0 or ν ∉ (−1, 0.5) of a material, a displacement condition
-  ///         without any component, or a condition / traction whose tag no boundary facet
-  ///         carries. Warns (log) for ν > 0.45, where the pure displacement form may lock.
+  ///         without any component, a condition / traction whose tag no boundary facet carries,
+  ///         a temperature vector of the wrong size, or `remove_rigid_modes` together with
+  ///         displacement conditions. Warns (log) for ν > 0.45, where the pure displacement form
+  ///         may lock.
   Elasticity(const fespace::DofMap<Dim>& dofs, ElasticitySetup<Dim> setup);
   [[nodiscard]] const fespace::DofMap<Dim>& dofs() const noexcept { return *dofs_; }
   [[nodiscard]] const ElasticitySetup<Dim>& setup() const noexcept { return setup_; }
@@ -90,8 +108,16 @@ class Elasticity {
   /// conditions and constraints.
   [[nodiscard]] assembly::AssembledSystem system() const;
   /// Displacement coefficients (block vector of size `num_dofs()`).
-  /// @throws Error if the factorisation fails (e.g. a free body without enough constraints).
+  /// @throws Error if the factorisation fails (e.g. a free body without `remove_rigid_modes`);
+  ///         InvalidArgument with `remove_rigid_modes` if the loads are not in equilibrium.
   [[nodiscard]] Vector solve() const;
+  /// The total eigenstrain ε* at reference point ξ of cell c.
+  [[nodiscard]] assembly::ComplexTensor<Dim> eigenstrain(Index c, const Point<Dim>& xi) const;
+  /// @f$ \int a_h \cdot b_h\,dx @f$ of two block coefficient vectors (a conjugated).
+  [[nodiscard]] Complex l2_product(const Vector& a, const Vector& b) const;
+  /// The rigid-body modes as block coefficient vectors (Dim translations, then the rotations
+  /// about the centroid of the mesh: 3 in 3D, 1 in 2D), exact on curved cells for p ≥ 2.
+  [[nodiscard]] std::vector<Vector> rigid_modes() const;
   /// Displacement at reference point ξ of cell c.
   [[nodiscard]] Eigen::Matrix<Complex, Dim, 1> displacement(const Vector& u, Index c,
                                                             const Point<Dim>& xi) const;
@@ -110,6 +136,11 @@ class Elasticity {
  private:
   /// Traction load on the block vector.
   [[nodiscard]] Vector traction_load() const;
+  /// α of a cell.
+  [[nodiscard]] Real expansion(Index cell) const;
+  /// The 3-2-1 DoFs that fix the rigid-body modes (none constrained by `constraints`).
+  [[nodiscard]] std::vector<Index> rigid_pins(
+      const std::optional<fespace::Constraints>& constraints) const;
 
   const fespace::DofMap<Dim>* dofs_;
   ElasticitySetup<Dim> setup_;

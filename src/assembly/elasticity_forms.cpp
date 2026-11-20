@@ -72,8 +72,11 @@ ElementContribution element_elasticity(const fespace::H1Basis<Dim>& basis,
     const auto b = strain_matrix<Dim>(grad).template cast<Complex>().eval();
     const VoigtMatrix<Dim> c = form.stiffness(g.x);
     out.matrix += dx * (b.transpose() * c * b);
-    if (form.eigenstrain) {
-      out.vector += dx * (b.transpose() * (c * to_voigt_strain<Dim>(form.eigenstrain(g.x))));
+    if (form.eigenstrain || form.eigenstrain_reference) {
+      ComplexTensor<Dim> e = ComplexTensor<Dim>::Zero();
+      if (form.eigenstrain) e += form.eigenstrain(g.x);
+      if (form.eigenstrain_reference) e += form.eigenstrain_reference(rule.points[q], g.x);
+      out.vector += dx * (b.transpose() * (c * to_voigt_strain<Dim>(e)));
     }
     if (form.body_force) {
       const Eigen::Matrix<Complex, Dim, 1> f = form.body_force(g.x);

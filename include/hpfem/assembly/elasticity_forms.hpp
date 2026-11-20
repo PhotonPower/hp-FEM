@@ -54,6 +54,10 @@ struct ElasticForm {
   std::function<Eigen::Matrix<Complex, Dim, 1>(const Point<Dim>&)> body_force;  ///< f [N/m³]
   /// Eigenstrain ε*(x), a symmetric tensor (shrinkage −s I, thermal α ΔT I).
   std::function<ComplexTensor<Dim>(const Point<Dim>&)> eigenstrain;
+  /// Further eigenstrain ε*(ξ, x) in reference coordinates of the cell (a field of another space
+  /// on the same mesh, e.g. a temperature); added to `eigenstrain`.
+  std::function<ComplexTensor<Dim>(const Point<Dim>& xi, const Point<Dim>& x)>
+      eigenstrain_reference;
 };
 template <int Dim>
 using ElasticFormFactory = std::function<ElasticForm<Dim>(Index)>;

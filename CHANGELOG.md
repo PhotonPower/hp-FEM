@@ -3,6 +3,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Elasticity: eigenstrain sources and free bodies (M20 S2).
+  - `ElasticitySetup::shrinkage` (isotropic s(x)).
+  - Thermal strain from a temperature on the same map (`temperature`, `thermal_expansion`,
+    `reference_temperature`).
+  - `GridField<Dim>`: bi- / trilinear interpolation on a regular grid, the data-port path.
+  - `remove_rigid_modes`: 3-2-1 pins, equilibrium check and L2 projection onto the rigid-body
+    modes (ADR-0016 §4a).
+  - Tests: the free sphere (u = −s r to 1e-12), the laterally constrained layer, a stress-free
+    linear temperature, a two-material thermal mismatch.
 - Linear elasticity with eigenstrain (M20 S1, ADR-0016, issue #213): `physics::Elasticity<Dim>`
   on Dim copies of the scalar H1 space (component-major), plane strain in 2D.
   - Supports isotropic (E, ν) per cell tag, prescribed displacement components on tagged facets

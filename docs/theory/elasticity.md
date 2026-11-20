@@ -78,6 +78,26 @@ machinery:
 - **Tractions.** They act on facet DoFs only, because the interior bubbles vanish on the facets.
   The traction load is therefore added after the condensation.
 
+## Eigenstrain sources and free bodies (M20 S2)
+
+`ElasticitySetup` adds up three sources of eigenstrain:
+
+- **`eigenstrain`:** a symmetric tensor field ε\*(x).
+- **`shrinkage`:** an isotropic shrinkage s(x), giving −s I. The data path for it is a
+  `GridField<Dim>`: a volume field on a regular grid, interpolated linearly per axis (bilinear or
+  trilinear), with values in C order as in NumPy. An axis of length 1 means invariance along it,
+  and points outside the grid are refused.
+- **Temperature:** coefficients on the same scalar map, for example from `Thermal`, give the
+  thermal strain α (T − T₀) I. α is given per cell tag. The temperature is evaluated in
+  reference coordinates of the cell, so no point location is needed.
+
+**Free bodies (`remove_rigid_modes`, ADR-0016 §4a).**
+
+1. Three far-apart vertices are pinned by the 3-2-1 rule.
+2. The load is checked against the rigid-body modes: an unbalanced load is refused.
+3. After the solve, the L2 projection onto the six modes (three in 2D) is subtracted, so that the
+   mean translation and the mean rotation vanish.
+
 ## Number type
 
 The matrix is real symmetric positive definite once the Dirichlet data is eliminated. It is
@@ -98,6 +118,21 @@ assembled as complex with a zero imaginary part and solved with the direct backe
   - Plane strain: ε_xx = (1 − ν²)σ₀/E and ε_yy = −ν(1 + ν)σ₀/E.
 - **Uniform shrinkage.** An eigenstrain ε\* = −s I in a block held only by three symmetry planes
   gives u = −s x and σ = 0.
+
+**Unit tests for S2:**
+
+- **Free sphere.** On the curved ball mesh (geometry order 2) with homogeneous shrinkage, the
+  exact field u = −s x is reproduced to 1e-12 for p = 2 and 3, with and without condensation.
+  This holds for a constant s and for the same s from a `GridField`. The mean translation and
+  rotation are zero.
+- **Laterally constrained layer.** On a clamped base, u_z = −s z (1 + ν)/(1 − ν) and
+  σ_xx = σ_yy = s E/(1 − ν).
+- **Free cube with a linear temperature** from `Thermal`.
+  - The thermal strain α g x I is compatible: ε = α g x I and σ = 0.
+  - A second material with a different α makes it incompatible, and stresses appear.
+- **`GridField`.** It reproduces linear functions, is invariant along an axis of length 1, and
+  refuses points outside the grid and malformed input.
+- **Free-body checks.** An unbalanced load is refused.
 
 **Convergence test** (`tests/convergence/elasticity.cpp`):
 
