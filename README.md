@@ -1,7 +1,7 @@
 # hp-FEM
 
 [![CI](https://github.com/PhotonPower/hp-FEM/actions/workflows/ci.yml/badge.svg)](https://github.com/PhotonPower/hp-FEM/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/PhotonPower/hp-FEM/blob/main/LICENSE)
 [![Docs](https://github.com/PhotonPower/hp-FEM/actions/workflows/docs.yml/badge.svg)](https://photonpower.github.io/hp-FEM/)
 
 Adaptive **hp-finite-element** suite for nano-optics: time-harmonic Maxwell solvers with
@@ -16,16 +16,30 @@ Theory, architecture, Python guide and API reference:
 **<https://photonpower.github.io/hp-FEM/>** (built from `docs/` by MkDocs on every push to `main`).
 
 ## Status
-Release **0.2.0**: milestones **M0–M9** are complete (mesh infrastructure, scalar FEM,
-Nédélec elements and Maxwell eigenproblems, scattering and waveguides, hp-adaptivity, solvers,
-Python API, application examples, multiphysics); only the optional MPI item of M6 is open.
-See [docs/roadmap.md](docs/roadmap.md) and [CHANGELOG.md](CHANGELOG.md).
+Release **0.5.0**: milestones **M0–M20** are complete. Beyond the Maxwell core (mesh
+infrastructure, Nédélec elements, scattering and waveguides, hp-adaptivity, solvers, Python API,
+multiphysics) this covers validation against the literature, axisymmetric and conical solvers,
+ports and sensitivities, optimisation and uncertainty quantification, dipole emitters in periodic
+structures, anisotropic materials, and linear elasticity with eigenstrain. Open are the optional
+MPI item and the full 3D ring resonator. See the
+[roadmap](https://github.com/PhotonPower/hp-FEM/blob/main/docs/roadmap.md) and the
+[changelog](https://github.com/PhotonPower/hp-FEM/blob/main/CHANGELOG.md).
 
-## Quick start
+## Installation
+```bash
+pip install hpfem            # binary wheels: Linux x86_64, Windows x86_64, macOS arm64 (>= 14)
+pip install "hpfem[gui]"     # plus the Streamlit front end (hpfem-gui)
+hpfem info                   # version, threads, solver backends
+hpfem reference              # compact command reference of the Python API (for agents)
+```
+The wheels use the SparseLU direct solver (`hpfem info` shows the backends and OpenMP threads);
+the MUMPS and cuDSS backends need a source build. Other platforms build from the sdist (C++20 compiler, CMake ≥ 3.25, Ninja).
+
+## Quick start (development)
 ```bash
 ./scripts/setup-dev.sh                       # Ubuntu toolchain + pre-commit
 cmake --preset release && cmake --build --preset release && ctest --preset release
-pip install -e ".[dev]"                      # Python package (or a wheel from the wheels workflow)
+pip install -e ".[dev]"                      # Python package from the source tree
 pip install "hpfem[gui]" && hpfem-gui app.py # Streamlit front end with this interpreter
 mkdocs serve                                 # documentation
 ```
@@ -59,4 +73,4 @@ mkdocs serve                                 # documentation
 | PETSc/SLEPc, MPI | optional (later milestones) | `find_package`, CMake options |
 
 ## License
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](https://github.com/PhotonPower/hp-FEM/blob/main/LICENSE).
