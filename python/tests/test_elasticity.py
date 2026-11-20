@@ -132,3 +132,31 @@ def test_mesh_velocity_is_the_motion_of_the_deformed_mesh():
     v0 = np.asarray(mesh.vertices)
     assert np.allclose(np.asarray(moved.vertices), v0 + 0.5 * velocity, atol=1e-15)
     assert np.allclose(velocity[:, 2], -s * v0[:, 2] * (1 + NU) / (1 - NU), atol=1e-15)
+
+
+def test_axisymmetric_cylinder_patch_with_hoop_stress():
+    """A body of revolution on the meridian rectangle (axis at x = 0): u_r = a r, u_z = b z is
+    exact, with σ_θθ = σ_rr = 2 (λ + μ) a + λ b (M20 S5a)."""
+    a, b = 1e-3, -2e-3
+    mesh = hpfem.rectangle(3, 3, [0.0, 0.0], [1.0, 1.0])
+    dofs = hpfem.DofMap2D(mesh, 2)
+    setup = hpfem.ElasticitySetup2D()
+    setup.background = hpfem.ElasticMaterial(E, NU)
+    setup.axisymmetric = True
+    setup.axis_tag = hpfem.box_tag.X_MIN
+    tag = hpfem.box_tag
+    exact = lambda x: np.array([a * x[0], b * x[1]], dtype=complex)  # noqa: E731
+    setup.displacements = [
+        hpfem.DisplacementCondition2D(t, [True, True], exact)
+        for t in (tag.X_MAX, tag.Y_MIN, tag.Y_MAX)
+    ]
+    problem = hpfem.Elasticity2D(dofs, setup)
+    u = problem.solve()
+    pts = np.array([[0.3, 0.4], [0.9, 0.1]])
+    assert (
+        np.abs(problem.displacements_at(u, pts) - np.array([exact(p) for p in pts])).max() < 1e-15
+    )
+    lam = E * NU / ((1 + NU) * (1 - 2 * NU))
+    mu = E / (2 * (1 + NU))
+    hoop = problem.hoop_stress(u, 4, [0.3, 0.3]).real
+    assert hoop == pytest.approx(2 * (lam + mu) * a + lam * b, rel=1e-10)

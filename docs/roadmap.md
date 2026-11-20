@@ -733,8 +733,16 @@ existing solver stack.
   resin disc in a soft surrounding, the scattered field at a point by `shape_derivative` along
   V against the central difference of the optical solve on the deformed meshes (2e-4), and the
   full 1 % shrinkage predicted to first order within 0.9 %
-- [ ] S5 (optional): axisymmetric elasticity (u_r, u_z) for printed bodies of revolution, a
-  residual estimator and hp-adaptivity, a real-valued solver path if measured necessary
+- S5 (optional):
+  - [x] S5a: axisymmetric elasticity (u_r, u_z) for printed bodies of revolution
+    (`ElasticitySetup::axisymmetric`, `axis_tag`, `hoop_eigenstrain`; hoop strain u_r / r, weight
+    r, u_r = 0 on the axis, the z translation as the only rigid-body mode; `hoop_strain`,
+    `hoop_stress`); tests: the patch test with the hoop stress, the free sphere on the half disc
+    (1e-12), the hollow sphere under internal pressure against Lamé (8.4e-7 at p = 4, the
+    quadratic geometry of the arcs falling like h_θ⁴)
+  - [ ] S5b: a residual estimator and hp-adaptivity for elasticity (the singular edges of
+    clamped printed parts)
+  - [ ] S5c: a real-valued solver path, if measured necessary
 
 ## Backlog / ideas
 - [ ] the full ring resonator with ports in 3D (M12 stage B): needs an hp-mesh that is fine

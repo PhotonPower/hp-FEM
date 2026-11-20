@@ -77,6 +77,20 @@ Elasticity<Dim>::Elasticity(const fespace::DofMap<Dim>& dofs, ElasticitySetup<Di
     throw InvalidArgument(
         "Elasticity: remove_rigid_modes is for free bodies, without displacement conditions");
   }
+  if (setup_.axisymmetric) {
+    if constexpr (Dim != 2) {
+      throw InvalidArgument("Elasticity: axisymmetric problems live on a 2D meridian mesh");
+    }
+    if (mesh.facets_with_tag(setup_.axis_tag).empty()) {
+      throw InvalidArgument(
+          fmt::format("Elasticity: no facet carries the axis tag {}", setup_.axis_tag));
+    }
+    for (Index v = 0; v < mesh.num_vertices(); ++v) {
+      if (mesh.vertex(v)(0) < -1e-12) {
+        throw InvalidArgument("Elasticity: the meridian mesh must lie in r = x >= 0");
+      }
+    }
+  }
 }
 
 template <int Dim>
@@ -124,6 +138,50 @@ assembly::ElasticForm<Dim> Elasticity<Dim>::form_of_cell(Index cell) const {
 }
 
 template <int Dim>
+Complex Elasticity<Dim>::isotropic_eigenstrain(Index c, const Point<Dim>& xi,
+                                               const Point<Dim>& x) const {
+  Complex e = 0;
+  if (setup_.shrinkage) e -= setup_.shrinkage(x);
+  const Real alpha = expansion(c);
+  if (setup_.temperature.size() != 0 && alpha != 0) {
+    e += alpha * (assembly::evaluate_h1<Dim>(*dofs_, setup_.temperature, c, xi) -
+                  setup_.reference_temperature);
+  }
+  return e;
+}
+
+template <int Dim>
+assembly::AxisymmetricElasticForm Elasticity<Dim>::axisymmetric_form_of_cell(Index cell) const {
+  if constexpr (Dim != 2) {
+    throw InvalidArgument("Elasticity: axisymmetric forms need Dim = 2");
+  } else {
+    assembly::AxisymmetricElasticForm form;
+    const ElasticMaterial& m = material(cell);
+    const assembly::AxisymmetricVoigtMatrix c =
+        assembly::axisymmetric_isotropic_stiffness(m.youngs_modulus, m.poisson_ratio);
+    form.stiffness = [c](const Point<2>&) { return c; };
+    form.body_force = setup_.body_force;
+    if (setup_.eigenstrain || setup_.hoop_eigenstrain || setup_.shrinkage ||
+        (setup_.temperature.size() != 0 && expansion(cell) != 0)) {
+      form.eigenstrain_reference = [this, cell](const Point<2>& xi, const Point<2>& x) {
+        assembly::AxisymmetricVoigtVector e = assembly::AxisymmetricVoigtVector::Zero();
+        if (setup_.eigenstrain) {
+          const assembly::ComplexTensor<2> t = setup_.eigenstrain(x);
+          e << t(0, 0), t(1, 1), 0.0, t(0, 1) + t(1, 0);
+        }
+        if (setup_.hoop_eigenstrain) e(2) += setup_.hoop_eigenstrain(x);
+        const Complex iso = isotropic_eigenstrain(cell, xi, x);
+        e(0) += iso;
+        e(1) += iso;
+        e(2) += iso;
+        return e;
+      };
+    }
+    return form;
+  }
+}
+
+template <int Dim>
 assembly::ComplexTensor<Dim> Elasticity<Dim>::eigenstrain(Index c, const Point<Dim>& xi) const {
   const assembly::ElasticForm<Dim> form = form_of_cell(c);
   assembly::ComplexTensor<Dim> e = assembly::ComplexTensor<Dim>::Zero();
@@ -136,6 +194,14 @@ assembly::ComplexTensor<Dim> Elasticity<Dim>::eigenstrain(Index c, const Point<D
 template <int Dim>
 std::vector<Vector> Elasticity<Dim>::rigid_modes() const {
   const auto& mesh = dofs_->mesh();
+  if (axisymmetric()) {
+    // u_r = 0 on the axis leaves the translation along z only
+    Vector mode = Vector::Zero(num_dofs());
+    mode.segment(dofs_->num_dofs(), dofs_->num_dofs()) = assembly::interpolate<Dim>(
+        *dofs_,
+        assembly::physical_sampler<Dim>([](const Point<Dim>&) { return Complex{1.0, 0.0}; }));
+    return {mode};
+  }
   Point<Dim> centre = Point<Dim>::Zero();
   for (Index v = 0; v < mesh.num_vertices(); ++v) centre += mesh.vertex(v);
   centre /= static_cast<Real>(mesh.num_vertices());
@@ -196,6 +262,7 @@ std::vector<Index> Elasticity<Dim>::rigid_pins(
       b = v;
     }
   }
+  if (axisymmetric()) return {scalar + a};  // u_z at one vertex
   const Point<Dim> d = mesh.vertex(b) - mesh.vertex(a);
   std::vector<Index> pins;
   for (int i = 0; i < Dim; ++i) pins.push_back(i * scalar + a);
@@ -243,9 +310,10 @@ Vector Elasticity<Dim>::traction_load() const {
       basis.evaluate(sp.xi, values, gradients);
       const Eigen::Matrix<Complex, Dim, 1> traction = t.traction(sp.x);
       const auto ids = dofs_->cell_dofs(sp.cell);
+      const Real w = sp.weight * (axisymmetric() ? sp.x(0) : 1.0);  // ds → r ds
       for (Index a = 0; a < n; ++a) {
         for (int i = 0; i < Dim; ++i) {
-          load(i * scalar + ids[as_size(a)]) += sp.weight * values[as_size(a)] * traction(i);
+          load(i * scalar + ids[as_size(a)]) += w * values[as_size(a)] * traction(i);
         }
       }
     }
@@ -254,9 +322,23 @@ Vector Elasticity<Dim>::traction_load() const {
 }
 
 template <int Dim>
+assembly::AssembledSystem Elasticity<Dim>::assemble(
+    assembly::StaticCondensation* condensation) const {
+  if constexpr (Dim == 2) {
+    if (axisymmetric()) {
+      return assembly::assemble_axisymmetric_elasticity(
+          *dofs_, [this](Index c) { return axisymmetric_form_of_cell(c); },
+          setup_.extra_quadrature_order, condensation);
+    }
+  }
+  return assembly::assemble_elasticity<Dim>(
+      *dofs_, [this](Index c) { return form_of_cell(c); }, setup_.extra_quadrature_order,
+      condensation);
+}
+
+template <int Dim>
 assembly::AssembledSystem Elasticity<Dim>::system() const {
-  auto out = assembly::assemble_elasticity<Dim>(
-      *dofs_, [this](Index c) { return form_of_cell(c); }, setup_.extra_quadrature_order);
+  auto out = assemble(nullptr);
   out.rhs += traction_load();
   return out;
 }
@@ -269,9 +351,7 @@ Vector Elasticity<Dim>::solve() const {
   if (setup_.static_condensation) {
     condensation = std::make_unique<assembly::StaticCondensation>(num_dofs());
   }
-  auto assembled = assembly::assemble_elasticity<Dim>(
-      *dofs_, [this](Index c) { return form_of_cell(c); }, setup_.extra_quadrature_order,
-      condensation.get());
+  auto assembled = assemble(condensation.get());
   SparseMatrix k = std::move(assembled.matrix);
   // tractions act on facet DoFs only; the interior bubbles vanish there, so they need no
   // condensation
@@ -289,6 +369,11 @@ Vector Elasticity<Dim>::solve() const {
       for (Index& dof : data.dofs) dof += i * scalar;
       parts.push_back(std::move(data));
     }
+  }
+  if (axisymmetric()) {  // u_r = 0 on the axis
+    auto data = assembly::dirichlet_values<Dim>(
+        *dofs_, setup_.axis_tag, [](const Point<Dim>&) { return Complex{0.0, 0.0}; });
+    parts.push_back(std::move(data));
   }
   std::vector<Vector> modes;
   if (setup_.remove_rigid_modes) {
@@ -383,8 +468,55 @@ assembly::ComplexTensor<Dim> Elasticity<Dim>::strain(const Vector& u, Index c,
 }
 
 template <int Dim>
+Complex Elasticity<Dim>::hoop_strain(const Vector& u, Index c, const Point<Dim>& xi) const {
+  if (!axisymmetric())
+    throw InvalidArgument("Elasticity: hoop strain of a non-axisymmetric problem");
+  const auto geometry = mesh::cell_geometry(dofs_->mesh(), c);
+  const auto g = geometry->evaluate(xi);
+  const Real h = std::sqrt(std::abs(g.det));
+  if (g.x(0) < 1e-9 * h) {  // the limit u_r / r → ∂u_r/∂r on the axis
+    return assembly::evaluate_displacement_gradient<Dim>(*dofs_, u, c, xi)(0, 0);
+  }
+  return displacement(u, c, xi)(0) / g.x(0);
+}
+
+template <int Dim>
+assembly::AxisymmetricVoigtVector Elasticity<Dim>::axisymmetric_elastic_strain(
+    const Vector& u, Index c, const Point<Dim>& xi) const {
+  const assembly::ComplexTensor<Dim> e = strain(u, c, xi);
+  assembly::AxisymmetricVoigtVector v;
+  v << e(0, 0), e(1, 1), hoop_strain(u, c, xi), 2.0 * e(0, 1);
+  if constexpr (Dim == 2) {
+    const auto x = mesh::cell_geometry(dofs_->mesh(), c)->evaluate(xi).x;
+    const auto form = axisymmetric_form_of_cell(c);
+    if (form.eigenstrain_reference) v -= form.eigenstrain_reference(xi, x);
+  }
+  return v;
+}
+
+template <int Dim>
+Complex Elasticity<Dim>::hoop_stress(const Vector& u, Index c, const Point<Dim>& xi) const {
+  if (!axisymmetric())
+    throw InvalidArgument("Elasticity: hoop stress of a non-axisymmetric problem");
+  const ElasticMaterial& m = material(c);
+  return (assembly::axisymmetric_isotropic_stiffness(m.youngs_modulus, m.poisson_ratio) *
+          axisymmetric_elastic_strain(u, c, xi))(2);
+}
+
+template <int Dim>
 assembly::ComplexTensor<Dim> Elasticity<Dim>::stress(const Vector& u, Index c,
                                                      const Point<Dim>& xi) const {
+  if (axisymmetric()) {
+    const ElasticMaterial& m = material(c);
+    const assembly::AxisymmetricVoigtVector s =
+        assembly::axisymmetric_isotropic_stiffness(m.youngs_modulus, m.poisson_ratio) *
+        axisymmetric_elastic_strain(u, c, xi);
+    assembly::ComplexTensor<Dim> out = assembly::ComplexTensor<Dim>::Zero();
+    out(0, 0) = s(0);
+    out(1, 1) = s(1);
+    out(0, 1) = out(1, 0) = s(3);
+    return out;
+  }
   const assembly::ComplexTensor<Dim> e = strain(u, c, xi) - eigenstrain(c, xi);
   return assembly::from_voigt_stress<Dim>(stiffness_of_cell(c) * assembly::to_voigt_strain<Dim>(e));
 }
@@ -412,7 +544,17 @@ Real Elasticity<Dim>::strain_energy(const Vector& u) const {
         2 * dofs_->cell_order(c) + setup_.extra_quadrature_order + (geometry->is_affine() ? 0 : 2));
     const assembly::VoigtMatrix<Dim> stiffness = stiffness_of_cell(c);
     for (std::size_t q = 0; q < rule.size(); ++q) {
-      const Real dx = rule.weights[q] * std::abs(geometry->evaluate(rule.points[q]).det);
+      const auto g = geometry->evaluate(rule.points[q]);
+      const Real dx = rule.weights[q] * std::abs(g.det);
+      if (axisymmetric()) {
+        const ElasticMaterial& m = material(c);
+        const auto e = axisymmetric_elastic_strain(u, c, rule.points[q]);
+        energy +=
+            0.5 * dx * g.x(0) *
+            e.dot(assembly::axisymmetric_isotropic_stiffness(m.youngs_modulus, m.poisson_ratio) * e)
+                .real();
+        continue;
+      }
       const auto e = assembly::to_voigt_strain<Dim>(strain(u, c, rule.points[q]) -
                                                     eigenstrain(c, rule.points[q]));
       energy += 0.5 * dx * e.dot(stiffness * e).real();
@@ -502,7 +644,8 @@ Complex Elasticity<Dim>::l2_product(const Vector& a, const Vector& b) const {
     const auto rule = assembly::simplex_quadrature<Dim>(2 * dofs_->cell_order(c) +
                                                         (geometry->is_affine() ? 0 : 2));
     for (std::size_t q = 0; q < rule.size(); ++q) {
-      const Real dx = rule.weights[q] * std::abs(geometry->evaluate(rule.points[q]).det);
+      const auto g = geometry->evaluate(rule.points[q]);
+      const Real dx = rule.weights[q] * std::abs(g.det) * (axisymmetric() ? g.x(0) : 1.0);
       sum += dx * displacement(a, c, rule.points[q]).dot(displacement(b, c, rule.points[q]));
     }
   }

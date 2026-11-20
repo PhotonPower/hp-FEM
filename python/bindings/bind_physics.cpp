@@ -515,6 +515,11 @@ void bind_physics_dim(py::module_& m) {
       .def_readwrite("background_expansion", &ElasticitySetup<Dim>::background_expansion)
       .def_readwrite("thermal_expansion", &ElasticitySetup<Dim>::thermal_expansion)
       .def_readwrite("remove_rigid_modes", &ElasticitySetup<Dim>::remove_rigid_modes)
+      .def_readwrite("axisymmetric", &ElasticitySetup<Dim>::axisymmetric,
+                     "body of revolution (2D only): meridian mesh x = r >= 0, y = z, components "
+                     "(u_r, u_z), weight r (factor 2 pi dropped), u_r = 0 on axis_tag")
+      .def_readwrite("axis_tag", &ElasticitySetup<Dim>::axis_tag)
+      .def_readwrite("hoop_eigenstrain", &ElasticitySetup<Dim>::hoop_eigenstrain)
       .def_readwrite("static_condensation", &ElasticitySetup<Dim>::static_condensation)
       .def_readwrite("solver", &ElasticitySetup<Dim>::solver)
       .def_readwrite("extra_quadrature_order", &ElasticitySetup<Dim>::extra_quadrature_order);
@@ -538,6 +543,10 @@ void bind_physics_dim(py::module_& m) {
       .def("stress", &Elasticity<Dim>::stress, py::arg("u"), py::arg("cell"), py::arg("xi"),
            "sigma = C : (eps(u) - eps*) [Pa]")
       .def("eigenstrain", &Elasticity<Dim>::eigenstrain, py::arg("cell"), py::arg("xi"))
+      .def("hoop_strain", &Elasticity<Dim>::hoop_strain, py::arg("u"), py::arg("cell"),
+           py::arg("xi"), "u_r / r (axisymmetric)")
+      .def("hoop_stress", &Elasticity<Dim>::hoop_stress, py::arg("u"), py::arg("cell"),
+           py::arg("xi"), "sigma_theta_theta (axisymmetric)")
       .def("strain_energy", &Elasticity<Dim>::strain_energy, py::arg("u"), Release(),
            "1/2 int (eps - eps*) : C : (eps - eps*) [J] (3D) or [J/m] (2D)")
       .def("deformed_mesh", &Elasticity<Dim>::deformed_mesh, py::arg("u"), py::arg("scale") = 1.0,

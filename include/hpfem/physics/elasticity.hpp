@@ -18,6 +18,7 @@
 #include <optional>
 #include <vector>
 
+#include "hpfem/assembly/condensation.hpp"
 #include "hpfem/assembly/elasticity_forms.hpp"
 #include "hpfem/core/types.hpp"
 #include "hpfem/fespace/constraints.hpp"
@@ -80,6 +81,15 @@ struct ElasticitySetup {
   /// the solution has zero mean translation and rotation (ADR-0016 §4a). Requires loads in
   /// equilibrium (eigenstrains always are) and no displacement conditions.
   bool remove_rigid_modes = false;
+  /// A body of revolution (Dim = 2 only, ADR-0016 S5): the mesh is the meridian half-plane
+  /// x = r ≥ 0, y = z, component 0 is u_r and 1 is u_z (no torsion, azimuthal order 0); the hoop
+  /// strain u_r / r enters, the integrals carry the weight r (the factor 2π dropped: energies and
+  /// loads per radian), u_r = 0 is imposed on the facets with `axis_tag`, and the only rigid-body
+  /// mode is the translation along z. The eigenstrains of `shrinkage` and the temperature are
+  /// isotropic (hoop included); that of `eigenstrain` takes its hoop part from `hoop_eigenstrain`.
+  bool axisymmetric = false;
+  mesh::Tag axis_tag = mesh::kNoTag;  ///< facets on the axis r = 0 (axisymmetric)
+  std::function<Real(const Point<Dim>&)> hoop_eigenstrain;  ///< ε*_θθ(x) (axisymmetric)
   bool static_condensation = false;  ///< condense the interior DoFs of all components
   solvers::DirectSolverBackend solver = solvers::DirectSolverBackend::kAuto;
   int extra_quadrature_order = 2;  ///< added to 2p (non-polynomial data, curved cells)
@@ -147,8 +157,16 @@ class Elasticity {
   /// Strain ε(u) at reference point ξ of cell c.
   [[nodiscard]] assembly::ComplexTensor<Dim> strain(const Vector& u, Index c,
                                                     const Point<Dim>& xi) const;
+  /// Hoop strain u_r / r at reference point ξ of cell c (axisymmetric; ∂u_r/∂r on the axis).
+  /// @throws InvalidArgument if the problem is not axisymmetric.
+  [[nodiscard]] Complex hoop_strain(const Vector& u, Index c, const Point<Dim>& xi) const;
+  /// Hoop stress σ_θθ at reference point ξ of cell c (axisymmetric).
+  /// @throws InvalidArgument if the problem is not axisymmetric.
+  [[nodiscard]] Complex hoop_stress(const Vector& u, Index c, const Point<Dim>& xi) const;
+  /// Per-cell form of the axisymmetric problem (Dim = 2).
+  [[nodiscard]] assembly::AxisymmetricElasticForm axisymmetric_form_of_cell(Index cell) const;
   /// Stress σ = C : (ε(u) − ε*) at reference point ξ of cell c (in 2D the in-plane part of the
-  /// plane-strain stress).
+  /// plane-strain stress; axisymmetric: (rr, rz; rz, zz), the hoop part from `hoop_stress`).
   [[nodiscard]] assembly::ComplexTensor<Dim> stress(const Vector& u, Index c,
                                                     const Point<Dim>& xi) const;
 
@@ -157,6 +175,16 @@ class Elasticity {
   [[nodiscard]] Vector traction_load() const;
   /// α of a cell.
   [[nodiscard]] Real expansion(Index cell) const;
+  [[nodiscard]] bool axisymmetric() const noexcept { return Dim == 2 && setup_.axisymmetric; }
+  /// The stiffness matrix and load of the problem's forms (plane / 3D or axisymmetric).
+  [[nodiscard]] assembly::AssembledSystem assemble(
+      assembly::StaticCondensation* condensation) const;
+  /// The isotropic part of the eigenstrain at (c, ξ): −s + α (T − T₀).
+  [[nodiscard]] Complex isotropic_eigenstrain(Index c, const Point<Dim>& xi,
+                                              const Point<Dim>& x) const;
+  /// Elastic strain ε − ε* in the axisymmetric Voigt order (rr, zz, θθ, γ_rz).
+  [[nodiscard]] assembly::AxisymmetricVoigtVector axisymmetric_elastic_strain(
+      const Vector& u, Index c, const Point<Dim>& xi) const;
   /// The 3-2-1 DoFs that fix the rigid-body modes (none constrained by `constraints`).
   [[nodiscard]] std::vector<Index> rigid_pins(
       const std::optional<fespace::Constraints>& constraints) const;
