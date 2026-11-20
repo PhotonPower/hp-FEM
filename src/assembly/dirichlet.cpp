@@ -4,9 +4,11 @@
 #include <map>
 #include <set>
 #include <utility>
+#include <vector>
 
 #include <fmt/format.h>
 
+#include "hpfem/assembly/interpolation.hpp"
 #include "hpfem/core/error.hpp"
 
 namespace hpfem::assembly {
@@ -31,7 +33,7 @@ DirichletData to_data(const std::map<Index, Complex>& values) {
 template <int Dim>
 DirichletData dirichlet_values(const fespace::DofMap<Dim>& dofs, std::span<const Index> facets,
                                const std::type_identity_t<ScalarField<Dim>>& g) {
-  return interpolate(dofs, EntitySet<Dim>::of_facets(dofs.mesh(), facets),
+  return interpolate(dofs, EntitySet<Dim>::of_boundary_facets(dofs.mesh(), facets),
                      physical_sampler<Dim>(g));
 }
 
@@ -46,7 +48,7 @@ template <int Dim>
 DirichletData tangential_dirichlet_values(const fespace::NedelecDofMap<Dim>& dofs,
                                           std::span<const Index> facets,
                                           const std::type_identity_t<ComplexVectorField<Dim>>& g) {
-  return interpolate(dofs, EntitySet<Dim>::of_facets(dofs.mesh(), facets),
+  return interpolate(dofs, EntitySet<Dim>::of_boundary_facets(dofs.mesh(), facets),
                      physical_sampler<Dim>(g));
 }
 
@@ -64,7 +66,7 @@ std::vector<DirichletData> tangential_dirichlet_values(
   std::vector<VectorSampler<Dim>> samplers;
   samplers.reserve(gs.size());
   for (const auto& g : gs) samplers.push_back(physical_sampler<Dim>(g));
-  return interpolate(dofs, EntitySet<Dim>::of_facets(dofs.mesh(), facets),
+  return interpolate(dofs, EntitySet<Dim>::of_boundary_facets(dofs.mesh(), facets),
                      std::span<const VectorSampler<Dim>>(samplers));
 }
 
@@ -74,6 +76,21 @@ DirichletData homogeneous_dirichlet(const fespace::EntityDofMap<Dim, Counts>& do
   std::map<Index, Complex> values;
   for (const Index f : facets) {
     for (const Index dof : dofs.facet_dofs(f)) values[dof] = 0.0;
+  }
+  if constexpr (Dim == 3) {
+    if (!dofs.mesh().is_conforming()) {
+      // the hanging parent edges lying on the facets (EntitySet::of_boundary_facets)
+      std::vector<Index> edges;
+      for (const Index f : facets) {
+        const auto& fv = dofs.mesh().facet_vertices(f);
+        edges.push_back(dofs.mesh().edge_id(fv[0], fv[1]));
+        edges.push_back(dofs.mesh().edge_id(fv[1], fv[2]));
+        edges.push_back(dofs.mesh().edge_id(fv[0], fv[2]));
+      }
+      for (const Index e : EntitySet<Dim>::hanging_parents_of(dofs.mesh(), edges)) {
+        for (const Index dof : dofs.edge_dofs(e)) values[dof] = 0.0;
+      }
+    }
   }
   return to_data(values);
 }

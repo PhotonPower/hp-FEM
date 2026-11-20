@@ -31,6 +31,17 @@ struct EntitySet {
   /// Vertices, edges (and faces) of the given facets: the trace space on them.
   [[nodiscard]] static EntitySet of_facets(const mesh::Mesh<Dim>& mesh,
                                            std::span<const Index> facets);
+  /// Vertices, edges (and faces) of the given facets plus, in 3D, the parent edges of hanging
+  /// edges whose two half edges both lie on these facets: a coarse edge can lie in a surface
+  /// that its own cells touch only along that edge (the surface facets next to it belong to
+  /// refined neighbours), and the half edges on the surface are constrained to its DoFs, so a
+  /// Dirichlet condition on the surface must prescribe them as well.
+  [[nodiscard]] static EntitySet of_boundary_facets(const mesh::Mesh<Dim>& mesh,
+                                                    std::span<const Index> facets);
+  /// The hanging parent edges whose two half edges are in `edges` (3D; empty in 2D, where
+  /// hanging edges are facets), ascending.
+  [[nodiscard]] static std::vector<Index> hanging_parents_of(const mesh::Mesh<Dim>& mesh,
+                                                             std::span<const Index> edges);
   /// All entities of the given cells including their interiors.
   [[nodiscard]] static EntitySet of_cells(const mesh::Mesh<Dim>& mesh,
                                           std::span<const Index> cells);

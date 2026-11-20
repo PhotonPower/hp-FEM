@@ -1,5 +1,7 @@
+#include <algorithm>
 #include <cmath>
 #include <random>
+#include <span>
 #include <type_traits>
 #include <vector>
 
@@ -9,10 +11,13 @@
 
 #include "hpfem/assembly/dirichlet.hpp"
 #include "hpfem/assembly/h1_forms.hpp"
+#include "hpfem/assembly/hanging_constraints.hpp"
+#include "hpfem/assembly/interpolation.hpp"
 #include "hpfem/assembly/sparse_assembler.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/fespace/reference_element.hpp"
+#include "hpfem/mesh/adaptive_mesh.hpp"
 #include "hpfem/mesh/generators.hpp"
 #include "hpfem/mesh/geometry.hpp"
 
@@ -178,4 +183,84 @@ TEST_CASE("homogeneous_dirichlet and merge_dirichlet", "[assembly][dirichlet]") 
           a.size() + bv.size() - 1);  // the corner (0,0) is shared: first value wins
   REQUIRE(std::is_sorted(merged.dofs.begin(), merged.dofs.end()));
   REQUIRE(merged.values(0) == Complex{0.0, 0.0});  // vertex 0 = corner from `a`
+}
+
+namespace {
+
+/// Every constrained DoF of `data` has all its masters in `data`, and its value is their
+/// combination: the prescribed values lie in the constrained space.
+template <class Map>
+void check_closed_under_constraints(const Map& dofs, const DirichletData& data) {
+  const auto constraints = hpfem::assembly::hanging_constraints(dofs);
+  std::vector<Complex> value(as_size(dofs.num_dofs()), Complex{std::nan(""), 0.0});
+  for (Index i = 0; i < data.size(); ++i) value[as_size(data.dofs[as_size(i)])] = data.values(i);
+  Index checked = 0;
+  for (const Index dof : data.dofs) {
+    if (!constraints.is_constrained(dof)) continue;
+    Complex sum = 0;
+    for (const auto& term : constraints.terms(dof)) {
+      INFO("slave " << dof << ", master " << term.master);
+      REQUIRE(std::binary_search(data.dofs.begin(), data.dofs.end(), term.master));
+      sum += term.coefficient * value[as_size(term.master)];
+    }
+    REQUIRE(std::abs(sum - value[as_size(dof)]) < 1e-12);
+    ++checked;
+  }
+  REQUIRE(checked > 0);
+}
+
+}  // namespace
+
+TEST_CASE("Dirichlet sets include hanging parent edges lying on the facets (3D)",
+          "[assembly][dirichlet][hanging]") {
+  // refining the cell at (0.125, 0.25, 0.375) leaves a coarse edge on the line x = y = 0 whose
+  // own cells touch the plane x = 0 only along that edge: its half edges on x = 0 are slaves of
+  // its DoFs, which no facet of x = 0 carries; the condition on x = 0 must prescribe them
+  hpfem::mesh::AdaptiveMesh<3> adaptive(box(4, 2, 2, Point<3>::Zero(), Point<3>(2.0, 1.0, 1.0)));
+  const std::vector<Index> marked{5};
+  adaptive.refine(marked);
+  const Mesh<3>& mesh = adaptive.mesh();
+  const auto facets = mesh.facets_with_tag(hpfem::mesh::box_tag::kXMin);
+  std::vector<Index> facet_edges;
+  for (const Index f : facets) {
+    const auto& fv = mesh.facet_vertices(f);
+    facet_edges.push_back(mesh.edge_id(fv[0], fv[1]));
+    facet_edges.push_back(mesh.edge_id(fv[1], fv[2]));
+    facet_edges.push_back(mesh.edge_id(fv[0], fv[2]));
+  }
+  const auto parents =
+      hpfem::assembly::EntitySet<3>::hanging_parents_of(mesh, std::span<const Index>(facet_edges));
+  const bool parent_off_facets = std::any_of(parents.begin(), parents.end(), [&](Index e) {
+    return std::find(facet_edges.begin(), facet_edges.end(), e) == facet_edges.end();
+  });
+  REQUIRE(parent_off_facets);
+  for (const int p : {1, 2, 3}) {
+    INFO("p = " << p);
+    const DofMap<3> h1(mesh, p);
+    const auto g = [](const Point<3>& x) {
+      return Complex{1.0 + x(1) - 2 * x(2) + x(1) * x(2) + 0.5 * x(2) * x(2), 0.0};
+    };
+    const DirichletData data = dirichlet_values<3>(h1, std::span<const Index>(facets), g);
+    const DirichletData zero = homogeneous_dirichlet(h1, std::span<const Index>(facets));
+    REQUIRE(zero.dofs == data.dofs);
+    for (const Index e : parents) {
+      for (const Index dof : h1.edge_dofs(e)) {
+        REQUIRE(std::binary_search(data.dofs.begin(), data.dofs.end(), dof));
+      }
+    }
+    if (p >= 2) check_closed_under_constraints(h1, data);
+    const hpfem::fespace::NedelecDofMap<3> nedelec(mesh, p);
+    const auto field = [](const Point<3>& x) {
+      return hpfem::assembly::ComplexVector<3>(x(1) * x(2), 1.0 - x(2), 2.0 + x(1));
+    };
+    const DirichletData tangential = hpfem::assembly::tangential_dirichlet_values<3>(
+        nedelec, std::span<const Index>(facets), field);
+    REQUIRE(homogeneous_dirichlet(nedelec, std::span<const Index>(facets)).dofs == tangential.dofs);
+    for (const Index e : parents) {
+      for (const Index dof : nedelec.edge_dofs(e)) {
+        REQUIRE(std::binary_search(tangential.dofs.begin(), tangential.dofs.end(), dof));
+      }
+    }
+    if (p >= 2) check_closed_under_constraints(nedelec, tangential);
+  }
 }

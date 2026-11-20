@@ -124,6 +124,14 @@ space is exactly the conforming subspace: tangential (H(curl)) or full (H1) cont
 across every hanging facet, and a global polynomial of the space is reproduced exactly.
 See ADR-0006.
 
+**Dirichlet conditions on hanging meshes (3D).** A coarse edge can lie in a boundary surface
+that its own cells touch only along that edge, the surface facets next to it belonging to refined
+neighbours. Its half edges on the surface are slaves of its DoFs, so a condition on the surface
+must prescribe them: the Dirichlet sets add the hanging parent edges whose two half edges lie on
+the facets (`EntitySet::of_boundary_facets`, used by `dirichlet_values`,
+`tangential_dirichlet_values` and `homogeneous_dirichlet`). The prescribed values are then closed
+under the constraints (`tests/unit/assembly/test_dirichlet.cpp`).
+
 Verification (`tests/unit/assembly/test_hanging_constraints.cpp`, `test_prolongation.cpp`):
 random constrained vectors are continuous / tangentially continuous across all hanging
 facets of twice-refined corners in 2D and 3D for $p \le 4$ / $3$ and for random per-cell
