@@ -27,8 +27,8 @@ cibuildwheel and Windows `win_amd64` wheels for the python.org CPython, compiled
 UCRT64 GCC (static GCC runtime, `pyproject.toml` `[tool.cibuildwheel]`), plus the sdist. It runs
 on `workflow_dispatch`, on tags `v*` and, with one Python version, on pull requests that touch
 the packaging files. A tag `v*` attaches the wheels to the GitHub release and publishes them to
-PyPI by trusted publishing (job `pypi`, GitHub environment `pypi` restricted to tags `v*` and
-approved by the maintainer; the job refuses a tag that does not match the package version).
+PyPI by trusted publishing (job `pypi`, GitHub environment `pypi` restricted to tags `v*`; the
+job refuses a tag that does not match the package version).
 Install a wheel with `pip install hpfem` or `pip install hpfem-<version>-<tag>.whl`;
 `pip install "hpfem[gui]"` adds Streamlit, Gmsh,
 Matplotlib, meshio and PyYAML for the GUI, and `hpfem-gui [fem_app.py] [streamlit args]`

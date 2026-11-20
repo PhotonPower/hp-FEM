@@ -3,8 +3,8 @@ name: Wheels
 # wheels with cibuildwheel, Windows win_amd64 wheels for the python.org CPython compiled with the
 # MSYS2 UCRT64 GCC (static GCC runtime, no MUMPS / cuDSS). Full matrix on workflow_dispatch and on
 # tags v* (attached to the release and published to PyPI by trusted publishing, environment
-# `pypi`, which needs the maintainer's approval); one Python version on pull requests that touch
-# the packaging files.
+# `pypi`, restricted to tags v*); one Python version on pull requests that touch the packaging
+# files.
 on:
   workflow_dispatch:
   push:
@@ -113,7 +113,7 @@ jobs:
 
   pypi:
     # trusted publishing (OIDC, no token): the pending / registered publisher on PyPI names this
-    # repository, wheels.yml and the environment `pypi` (tags v* only, maintainer approval)
+    # repository, wheels.yml and the environment `pypi` (tags v* only)
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [sdist, linux, macos, windows]
     runs-on: ubuntu-24.04
