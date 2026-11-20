@@ -8,6 +8,7 @@
 
 #include <fmt/format.h>
 
+#include "detail/facet_quadrature.hpp"
 #include "hpfem/assembly/quadrature.hpp"
 #include "hpfem/assembly/sparse_assembler.hpp"
 #include "hpfem/core/error.hpp"
@@ -22,14 +23,12 @@ namespace hpfem::adaptivity {
 
 namespace {
 
-using Vec3 = Eigen::Matrix<Complex, 3, 1>;
+using detail::facet_point;
+using detail::facet_sides;
+using detail::FacetSides;
+using RuleCache = detail::RuleCache<2>;
 
-/// Reference vertex i of the triangle (0 = origin).
-Point<2> reference_vertex(LocalIndex i) {
-  Point<2> xi = Point<2>::Zero();
-  if (i > 0) xi(i - 1) = 1.0;
-  return xi;
-}
+using Vec3 = Eigen::Matrix<Complex, 3, 1>;
 
 /// The fields of the residual at one reference point of a cell, cylindrical components.
 struct Sample {
@@ -141,70 +140,6 @@ void derivatives(CellSampler& sample, const Sample& at, const Point<2>& xi, Real
   curl_w(1) = dw(0, 1) - dw(2, 0);
   curl_w(2) = at.w(1) / r + dw(1, 0) - im * at.w(0) / r;
   div_d = dd(0, 0) + at.d(0) / r + im * at.d(1) / r + dd(2, 1);
-}
-
-/// Per-thread caches of quadrature rules.
-class RuleCache {
- public:
-  explicit RuleCache(int threads) : cells_(as_size(threads)), facets_(as_size(threads)) {}
-  [[nodiscard]] const assembly::QuadratureRule<2>& cell(int thread, int order) {
-    auto& rule = cells_[as_size(thread)][order];
-    if (rule.size() == 0) rule = assembly::simplex_quadrature<2>(order);
-    return rule;
-  }
-  [[nodiscard]] const assembly::QuadratureRule<1>& facet(int thread, int order) {
-    auto& rule = facets_[as_size(thread)][order];
-    if (rule.size() == 0) rule = assembly::simplex_quadrature<1>(std::max(order, 1));
-    return rule;
-  }
-
- private:
-  std::vector<std::map<int, assembly::QuadratureRule<2>>> cells_;
-  std::vector<std::map<int, assembly::QuadratureRule<1>>> facets_;
-};
-
-/// The two sides of a facet: the second cell, the cell behind the parent of a hanging child
-/// facet, or none (boundary) / skipped (hanging parent).
-struct FacetSides {
-  Index c0 = kInvalidIndex;
-  Index c1 = kInvalidIndex;
-  bool skip = false;
-  bool boundary = false;
-};
-
-FacetSides facet_sides(const mesh::Mesh<2>& mesh, Index f) {
-  FacetSides sides;
-  const auto& cells = mesh.facet_cells(f);
-  sides.c0 = cells[0];
-  sides.c1 = cells[1];
-  if (sides.c1 == kInvalidIndex) {
-    const Index parent = mesh.hanging_parent_facet(f);
-    if (parent != kInvalidIndex) {
-      sides.c1 = mesh.facet_cells(parent)[0];
-    } else if (mesh.facet_hanging_role(f) == mesh::Mesh<2>::HangingRole::kParent) {
-      sides.skip = true;
-    } else {
-      sides.boundary = true;
-    }
-  }
-  return sides;
-}
-
-/// Quadrature point q of the facet rule on local facet k0 of cell c0: reference point in
-/// c0, outward unit normal (in the meridian plane) and the measure factor.
-void facet_point(const mesh::CellGeometry<2>& geometry, LocalIndex k0, const Point<2>& centroid0,
-                 const assembly::QuadratureRule<1>& rule, std::size_t q, Point<2>& xi0, Point<2>& n,
-                 Real& measure) {
-  const auto& lv = mesh::SimplexTopology<2>::kFacetVertices[static_cast<std::size_t>(k0)];
-  const Point<2> xi_a = reference_vertex(lv[0]);
-  const Point<2> xi_b = reference_vertex(lv[1]);
-  const Real t = rule.points[q](0);
-  xi0 = xi_a + t * (xi_b - xi_a);
-  const auto g = geometry.evaluate(xi0);
-  const Point<2> tangent = g.jacobian * (xi_b - xi_a);
-  measure = tangent.norm();
-  n = Point<2>(tangent(1), -tangent(0)) / measure;
-  if (n.dot(g.x - centroid0) < 0) n = -n;
 }
 
 }  // namespace
