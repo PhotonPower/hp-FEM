@@ -130,6 +130,7 @@ hpfem_add_test(test_adaptivity unit
   adaptivity/test_hypercircle.cpp
   adaptivity/test_prediction.cpp
   adaptivity/test_axisymmetric_estimator.cpp
+  adaptivity/test_elasticity_estimator.cpp
   adaptivity/test_conical_estimator.cpp
   adaptivity/test_conical_goal.cpp)
 

@@ -18,6 +18,7 @@
 #include <optional>
 #include <vector>
 
+#include "hpfem/adaptivity/elasticity_estimator.hpp"
 #include "hpfem/assembly/condensation.hpp"
 #include "hpfem/assembly/elasticity_forms.hpp"
 #include "hpfem/core/types.hpp"
@@ -140,6 +141,26 @@ class Elasticity {
   /// geometry order 2 (edge nodes at the midpoints), so that the quadratic part of u moves the
   /// edges too. E.g. for an optical solve on the shrunk part (ADR-0016 §6).
   [[nodiscard]] mesh::Mesh<Dim> deformed_mesh(const Vector& u, Real scale = 1.0) const;
+  /// Residual a-posteriori error indicators of `u` in the energy norm
+  /// (`adaptivity/elasticity_estimator.hpp`, M20 S5b): the equilibrium residual in the cells, the
+  /// traction jumps across interior facets (hanging ones included) and the traction residual on
+  /// the natural boundary (the traction-free facets, the `tractions`, and the free components of
+  /// the displacement conditions); axisymmetric problems with the weight r and the hoop stress,
+  /// the axis without a term. For the hp loop of `adaptivity` (marking, decision, refinement).
+  [[nodiscard]] adaptivity::Estimate estimate(
+      const Vector& u, const adaptivity::EstimatorOptions& options = {}) const;
+  /// The boundary conditions as seen by the estimator, per boundary facet.
+  [[nodiscard]] adaptivity::ElasticFacetCondition<Dim> facet_condition(Index facet) const;
+  /// Energy-norm error @f$ |||u - u_h|||=\big(\int\varepsilon(e) : C : \varepsilon(e)\big)^{1/2}
+  /// @f$ [J^{1/2}] (2D: per metre of depth; axisymmetric: with the hoop strain and the weight r,
+  /// per radian) against the exact displacement and its gradient @f$ (\nabla u)_{ij} = \partial_j
+  /// u_i
+  /// @f$ (the displacement only enters the hoop strain). Quadrature of degree 2p +
+  /// `extra_order` (+2 on curved cells).
+  [[nodiscard]] Real energy_error(
+      const Vector& u, const DisplacementField<Dim>& exact,
+      const std::function<assembly::ComplexTensor<Dim>(const Point<Dim>&)>& exact_gradient,
+      int extra_order = 4) const;
   /// The total eigenstrain ε* at reference point ξ of cell c.
   [[nodiscard]] assembly::ComplexTensor<Dim> eigenstrain(Index c, const Point<Dim>& xi) const;
   /// @f$ \int a_h \cdot b_h\,dx @f$ of two block coefficient vectors (a conjugated).

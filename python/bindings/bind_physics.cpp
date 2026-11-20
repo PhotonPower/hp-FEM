@@ -549,6 +549,14 @@ void bind_physics_dim(py::module_& m) {
            py::arg("xi"), "sigma_theta_theta (axisymmetric)")
       .def("strain_energy", &Elasticity<Dim>::strain_energy, py::arg("u"), Release(),
            "1/2 int (eps - eps*) : C : (eps - eps*) [J] (3D) or [J/m] (2D)")
+      .def("estimate", &Elasticity<Dim>::estimate, py::arg("u"),
+           py::arg("options") = adaptivity::EstimatorOptions{}, Release(),
+           "residual error indicators in the energy norm (equilibrium residual, traction jumps, "
+           "traction residual on the natural boundary) for the hp loop")
+      .def("energy_error", &Elasticity<Dim>::energy_error, py::arg("u"), py::arg("exact"),
+           py::arg("exact_gradient"), py::arg("extra_order") = 4, Release(),
+           "(int eps(e) : C : eps(e))^(1/2) against the exact displacement and its gradient "
+           "grad[i, j] = d u_i / d x_j")
       .def("deformed_mesh", &Elasticity<Dim>::deformed_mesh, py::arg("u"), py::arg("scale") = 1.0,
            Release(),
            "the mesh with its geometry moved by scale * Re u (geometry order 2 for p >= 2)")

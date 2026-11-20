@@ -3,6 +3,18 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Error estimation and hp-adaptivity for elasticity (M20 S5b, issue #213).
+  - `adaptivity::elasticity_residual_estimate` and `axisymmetric_elasticity_residual_estimate`:
+    residual indicators in the energy norm (equilibrium residual, traction jumps across interior
+    and hanging facets, traction residual on the natural boundary incl. the free components of
+    symmetry planes), scaled by the shear modulus; `Elasticity::estimate`, `energy_error`, and
+    the same in Python.
+  - Tests: zero indicators for solutions in the space (2D, 3D, hanging nodes, eigenstrain,
+    axisymmetric), the closed-form boundary residual, effectivity and rate h^p on smooth plane
+    and axisymmetric solutions.
+  - Convergence test `elasticity_hp_corner`: the traction-free re-entrant corner with the
+    Williams modes I and II; hp-adaptivity converges super-algebraically (slope −1.10 → −1.63
+    against −0.27 for uniform refinement, effectivity 2.3–3.3).
 - Axisymmetric elasticity for bodies of revolution (M20 S5a).
   - `ElasticitySetup::axisymmetric` with `axis_tag`: (u_r, u_z) on the meridian mesh, the hoop
     strain u_r / r, weight r, u_r = 0 on the axis.
@@ -572,6 +584,15 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   `pymdown-extensions >= 12.3` for the docs (Dependabot #179–#184).
 
 ### Fixed
+- Dirichlet conditions on 3D meshes with hanging nodes: a coarse edge can lie in a boundary
+  surface that its own cells touch only along that edge, its half edges on the surface being
+  slaves of its DoFs. `dirichlet_values`, `tangential_dirichlet_values` and
+  `homogeneous_dirichlet` left its DoFs free (they collected the entities of the surface facets
+  only), so the condition leaked along the half edges; they now include such hanging parent
+  edges (`EntitySet::of_boundary_facets`). Found by the elasticity estimator: a symmetry plane
+  next to a refined corner gave 16 % error in a uniaxial bar at p = 2. It stayed hidden whenever
+  the neighbouring surface through that edge carried the same condition (a fully clamped body,
+  PEC on all walls).
 - `grating.dipole_emission` with crystals and guided modes (M19 S7e-2b): the β pre-pass that
   splits the β rule at the pinch points of the guided poles now also runs for crystals without a
   coupling along the lines (ε_xz = ε_yz = 0 in the solver frame; the poles are then even in kx by

@@ -563,6 +563,97 @@ Real Elasticity<Dim>::strain_energy(const Vector& u) const {
   return energy;
 }
 
+template <int Dim>
+adaptivity::ElasticFacetCondition<Dim> Elasticity<Dim>::facet_condition(Index facet) const {
+  const mesh::Tag tag = dofs_->mesh().facet_tag(facet);
+  adaptivity::ElasticFacetCondition<Dim> out;
+  out.natural.fill(true);
+  if (axisymmetric() && tag == setup_.axis_tag) {
+    out.natural.fill(false);  // u_r = 0 and the weight r = 0: no term
+    return out;
+  }
+  for (const auto& d : setup_.displacements) {
+    if (d.tag != tag) continue;
+    for (std::size_t i = 0; i < d.components.size(); ++i) {
+      if (d.components[i]) out.natural[i] = false;
+    }
+  }
+  std::vector<DisplacementField<Dim>> tractions;
+  for (const auto& t : setup_.tractions) {
+    if (t.tag == tag) tractions.push_back(t.traction);
+  }
+  if (tractions.size() == 1) {
+    out.traction = tractions.front();
+  } else if (!tractions.empty()) {
+    out.traction = [tractions](const Point<Dim>& x) {
+      Eigen::Matrix<Complex, Dim, 1> sum = Eigen::Matrix<Complex, Dim, 1>::Zero();
+      for (const auto& t : tractions) sum += t(x);
+      return sum;
+    };
+  }
+  return out;
+}
+
+template <int Dim>
+adaptivity::Estimate Elasticity<Dim>::estimate(const Vector& u,
+                                               const adaptivity::EstimatorOptions& options) const {
+  const adaptivity::ElasticBoundaryFactory<Dim> boundary = [this](Index f) {
+    return facet_condition(f);
+  };
+  if constexpr (Dim == 2) {
+    if (axisymmetric()) {
+      return adaptivity::axisymmetric_elasticity_residual_estimate(
+          *dofs_, u, [this](Index c) { return axisymmetric_form_of_cell(c); }, boundary, options);
+    }
+  }
+  return adaptivity::elasticity_residual_estimate<Dim>(
+      *dofs_, u, [this](Index c) { return form_of_cell(c); }, boundary, options);
+}
+
+template <int Dim>
+Real Elasticity<Dim>::energy_error(
+    const Vector& u, const DisplacementField<Dim>& exact,
+    const std::function<assembly::ComplexTensor<Dim>(const Point<Dim>&)>& exact_gradient,
+    int extra_order) const {
+  if (u.size() != num_dofs()) {
+    throw InvalidArgument(
+        fmt::format("Elasticity::energy_error: {} coefficients for {} DoFs", u.size(), num_dofs()));
+  }
+  const auto& mesh = dofs_->mesh();
+  Real energy = 0;
+  for (Index c = 0; c < mesh.num_cells(); ++c) {
+    const auto geometry = mesh::cell_geometry(mesh, c);
+    const auto rule = assembly::simplex_quadrature<Dim>(2 * dofs_->cell_order(c) + extra_order +
+                                                        (geometry->is_affine() ? 0 : 2));
+    const ElasticMaterial& m = material(c);
+    const assembly::VoigtMatrix<Dim> stiffness = stiffness_of_cell(c);
+    for (std::size_t q = 0; q < rule.size(); ++q) {
+      const auto g = geometry->evaluate(rule.points[q]);
+      const Real dx = rule.weights[q] * std::abs(g.det);
+      const assembly::ComplexTensor<Dim> grad =
+          assembly::evaluate_displacement_gradient<Dim>(*dofs_, u, c, rule.points[q]) -
+          exact_gradient(g.x);
+      if constexpr (Dim == 2) {
+        if (axisymmetric()) {
+          const Complex u_r =
+              assembly::evaluate_displacement<Dim>(*dofs_, u, c, rule.points[q])(0) - exact(g.x)(0);
+          assembly::AxisymmetricVoigtVector e;
+          e << grad(0, 0), grad(1, 1), u_r / g.x(0), grad(0, 1) + grad(1, 0);
+          energy +=
+              dx * g.x(0) *
+              e.dot(assembly::axisymmetric_isotropic_stiffness(m.youngs_modulus, m.poisson_ratio) *
+                    e)
+                  .real();
+          continue;
+        }
+      }
+      const auto e = assembly::to_voigt_strain<Dim>(0.5 * (grad + grad.transpose()));
+      energy += dx * e.dot(stiffness * e).real();
+    }
+  }
+  return std::sqrt(std::max(energy, 0.0));
+}
+
 namespace {
 
 /// Reference coordinates of the midpoint of global edge e in cell c.

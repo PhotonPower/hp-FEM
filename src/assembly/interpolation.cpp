@@ -333,6 +333,36 @@ EntitySet<Dim> EntitySet<Dim>::of_facets(const mesh::Mesh<Dim>& mesh,
 }
 
 template <int Dim>
+std::vector<Index> EntitySet<Dim>::hanging_parents_of(const mesh::Mesh<Dim>& mesh,
+                                                      std::span<const Index> edges) {
+  std::vector<Index> parents;
+  if constexpr (Dim == 3) {
+    std::vector<Index> sorted(edges.begin(), edges.end());
+    add_sorted_unique<Dim>(sorted);
+    const auto contains = [&sorted](Index e) {
+      return std::binary_search(sorted.begin(), sorted.end(), e);
+    };
+    for (const auto& h : mesh.hanging_edges()) {
+      if (contains(h.children[0]) && contains(h.children[1])) parents.push_back(h.parent);
+    }
+    add_sorted_unique<Dim>(parents);
+  }
+  return parents;
+}
+
+template <int Dim>
+EntitySet<Dim> EntitySet<Dim>::of_boundary_facets(const mesh::Mesh<Dim>& mesh,
+                                                  std::span<const Index> facets) {
+  EntitySet set = of_facets(mesh, facets);
+  const auto parents = hanging_parents_of(mesh, set.edges);
+  if (!parents.empty()) {
+    set.edges.insert(set.edges.end(), parents.begin(), parents.end());
+    add_sorted_unique<Dim>(set.edges);
+  }
+  return set;
+}
+
+template <int Dim>
 EntitySet<Dim> EntitySet<Dim>::of_cells(const mesh::Mesh<Dim>& mesh, std::span<const Index> cells) {
   EntitySet set;
   for (const Index c : cells) {

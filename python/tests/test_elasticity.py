@@ -160,3 +160,40 @@ def test_axisymmetric_cylinder_patch_with_hoop_stress():
     mu = E / (2 * (1 + NU))
     hoop = problem.hoop_stress(u, 4, [0.3, 0.3]).real
     assert hoop == pytest.approx(2 * (lam + mu) * a + lam * b, rel=1e-10)
+
+
+def test_estimator_follows_the_energy_error():
+    """The residual estimator of M20 S5b on u = (y³, x³) (divergence-free, f = −μ Δu) in plane
+    strain: zero for p = 3, which contains u; for p = 2 a bounded effectivity, both falling like
+    h²; the indicators feed the Dörfler marking of the hp loop."""
+    mu = E / (2 * (1 + NU))
+    exact = lambda x: np.array([x[1] ** 3, x[0] ** 3], dtype=complex)  # noqa: E731
+    gradient = lambda x: np.array(  # noqa: E731
+        [[0.0, 3 * x[1] ** 2], [3 * x[0] ** 2, 0.0]], dtype=complex
+    )
+
+    def solve(n, p):
+        mesh = hpfem.rectangle(n, n, [0.0, 0.0], [1.0, 1.0])
+        dofs = hpfem.DofMap2D(mesh, p)
+        setup = hpfem.ElasticitySetup2D()
+        setup.background = hpfem.ElasticMaterial(E, NU)
+        tag = hpfem.box_tag
+        setup.displacements = [
+            hpfem.DisplacementCondition2D(t, [True, True], exact)
+            for t in (tag.X_MIN, tag.X_MAX, tag.Y_MIN, tag.Y_MAX)
+        ]
+        setup.body_force = lambda x: np.array([-6 * mu * x[1], -6 * mu * x[0]], dtype=complex)
+        problem = hpfem.Elasticity2D(dofs, setup)
+        u = problem.solve()
+        estimate = problem.estimate(u)
+        return estimate, problem.energy_error(u, exact, gradient)
+
+    estimate, error = solve(2, 3)
+    assert estimate.total() < 1e-8 * np.sqrt(E) and error < 1e-10 * np.sqrt(E)
+    coarse, error_coarse = solve(4, 2)
+    fine, error_fine = solve(8, 2)
+    for eta, err in ((coarse.total(), error_coarse), (fine.total(), error_fine)):
+        assert 0.5 < eta / err < 10
+    assert np.log2(coarse.total() / fine.total()) == pytest.approx(2, abs=0.25)
+    marked = hpfem.dorfler_marking(fine.indicators, 0.5)
+    assert 0 < len(marked) < len(fine.indicators)

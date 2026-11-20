@@ -403,6 +403,12 @@ in `materials::Material`, the volume, conical and axisymmetric solvers, `physics
 `grating.jones` (Jones / Mueller), dipole emitters above crystals and the GUI material editor;
 the guided-mode poles in the array scan of crystal structures (S7e-2b) are implemented but await
 the long validation run (`benchmarks/m19_crystal_guided_scan.py`, server).
+**M20 (linear elasticity with eigenstrain, ADR-0016, issue #213)** is complete (the optional
+real-valued solver path S5c moved to the backlog): `physics::Elasticity<Dim>` on the vector H1 space (plane
+strain, 3D, bodies of revolution), shrinkage / thermal / grid eigenstrains, free bodies, output and
+the mesh velocity for the optics (`shape_derivative`), the residual estimator in the energy norm
+with hp-adaptivity (`Elasticity::estimate`, `tests/convergence/elasticity_hp_corner.cpp`) and the
+example `examples/printed_block_shrinkage`; theory in `docs/theory/elasticity.md`.
 Open: the items above, the full ring resonator in 3D (backlog, beyond the GPU memory at useful
 accuracy) and the optional MPI item.
 See `docs/roadmap.md`.

@@ -172,6 +172,76 @@ parts; on the axis the hoop strain is the limit ∂u_r/∂r.
   - The quadratic geometry of the arcs bounds the error from below. That bound falls like h_θ⁴:
     1.3e-5 → 8.0e-7 at p = 5 when the angular step is halved.
 
+## Error estimation and hp-adaptivity (M20 S5b)
+
+`Elasticity::estimate(u)` (`adaptivity/elasticity_estimator.hpp`) returns residual indicators in
+the energy norm $|||e|||^2 = \int \varepsilon(e) : C : \varepsilon(e)$ (Verfürth 2013, ch. 4.3,
+with the hp weights of Melenk & Wohlmuth 2001):
+
+$$
+\eta_K^2 = \frac{1}{2\mu_K}\frac{h_K^2}{p_K^2}\,\|f + \nabla\cdot\sigma_h\|_K^2
+ + \sum_{F \subset \partial K \setminus \Gamma} \frac{1}{2\mu_F}\frac{h_F}{2p_F}\,
+   \|[\![\sigma_h n]\!]\|_F^2
+ + \sum_{F \subset \partial K \cap \Gamma_N} \frac{1}{2\mu_K}\frac{h_F}{p_F}\,
+   \|t - \sigma_h n\|_F^2 .
+$$
+
+- **Element residual.** The equilibrium residual, with $\nabla\cdot\sigma_h$ by central
+  differences of $\sigma_h$ in reference coordinates. It is exact up to rounding on affine cells
+  with constant data. The eigenstrain enters through $\sigma_h = C(\varepsilon(u_h) -
+  \varepsilon^*)$, so its gradient and its jumps across material interfaces count as loads.
+- **Interior facets.** The jump of the traction $\sigma_h n$, hanging child facets against the
+  cell of their parent, divided by the larger modulus $2\mu_F$ of the two cells (robust at
+  stiff / soft interfaces).
+- **Natural boundary.** $t - \sigma_h n$ on the traction-free facets and the `tractions`; on
+  facets with displacement conditions only the free components (a symmetry plane: the tangential
+  traction).
+- **Scaling.** $2\mu_K$ is twice the shear entry of the Voigt stiffness; $\eta$ then has the
+  unit of $|||e|||$, J^½ (2D: per metre, axisymmetric: per radian).
+- **Bodies of revolution.** The residual of the three-dimensional equilibrium,
+  $R_r = f_r + \partial_r\sigma_{rr} + \partial_z\sigma_{rz} + (\sigma_{rr} - \sigma_{\theta\theta})/r$,
+  $R_z = f_z + \partial_r\sigma_{rz} + \partial_z\sigma_{zz} + \sigma_{rz}/r$, all integrals
+  with the weight r; the axis carries no term.
+
+`Elasticity::energy_error(u, exact, exact_gradient)` measures $|||u - u_h|||$ (axisymmetric:
+with the hoop strain). The indicators drive the hp loop of `adaptivity` as for Maxwell:
+`dorfler_marking`, `hp_decide_by_prediction`, `hp_refine` with hanging nodes
+(see [hp-adaptivity](hp-adaptivity.md)).
+
+**Tests** (`tests/unit/adaptivity/test_elasticity_estimator.cpp`):
+- $\eta$ vanishes (below 1e-8 of $|||u|||$) for solutions in the space: the two-material bar
+  under a traction with symmetry planes on meshes with hanging nodes (2D and 3D, p = 1, 2), a
+  stress-free shrinkage, and the freely shrinking sphere of the axisymmetric problem.
+- **Boundary term.** Estimating the bar against twice its traction gives exactly
+  $\eta^2 = \sum_F (h_F/p)\,|F|\,\sigma_0^2/(2\mu)$ on the loaded end, with no element or jump
+  terms.
+- **Smooth solutions.** u = (y³, x³) in plane strain and u = (r³, 0) in a solid cylinder:
+  $\eta$ vanishes for p = 3; for p = 1, 2 the effectivity $\eta/|||e|||$ stays in [0.5, 10] and
+  both fall like $h^p$.
+
+**Convergence test** (`tests/convergence/elasticity_hp_corner.cpp`): the traction-free
+re-entrant corner of the L-shaped domain in plane strain (ν = 0.3) with the Williams (1952)
+eigenfunctions of modes I and II, $u \sim r^{0.5445}$ and $r^{0.9085}$, prescribed on the outer
+boundary. With Dörfler marking (θ = 0.5) and the hp decision by error prediction:
+
+| DoF | 1 008 | 5 022 | 11 580 | 23 346 | 46 552 |
+|---|---|---|---|---|---|
+| energy error | 2.9e-1 | 4.7e-2 | 1.5e-2 | 4.7e-3 | 1.5e-3 |
+| $\eta/|||e|||$ | 2.47 | 3.22 | 3.07 | 3.20 | 3.16 |
+
+The corner cells are only h-refined (94 decisions, no p), the rest is p-refined up to p = 6. The
+algebraic slope steepens from −1.10 (2 000 ≤ N < 10 000) to −1.63 (N ≥ 10 000), against −0.27 for
+uniform h-refinement; the fit $e^{-bN^{1/3}}$ over the last ten steps gives b = 0.18. With two
+components N is twice that of a scalar problem at the same resolution, so b is smaller by about
+$2^{1/3}$ than in the scalar corner tests.
+
+**Found on the way.** In 3D a coarse edge can lie in a boundary surface that its own cells touch
+only along that edge; its half edges on the surface are slaves of its DoFs. The Dirichlet sets
+(`dirichlet_values`, `tangential_dirichlet_values`, `homogeneous_dirichlet`) now include such
+hanging parent edges (`EntitySet::of_boundary_facets`). Before, they stayed free, and a symmetry
+plane next to a refined corner leaked: 16 % error in the 3D bar at p = 2. A clamped plane hid it
+whenever a neighbouring plane prescribed the same component.
+
 ## Number type
 
 The matrix is real symmetric positive definite once the Dirichlet data is eliminated. It is
