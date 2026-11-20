@@ -42,8 +42,9 @@ jobs:
         with: { name: wheels-linux, path: wheelhouse/*.whl }
 
   macos:
-    # the Homebrew libomp bottle of the runner sets the deployment target (pyproject.toml)
-    runs-on: macos-14
+    # the Homebrew libomp bottle of the runner sets the deployment target (pyproject.toml);
+    # macos-14 is no longer offered by GitHub
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
       - uses: pypa/cibuildwheel@v2.21

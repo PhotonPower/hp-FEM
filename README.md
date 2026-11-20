@@ -27,7 +27,7 @@ MPI item and the full 3D ring resonator. See the
 
 ## Installation
 ```bash
-pip install hpfem            # binary wheels: Linux x86_64, Windows x86_64, macOS arm64 (>= 14)
+pip install hpfem            # binary wheels: Linux x86_64, Windows x86_64, macOS arm64 (>= 15)
 pip install "hpfem[gui]"     # plus the Streamlit front end (hpfem-gui)
 hpfem info                   # version, threads, solver backends
 hpfem reference              # compact command reference of the Python API (for agents)

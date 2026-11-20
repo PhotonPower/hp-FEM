@@ -8,7 +8,7 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - Release on PyPI (`pip install hpfem`): the job `pypi` of `wheels.yml` publishes the sdist and
   the wheels of a tag `v*` by trusted publishing (GitHub environment `pypi`, restricted to tags
   `v*`; it refuses a tag that does not match the package version). New macOS arm64 wheels
-  (macOS ≥ 14, Apple Clang with the bundled Homebrew libomp) next to Linux x86_64 and Windows
+  (macOS ≥ 15, Apple Clang with the bundled Homebrew libomp) next to Linux x86_64 and Windows
   x86_64. Package metadata: authors, keywords, classifiers, project URLs.
 - `hpfem.reference()` / `hpfem reference`: a compact command reference of the Python API for
   language-model agents that have the wheel but not the repository (`hpfem/llm_reference.md`,
