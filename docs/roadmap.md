@@ -740,8 +740,14 @@ existing solver stack.
     `hoop_stress`); tests: the patch test with the hoop stress, the free sphere on the half disc
     (1e-12), the hollow sphere under internal pressure against Lamé (8.4e-7 at p = 4, the
     quadratic geometry of the arcs falling like h_θ⁴)
-  - [ ] S5b: a residual estimator and hp-adaptivity for elasticity (the singular edges of
-    clamped printed parts)
+  - [x] S5b: a residual estimator and hp-adaptivity for elasticity (the singular edges of
+    clamped printed parts): `adaptivity::elasticity_residual_estimate` (and the axisymmetric
+    one) in the energy norm, `Elasticity::estimate` / `energy_error`, Python; tests: zero
+    indicators for solutions in the space (hanging nodes, eigenstrain, axisymmetric), the
+    closed-form boundary residual, effectivity and rate on smooth solutions; convergence test
+    `elasticity_hp_corner` (Williams modes I + II at the traction-free re-entrant corner:
+    super-algebraic, effectivity 2.3–3.3). Fixed on the way: Dirichlet sets on 3D hanging meshes
+    include the hanging parent edges lying on the facets
   - [ ] S5c: a real-valued solver path, if measured necessary
 
 ## Backlog / ideas
