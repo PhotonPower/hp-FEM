@@ -246,7 +246,7 @@ TEST_CASE("elasticity: the exact corner solution is traction-free on the faces",
   }
 }
 
-TEST_CASE("elasticity: hp-adaptivity at a re-entrant corner converges exponentially in N^(1/3)",
+TEST_CASE("elasticity: hp-adaptivity at a re-entrant corner converges super-algebraically",
           "[convergence][elasticity][adaptivity][hp]") {
   AdaptiveMesh<2> adaptive(l_shape(2));
   std::vector<int> orders(as_size(adaptive.mesh().num_cells()), 1);
