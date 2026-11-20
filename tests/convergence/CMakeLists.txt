@@ -161,3 +161,5 @@ add_test(NAME validation_long_conical_grating_hp
 set_tests_properties(validation_long_conical_grating_hp PROPERTIES LABELS "validation-long")
 hpfem_add_test(convergence_elasticity convergence
   elasticity.cpp)
+hpfem_add_test(convergence_elasticity_hp_corner convergence
+  elasticity_hp_corner.cpp)

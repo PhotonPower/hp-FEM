@@ -1146,11 +1146,16 @@ V = problem.mesh_velocity(u)          # ADR-0011 velocity: hpfem.shape_derivativ
 - **Bodies of revolution.** On a meridian mesh (x = r ≥ 0) set `setup.axisymmetric = True`
   and `setup.axis_tag = …`, as for printed lenses. The components are then (u_r, u_z), with
   `hoop_strain` / `hoop_stress` for the θθ parts.
+- **Error estimation and hp-adaptivity.** `problem.estimate(u)` returns the residual indicators in
+  the energy norm (an `Estimate`, as for Maxwell) for `dorfler_marking`, `hp_decide_by_prediction`
+  and `hp_refine`; `problem.energy_error(u, exact, exact_gradient)` measures the error of a known
+  solution ([theory](theory/elasticity.md#error-estimation-and-hp-adaptivity-m20-s5b)).
 
 **Tests.**
 - `python/tests/test_elasticity.py`:
   - the constrained layer, with point values, the energy and the deformed mesh;
   - the free sphere with the shrinkage from a grid field;
+  - the estimator against the energy error of a smooth solution;
   - the bonded strip against Timoshenko's bimetal formula, which agrees to 1e-8
     (`docs/validation.md` M).
 - The example `examples/printed_block_shrinkage`.
