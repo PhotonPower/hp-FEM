@@ -12,15 +12,22 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "hpfem/assembly/elasticity_forms.hpp"
+#include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
 #include "hpfem/fespace/dof_map.hpp"
+#include "hpfem/materials/material.hpp"
 #include "hpfem/mesh/adaptive_mesh.hpp"
 #include "hpfem/mesh/generators.hpp"
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/mesh/point_location.hpp"
 #include "hpfem/physics/elasticity.hpp"
+#include "hpfem/physics/goal_oriented.hpp"
 #include "hpfem/physics/grid_field.hpp"
+#include "hpfem/physics/scattering.hpp"
+#include "hpfem/physics/shape_sensitivity.hpp"
+#include "hpfem/physics/sources.hpp"
 #include "hpfem/physics/thermal.hpp"
+#include "hpfem/pml/pml.hpp"
 
 using Catch::Approx;
 using hpfem::Complex;
@@ -417,6 +424,20 @@ TEST_CASE("elasticity: laterally constrained shrinking layer on a clamped base",
   REQUIRE(sigma(0, 0).real() == Approx(kS * kE / (1 - kNu)).epsilon(1e-10));
   REQUIRE(sigma(1, 1).real() == Approx(kS * kE / (1 - kNu)).epsilon(1e-10));
   REQUIRE(std::abs(sigma(2, 2)) < 1e-8 * kS * kE);
+  // output (S3): the energy of the uniform state 1/2 σ : (ε − ε*) = σ_xx s over the volume, the
+  // values at points (NaN outside) and the deformed mesh
+  REQUIRE(problem.strain_energy(u) == Approx(kS * kE / (1 - kNu) * kS * kH).epsilon(1e-10));
+  Eigen::Matrix<Real, Eigen::Dynamic, 3> points(2, 3);
+  points << 0.3, 0.4, 0.1, 2.0, 0.0, 0.0;
+  const auto values = problem.displacements_at(u, points);
+  REQUIRE(values(0, 2).real() == Approx(-kS * 0.1 * (1 + kNu) / (1 - kNu)).epsilon(1e-12));
+  REQUIRE(std::isnan(values(1, 0).real()));
+  const Mesh<3> deformed = problem.deformed_mesh(u, 2.0);
+  REQUIRE(deformed.geometry_order() == 2);
+  for (Index v = 0; v < mesh.num_vertices(); ++v) {
+    const Real z = mesh.vertex(v)(2);
+    REQUIRE(deformed.vertex(v)(2) == Approx(z - 2 * kS * z * (1 + kNu) / (1 - kNu)).margin(1e-15));
+  }
 }
 
 TEST_CASE("elasticity: thermal strain of a linear temperature in a free cube is stress-free",
@@ -479,4 +500,82 @@ TEST_CASE("elasticity: free-body checks", "[physics][elasticity]") {
   ElasticitySetup<3> bad = base_setup<3>();
   bad.temperature = Vector::Zero(3);
   REQUIRE_THROWS_AS(Elasticity<3>(dofs, bad), hpfem::InvalidArgument);
+}
+
+// --- M20 S4: coupling to the optics -------------------------------------------------------------
+
+TEST_CASE("elasticity: the optical change of a shrinking disc from the mesh velocity",
+          "[physics][elasticity][shape]") {
+  // a resin disc (radius 0.25) in a soft surrounding, clamped on the outer box, shrinks by
+  // s = 1 % (a uniform temperature with α = −s on the disc tag only); the scattered field at a
+  // point changes. Its first-order change is the shape derivative (ADR-0011) along
+  // V = mesh_velocity(u); it must equal the finite difference of the optical solve on the meshes
+  // deformed by ±δ u, and predict the full deformation to second order in s.
+  constexpr hpfem::mesh::Tag kDisc = 2;
+  constexpr Real kShrink = 0.01;
+  constexpr Real kWave = 4.0;
+  const Mesh<2> mesh = hpfem::mesh::square_with_disc(2, 0.25, 1.0, 1.5, kDisc);
+  REQUIRE(mesh.geometry_order() == 2);
+  const DofMap<2> h1(mesh, 2);
+  ElasticitySetup<2> elastic = base_setup<2>();
+  elastic.background = {1e-3 * kE, 0.3};  // the surrounding barely resists
+  elastic.materials[kDisc] = {kE, kNu};
+  for (const auto tag : side_tags<2>()) {
+    DisplacementCondition<2> d;
+    d.tag = tag;
+    d.components.fill(true);
+    elastic.displacements.push_back(d);
+  }
+  elastic.temperature = Vector::Zero(h1.num_dofs());
+  elastic.temperature.head(mesh.num_vertices()).setOnes();  // T = 1 (the constant)
+  elastic.thermal_expansion[kDisc] = -kShrink;
+  const Elasticity<2> shrink(h1, elastic);
+  const Vector u = shrink.solve();
+  const hpfem::physics::NodeField velocity = shrink.mesh_velocity(u);
+  REQUIRE(velocity.rows() == hpfem::physics::num_geometry_nodes(mesh));
+  // the disc boundary moves inwards by about s R (less, the surrounding holds it slightly)
+  Real radial = 0;
+  for (Index v = 0; v < mesh.num_vertices(); ++v) {
+    if (std::abs(mesh.vertex(v).norm() - 0.25) < 1e-9) {
+      radial = std::min(radial, velocity.row(v).dot(mesh.vertex(v).normalized().transpose()));
+    }
+    if (std::abs(std::abs(mesh.vertex(v)(0)) - 1.5) < 1e-12) REQUIRE(velocity.row(v).norm() == 0);
+  }
+  REQUIRE(radial < -0.5 * kShrink * 0.25);
+  REQUIRE(radial > -1.5 * kShrink * 0.25);
+
+  hpfem::physics::ScatteringSetup<2> optical;
+  optical.omega = kWave * hpfem::constants::c0;
+  optical.materials.set(kDisc, hpfem::materials::Material::dielectric(1.5));
+  optical.incident = hpfem::physics::plane_wave<2>(hpfem::assembly::ComplexVector<2>(0.0, 1.0),
+                                                   Point<2>(kWave, 0.0));
+  optical.pml = hpfem::pml::PmlBox<2>::uniform(Point<2>(-1.0, -1.0), Point<2>(1.0, 1.0), 0.5, kWave,
+                                               1.0, hpfem::pml::PmlProfile{2, 1e-8});
+  optical.pec_tags = side_tags<2>();
+  optical.formulation = hpfem::physics::Formulation::kScatteredField;
+  optical.condense = false;
+  const auto functional = hpfem::physics::point_value_functional<2>(
+      Point<2>(0.8, 0.75), hpfem::assembly::ComplexVector<2>(1.0, 0.4));
+  const auto goal = [&](const Mesh<2>& m) {
+    const hpfem::fespace::NedelecDofMap<2> nd(m, 2);
+    const hpfem::physics::Scattering<2> problem(nd, optical);
+    return (functional(nd).transpose() * problem.solve().unknown).value();
+  };
+  const hpfem::fespace::NedelecDofMap<2> nd(mesh, 2);
+  const hpfem::physics::Scattering<2> problem(nd, optical);
+  const auto solution = problem.solve();
+  const Complex derivative =
+      hpfem::physics::shape_derivative<2>(problem, solution, functional, velocity);
+  constexpr Real kDelta = 1e-6;
+  const Complex fd =
+      (goal(shrink.deformed_mesh(u, kDelta)) - goal(shrink.deformed_mesh(u, -kDelta))) /
+      (2 * kDelta);
+  INFO("shape derivative " << derivative << ", finite difference " << fd);
+  REQUIRE(std::abs(derivative) > 0.0);
+  REQUIRE(std::abs(derivative - fd) < 2e-4 * std::abs(fd));
+  // the full deformation: first order plus O(s²)
+  const Complex q0 = (functional(nd).transpose() * solution.unknown).value();
+  const Complex change = goal(shrink.deformed_mesh(u)) - q0;
+  INFO("change " << change << ", first order " << derivative);
+  REQUIRE(std::abs(change - derivative) < 0.05 * std::abs(change));
 }

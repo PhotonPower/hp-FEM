@@ -24,6 +24,7 @@
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/mesh/mesh.hpp"
 #include "hpfem/mesh/point_location.hpp"
+#include "hpfem/physics/shape_sensitivity.hpp"
 #include "hpfem/solvers/linear_solver.hpp"
 
 namespace hpfem::physics {
@@ -111,6 +112,24 @@ class Elasticity {
   /// @throws Error if the factorisation fails (e.g. a free body without `remove_rigid_modes`);
   ///         InvalidArgument with `remove_rigid_modes` if the loads are not in equilibrium.
   [[nodiscard]] Vector solve() const;
+  /// Displacements at the physical points (one per row of `points`, n × Dim), NaN in the rows of
+  /// points outside the mesh: e.g. points of the surface for the shape error.
+  [[nodiscard]] Eigen::Matrix<Complex, Eigen::Dynamic, Dim> displacements_at(
+      const Vector& u, const Eigen::Matrix<Real, Eigen::Dynamic, Dim>& points) const;
+  /// Elastic strain energy @f$ \tfrac12\int (\varepsilon - \varepsilon^*) : C :
+  /// (\varepsilon - \varepsilon^*)\,dx @f$ [J] (3D) or [J/m] (2D).
+  [[nodiscard]] Real strain_energy(const Vector& u) const;
+  /// Re u as a mesh velocity on the geometry nodes of the mesh (`physics::NodeField`, the rows
+  /// of `num_geometry_nodes`: the vertex values, and for a second-order mesh the displacement at
+  /// the edge midpoints, which the edge nodes are the images of): the velocity V of ADR-0011, so
+  /// that `shape_sensitivity(shape_gradient(...), V)` (or `shape_derivative`) of an optical goal
+  /// on the same mesh is its first-order change under the deformation (M20 S4).
+  [[nodiscard]] NodeField mesh_velocity(const Vector& u) const;
+  /// The mesh with its geometry moved by `scale` · Re u: `move_nodes(mesh, mesh_velocity(u),
+  /// scale)` on a second-order mesh or for p = 1. An affine mesh with p ≥ 2 is first raised to
+  /// geometry order 2 (edge nodes at the midpoints), so that the quadratic part of u moves the
+  /// edges too. E.g. for an optical solve on the shrunk part (ADR-0016 §6).
+  [[nodiscard]] mesh::Mesh<Dim> deformed_mesh(const Vector& u, Real scale = 1.0) const;
   /// The total eigenstrain ε* at reference point ξ of cell c.
   [[nodiscard]] assembly::ComplexTensor<Dim> eigenstrain(Index c, const Point<Dim>& xi) const;
   /// @f$ \int a_h \cdot b_h\,dx @f$ of two block coefficient vectors (a conjugated).
