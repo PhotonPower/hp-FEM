@@ -698,7 +698,7 @@ last.
   Mueller map / curves and the Jones table; end to end against the analytic Jones matrix of a flat
   crystal plate on a crystal substrate, 3e-16)
 
-## M20 — Linear elasticity with eigenstrain (ADR-0016)
+## M20 — Linear elasticity with eigenstrain (ADR-0016) ✅
 Proposal from Voxelspaetzle (two-photon printing process model) in issue #213, accepted on
 19 November 2026. The model is the shrinkage of printed polymer parts:
 −∇·σ = 0, σ = C : (ε(u) − ε*), on Dim copies of the scalar H1 space, assembled complex, with the
@@ -748,9 +748,14 @@ existing solver stack.
     `elasticity_hp_corner` (Williams modes I + II at the traction-free re-entrant corner:
     super-algebraic, effectivity 2.3–3.3). Fixed on the way: Dirichlet sets on 3D hanging meshes
     include the hanging parent edges lying on the facets
-  - [ ] S5c: a real-valued solver path, if measured necessary
+  - S5c (a real-valued solver path) moved to the backlog on 20 November 2026: no measurement
+    asks for it (issue #213)
 
 ## Backlog / ideas
+- [ ] elasticity: a real-valued solver path (M20 S5c, ADR-0016 §3). The complex assembly with a
+  zero imaginary part costs about twice the memory and four times the flops of a real
+  factorisation; worth doing only when a measured elasticity solve (e.g. a Voxelspaetzle part)
+  is limited by it
 - [ ] the full ring resonator with ports in 3D (M12 stage B): needs an hp-mesh that is fine
   only across the cores and in the coupling region, p = 3 there for the resonance widths
   (the coarse axial mesh of the long couplers loses the phase as h_z^(2p), docs/validation.md F)
