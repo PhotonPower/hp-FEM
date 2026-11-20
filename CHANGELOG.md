@@ -2,7 +2,18 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+
+## [0.5.0] — 2026-11-20
 ### Added
+- Release on PyPI (`pip install hpfem`): the job `pypi` of `wheels.yml` publishes the sdist and
+  the wheels of a tag `v*` by trusted publishing (GitHub environment `pypi`, restricted to tags
+  `v*`; it refuses a tag that does not match the package version). New macOS arm64 wheels
+  (macOS ≥ 15, Apple Clang with the bundled Homebrew libomp) next to Linux x86_64 and Windows
+  x86_64. Package metadata: authors, keywords, classifiers, project URLs.
+- `hpfem.reference()` / `hpfem reference`: a compact command reference of the Python API for
+  language-model agents that have the wheel but not the repository (`hpfem/llm_reference.md`,
+  shipped in the wheel; also the docs page "Agent reference"). `python/tests/test_reference.py`
+  checks every qualified `hpfem.*` name in it against the package; the wheel builds run it.
 - Error estimation and hp-adaptivity for elasticity (M20 S5b, issue #213).
   - `adaptivity::elasticity_residual_estimate` and `axisymmetric_elasticity_residual_estimate`:
     residual indicators in the energy norm (equilibrium residual, traction jumps across interior

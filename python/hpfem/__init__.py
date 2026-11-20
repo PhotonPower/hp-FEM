@@ -7,6 +7,9 @@ eV, THz and friends at the boundary. Dimension-templated classes exist as ``<Nam
 overloaded on the argument type, so ``refine_uniform(mesh)`` or ``extract(mesh, cells)``
 work for either dimension.
 
+``hpfem.reference()`` returns a compact command reference of the whole package (also
+``hpfem reference`` on the command line), written for agents without the repository.
+
 Typical use::
 
     import hpfem
@@ -40,6 +43,7 @@ from hpfem import (  # noqa: E402  (after the core names)
 )
 from hpfem._hpfem import *  # noqa: F401, F403  (the bound API)
 from hpfem._hpfem import version  # noqa: E402
+from hpfem._reference import reference  # noqa: E402
 from hpfem.adaptive import AdaptiveStep, adaptive_solve  # noqa: E402
 from hpfem.run import version_info  # noqa: E402
 
@@ -57,5 +61,6 @@ __all__ = [name for name in dir(_hpfem) if not name.startswith("_")] + [
     "AdaptiveStep",
     "adaptive_solve",
     "version_info",
+    "reference",
 ]
 __version__ = version()

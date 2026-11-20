@@ -8,18 +8,29 @@ boundary. The C++ library stays the single implementation; the bindings add no n
 ## Installation
 
 ```bash
-pip install -e ".[dev]"        # builds the extension with scikit-build-core (CMake + Ninja)
+pip install hpfem              # binary wheel from PyPI (from 0.5.0)
+pip install -e ".[dev]"        # from the source tree: scikit-build-core (CMake + Ninja)
 pytest python/tests
 ```
 
+**Command reference for agents.** `hpfem.reference()` returns a compact Markdown reference of
+the whole Python API (conventions, object map, recipes, gotchas), shipped inside the wheel as
+`hpfem/llm_reference.md`; `hpfem reference` prints it. It is written for language-model agents
+that have the package but not the repository, and `python/tests/test_reference.py` checks every
+qualified `hpfem.*` name in it against the package. The same text is the page
+[Agent reference](llm-reference.md).
+
 **Wheels (M15 F15).** The workflow `.github/workflows/wheels.yml` builds binary wheels of the
 SparseLU build (self-contained, no MUMPS / cuDSS) for CPython 3.10–3.13: `manylinux_2_28`
-x86_64 wheels with cibuildwheel and Windows `win_amd64` wheels for the python.org CPython,
-compiled with the MSYS2 UCRT64 GCC (static GCC runtime, `pyproject.toml`
-`[tool.cibuildwheel]`), plus the sdist. It runs on `workflow_dispatch`, on tags `v*` (the
-wheels are attached to the GitHub release) and, with one Python version, on pull requests
-that touch the packaging files; the artefacts are downloadable from the run. Install a wheel
-with `pip install hpfem-<version>-<tag>.whl`; `pip install "hpfem[gui]"` adds Streamlit, Gmsh,
+x86_64 and macOS arm64 (macOS ≥ 15, Apple Clang with the bundled Homebrew libomp) wheels with
+cibuildwheel and Windows `win_amd64` wheels for the python.org CPython, compiled with the MSYS2
+UCRT64 GCC (static GCC runtime, `pyproject.toml` `[tool.cibuildwheel]`), plus the sdist. It runs
+on `workflow_dispatch`, on tags `v*` and, with one Python version, on pull requests that touch
+the packaging files. A tag `v*` attaches the wheels to the GitHub release and publishes them to
+PyPI by trusted publishing (job `pypi`, GitHub environment `pypi` restricted to tags `v*`; the
+job refuses a tag that does not match the package version).
+Install a wheel with `pip install hpfem` or `pip install hpfem-<version>-<tag>.whl`;
+`pip install "hpfem[gui]"` adds Streamlit, Gmsh,
 Matplotlib, meshio and PyYAML for the GUI, and `hpfem-gui [fem_app.py] [streamlit args]`
 starts the Streamlit front end with this interpreter (the app comes from the argument, the
 environment variable `HPFEM_GUI_APP` or an installed package `hpfem_gui`; `--dry-run` prints
@@ -114,8 +125,10 @@ angle from the layer normal z and its azimuth from x (radians; numbers are permi
 models and a z-x-z Euler rotation; `eps_tensor(omega)` gives the 3×3 laboratory tensor and
 `at(omega)` a tensor `hpfem.Material` (also `hpfem.Material.anisotropic(eps)` directly). The
 scalar `eps_r` / `refractive_index` of a tensor material raise `hpfem.AnisotropicUnsupported`.
-**No solver takes tensor materials yet** (they are added stage by stage, roadmap M19):
-`grating.validate` / `solve` report the error `anisotropic_unsupported`.
+**Tensor materials** (M19) are taken by the volume solvers `Scattering2D` / `3D` (in 2D only
+tensors that do not couple the plane to z; a coupling one needs the conical solver), the conical
+and axisymmetric solvers and `hpfem.grating`; a feature that still takes isotropic materials only
+reports the error `anisotropic_unsupported` (`grating.validate`, `hpfem.diagnostics`).
 
 ## Project files and the command line
 

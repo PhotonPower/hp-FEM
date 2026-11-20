@@ -4,12 +4,40 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "hpfem"
-version = "0.4.0"
+version = "0.5.0"
 description = "Adaptive hp-FEM suite for nano-optics (time-harmonic Maxwell)"
 readme = "README.md"
 license = { file = "LICENSE" }
+authors = [{ name = "KF" }]
 requires-python = ">=3.10"
 dependencies = ["numpy>=1.24", "scipy>=1.10"]
+keywords = [
+  "finite elements", "hp-FEM", "Maxwell", "nano-optics", "photonics", "Nedelec",
+  "adaptivity", "PML", "gratings", "scatterometry", "elasticity",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: MacOS",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Physics",
+  "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+[project.urls]
+Homepage = "https://github.com/PhotonPower/hp-FEM"
+Documentation = "https://photonpower.github.io/hp-FEM/"
+"LLM reference" = "https://github.com/PhotonPower/hp-FEM/blob/main/python/hpfem/llm_reference.md"
+Changelog = "https://github.com/PhotonPower/hp-FEM/blob/main/CHANGELOG.md"
+Issues = "https://github.com/PhotonPower/hp-FEM/issues"
 
 [project.scripts]
 hpfem = "hpfem.cli:main"
@@ -40,11 +68,18 @@ build = "cp310-* cp311-* cp312-* cp313-*"
 skip = "*-musllinux_* *_i686 *-win32 pp*"
 build-verbosity = 1
 test-requires = ["pytest", "scipy"]
-test-command = "pytest {project}/python/tests/test_gui_entry.py {project}/python/tests/test_progress.py -q"
+test-command = "pytest {project}/python/tests/test_gui_entry.py {project}/python/tests/test_progress.py {project}/python/tests/test_reference.py -q"
 
 [tool.cibuildwheel.linux]
 manylinux-x86_64-image = "manylinux_2_28"
 archs = ["x86_64"]
+
+# macOS arm64 with Apple Clang and the Homebrew libomp (bundled into the wheel by delocate);
+# the deployment target is that of the libomp bottle on the macos-15 runner (wheels.yml)
+[tool.cibuildwheel.macos]
+archs = ["arm64"]
+before-all = "brew install libomp"
+environment = { MACOSX_DEPLOYMENT_TARGET = "15.0", CMAKE_ARGS = "-DOpenMP_ROOT=$(brew --prefix libomp)" }
 
 [tool.ruff]
 line-length = 100

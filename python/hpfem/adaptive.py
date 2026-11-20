@@ -64,8 +64,8 @@ def adaptive_solve(
 
     ``factory(mesh, orders)`` returns a solved problem as ``(problem, solution)`` (any class
     with ``estimate(solution)`` and ``free_dofs``, e.g. ``ConicalScattering`` or
-    ``Scattering2D``). ``observe(problem, solution)`` returns the observables of a step as a
-    dict (reflectances, fluxes, ...). ``goal(problem, solution)`` returns a ``GoalEstimate``
+    ``ConicalResonance``; ``Scattering2D`` has no ``free_dofs``). ``observe(problem, solution)``
+    returns the observables of a step as a dict (reflectances, fluxes, ...). ``goal(problem, solution)`` returns a ``GoalEstimate``
     (``conical_dwr_estimate`` / ``dwr_estimate``); with it the goal indicators drive the
     marking and ``goal_error`` is reported. The loop stops (``converged = True``) when every
     real-valued observable changed by less than ``tolerance`` since the previous step and, with

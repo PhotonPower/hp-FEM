@@ -1,5 +1,5 @@
 """Command line: ``hpfem run project.json [-o results.json]``, ``hpfem validate``,
-``hpfem info``, ``hpfem materials`` (also ``python -m hpfem ...``)."""
+``hpfem info``, ``hpfem materials``, ``hpfem reference`` (also ``python -m hpfem ...``)."""
 
 from __future__ import annotations
 
@@ -32,6 +32,11 @@ def _materials(_args) -> int:
         elif isinstance(material, materials.Sellmeier):
             extra = f" [{material.range_um[0]:.4g}-{material.range_um[1]:.4g} um]"
         print(f"{name:8s} {material.source}{extra}")
+    return 0
+
+
+def _reference(_args) -> int:
+    print(hpfem.reference())
     return 0
 
 
@@ -79,6 +84,9 @@ def build_parser() -> argparse.ArgumentParser:
     validate.set_defaults(func=_validate)
     sub.add_parser("info", help="version, threads, solver backends").set_defaults(func=_info)
     sub.add_parser("materials", help="list the material library").set_defaults(func=_materials)
+    sub.add_parser(
+        "reference", help="print the compact command reference (Markdown, for agents)"
+    ).set_defaults(func=_reference)
     return parser
 
 
