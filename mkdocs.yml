@@ -19,6 +19,8 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+  # docs/llm-reference.md includes python/hpfem/llm_reference.md (one source, shipped in the wheel)
+  - pymdownx.snippets: { base_path: ["."], check_paths: true }
 extra_javascript:
   - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
 nav:
@@ -43,6 +45,7 @@ nav:
       - Materials and anisotropy: theory/materials.md
       - Anisotropic layer stacks: theory/anisotropic-stack.md
   - Python API: python.md
+  - Agent reference: llm-reference.md
   - Applications: applications.md
   - Validation: validation.md
   - Development: development.md
