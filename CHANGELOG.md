@@ -3,6 +3,18 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-11-22
+### Added
+- Wheels for CPython 3.14 on Linux, macOS and Windows (cibuildwheel 4.3; the pull-request wheel
+  builds now check the newest Python, 3.14). Python 3.14 is the default of current Homebrew and
+  Linux distributions, where `pip install hpfem` 0.5.0 fell back to building the sdist.
+
+### Fixed
+- Agent reference, recipe R1 (Mie cylinder) and the example in `help(hpfem)`: a thicker PML with a
+  milder profile (1.5, `PmlProfile(2, 1e-8)`) instead of 1.0 with the default profile, which
+  logged "the PML is under-resolved"; the scattering width now agrees with the series to 2e-5
+  (2.4e-4 before). New gotcha: what to do about that warning.
+
 ## [0.5.0] — 2026-11-20
 ### Added
 - Release on PyPI (`pip install hpfem`): the job `pypi` of `wheels.yml` publishes the sdist and

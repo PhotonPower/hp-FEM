@@ -21,7 +21,7 @@ qualified `hpfem.*` name in it against the package. The same text is the page
 [Agent reference](llm-reference.md).
 
 **Wheels (M15 F15).** The workflow `.github/workflows/wheels.yml` builds binary wheels of the
-SparseLU build (self-contained, no MUMPS / cuDSS) for CPython 3.10–3.13: `manylinux_2_28`
+SparseLU build (self-contained, no MUMPS / cuDSS) for CPython 3.10–3.14: `manylinux_2_28`
 x86_64 and macOS arm64 (macOS ≥ 15, Apple Clang with the bundled Homebrew libomp) wheels with
 cibuildwheel and Windows `win_amd64` wheels for the python.org CPython, compiled with the MSYS2
 UCRT64 GCC (static GCC runtime, `pyproject.toml` `[tool.cibuildwheel]`), plus the sdist. It runs
