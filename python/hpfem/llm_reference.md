@@ -305,18 +305,18 @@ PML regions included at top and bottom of the mesh, z = direction of the lines.
 import hpfem
 hpfem.set_log_level("warn")
 k = 6.0                                                   # vacuum wavenumber [1/m]
-mesh = hpfem.square_with_disc(4, 0.25, 1.0, 2.0, 2)       # disc r=0.25 tag 2, PML room to |x|=2
+mesh = hpfem.square_with_disc(4, 0.25, 1.0, 2.5, 2)       # disc r=0.25 tag 2, PML room to |x|=2.5
 nd = hpfem.NedelecDofMap2D(mesh, 3)
 s = hpfem.ScatteringSetup2D()
 s.omega = k * hpfem.constants.c0
 s.materials.set(2, hpfem.Material.dielectric(1.5))
 s.incident = hpfem.plane_wave([0.0, 1.0], [k, 0.0])
 s.formulation = hpfem.Formulation.SCATTERED_FIELD
-s.pml = hpfem.PmlBox2D.uniform([-1, -1], [1, 1], 1.0, k, 1.0, hpfem.PmlProfile(2, 1e-10))
+s.pml = hpfem.PmlBox2D.uniform([-1, -1], [1, 1], 1.5, k, 1.0, hpfem.PmlProfile(2, 1e-8))
 s.pec_tags = [hpfem.box_tag.X_MIN, hpfem.box_tag.X_MAX, hpfem.box_tag.Y_MIN, hpfem.box_tag.Y_MAX]
 problem = hpfem.Scattering2D(nd, s); sol = problem.solve()
 cs = hpfem.cross_sections(problem, sol, hpfem.Surface2D.around_cells(mesh, 2), 1.0)
-print(cs.scattering, hpfem.mie_cylinder_scattering_width(k, 0.25, 1.5))
+print(cs.scattering, hpfem.mie_cylinder_scattering_width(k, 0.25, 1.5))  # agree to ~2e-5
 E = problem.total_field(sol, hpfem.PointLocator2D(mesh), [0.5, 0.1])
 ```
 
@@ -515,7 +515,9 @@ print(result.params, result.value, study.best().values)
 - `AdaptiveMesh2D.mesh` returns a new copy each access: take it once per step and build all maps,
   locators and exporters of that step on that object.
 - PML: [lower, upper] is the interior; the mesh must contain the layers outside it; end the
-  outer boundary with `pec_tags`. Thickness list order x_min, x_max, y_min, y_max(, z_min, z_max).
+  outer boundary with `pec_tags`. A warning "the PML is under-resolved" means the stretch is too
+  steep for the cells: thicken the layer (`PmlBox2D.recommended_thickness(k0, n, h, profile, p)`)
+  or take a milder profile (`PmlProfile(2, 1e-8)`) instead of ignoring it. Thickness list order x_min, x_max, y_min, y_max(, z_min, z_max).
   Use `SCATTERED_FIELD` with a PML; `TOTAL_FIELD` is the default.
 - `Scattering2D` has no E_z; for E_z use `ConicalScattering` (β = 0) or `grating.solve(..., "s")`.
 - Tensor materials (`hpfem.Material.anisotropic`, `hpfem.materials.Uniaxial`): `Scattering2D`
