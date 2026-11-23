@@ -336,7 +336,11 @@ vertices and edges keep the default direction slave $= e^{ik\cdot a}\,$master so
 arise, and the Bloch phase enters as $e^{-ik\cdot a}$ when the master side is the finer one.
 Facets that are neither identical nor nested (unrelated meshes on the two sides, sheared
 lattices) fall back to interpolating the master trace from the master cells under each point,
-which is exact only up to the slave's order (a warning is logged once). `AdaptiveMesh::set_periodic`
+which is exact only up to the slave's order (a warning is logged once). The facets are grouped by
+overlap of their bounding boxes, except that a slave facet with a coincident master is paired
+with it alone: the two triangles of a square face share their bounding box, and without that
+rule every matched 3D mesh fell back to the interpolation (correct, but slower and with the
+misleading warning; fixed with M21 S1). `AdaptiveMesh::set_periodic`
 (identical faces by mirrored refinement) is therefore optional. `assembly::PeriodicLocator`
 answers, for a point on a slave facet, which master cell lies under its shifted image, with the
 phase; the residual estimators use it to include the jump across the Bloch faces
@@ -1432,6 +1436,40 @@ volume integral of the total field (energy balance).
   $2\cdot10^{-6}$ once the PML is designed for the steepest *propagating order* on its side
   (order $-2$ at 57° in the glass, not the 50° of the incident wave: designed for 50° the
   layer reflected $2.5\cdot10^{-5}$ of it and the balance stalled at $1.7\cdot10^{-5}$).
+
+- **Orders of crossed gratings** (M21 S1, issue #237): in 3D a structure periodic along two
+  lattice vectors $\mathbf a_1, \mathbf a_2$ (any angle between them) diffracts into the orders
+  $(m, n)$ with the tangential wavevectors $\mathbf k_{mn} = \mathbf k_t + m\mathbf b_1 +
+  n\mathbf b_2$, where $\mathbf b_i = 2\pi\sum_j (G^{-1})_{ij}\mathbf a_j$ with the Gram matrix
+  $G_{ij} = \mathbf a_i\cdot\mathbf a_j$ are the reciprocal vectors in the plane
+  ($\mathbf a_i\cdot\mathbf b_j = 2\pi\delta_{ij}$). On an `OrderPlane` (origin $\mathbf o$, the
+  lattice vectors, the unit normal $\hat n$ away from the structure) in a homogeneous region
+  of real index $n$, `diffraction_orders` returns
+  $$A_{mn} = \int_0^1\!\!\int_0^1 (\mathbf E - \mathbf E^{inc})(\mathbf o + s\mathbf a_1 + t\mathbf a_2)
+  \,e^{-i\mathbf k_{mn}\cdot(s\mathbf a_1 + t\mathbf a_2)}\,ds\,dt,\qquad
+  k_{n,mn} = \sqrt{k_0^2n^2 - |\mathbf k_{mn}|^2}\ (\mathrm{Im}\ge 0),$$
+  $$\eta_{mn} = \mathrm{Re}(k_{n,mn})\,|A_{mn}|^2 / (k_n^{inc}|E_0|^2)$$
+  by a tensor composite Gauss–Legendre rule (blocks of up to 8 points per lattice direction,
+  exact when the blocks align with the cells; the phase factor separates into
+  $e^{-i\mathbf k_t\cdot\mathbf d}e^{-2\pi i m s}e^{-2\pi i n t}$, so the cost is the
+  $N^2$ field evaluations plus $N^2(2M+1)$ products). $|A_{mn}|^2$ is the power of the order
+  because the amplitude of a propagating plane wave is transverse; the efficiency needs equal
+  permeability on both sides, as in 2D. The reflected orders are those of the total field
+  minus `Scattering::incident_wave` above the structure, the transmitted ones those of the
+  total field below. Verified (`tests/unit/physics/test_grating_postprocessing.cpp`,
+  `tests/convergence/crossed_grating_orders.cpp`): analytic sums of plane waves on an oblique
+  lattice (60°) in a tilted plane to $10^{-12}$; the analytic field of a layer stack at
+  oblique incidence with azimuth gives $R$ and $T$ of s and p polarisation to $10^{-10}$; a
+  film meshed as a scatterer in a Bloch cell (phases in x and y, $\theta = 0.5$,
+  $\varphi = 0.7$) converges to the transfer matrix ($|R - R^*|$, $|T - T^*| \le 8\cdot10^{-6}$
+  for s and $1.6\cdot10^{-3}$ for p at $p = 3$, all other orders zero to round-off); square
+  air holes in a glass film on glass (period $0.8\lambda$, orders $(\pm1, 0)$, $(0, \pm1)$
+  propagating in the substrate) close $\sum R + \sum T = 1$ to $7\cdot10^{-3}$ / $4\cdot10^{-5}$
+  at $p = 3$ / 4 and give equal x and y polarisation (C4 symmetry, broken only by the Kuhn
+  tetrahedra) to $4\cdot10^{-4}$ / $2\cdot10^{-5}$. In the scattered-field formulation on a
+  layered background the substrate cells need their material in `materials` as well: unlisted
+  tags get `materials.background()`, not the layer of the stack, and a substrate meshed as
+  vacuum turns the whole half-space into a scatterer.
 
 - **Field sampling and triangulated export** (`physics/field_sampling.hpp`, M15 F3): maps and
   line scans no longer need one call per point. `sample_field(problem, solution, locator,

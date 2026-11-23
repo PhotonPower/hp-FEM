@@ -1,6 +1,7 @@
 """Grating post-processing from Python (M14-C): diffraction orders of an analytic
 quasi-periodic field on a rotated line, the incident wave of a layered background, planar
-surfaces and the power balance of a flat stack."""
+surfaces and the power balance of a flat stack; the orders (m, n) of crossed gratings on a
+plane (M21 S1)."""
 
 import numpy as np
 import pytest
@@ -116,3 +117,37 @@ def test_layered_background_incident_wave_planes_and_balance():
         1,
     )
     assert abs(orders[1].efficiency - wave.reflectance) < 2e-2
+
+
+def test_crossed_grating_orders_of_a_layer_stack():
+    """3D orders on planes above and below a stack: R and T of both polarisations at oblique
+    incidence with azimuth, no other order."""
+    k0 = 2 * np.pi / 0.6
+    stack = hpfem.LayerStack3D(
+        hpfem.Material.vacuum(),
+        [hpfem.Layer(hpfem.Material.dielectric(2.1), 0.17)],
+        hpfem.Material.dielectric(1.5),
+    )
+    theta, phi = 0.6, 0.9
+    kt = k0 * np.sin(theta) * np.array([np.cos(phi), np.sin(phi), 0.0])
+    a1, a2 = np.array([0.4, 0.0, 0.0]), np.array([0.0, 0.35, 0.0])
+    above = hpfem.OrderPlane([0.0, 0.0, 0.3], a1, a2, [0.0, 0.0, 1.0])
+    below = hpfem.OrderPlane([0.0, 0.0, -0.5], a1, a2, [0.0, 0.0, -1.0])
+    for pol in (hpfem.Polarisation.S, hpfem.Polarisation.P):
+        wave = stack.plane_wave(k0, theta, pol, 1.0, phi)
+        kn = k0 * np.cos(theta)
+        r = hpfem.diffraction_orders(
+            wave.field.value, above, k0, 1.0, kt, kn, wave.incident_wave.value, 1
+        )
+        t = hpfem.diffraction_orders(wave.field.value, below, k0, 1.5, kt, kn, max_order=1)
+        assert len(r) == 9 and (r[0].m, r[0].n, r[1].n) == (-1, -1, 0)
+        zeroth = [o for o in r if o.m == 0 and o.n == 0][0]
+        assert abs(zeroth.efficiency - wave.reflectance) < 1e-10
+        assert abs(t[4].efficiency - wave.transmittance) < 1e-10
+        assert np.allclose(zeroth.k_tangential, kt)
+        direction = zeroth.direction(above.normal)
+        assert direction[2] > 0 and abs(np.linalg.norm(direction) - 1) < 1e-12
+        assert max(np.linalg.norm(o.amplitude) for o in r if (o.m, o.n) != (0, 0)) < 1e-12
+    with pytest.raises(ValueError):
+        flat = hpfem.OrderPlane([0.0, 0.0, 0.3], a1, 2 * a1, [0.0, 0.0, 1.0])
+        hpfem.diffraction_orders(wave.field.value, flat, k0, 1.0, kt, kn)

@@ -7,6 +7,7 @@
 #include <numbers>
 #include <vector>
 
+#include <Eigen/Geometry>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -253,4 +254,150 @@ TEST_CASE(
   REQUIRE(exact[2].amplitude.norm() < 1e-12);
   CHECK_THROWS_AS(hpfem::physics::power_balance(problem, solution, reflection, 1.0 * um, 2 * k0),
                   hpfem::InvalidArgument);
+}
+
+namespace {
+
+using hpfem::physics::DiffractionOrder3D;
+using hpfem::physics::OrderPlane;
+
+Complex normal_wavenumber(Real k, const Point<3>& kt) {
+  const Real kn2 = k * k - kt.squaredNorm();
+  return kn2 >= 0 ? Complex{std::sqrt(kn2), 0.0} : Complex{0.0, std::sqrt(-kn2)};
+}
+
+}  // namespace
+
+TEST_CASE(
+    "diffraction_orders (3D): amplitudes (m, n) of an analytic field on an oblique lattice in a "
+    "tilted plane",
+    "[physics][grating][diffraction]") {
+  // a tilted plane with a hexagonal-like oblique lattice (60° between a1 and a2)
+  const Eigen::Matrix3d rotation =
+      (Eigen::AngleAxisd(0.3, Eigen::Vector3d::UnitX()) *
+       Eigen::AngleAxisd(-0.7, Eigen::Vector3d(1.0, 1.0, 0.0).normalized()))
+          .toRotationMatrix();
+  OrderPlane plane;
+  plane.origin = Point<3>(0.1, -0.2, 0.3);
+  plane.a1 = rotation * Point<3>(0.8, 0.0, 0.0);
+  plane.a2 = rotation * Point<3>(0.45, 0.45 * std::sqrt(3.0), 0.0);
+  plane.normal = rotation * Point<3>(0.0, 0.0, 1.0);
+  const Real k = 2.0 * std::numbers::pi;  // wavelength 1, n = 1
+  const Point<3> kt = rotation * Point<3>(1.1, -0.6, 0.0);
+  // reciprocal vectors of the lattice (a_i · b_j = 2π δ_ij)
+  const Eigen::Matrix3d a = (Eigen::Matrix3d() << plane.a1, plane.a2, plane.normal).finished();
+  const Eigen::Matrix3d b = 2.0 * std::numbers::pi * a.inverse().transpose();
+  const auto k_mn = [&](int m, int n) -> Point<3> { return kt + m * b.col(0) + n * b.col(1); };
+  const auto amplitude = [](int m, int n) {
+    return ComplexVector<3>(Complex{0.3 + 0.1 * m, -0.2 * n}, Complex{0.1 * n * m, 0.5},
+                            Complex{-0.25, 0.05 * (m + 2 * n)});
+  };
+  const ComplexVector<3> e0(Complex{0.6, 0.0}, Complex{0.0, 0.8}, Complex{0.0, 0.0});
+  const Complex kn0 = normal_wavenumber(k, kt);
+  const auto incident = [&](const Point<3>& x) {
+    const Point<3> d = x - plane.origin;
+    return ComplexVector<3>(e0 * std::exp(kI * (kt.dot(d) - kn0 * plane.normal.dot(d))));
+  };
+  const auto total = [&](const Point<3>& x) {
+    const Point<3> d = x - plane.origin;
+    ComplexVector<3> e = incident(x);
+    for (int m = -1; m <= 1; ++m) {
+      for (int n = -1; n <= 1; ++n) {
+        const Point<3> q = k_mn(m, n);
+        e += amplitude(m, n) *
+             std::exp(kI * (q.dot(d) + normal_wavenumber(k, q) * plane.normal.dot(d)));
+      }
+    }
+    return e;
+  };
+  const auto orders =
+      diffraction_orders(total, plane, k, 1.0, kt, kn0.real(), incident, 2, 0, e0.norm());
+  REQUIRE(orders.size() == 25);
+  Real sum = 0;
+  for (const DiffractionOrder3D& o : orders) {
+    INFO("order (" << o.m << ", " << o.n << ")");
+    REQUIRE((o.k_tangential - k_mn(o.m, o.n)).norm() < 1e-12 * k);
+    REQUIRE(std::abs(o.kn - normal_wavenumber(k, k_mn(o.m, o.n))) < 1e-12 * k);
+    REQUIRE(o.propagating == (k_mn(o.m, o.n).norm() < k));
+    if (std::abs(o.m) <= 1 && std::abs(o.n) <= 1) {
+      const ComplexVector<3> expected = amplitude(o.m, o.n);
+      REQUIRE((o.amplitude - expected).norm() < 1e-12 * expected.norm());
+      if (o.propagating) {
+        REQUIRE(o.efficiency ==
+                Approx(o.kn.real() * expected.squaredNorm() / (kn0.real() * e0.squaredNorm())));
+        REQUIRE(o.direction(plane.normal).dot(plane.normal) > 0);
+        sum += o.efficiency;
+      }
+    } else {
+      REQUIRE(o.amplitude.norm() < 1e-12);
+    }
+    if (!o.propagating) REQUIRE(o.efficiency == 0.0);
+  }
+  REQUIRE(sum > 0);
+  // the order list runs m outer, n inner
+  REQUIRE(orders[0].m == -2);
+  REQUIRE(orders[0].n == -2);
+  REQUIRE(orders[1].n == -1);
+  REQUIRE(orders[5].m == -1);
+  // without the incident wave the zeroth order contains it
+  const auto with_incident = diffraction_orders(total, plane, k, 1.0, kt, kn0.real(), {}, 1);
+  REQUIRE((with_incident[4].amplitude - amplitude(0, 0) - e0).norm() < 1e-12);
+  // the phase reference moves with the origin
+  OrderPlane shifted = plane;
+  shifted.origin += 0.3 * plane.a1 + 0.6 * plane.a2;
+  const auto moved = diffraction_orders(total, shifted, k, 1.0, kt, kn0.real(), incident, 1);
+  const Point<3> shift = shifted.origin - plane.origin;
+  REQUIRE((moved[7].amplitude - amplitude(1, 0) * std::exp(kI * k_mn(1, 0).dot(shift))).norm() <
+          1e-12);
+  // invalid input
+  OrderPlane flat = plane;
+  flat.a2 = 2.0 * plane.a1;
+  CHECK_THROWS_AS(diffraction_orders(total, flat, k, 1.0, kt, kn0.real()), hpfem::InvalidArgument);
+  OrderPlane tilted = plane;
+  tilted.a1 += 0.1 * plane.normal;
+  CHECK_THROWS_AS(diffraction_orders(total, tilted, k, 1.0, kt, kn0.real()),
+                  hpfem::InvalidArgument);
+  CHECK_THROWS_AS(
+      diffraction_orders(total, plane, k, 1.0, Point<3>(kt + 0.5 * plane.normal), kn0.real()),
+      hpfem::InvalidArgument);
+  CHECK_THROWS_AS(diffraction_orders(total, plane, k, 1.0, kt, -1.0), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(diffraction_orders(hpfem::physics::FieldFunction3D{}, plane, k, 1.0, kt, 1.0),
+                  hpfem::InvalidArgument);
+}
+
+TEST_CASE(
+    "diffraction_orders (3D): the analytic field of a layer stack gives its reflectance and "
+    "transmittance for both polarisations at oblique incidence",
+    "[physics][grating][diffraction]") {
+  const Real k0 = 2.0 * std::numbers::pi / 0.6;
+  const LayerStack<3> stack(Material::vacuum(),
+                            {hpfem::physics::Layer{Material::dielectric(2.1), 0.17}},
+                            Material::dielectric(1.5));
+  const Real theta = 0.6;
+  const Real phi = 0.9;
+  const Point<3> kt(k0 * std::sin(theta) * std::cos(phi), k0 * std::sin(theta) * std::sin(phi),
+                    0.0);
+  const Real kn_inc = k0 * std::cos(theta);
+  for (const auto pol : {hpfem::physics::Polarisation::kS, hpfem::physics::Polarisation::kP}) {
+    const auto wave = stack.plane_wave(k0, theta, pol, 1.0, phi);
+    OrderPlane above;
+    above.origin = Point<3>(0.0, 0.0, 0.3);
+    above.a1 = Point<3>(0.4, 0.0, 0.0);
+    above.a2 = Point<3>(0.0, 0.35, 0.0);
+    OrderPlane below = above;
+    below.origin = Point<3>(0.0, 0.0, -0.5);
+    below.normal = Point<3>(0.0, 0.0, -1.0);
+    const auto r = diffraction_orders(wave.field.value, above, k0, 1.0, kt, kn_inc,
+                                      wave.incident_wave.value, 1);
+    const auto t = diffraction_orders(wave.field.value, below, k0, 1.5, kt, kn_inc, {}, 1);
+    INFO("polarisation " << (pol == hpfem::physics::Polarisation::kS ? "s" : "p"));
+    REQUIRE(r[4].efficiency == Approx(wave.reflectance).epsilon(1e-10));
+    REQUIRE(t[4].efficiency == Approx(wave.transmittance).epsilon(1e-10));
+    REQUIRE(r[4].efficiency + t[4].efficiency == Approx(1.0).epsilon(1e-10));
+    for (std::size_t i = 0; i < r.size(); ++i) {
+      if (i == 4) continue;
+      REQUIRE(r[i].amplitude.norm() < 1e-12);
+      REQUIRE(t[i].amplitude.norm() < 1e-12);
+    }
+  }
 }

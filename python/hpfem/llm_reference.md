@@ -208,6 +208,13 @@ Discover at runtime:
   `hpfem.diffraction_efficiencies`, `hpfem.power_balance`, `hpfem.bloch_constraints`,
   `hpfem.conical_fourier_coefficients`, `hpfem.conical_diffraction_efficiencies`,
   `hpfem.conical_cross_sections`, `hpfem.ConicalFarField`, `hpfem.conical_power_balance`.
+- Crossed gratings (3D, periodic along two lattice vectors): `hpfem.OrderPlane(origin, a1, a2,
+  normal)` (normal away from the structure) and `hpfem.diffraction_orders(field, plane, k0,
+  index_plane, k_tangential, kn_incident, incident=None, max_order=2)` -> list of
+  `hpfem.DiffractionOrder3D` (`m`, `n`, `k_tangential`, `kn`, `propagating`, `amplitude`,
+  `efficiency`; m outer, n inner). Reflected: `field = lambda x: problem.total_field(sol, loc, x)`,
+  `incident = problem.incident_wave`, plane above; transmitted: total field, plane below,
+  `index_plane` of the substrate.
 - Errors vs exact: `hpfem.hcurl_error(nd, e, field, curl)`, `hpfem.h1_error(h1, u, g, grad_g)`.
 - Export: `hpfem.FieldExporter2D(mesh, subdivisions).hcurl("E", nd, e).h1("T", h1, u)
   .write("f.vtu")`; `hpfem.VtkWriter2D(mesh)`; `hpfem.write_vtu_facets(mesh, file)`.
@@ -529,6 +536,9 @@ print(result.params, result.value, study.best().values)
   raises unless `materials.with_policy(m, "clamp")`.
 - Python callbacks (`current`, `eigenstrain`, custom fields) run under the GIL inside the
   assembly: correct but slow; prefer `plane_wave`, materials by tag, `set_shrinkage_grid`.
+- Scattered field on a layered background (`setup.background = LayerStack3D(...)`): give the
+  cells of every layer and of the substrate their material by tag as well; unlisted tags are
+  `materials.background` (vacuum), and a substrate meshed as vacuum becomes a scatterer.
 - In `hpfem.grating` the mesh must have the period along x and the stack normal along y, with
   PML cells inside the mesh; cells straddling a stack interface raise `GratingError` (put
   interfaces on mesh lines). Angles in radians.

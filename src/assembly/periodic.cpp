@@ -158,6 +158,17 @@ std::vector<Component> periodic_components(const mesh::Mesh<Dim>& mesh,
   };
   std::vector<bool> slave_has_partner(ns, false);
   for (std::size_t i = 0; i < ns; ++i) {
+    // a coincident master is the only partner: the overlap test compares bounding boxes, which
+    // the two triangles of a square face (3D) share, so it would join neighbouring pairs of a
+    // matched mesh into one component and send them to the interpolation fallback
+    const auto coincident = std::find_if(masters.begin(), masters.end(), [&](Index fm) {
+      return facets_coincide(mesh, slaves[i], to_master, fm, tol);
+    });
+    if (coincident != masters.end()) {
+      parent[find(i)] = find(ns + static_cast<std::size_t>(coincident - masters.begin()));
+      slave_has_partner[i] = true;
+      continue;
+    }
     for (std::size_t j = 0; j < masters.size(); ++j) {
       if (facets_overlap(mesh, slaves[i], to_master, masters[j], tol)) {
         parent[find(i)] = find(ns + j);

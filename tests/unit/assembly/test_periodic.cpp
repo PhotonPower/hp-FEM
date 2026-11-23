@@ -2,16 +2,21 @@
 // the orientation sign, also on randomly renumbered meshes and across two periodic
 // directions (box corners), and the constrained plane-wave problem is solved correctly.
 #include <cmath>
+#include <memory>
 #include <numbers>
+#include <sstream>
+#include <string>
 #include <vector>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <spdlog/sinks/ostream_sink.h>
 
 #include "../mesh/test_meshes.hpp"
 #include "hpfem/assembly/periodic.hpp"
 #include "hpfem/core/constants.hpp"
 #include "hpfem/core/error.hpp"
+#include "hpfem/core/log.hpp"
 #include "hpfem/fespace/dof_map.hpp"
 #include "hpfem/mesh/generators.hpp"
 #include "hpfem/mesh/geometry.hpp"
@@ -210,4 +215,40 @@ TEST_CASE("bloch_constraints on the H1 space: the interpolant of a Bloch functio
       combination += term.coefficient * u(term.master);
     REQUIRE(std::abs(combination - u(dof)) < 1e-10 * u.norm());
   }
+}
+
+TEST_CASE("bloch_constraints: matched triangular faces in 3D map one to one",
+          "[assembly][periodic]") {
+  // the two triangles of a square face share their bounding box; each slave face must still be
+  // paired with its coincident master alone, so that every constrained DoF (edges and faces,
+  // p = 3) is one master DoF times a unimodular coefficient
+  const Point<3> k(0.9, -0.4, 0.0);
+  const std::vector<PeriodicPair<3>> pairs{
+      PeriodicPair<3>{box_tag::kXMin, box_tag::kXMax, Point<3>(1.0, 0.0, 0.0),
+                      bloch_phase<3>(k, Point<3>(1.0, 0.0, 0.0))},
+      PeriodicPair<3>{box_tag::kYMin, box_tag::kYMax, Point<3>(0.0, 1.0, 0.0),
+                      bloch_phase<3>(k, Point<3>(0.0, 1.0, 0.0))}};
+  const hpfem::mesh::Mesh<3> mesh = box(3, 2, 2);
+  const NedelecDofMap<3> dofs(mesh, 3);
+  std::ostringstream stream;
+  const auto sink = std::make_shared<spdlog::sinks::ostream_sink_mt>(stream);
+  hpfem::log().sinks().push_back(sink);
+  const auto level = hpfem::log().level();
+  hpfem::log().set_level(spdlog::level::warn);
+  const Constraints c = bloch_constraints<3>(dofs, pairs);
+  hpfem::log().set_level(level);
+  hpfem::log().sinks().pop_back();
+  // the matched path, not the interpolation fallback for unrelated facet layouts
+  REQUIRE(stream.str().find("neither matched nor nested") == std::string::npos);
+  Index face_dofs = 0;
+  for (const Index f : mesh.facets_with_tag(box_tag::kXMax)) {
+    for (const Index d : dofs.facet_dofs(f)) {
+      REQUIRE(c.is_constrained(d));
+      const auto terms = c.terms(d);
+      REQUIRE(terms.size() == 1);
+      REQUIRE(std::abs(terms[0].coefficient) == Approx(1.0).margin(1e-9));
+      ++face_dofs;
+    }
+  }
+  REQUIRE(face_dofs > 0);
 }
