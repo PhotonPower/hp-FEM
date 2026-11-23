@@ -96,6 +96,28 @@ def test_bare_stack_against_the_transfer_matrix():
         assert r.order(0, 0, "T").efficiency == pytest.approx(exact.transmittance, abs=1e-9)
         assert abs(r.balance) < 1e-9
         assert r.absorption == 0.0
+    # fields: the bare stack's analytic field, also mixed and outside the cell (Bloch wrap)
+    points = np.array(
+        [
+            [0.1 * um, 0.05 * um, 0.2 * um],
+            [0.25 * um, 0.2 * um, -0.12 * um],
+            [0.7 * um, -0.4 * um, -0.3 * um],
+        ]
+    )
+    a_s, a_p = cg._polarisation((0.6, 0.8j))
+    waves = [
+        stack.plane_wave(k0, theta, pol, 1.0, phi)
+        for pol in (hpfem.Polarisation.S, hpfem.Polarisation.P)
+    ]
+    expected = np.array(
+        [
+            a_s * np.asarray(waves[0].field.value(x)) + a_p * np.asarray(waves[1].field.value(x))
+            for x in points
+        ]
+    )
+    fields = result.polarised((0.6, 0.8j)).field(points)
+    assert np.abs(fields - expected).max() < 1e-9 * np.abs(expected).max()
+    assert np.abs(result.polarised((0.6, 0.8j)).field(points, scattered=True)).max() < 1e-12
     direction = result.order(0, 0, "R").direction
     assert direction[2] > 0 and direction[:2] / np.linalg.norm(direction[:2]) == pytest.approx(
         [math.cos(phi), math.sin(phi)]

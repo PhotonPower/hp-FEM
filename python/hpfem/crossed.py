@@ -600,6 +600,31 @@ class CrossedResult:
         recomputed only for absorbing structures."""
         return _assemble_result(self._raw, _polarisation(polarisation))
 
+    def field(self, points, quantity: str = "E", scattered: bool = False) -> np.ndarray:
+        """The field of this result's polarisation at ``points`` (n, 3) [m]: rows (E_x, E_y,
+        E_z) [V/m] for an incident wave of amplitude 1 V/m (``quantity="H"``: the magnetic
+        field [A/m]); the total field, or the scattered one against the layered background
+        with ``scattered``. Points outside the cell in x or y are mapped back with the Bloch
+        phase, points above or below the mesh give NaN. Phase reference of the incident wave:
+        its value at z = 0 (the top of the layers)."""
+        points = np.atleast_2d(np.asarray(points, dtype=float))
+        if points.shape[1] != 3:
+            raise CrossedError("field: points must have shape (n, 3)")
+        a_s, a_p = self.polarisation
+        out = np.zeros((points.shape[0], 3), dtype=complex)
+        for key, a in (("s", a_s), ("p", a_p)):
+            if a == 0:
+                continue
+            values, _ = self._raw["problems"][key].sample(
+                self._raw["solutions"][key],
+                self._raw["locator"],
+                points,
+                scattered=scattered,
+                quantity=quantity,
+            )
+            out += a * np.asarray(values)
+        return out
+
 
 def _polarisation(spec) -> tuple[complex, complex]:
     if isinstance(spec, str):
@@ -822,6 +847,10 @@ def solve(
         "num_cells": fem_mesh.num_cells,
         "layout": layout,
         "mesh": (fem_mesh, links, layout),
+        "problems": problems,
+        "solutions": solutions,
+        "locator": locator,
+        "dofs": dofs,
     }
     for key in ("s", "p"):
         problem, solution = problems[key], solutions[key]
