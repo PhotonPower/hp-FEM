@@ -1019,6 +1019,37 @@ hole array above (s polarisation, `elements_per_wavelength=2.5`, SparseLU on a 6
 The factorisation dominates the cost; the PML (profile and thickness) moved the efficiencies by
 less than 3e-4 in this example, so the accuracy is that of the discretisation of the structure.
 
+### FourierGrating models (`hpfem.fouriergrating`, `hpfem fg`)
+
+Crossed-grating configurations of FourierGrating (RCWA; `"dimension": "2D"`) run unchanged:
+
+```bash
+hpfem fg model.json -p 4 -e 2.5 -o out/hpfem      # writes out/hpfem/efficiencies.csv
+```
+
+```python
+from hpfem import fouriergrating as fgi
+model = fgi.load("model.json")                     # CrossedGrating + the incidences of the scan
+results = fgi.solve(model, order=4, elements_per_wavelength=2.5)
+fgi.write_efficiencies(results, "efficiencies.csv")  # FourierGrating's columns and order labels
+points = model.fg_to_hpfem([[0.25, 0.1, 0.25]])    # FourierGrating µm -> hpfem m
+e = model.hpfem_to_fg_field(results[0][1].field(points))
+```
+
+The CSV has FourierGrating's columns (`lambda_um, phi_deg, psi_deg, delta_deg, side, n, m,
+efficiency`) and order labels, so both files compare row by row (`fgi.read_efficiencies`). The
+frames, verified against FourierGrating's fields and efficiencies (docs/validation.md N):
+FourierGrating's point (x, y, z) (stack normal y, layers listed from the bottom) is
+(x, −z, y − H) here, H the total layer thickness; `phi_deg` is `theta`, `psi_deg` is `−phi`,
+`delta_deg` gives (a_s, a_p) = (cos δ, −sin δ) since FourierGrating's p is minus hpfem's p; its
+order (n, m) is (n, −m) here. One solve per wavelength and angle pair serves every `delta_deg`
+of the scan, and the mesh is reused while the wavelength stays the same. Imported: layers
+`homogeneous`, `contour2d` (circle, ellipse, polygon) and `polygon2d` (vertices, rectangles);
+materials `{"n": x | [n, k]}` and `{"eps": x | [re, im]}`; scans as numbers, lists or ranges.
+Everything else (sweeps, beams, dispersive or tensor materials, NURBS, regions with holes,
+profiles, CAD) raises `FourierGratingError` naming the JSON pointer. The example
+`examples/crossed_hole_array` recomputes a hole array and compares it with the RCWA.
+
 ## Data ports for BindOptiX (`hpfem.dataports`)
 
 BindOptiX (optical biosensors) reads the light of the fusion as maps in the result envelope

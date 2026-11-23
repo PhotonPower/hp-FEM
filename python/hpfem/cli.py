@@ -1,5 +1,6 @@
 """Command line: ``hpfem run project.json [-o results.json]``, ``hpfem validate``,
-``hpfem info``, ``hpfem materials``, ``hpfem reference`` (also ``python -m hpfem ...``)."""
+``hpfem info``, ``hpfem materials``, ``hpfem reference``, ``hpfem fg model.json`` (a
+FourierGrating crossed-grating model) (also ``python -m hpfem ...``)."""
 
 from __future__ import annotations
 
@@ -70,6 +71,46 @@ def _run(args) -> int:
     return 0
 
 
+def _fouriergrating(args) -> int:
+    from hpfem import fouriergrating
+
+    if args.quiet:
+        hpfem.set_log_level("warn")
+    if args.threads:
+        hpfem.set_num_threads(args.threads)
+    try:
+        model = fouriergrating.load(args.model)
+        out = Path(args.output) if args.output else Path(args.model).with_suffix("") / "hpfem"
+
+        def progress(i, n, incidence):
+            fg = incidence.fg
+            print(
+                f"[{i + 1}/{n}] lambda {fg['lambda_um']:g} um, phi {fg['phi_deg']:g} deg, "
+                f"psi {fg['psi_deg']:g} deg, delta {fg['delta_deg']:g} deg",
+                file=sys.stderr,
+            )
+
+        results = fouriergrating.solve(
+            model,
+            order=args.order,
+            elements_per_wavelength=args.elements_per_wavelength,
+            progress=progress,
+        )
+        path = fouriergrating.write_efficiencies(results, out / "efficiencies.csv")
+    except (fouriergrating.FourierGratingError, ValueError, OSError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+    for incidence, result in results:
+        fg = incidence.fg
+        balance = "" if result.balance is None else f", balance {result.balance:.1e}"
+        print(
+            f"lambda {fg['lambda_um']:g} um, phi {fg['phi_deg']:g}, psi {fg['psi_deg']:g}, "
+            f"delta {fg['delta_deg']:g}: R {result.R:.6f}, T {result.T:.6f}{balance}"
+        )
+    print(f"written: {path}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hpfem", description="hp-FEM for nano-optics")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -82,6 +123,24 @@ def build_parser() -> argparse.ArgumentParser:
     validate = sub.add_parser("validate", help="check a project file without solving")
     validate.add_argument("project")
     validate.set_defaults(func=_validate)
+    fg = sub.add_parser(
+        "fg",
+        help="compute a FourierGrating crossed-grating model (JSON) and write its "
+        "efficiencies.csv in FourierGrating's format",
+    )
+    fg.add_argument("model")
+    fg.add_argument("-o", "--output", help="output directory (default: <model>/hpfem)")
+    fg.add_argument("-p", "--order", type=int, default=3, help="polynomial order (default 3)")
+    fg.add_argument(
+        "-e",
+        "--elements-per-wavelength",
+        type=float,
+        default=None,
+        help="mesh density per local wavelength (default 8 / order)",
+    )
+    fg.add_argument("-t", "--threads", type=int, default=0, help="OpenMP threads (0: default)")
+    fg.add_argument("-q", "--quiet", action="store_true", help="only warnings from the core")
+    fg.set_defaults(func=_fouriergrating)
     sub.add_parser("info", help="version, threads, solver backends").set_defaults(func=_info)
     sub.add_parser("materials", help="list the material library").set_defaults(func=_materials)
     sub.add_parser(

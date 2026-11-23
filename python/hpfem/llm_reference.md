@@ -293,6 +293,13 @@ PML regions included at top and bottom of the mesh, z = direction of the lines.
   Superstrate lossless, substrate a lossless dielectric. s: E perpendicular to the plane of
   incidence (normal incidence, phi = 0: E along -y), p: E in it (E along +x).
 
+- FourierGrating models (RCWA config, `"dimension": "2D"`): `hpfem.fouriergrating.load(path)`
+  -> `Model` (`.grating`, `.incidences`, `.fg_to_hpfem(points_um)`, `.hpfem_to_fg_field(e)`),
+  `hpfem.fouriergrating.solve(model, order=3)` -> [(incidence, CrossedResult)],
+  `hpfem.fouriergrating.write_efficiencies(results, path)` (FourierGrating's CSV and order labels);
+  CLI `hpfem fg model.json -p 4 -o outdir`. Frames: FG (x, y, z) = hpfem (x, -z, y - H); FG psi
+  = -phi; FG delta -> (cos d, -sin d); FG order (n, m) = hpfem (n, -m).
+
 ### High-level: other modules
 - `hpfem.planar.dipole_above_stack(stack, k0, height, moment) -> Purcell factor` (semi-analytic).
 - `hpfem.project`: `load(path)`, `validate(spec)`, `run(spec | path) -> dict` (JSON-able,

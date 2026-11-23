@@ -1053,3 +1053,73 @@ of the polynomial fit.
 The test confirms three parts of the code: the eigenstrain load, the treatment of two materials,
 and the free-body handling. It does not test the edge stresses, which beam theory does not
 describe.
+
+## N. Crossed grating against FourierGrating's RCWA (M21 S3)
+
+**Reference.** This is a code-to-code comparison, not a published benchmark. The reference is
+FourierGrating (commit 2caa01a), an RCWA code with exact Fourier coefficients of curved
+contours (`contour2d`) and normal-vector factorisation, run with $N_x = N_z = 20$ (41 × 41
+orders). Its energy balance closes to $6\cdot10^{-13}$.
+
+**Set-up.**
+- **Model.** FourierGrating's own configuration, `examples/crossed_hole_array/hole_array_glass_r125.json`.
+  Air holes of radius 125 nm on a square lattice of 500 nm, in a 150 nm glass film on glass
+  ($n = 1.5$).
+- **Incidence.** $\lambda = 405$ nm at normal incidence, `delta_deg` = 90 (p, E along x).
+- **hp-FEM.** The model is imported unchanged with `hpfem.fouriergrating` and solved with
+  `hpfem.crossed` at $p = 3, 4$ on one Gmsh mesh (2.5 elements per local wavelength,
+  second-order cells at the hole). The near fields are compared on FourierGrating's two cuts,
+  through the middle of the film and vertically through the hole.
+- **Script.** `examples/crossed_hole_array/run.py`; record in
+  `benchmarks/results/2026-11-23-validation-m21-fg-hole-array.json`.
+
+**Result.**
+
+| order | RCWA N = 20 | hp-FEM p = 3 | hp-FEM p = 4 | p = 4 − RCWA |
+|---|---|---|---|---|
+| R (0, 0) | 0.024680 | 0.024994 | 0.024655 | −2.5·10⁻⁵ |
+| R (±1, 0) | 0.001835 | 0.001869 / 0.001834 | 0.001836 / 0.001837 | ≤ 2.5·10⁻⁶ |
+| R (0, ±1) | 0.002216 | 0.002227 / 0.002196 | 0.002214 / 0.002218 | ≤ 2.2·10⁻⁶ |
+| T (0, 0) | 0.804148 | 0.802281 | 0.804491 | +3.4·10⁻⁴ |
+| T (±1, 0) | 0.017612 | 0.01771 / 0.01778 | 0.017591 / 0.017587 | −2·10⁻⁵ |
+| T (0, ±1) | 0.024624 | 0.02466 / 0.02448 | 0.024579 / 0.024573 | −5·10⁻⁵ |
+| T (±1, ±1) | 0.019650 | 0.01961 … 0.01983 | 0.01961 … 0.01963 | −2 … −4·10⁻⁵ |
+| ΣR + ΣT − 1 | 6·10⁻¹³ | −1.2·10⁻³ | 5.5·10⁻⁵ | |
+| unknowns, time | 16 min | 39 564, 35 s | 84 888, 4.8 min | |
+
+The near field is compared as the relative L² deviation of E. The rows on the film interfaces
+are excluded, because the two codes evaluate the normal components there on different sides.
+
+| cut | p = 3 | p = 4 | p = 4, away from the material edges |
+|---|---|---|---|
+| y = 0.075 µm (mid-film) | 1.9·10⁻² | 5.6·10⁻³ | 4.9·10⁻³ |
+| z = 0.25 µm (through the hole) | 1.8·10⁻² | 6.9·10⁻³ | 4.5·10⁻³ |
+
+![|E|² through the hole: RCWA, hp-FEM p = 4, difference](images/validation/crossed_hole_array_vertical.png)
+![|E|² in the middle of the film](images/validation/crossed_hole_array_horizontal.png)
+
+**Conventions.** The frames were fixed on a case without mirror symmetry, so that a wrong sign
+cannot hide:
+- **Test case.** An off-centre elliptic hole tilted by 25°, $\varphi = 25°$, $\psi = 30°$, RCWA
+  with $N = 8$.
+- **Polarisation factors.** The fields of s and p polarisation match FourierGrating's with the
+  factors +1.000 and −1.000 (residual $2\cdot10^{-3}$–$6\cdot10^{-3}$). With the opposite azimuth
+  they do not match at all (residual 0.9).
+- **Mixed polarisation.** The efficiencies at $\delta = \pm 45°$ agree to $7.6\cdot10^{-4}$. With
+  the other sign of p they would deviate by $2.6\cdot10^{-2}$; for example, the order T(1, −1) is
+  0.00492 (RCWA) and 0.00495 (hp-FEM) against 0.0306 for the other sign.
+- **Mapping.** FourierGrating's point (x, y, z) is (x, −z, y − H) here. Its ψ is −φ here, its
+  p is −p here, so δ becomes (cos δ, −sin δ). Its order (n, m) is (n, −m) here.
+- **Regression test.** `python/tests/test_fouriergrating.py` keeps these reference values.
+
+**Assessment.**
+- **Diffracted orders.** The two codes agree to $5\cdot10^{-5}$ at $p = 4$.
+- **Zeroth transmitted order.** $T_{00}$ differs by $3.4\cdot10^{-4}$, but it still moved by
+  $2.2\cdot10^{-3}$ between $p = 3$ and 4. The truncation error of the RCWA (staircase-free
+  coefficients, but a finite Fourier basis for a discontinuous permittivity) is unknown, so this
+  residual cannot yet be attributed to one code. Two runs would settle it: $p = 5$ (beyond the
+  8 GB of the laptop) and an RCWA series in N.
+- **Near fields.** They converge to the RCWA field by a factor of about 3 per order. The
+  remaining differences sit at the 90° edges of the hole, where the field is singular: the FEM is
+  not yet converged there at finite p, and the RCWA shows Gibbs ripple and the checkerboard
+  pattern of its truncated Fourier series.

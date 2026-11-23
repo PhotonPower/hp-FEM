@@ -1,0 +1,47 @@
+{
+  "dimension": "2D",
+  "solver": "rcwa",
+  "truncation": {
+    "Nx": 20,
+    "Nz": 20
+  },
+  "period_um": {
+    "x": 0.5,
+    "z": 0.5
+  },
+  "incidence": {
+    "lambda_um": 0.405,
+    "phi_deg": 0,
+    "psi_deg": 0,
+    "delta_deg": 90
+  },
+  "materials": {
+    "air": {
+      "n": 1.0
+    },
+    "glass": {
+      "n": 1.5
+    }
+  },
+  "superstrate": "air",
+  "substrate": "glass",
+  "layers": [
+    {
+      "type": "contour2d",
+      "thickness_um": 0.15,
+      "background": "glass",
+      "regions": [
+        {
+          "material": "air",
+          "circle": {
+            "center_um": [
+              0.25,
+              0.25
+            ],
+            "radius_um": 0.125
+          }
+        }
+      ]
+    }
+  ]
+}
