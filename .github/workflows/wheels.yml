@@ -3,8 +3,8 @@ name: Wheels
 # wheels with cibuildwheel, Windows win_amd64 wheels for the python.org CPython compiled with the
 # MSYS2 UCRT64 GCC (static GCC runtime, no MUMPS / cuDSS). Full matrix on workflow_dispatch and on
 # tags v* (attached to the release and published to PyPI by trusted publishing, environment
-# `pypi`, restricted to tags v*); one Python version on pull requests that touch the packaging
-# files.
+# `pypi`, restricted to tags v*); the newest Python version only on pull requests that touch the
+# packaging files.
 on:
   workflow_dispatch:
   push:
@@ -34,10 +34,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: pypa/cibuildwheel@v2.21
+      - uses: pypa/cibuildwheel@v4.3
         env:
-          # pull requests: one interpreter is enough to validate the build
-          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp312-*' || '' }}
+          # pull requests: one interpreter (the newest) is enough to validate the build
+          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp314-*' || '' }}
       - uses: actions/upload-artifact@v7
         with: { name: wheels-linux, path: wheelhouse/*.whl }
 
@@ -47,9 +47,9 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
-      - uses: pypa/cibuildwheel@v2.21
+      - uses: pypa/cibuildwheel@v4.3
         env:
-          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp312-*' || '' }}
+          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp314-*' || '' }}
       - uses: actions/upload-artifact@v7
         with: { name: wheels-macos, path: wheelhouse/*.whl }
 
@@ -58,7 +58,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ${{ github.event_name == 'pull_request' && fromJSON('["3.12"]') || fromJSON('["3.10", "3.11", "3.12", "3.13"]') }}
+        python: ${{ github.event_name == 'pull_request' && fromJSON('["3.14"]') || fromJSON('["3.10", "3.11", "3.12", "3.13", "3.14"]') }}
     defaults:
       run: { shell: 'msys2 {0}' }
     steps:

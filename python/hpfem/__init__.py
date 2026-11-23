@@ -13,14 +13,14 @@ work for either dimension.
 Typical use::
 
     import hpfem
-    mesh = hpfem.square_with_disc(4, radius=0.25, half_width=1.0, outer=2.0)
+    mesh = hpfem.square_with_disc(4, radius=0.25, half_width=1.0, outer=2.5)
     dofs = hpfem.NedelecDofMap2D(mesh, 3)
     setup = hpfem.ScatteringSetup2D()
     setup.omega = 6.0 * hpfem.constants.c0
     setup.materials.set(2, hpfem.Material.dielectric(1.5))
     setup.incident = hpfem.plane_wave([0.0, 1.0], [6.0, 0.0])
     setup.formulation = hpfem.Formulation.SCATTERED_FIELD
-    setup.pml = hpfem.PmlBox2D.uniform([-1, -1], [1, 1], 1.0, 6.0)
+    setup.pml = hpfem.PmlBox2D.uniform([-1, -1], [1, 1], 1.5, 6.0, 1.0, hpfem.PmlProfile(2, 1e-8))
     setup.pec_tags = [hpfem.box_tag.X_MIN, hpfem.box_tag.X_MAX,
                       hpfem.box_tag.Y_MIN, hpfem.box_tag.Y_MAX]
     problem = hpfem.Scattering2D(dofs, setup)
