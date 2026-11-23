@@ -2,6 +2,10 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+### Fixed
+- Release wheels: the wheels workflow builds only CPython 3.10–3.14 again. The empty
+  `CIBW_BUILD` of the tag builds selected every interpreter, so 0.5.1 also went to PyPI with
+  wheels for free-threaded 3.14t and the 3.15 pre-release; the PyPI job now refuses such wheels.
 
 ## [0.5.1] — 2026-11-22
 ### Added
