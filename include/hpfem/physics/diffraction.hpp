@@ -1,10 +1,11 @@
 #pragma once
 /// @file diffraction.hpp
-/// Diffraction orders of Bloch-periodic structures (2D): on a line @f$ x = x_0 @f$ in a
+/// Diffraction orders of Bloch-periodic structures. 2D: on a line @f$ x = x_0 @f$ in a
 /// homogeneous region the field is a sum of plane waves @f$ E = \sum_m A_m\,e^{i k_{y,m} y} @f$
 /// with @f$ k_{y,m} = k_{y,0} + 2\pi m/a @f$, and the Fourier coefficients give the
 /// reflected / transmitted diffraction efficiencies @f$ \eta_m = \mathrm{Re}(k_{x,m})\,|A_m|^2 /
-/// (k_{x,0}^{inc}|E_0|^2) @f$ with @f$ k_{x,m} = \sqrt{k^2 n^2 - k_{y,m}^2} @f$. See
+/// (k_{x,0}^{inc}|E_0|^2) @f$ with @f$ k_{x,m} = \sqrt{k^2 n^2 - k_{y,m}^2} @f$. 3D (crossed
+/// gratings, M21): the same on a plane over one cell of the lattice, orders (m, n). See
 /// docs/theory/maxwell.md#post-processing-quantities.
 
 #include <functional>
@@ -87,5 +88,59 @@ using FieldFunction = std::function<assembly::ComplexVector<2>(const Point<2>&)>
     const FieldFunction& field, const OrderLine& line, Real k0, Real index_line, Real k_tangential,
     Real kn_incident, const FieldFunction& incident = {}, int max_order = 3, int num_points = 0,
     Real incident_amplitude = 1.0);
+
+/// A field of the 3D solver as a function of the point, e.g. `problem.total_field` through a
+/// locator.
+using FieldFunction3D = std::function<assembly::ComplexVector<3>(const Point<3>&)>;
+
+/// Where the orders of a crossed (doubly periodic) grating are taken: a plane in a
+/// homogeneous region, spanned by the two lattice vectors of the periodicity (any angle
+/// between them). The phase reference of the amplitudes is `origin`.
+struct OrderPlane {
+  Point<3> origin = Point<3>::Zero();  ///< a point of the plane
+  Point<3> a1 = Point<3>::Zero();      ///< first lattice vector [m], in the plane
+  Point<3> a2 = Point<3>::Zero();      ///< second lattice vector [m], in the plane
+  /// Unit normal pointing away from the structure (towards the orders).
+  Point<3> normal = Point<3>::UnitZ();
+};
+
+/// One order (m, n) of a crossed grating with its complex vector amplitude.
+struct DiffractionOrder3D {
+  int m = 0;  ///< order along a1
+  int n = 0;  ///< order along a2
+  /// Tangential wavevector @f$ \mathbf k_t + m\mathbf b_1 + n\mathbf b_2 @f$ [1/m] with the
+  /// reciprocal vectors @f$ \mathbf a_i\cdot\mathbf b_j = 2\pi\delta_{ij} @f$ in the plane.
+  Point<3> k_tangential = Point<3>::Zero();
+  Complex kn;  ///< normal wavenumber in the medium of the plane (imaginary: evanescent)
+  bool propagating = false;
+  assembly::ComplexVector<3> amplitude = assembly::ComplexVector<3>::Zero();  ///< @f$ A_{mn} @f$
+  Real efficiency = 0;  ///< Re(kn) |A_mn|^2 / (kn_incident |E0|^2), 0 for evanescent orders
+  /// Unit propagation direction @f$ (\mathbf k_t + \mathrm{Re}(k_n)\hat n)/|\cdot| @f$ of a
+  /// propagating order (meaningless for an evanescent one).
+  [[nodiscard]] Point<3> direction(const Point<3>& normal) const {
+    const Point<3> k = k_tangential + kn.real() * normal;
+    return k / k.norm();
+  }
+};
+
+/// Orders (m, n), |m|, |n| ≤ `max_order`, of `field - incident` on the plane (of `field`
+/// itself when `incident` is empty), in the order m = -max_order … max_order, n = -max_order
+/// … max_order (n fastest): @f$ A_{mn} = \int_0^1\!\int_0^1 (E - E^{inc})(o + s\mathbf a_1 +
+/// t\mathbf a_2)\,e^{-i\mathbf k_{mn}\cdot(s\mathbf a_1 + t\mathbf a_2)}\,ds\,dt @f$ with
+/// @f$ \mathbf k_{mn} = \mathbf k_t + m\mathbf b_1 + n\mathbf b_2 @f$, by a tensor composite
+/// Gauss–Legendre rule with `num_points` points per lattice direction in blocks of up to 8
+/// (0: 8 per order, at least 32; exact for the piecewise polynomial FEM field when the blocks
+/// align with the cells). @f$ k_n = \sqrt{k_0^2 n^2 - |\mathbf k_{mn}|^2} @f$ with Im ≥ 0 in the
+/// medium of real index `index_plane`; @f$ \eta_{mn} = \mathrm{Re}(k_n)|A_{mn}|^2 /
+/// (k_n^{inc}|E_0|^2) @f$ (equal permeability on both sides). `k_tangential` is the tangential
+/// wavevector of the incident wave (in the plane), `kn_incident` its normal wavenumber (> 0) in
+/// the incidence medium and `incident_amplitude` its |E0|. Cost: num_points² evaluations of
+/// the field. @throws InvalidArgument for a degenerate lattice, lattice vectors or a
+/// `k_tangential` not in the plane, a non-unit normal, non-positive parameters or a point
+/// outside the mesh (the field function throws).
+[[nodiscard]] std::vector<DiffractionOrder3D> diffraction_orders(
+    const FieldFunction3D& field, const OrderPlane& plane, Real k0, Real index_plane,
+    const Point<3>& k_tangential, Real kn_incident, const FieldFunction3D& incident = {},
+    int max_order = 2, int num_points = 0, Real incident_amplitude = 1.0);
 
 }  // namespace hpfem::physics

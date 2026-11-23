@@ -2,7 +2,20 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+### Added
+- Diffraction orders (m, n) of crossed (doubly periodic) gratings in 3D (M21 S1, #237):
+  `physics::diffraction_orders` on an `OrderPlane` (two lattice vectors at any angle, normal away
+  from the structure) with the incident wave subtracted, complex vector amplitudes and
+  efficiencies per order; Python `hpfem.OrderPlane`, `hpfem.DiffractionOrder3D` and the 3D
+  overload of `hpfem.diffraction_orders`. Convergence test `crossed_grating_orders` (a film
+  against the transfer matrix, energy balance and C4 symmetry of a hole array).
+
 ### Fixed
+- Bloch-periodic constraints on matched 3D meshes: the two triangles of a square face share
+  their bounding box, so every matched pair of faces was grouped with its neighbour and went
+  through the interpolation fallback for non-matching facets (correct but slower, with the
+  warning "neither matched nor nested"). A face with a coincident partner is now paired with it
+  alone.
 - Release wheels: the wheels workflow builds only CPython 3.10–3.14 again. The empty
   `CIBW_BUILD` of the tag builds selected every interpreter, so 0.5.1 also went to PyPI with
   wheels for free-threaded 3.14t and the 3.15 pre-release; the PyPI job now refuses such wheels.

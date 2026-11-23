@@ -751,6 +751,29 @@ existing solver stack.
   - S5c (a real-valued solver path) moved to the backlog on 20 November 2026: no measurement
     asks for it (issue #213)
 
+## M21 — Crossed (doubly periodic) gratings in 3D
+Request of 23 November 2026 (issue #237): compute models of FourierGrating (RCWA, doubly
+periodic) with hpfem and compare them order by order, e.g. a hole array in a glass layer on glass
+(period 0.5 µm in x and z, hole radius 0.125 µm, layer 0.150 µm, λ = 0.405 µm). The solver parts
+exist (`Scattering<3>` on a `LayerStack<3>` background, Bloch pairs in two directions,
+`read_gmsh_periodic` in 3D); missing are the orders, the unit-cell meshes and the import.
+- [x] S1: diffraction orders (m, n) on a plane (`physics::diffraction_orders` for `OrderPlane`:
+  oblique lattices, incident wave subtracted, efficiencies; Python `OrderPlane`,
+  `DiffractionOrder3D`); tests: analytic plane-wave sums on an oblique lattice in a tilted plane
+  (1e-12), the analytic stack field (R, T of s and p to 1e-10), a film as scatterer in a Bloch cell
+  against the transfer matrix (s 8e-6, p 1.6e-3 at p = 3), a lossless square-hole array with
+  propagating orders: ΣR + ΣT = 1 and x / y polarisation equal, converging in p
+  (`tests/convergence/crossed_grating_orders.cpp`). Fixed on the way: Bloch pairs of matched 3D
+  meshes no longer fall back to the interpolation of non-matching facets
+- [ ] S2: 3D unit-cell meshes (Gmsh, periodic side faces, holes / pillars: circle, ellipse,
+  rectangle; layers; PML space) and a Python driver for crossed gratings (`hpfem.grating`), the
+  project format `dim: 3` with a stack
+- [ ] S3: import of FourierGrating JSON (frame: FG has the stack normal along y, hpfem along z;
+  the FG polarisation angles; materials `{"n": …}`), the example above as a driver with a
+  convergence table in p, the comparison with RCWA values from the maintainer
+- [ ] S4 (GUI-hpFEM, GUI agent): model type “crossed grating” and the FG import; `load_model()`
+  normalises or rejects foreign material formats
+
 ## Backlog / ideas
 - [ ] elasticity: a real-valued solver path (M20 S5c, ADR-0016 §3). The complex assembly with a
   zero imaginary part costs about twice the memory and four times the flops of a real

@@ -325,6 +325,54 @@ void bind_postprocess(py::module_& m) {
       "Orders of field - incident on the line (field itself without incident): complex vector "
       "amplitudes with the line origin as phase reference and the efficiencies; the field is "
       "any callable of the point, e.g. lambda x: problem.total_field(solution, locator, x)");
+  py::class_<physics::OrderPlane>(m, "OrderPlane",
+                                  "Where the orders of a crossed grating are taken (3D): a point "
+                                  "of the plane (phase reference), the two lattice vectors a1, a2 "
+                                  "in the plane [m] and the unit normal pointing away from the "
+                                  "structure")
+      .def(py::init([](const Point<3>& origin, const Point<3>& a1, const Point<3>& a2,
+                       const Point<3>& normal) {
+             physics::OrderPlane plane;
+             plane.origin = origin;
+             plane.a1 = a1;
+             plane.a2 = a2;
+             plane.normal = normal;
+             return plane;
+           }),
+           py::arg("origin"), py::arg("a1"), py::arg("a2"), py::arg("normal"))
+      .def_readwrite("origin", &physics::OrderPlane::origin)
+      .def_readwrite("a1", &physics::OrderPlane::a1)
+      .def_readwrite("a2", &physics::OrderPlane::a2)
+      .def_readwrite("normal", &physics::OrderPlane::normal);
+  py::class_<physics::DiffractionOrder3D>(
+      m, "DiffractionOrder3D",
+      "One order (m, n) of a crossed grating: tangential wavevector k_t + m b1 + n b2, normal "
+      "wavenumber kn, complex vector amplitude (phase reference at the plane origin), efficiency")
+      .def_readonly("m", &physics::DiffractionOrder3D::m)
+      .def_readonly("n", &physics::DiffractionOrder3D::n)
+      .def_readonly("k_tangential", &physics::DiffractionOrder3D::k_tangential)
+      .def_readonly("kn", &physics::DiffractionOrder3D::kn)
+      .def_readonly("propagating", &physics::DiffractionOrder3D::propagating)
+      .def_readonly("amplitude", &physics::DiffractionOrder3D::amplitude)
+      .def_readonly("efficiency", &physics::DiffractionOrder3D::efficiency)
+      .def("direction", &physics::DiffractionOrder3D::direction, py::arg("normal"),
+           "unit propagation direction of a propagating order");
+  m.def(
+      "diffraction_orders",
+      [](const physics::FieldFunction3D& field, const physics::OrderPlane& plane, Real k0,
+         Real index_plane, const Point<3>& k_tangential, Real kn_incident,
+         physics::FieldFunction3D incident, int max_order, int num_points,
+         Real incident_amplitude) {
+        return physics::diffraction_orders(field, plane, k0, index_plane, k_tangential, kn_incident,
+                                           incident, max_order, num_points, incident_amplitude);
+      },
+      py::arg("field"), py::arg("plane"), py::arg("k0"), py::arg("index_plane"),
+      py::arg("k_tangential"), py::arg("kn_incident"), py::arg("incident") = py::none(),
+      py::arg("max_order") = 2, py::arg("num_points") = 0, py::arg("incident_amplitude") = 1.0,
+      "Orders (m, n), |m|, |n| <= max_order (m outer, n inner), of field - incident on an "
+      "OrderPlane of a crossed grating (3D); field and incident are callables of the point, e.g. "
+      "lambda x: problem.total_field(solution, locator, x) and problem.incident_wave. Cost: "
+      "num_points**2 field evaluations (0: 8 per order and direction, at least 32)");
   py::class_<physics::PowerBalance>(m, "PowerBalance",
                                     "Energy balance of a periodic scattering problem [W/m]")
       .def_readonly("incident", &physics::PowerBalance::incident)
