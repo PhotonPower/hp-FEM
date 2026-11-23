@@ -960,6 +960,65 @@ d_r = hpfem.band_shape_derivative(crystal, bands, hpfem.region_normal_velocity(m
 
 See docs/theory/maxwell.md, "Band derivatives and group velocity".
 
+## Crossed gratings in 3D (`hpfem.crossed`)
+
+Doubly periodic structures (hole arrays, pillar lattices, metasurfaces of finite height) in one
+call (M21, issue #237). The model is a stack periodic in x and y: the superstrate above z = 0,
+the layers from z = 0 downwards, each with a background material and inclusions filling the
+layer height (a hole is a shape of air, a pillar one of a solid), the substrate below.
+Coordinates in metres, the cell spans `[0, px] × [0, py]`; shapes crossing the cell boundary
+are continued periodically.
+
+```python
+import hpfem
+from hpfem import crossed as cg
+
+um = 1e-6
+grating = cg.CrossedGrating(
+    period=(0.5 * um, 0.5 * um), superstrate=1.0, substrate=1.5,
+    layers=[cg.Layer(0.15 * um, 1.5,
+                     [cg.Shape("circle", 1.0, center=(0.25 * um, 0.25 * um), radius=0.125 * um)])],
+)
+result = cg.solve(grating, 0.405 * um, theta=0.0, phi=0.0, polarisation="s", order=3)
+for row in result.table():           # propagating orders: side "R" / "T", m, n, efficiency
+    print(row)
+print(result.R, result.T, result.absorption, result.balance)
+other = result.polarised("p")        # or (a_s, a_p): no new solve
+```
+
+Materials are `hpfem.Material` objects, refractive indices (complex `n + ik` for absorbing
+media), names of `hpfem.materials` or dispersive models; the superstrate must be lossless and
+the substrate (for now) a lossless dielectric, since the transmitted orders are measured in it.
+Shapes: `"circle"` (`center`, `radius`), `"ellipse"` (`rx`, `ry`, `angle`), `"rectangle"`
+(`width` along x, `height` along y, `angle`), `"polygon"` (`points`); later shapes win where
+they overlap.
+
+What `solve` does: Gmsh meshes the cell (`cg.unit_cell_mesh`; second-order tetrahedra for
+curved shapes, identical meshes on opposite side faces, element sizes `8 / order` per local
+wavelength by default), the homogeneous layers form the layered background of the
+scattered-field formulation so that only the shapes scatter, PML above and below are designed
+for the steepest propagating order, the Bloch phases of the incident wave couple the side faces,
+the s and p polarisation are solved with one factorisation, and the orders (m, n) are the 2D
+Fourier coefficients of the reflected and transmitted fields on planes in the superstrate and
+the substrate (`hpfem.diffraction_orders` with an `OrderPlane`). `theta` is the polar angle from
+the normal, `phi` the azimuth of the tangential wavevector from +x; s has E perpendicular to the
+plane of incidence, p in it, with the conventions of `LayerStack3D.plane_wave` (at normal
+incidence and `phi = 0`, s is E along −y and p along +x). `result.balance = ΣR + ΣT + A − 1` is a
+reference-free accuracy indicator; raise `order` until the efficiencies you need are stable.
+
+The stack normal is z here; FourierGrating has it along y (the import, M21 S3, converts).
+For a convergence table keep the mesh fixed (`elements_per_wavelength`) and raise `order`; the
+hole array above (s polarisation, `elements_per_wavelength=2.5`, SparseLU on a 6-core laptop):
+
+| order | unknowns | time | R(0,0) | T(0,0) | T(1,0) | T(1,1) | ΣR + ΣT − 1 |
+|---|---|---|---|---|---|---|---|
+| 2 | 14 126 | 6 s | 0.022145 | 0.827104 | 0.022533 | 0.018925 | 1.1e-2 |
+| 3 | 39 564 | 51 s | 0.025049 | 0.802209 | 0.024602 | 0.019616 | −9.5e-4 |
+| 4 | 84 888 | 6.4 min | 0.024654 | 0.804540 | 0.024568 | 0.019617 | 5.8e-5 |
+
+The factorisation dominates the cost; the PML (profile and thickness) moved the efficiencies by
+less than 3e-4 in this example, so the accuracy is that of the discretisation of the structure.
+
 ## Data ports for BindOptiX (`hpfem.dataports`)
 
 BindOptiX (optical biosensors) reads the light of the fusion as maps in the result envelope
