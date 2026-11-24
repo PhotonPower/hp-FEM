@@ -225,6 +225,40 @@ estimate = problem.estimate(solution)
 marked = hpfem.dorfler_marking(estimate.indicators, 0.5)
 ```
 
+### Mirror symmetry (`MirrorSymmetricScattering2D/3D`)
+
+A structure that is symmetric under up to two (2D) or three (3D) mutually orthogonal planes is
+computed on the part of the domain on one side of every plane, for any excitation: the incident
+field (and current) is split into its parity parts, each part is solved with a PEC wall on the
+planes where it is odd and a magnetic wall where it is even, and the fields, cross-sections,
+absorbed power and far field of the full problem are put together again. Parts without
+excitation are skipped, so a wave with the symmetry of the structure needs one solve and an
+oblique wave on a sphere's octant eight solves of an eighth of the unknowns
+([theory](theory/maxwell.md#mirror-symmetry-physicsmirror_symmetryhpp)). The planes may have any
+orientation (e.g. the diagonals $x = \pm y$ of a square cell), but must be orthogonal to each
+other.
+
+```python
+full = hpfem.square_with_disc(4, 0.25, 1.0, 2.0, 2)                 # symmetric mesh
+quarter = hpfem.extract(full, lambda c: c[0] > 0 and c[1] > 0)      # the reduced domain
+planes = [hpfem.MirrorPlane2D([0, 0], [1, 0], 10), hpfem.MirrorPlane2D([0, 0], [0, 1], 11)]
+for plane in planes:
+    hpfem.tag_mirror_plane(quarter, plane)                          # tag the cut facets
+setup = ...                                                         # as above, for the quarter:
+setup.pml = hpfem.PmlBox2D([0, 0], [1, 1], [0.0, 1.0, 0.0, 1.0], k) # no layer at the planes
+setup.incident = hpfem.plane_wave(amplitude, k * direction)         # any direction
+sym = hpfem.MirrorSymmetricScattering2D(hpfem.NedelecDofMap2D(quarter, 3), setup, planes)
+solution = sym.solve()                                              # sym.num_parts solves
+cs = sym.cross_sections(solution, hpfem.Surface2D.around_cells(quarter, 2), 1.0)  # full problem
+E = sym.field(solution, hpfem.PointLocator2D(quarter), points)      # (n, 2), anywhere in the full domain
+far = hpfem.MirrorSymmetricFarField2D(sym, solution, hpfem.Surface2D.around_cells(quarter, 2), 8)
+part = hpfem.parity_part(setup.incident, planes, [1, -1])           # one parity of a field
+```
+
+The plane tags must not be among `pec_tags`; the materials and the PML must be symmetric
+themselves (not checked). Bloch directions must be parallel to the planes, a layered background
+perpendicular to them; ports are refused (`WaveguidePort.pmc_tags` covers symmetric ports).
+
 ## Job runner (`python -m hpfem.run`)
 
 `python -m hpfem.run job.json [--out DIR] [--cancel-file F] [--threads N] [--quiet]` runs a

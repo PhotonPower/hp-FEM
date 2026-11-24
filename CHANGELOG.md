@@ -3,6 +3,16 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Mirror symmetry for any excitation (`physics::MirrorSymmetricScattering`, issue #244 S3): a
+  structure symmetric under up to Dim mutually orthogonal planes of any orientation is solved on
+  the reduced domain; the incident field and current are split into their parity parts
+  (`parity_part`, `mirror_image`), each is solved with PEC or magnetic walls on the planes,
+  parts without excitation are skipped, and fields, cross-sections, absorbed power and far field
+  (`MirrorSymmetricFarField`) of the full problem are reconstructed. `tag_mirror_plane` tags the
+  cut facets. Reproduces the full-domain solution on the same mesh to round-off (2D coordinate
+  and diagonal planes, 3D octant); the Mie sphere under an oblique wave converges on the octant
+  (`convergence_mie_sphere_mirror`). Python: `MirrorPlane2D/3D`, `MirrorSymmetricScattering2D/3D`,
+  `MirrorSymmetricFarField2D/3D`, `parity_part`, `mirror_image`, `tag_mirror_plane`.
 - `hpfem.fouriergrating` and `hpfem fg model.json`: FourierGrating (RCWA) crossed-grating
   configurations computed unchanged with `hpfem.crossed`, results as FourierGrating's
   `efficiencies.csv` (M21 S3, #237); frames and polarisation conventions verified against

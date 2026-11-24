@@ -273,6 +273,8 @@ current sources.
   the efficiencies; model substrates as a [layered background](#layered-background-physicslayer_stackhpp-adr-0009).
 - **Waveguide port**: modal absorption and excitation on boundary facets, the low-rank
   term of the mode expansion, see [below](#waveguide-ports-and-s-parameters-physicswaveguide_porthpp).
+- **Mirror symmetry**: PEC or magnetic walls on symmetry planes, chosen per parity of the
+  excitation by `MirrorSymmetricScattering`, see [below](#mirror-symmetry-physicsmirror_symmetryhpp).
 
 ## Bloch-periodic constraints (`assembly/periodic.hpp`)
 
@@ -349,6 +351,85 @@ phase; the residual estimators use it to include the jump across the Bloch faces
 constraints to $10^{-10}$, the solution's tangential trace is continuous up to the phase, the
 mixed-order space is no worse than the uniform space of the common order) and by case (d) of
 `conical_grating_hp` ([validation.md](../validation.md)).
+
+## Mirror symmetry (`physics/mirror_symmetry.hpp`)
+
+A structure that is invariant under the reflections at $k \le d$ mutually orthogonal planes
+(materials, PML, layered background; any orientation of the planes, not only the coordinate
+planes) is computed on the part of the domain on one side of every plane, for **any**
+excitation (issue #244 S3). Let $P_j x = x - 2((x - x_j)\cdot n_j)\,n_j$ be the reflection at
+plane $j$ and $R_j = I - 2 n_j n_j^\top$ its linear part. $\mathbf{E}$ is a polar vector, so
+the mirror image of a field is
+
+$$
+(\mathcal{P}_j\mathbf{E})(x) = R_j\,\mathbf{E}(P_j x),\qquad
+\nabla\times(\mathcal{P}_j\mathbf{E})(x) = -R_j\,(\nabla\times\mathbf{E})(P_j x)
+$$
+
+($\nabla\times\mathbf{E}$ is axial and picks up $\det R_j = -1$; in 2D the scalar curl is
+only negated). The $\mathcal{P}_j$ commute with the Maxwell operator of a symmetric structure
+and with each other (orthogonal planes), so the space splits into the $2^k$ parities
+$\sigma\in\{\pm1\}^k$ with $\mathcal{P}_j\mathbf{E}_\sigma = \sigma_j\mathbf{E}_\sigma$. The
+projector onto parity $\sigma$ is
+
+$$
+\Pi_\sigma = \prod_j \tfrac12(1 + \sigma_j\mathcal{P}_j)
+ = 2^{-k}\sum_g \chi_\sigma(g)\,\mathcal{P}_g,\qquad
+(\mathcal{P}_g\mathbf{E})(x) = R_g\,\mathbf{E}(A_g x),
+$$
+
+where $g$ runs over the subsets of planes, $A_g x = R_g x + t_g$ is the product of their
+reflections and $\chi_\sigma(g) = \prod_{j\in g}\sigma_j$. On plane $j$ an even field
+($\sigma_j = +1$) has $\mathbf{E} = R_j\mathbf{E}$, i.e. $n_j\cdot\mathbf{E} = 0$, and its
+curl $n_j\times(\nabla\times\mathbf{E}) = 0$: a **magnetic wall**, the natural boundary
+condition. An odd field has $n_j\times\mathbf{E} = 0$: a **PEC wall**.
+
+`MirrorSymmetricScattering` therefore
+
+1. projects the incident field (value, curl, `value_in_region`) and the current of the
+   setup onto every parity (`parity_part`);
+2. skips the parities whose excitation vanishes at the vertices and cell centroids (relative
+   to the largest parity, `MirrorOptions`) — an excitation with the symmetry of the
+   structure needs one solve, a general one up to $2^k$;
+3. solves each remaining parity as an ordinary `Scattering` on the reduced mesh, with the
+   facets of plane $j$ (its `tag`) added to the PEC tags where $\sigma_j = -1$;
+4. reconstructs the field at a point $x$ of the full domain: with the $g$ that folds $x$
+   into the reduced domain ($y = A_g x$, `fold`),
+   $\mathbf{E}(x) = \sum_\sigma \chi_\sigma(g)\,R_g\,\mathbf{E}_\sigma(y)$.
+
+Powers are quadratic, and the products of two different parities are odd under some
+reflection, so they integrate to zero over symmetric surfaces and volumes: the Poynting
+fluxes and absorbed powers of the full problem are $2^k$ times the sum over the parities of
+those on the reduced domain. The closed surface of `cross_sections` and the far field is
+taken on the reduced mesh with its facets on the planes removed (`reduced_surface`; their
+images would otherwise enter twice, and the flux through a magnetic wall is zero only up to
+the discretisation error). The far field sums the images: with $F_\sigma$ the pattern of the
+reduced surface of parity $\sigma$,
+
+$$
+F(\hat r) = \sum_\sigma\sum_g \chi_\sigma(g)\,e^{-ik\hat r\cdot t_g}\,R_g\,F_\sigma(R_g\hat r),
+$$
+
+since an image point $A_g y$ contributes the phase $e^{-ik\hat r\cdot(R_g y + t_g)}$ and the
+equivalent currents transform covariantly.
+
+**Restrictions.** The planes must be mutually orthogonal: planes at other angles generate
+rotations (the groups $C_{nv}$), which need the cyclic coupling of issue #244 S1. A Bloch
+direction must be parallel to every plane; on a layered background the planes must be
+perpendicular to the layers; waveguide ports are refused (`WaveguidePort::pmc_tags` covers
+the symmetric case). The symmetry of materials and PML is not checked: the reduced setup
+describes the reduced domain (PML box ending at the planes with thickness 0 there). Point
+inversion and $C_2$ rotations are not mirror symmetries and need the coupling of S1 as well.
+
+**Verification** (`tests/unit/physics/test_mirror_symmetry.cpp`,
+`tests/convergence/mie_sphere_mirror.cpp`). The parity parts sum to the field and have their
+parities (value and curl, three oblique planes in 3D). On a symmetric mesh the reduced
+problem reproduces the full one up to round-off ($10^{-14}$ relative): fields in every
+quadrant / octant, cross-sections, absorbed power and far-field pattern, in 2D for one plane,
+the two coordinate planes and the two diagonal planes $x = \pm y$ (with the PML box of the full
+problem), and in 3D for the three coordinate planes with an elliptically polarised oblique
+wave. The Mie sphere under an oblique wave (all eight parities excited) converges to the
+rotated series on the octant like the quarter domain at normal incidence (docs/validation.md C).
 
 ## Propagating modes (`physics/propagating_mode.hpp`)
 

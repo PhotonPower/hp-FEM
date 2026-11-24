@@ -138,6 +138,13 @@ Discover at runtime:
   `.sample(sol, locator, points, quantity="E"|"H"|"S") -> (values, cells)` (NaN / −1 outside),
   `.triangulate(sol, subdivisions)`, `.assemble()`, `.interior_cells()`.
   `hpfem.Formulation.SCATTERED_FIELD` / `.TOTAL_FIELD`.
+- Mirror symmetry (any excitation): mesh the reduced side (`hpfem.extract(mesh, keep)`), tag the
+  cut with `hpfem.tag_mirror_plane(mesh, hpfem.MirrorPlane2D(point, normal, tag))`, describe the
+  reduced domain in the setup (PML thickness 0 at the planes, plane tags NOT in `pec_tags`),
+  then `sym = hpfem.MirrorSymmetricScattering2D(nd, setup, planes)` (≤ Dim mutually orthogonal
+  planes, any orientation): `.solve()`, `.field(sol, locator, points, scattered=False)` anywhere
+  in the full domain, `.cross_sections(sol, surface, amp)`, `.absorbed_power(sol)`,
+  `hpfem.MirrorSymmetricFarField2D(sym, sol, surface, order)` — all for the FULL problem.
 - `hpfem.ScatteringOperator2D(problem)` — one factorisation, `.solve(incident)`,
   `.solve_many([...])`; `hpfem.plane_wave_sweep(problem, wave_vectors, polarisation_fn)`;
   `hpfem.ReducedBasis(num_dofs)`; `hpfem.s_parameters(nd, setup)` (ports).

@@ -38,6 +38,7 @@ add_library(hpfem
   physics/layer_stack.cpp
   physics/anisotropic_stack.cpp
   physics/farfield.cpp
+  physics/mirror_symmetry.cpp
   physics/diffraction.cpp
   physics/propagating_mode.cpp
   physics/goal_oriented.cpp

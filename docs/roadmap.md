@@ -788,6 +788,15 @@ exist (`Scattering<3>` on a `LayerStack<3>` background, Bloch pairs in two direc
   normalises or rejects foreign material formats
 
 ## Backlog / ideas
+- [x] mirror symmetry for any excitation (issue #244 S3): `physics::MirrorSymmetricScattering`
+  splits the excitation into its parities under up to Dim orthogonal planes (any orientation),
+  solves each on the reduced domain with PEC / magnetic walls, skips the parities without
+  excitation and reconstructs fields, cross-sections, absorbed power and far field; exact against
+  the full domain on symmetric meshes, Mie sphere under oblique incidence on the octant
+  (`convergence_mie_sphere_mirror`, docs/validation.md C); Python `MirrorSymmetricScattering2D/3D`
+- [ ] discrete rotational symmetry C_n and point inversion (issue #244 S1, S2, S4): cyclic
+  coupling of the sector faces (`PeriodicPair` with a rotation), the decomposition of the
+  excitation into the n azimuthal orders, a radial PML for sectors other than C_2 / C_4
 - [ ] elasticity: a real-valued solver path (M20 S5c, ADR-0016 §3). The complex assembly with a
   zero imaginary part costs about twice the memory and four times the flops of a real
   factorisation; worth doing only when a measured elasticity solve (e.g. a Voxelspaetzle part)
