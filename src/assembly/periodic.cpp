@@ -6,11 +6,13 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <numbers>
 #include <numeric>
 #include <set>
 #include <vector>
 
 #include <Eigen/Dense>
+#include <Eigen/Geometry>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
@@ -24,6 +26,28 @@
 namespace hpfem::assembly {
 
 namespace {
+
+template <int Dim>
+using RealMatrix = Eigen::Matrix<Real, Dim, Dim>;
+
+/// The isometry x -> L x + t between the two sides of a pair.
+template <int Dim>
+struct Affine {
+  RealMatrix<Dim> linear = RealMatrix<Dim>::Identity();
+  Point<Dim> shift = Point<Dim>::Zero();
+
+  [[nodiscard]] Point<Dim> operator()(const Point<Dim>& x) const { return linear * x + shift; }
+  [[nodiscard]] Affine inverse() const {
+    const RealMatrix<Dim> t = linear.transpose();
+    return {t, -(t * shift)};
+  }
+};
+
+/// master -> slave
+template <int Dim>
+Affine<Dim> forward(const PeriodicPair<Dim>& pair) {
+  return {pair.rotation, pair.shift};
+}
 
 // ---- facet geometry --------------------------------------------------------------------------
 
@@ -67,10 +91,10 @@ bool facet_contains(const mesh::Mesh<Dim>& mesh, Index f, const Point<Dim>& x, R
   }
 }
 
-/// Bounding boxes of the shifted facet a and the facet b intersect with positive measure
+/// Bounding boxes of the mapped facet a and the facet b intersect with positive measure
 /// (degenerate axes, e.g. the normal of a planar face, compare the positions instead).
 template <int Dim>
-bool facets_overlap(const mesh::Mesh<Dim>& mesh, Index a, const Point<Dim>& shift_a, Index b,
+bool facets_overlap(const mesh::Mesh<Dim>& mesh, Index a, const Affine<Dim>& map_a, Index b,
                     Real tol) {
   const Real eps = tol * std::max(facet_diameter(mesh, a), facet_diameter(mesh, b));
   Point<Dim> lo_a = Point<Dim>::Constant(std::numeric_limits<Real>::infinity());
@@ -78,7 +102,7 @@ bool facets_overlap(const mesh::Mesh<Dim>& mesh, Index a, const Point<Dim>& shif
   Point<Dim> lo_b = lo_a;
   Point<Dim> hi_b = hi_a;
   for (const Index v : mesh.facet_vertices(a)) {
-    const Point<Dim> x = mesh.vertex(v) + shift_a;
+    const Point<Dim> x = map_a(mesh.vertex(v));
     lo_a = lo_a.cwiseMin(x);
     hi_a = hi_a.cwiseMax(x);
   }
@@ -101,23 +125,23 @@ bool facets_overlap(const mesh::Mesh<Dim>& mesh, Index a, const Point<Dim>& shif
   return true;
 }
 
-/// Every vertex of facet a (shifted) lies in facet b.
+/// Every vertex of facet a (mapped) lies in facet b.
 template <int Dim>
-bool facet_nested(const mesh::Mesh<Dim>& mesh, Index a, const Point<Dim>& shift_a, Index b,
+bool facet_nested(const mesh::Mesh<Dim>& mesh, Index a, const Affine<Dim>& map_a, Index b,
                   Real tol) {
   for (const Index v : mesh.facet_vertices(a)) {
-    if (!facet_contains(mesh, b, Point<Dim>(mesh.vertex(v) + shift_a), tol)) return false;
+    if (!facet_contains(mesh, b, map_a(mesh.vertex(v)), tol)) return false;
   }
   return true;
 }
 
-/// The shifted vertices of a coincide with the vertices of b (as sets).
+/// The mapped vertices of a coincide with the vertices of b (as sets).
 template <int Dim>
-bool facets_coincide(const mesh::Mesh<Dim>& mesh, Index a, const Point<Dim>& shift_a, Index b,
+bool facets_coincide(const mesh::Mesh<Dim>& mesh, Index a, const Affine<Dim>& map_a, Index b,
                      Real tol) {
   const Real eps = tol * facet_diameter(mesh, b);
   for (const Index va : mesh.facet_vertices(a)) {
-    const Point<Dim> x = mesh.vertex(va) + shift_a;
+    const Point<Dim> x = map_a(mesh.vertex(va));
     bool found = false;
     for (const Index vb : mesh.facet_vertices(b))
       found = found || (mesh.vertex(vb) - x).norm() <= eps;
@@ -139,6 +163,11 @@ struct Component {
 template <int Dim>
 std::vector<Component> periodic_components(const mesh::Mesh<Dim>& mesh,
                                            const PeriodicPair<Dim>& pair, Real tol) {
+  if (!(pair.rotation.transpose() * pair.rotation).isIdentity(1e-10)) {
+    throw InvalidArgument(
+        fmt::format("bloch_constraints: the rotation of the pair ({}, {}) is not orthogonal",
+                    pair.master, pair.slave));
+  }
   const std::vector<Index> masters = mesh.facets_with_tag(pair.master);
   const std::vector<Index> slaves = mesh.facets_with_tag(pair.slave);
   if (masters.empty() || slaves.empty()) {
@@ -147,7 +176,7 @@ std::vector<Component> periodic_components(const mesh::Mesh<Dim>& mesh,
                     "facets (tag {}); both sides need facets",
                     masters.size(), pair.master, slaves.size(), pair.slave));
   }
-  const Point<Dim> to_master = -pair.shift;  // slave point -> master point
+  const Affine<Dim> to_master = forward(pair).inverse();  // slave point -> master point
   // union-find over slaves (0..ns) and masters (ns..ns+nm)
   const std::size_t ns = slaves.size();
   std::vector<std::size_t> parent(ns + masters.size());
@@ -180,9 +209,10 @@ std::vector<Component> periodic_components(const mesh::Mesh<Dim>& mesh,
     if (!slave_has_partner[i]) {
       throw InvalidArgument(fmt::format(
           "bloch_constraints: slave facet {} (tag {}) has no master facet (tag {}) at its "
-          "position shifted by ({})",
+          "position mapped back by the shift ({}){}",
           slaves[i], pair.slave, pair.master,
-          fmt::join(std::vector<Real>(pair.shift.data(), pair.shift.data() + Dim), ", ")));
+          fmt::join(std::vector<Real>(pair.shift.data(), pair.shift.data() + Dim), ", "),
+          pair.is_translation() ? "" : " and the rotation"));
     }
   }
   std::map<std::size_t, Component> groups;
@@ -205,7 +235,7 @@ std::vector<Component> periodic_components(const mesh::Mesh<Dim>& mesh,
       c.kind = Kind::kMasterCoarse;
     } else if (c.slaves.size() == 1 &&
                std::all_of(c.masters.begin(), c.masters.end(), [&](Index fm) {
-                 return facet_nested(mesh, fm, pair.shift, c.slaves[0], tol);
+                 return facet_nested(mesh, fm, forward(pair), c.slaves[0], tol);
                })) {
       c.kind = Kind::kSlaveCoarse;
     } else {
@@ -227,9 +257,10 @@ Real outside(const Point<Dim>& xi) {
 }
 
 /// One global basis function of the space, evaluated at physical points of the dependent
-/// side: the point is moved by `shift` to the independent side, the candidate cell containing
+/// side: the point is mapped by `map` to the independent side, the candidate cell containing
 /// it is found, and the function (zero if the DoF is not a DoF of that cell) is multiplied by
-/// `phase`.
+/// `phase` and, for the vector space, by the inverse of the map's linear part (a vector at the
+/// independent side maps back with it).
 template <int Dim, class Counts>
 class ShiftedFunction {
  public:
@@ -237,8 +268,13 @@ class ShiftedFunction {
   using Value = Eigen::Matrix<Complex, Traits::kComponents, 1>;
 
   ShiftedFunction(const fespace::EntityDofMap<Dim, Counts>& dofs, std::vector<Index> cells,
-                  Point<Dim> shift, Complex phase)
-      : dofs_(dofs), cells_(std::move(cells)), shift_(shift), phase_(phase) {
+                  Affine<Dim> map, Complex phase)
+      : dofs_(dofs),
+        cells_(std::move(cells)),
+        map_(map),
+        phase_(phase),
+        back_(map.linear.transpose().template cast<Complex>()),
+        rotated_(!map.linear.isIdentity(1e-14)) {
     for (const Index c : cells_) {
       traits_.emplace_back(dofs.cell_layout(c));
       geometry_.push_back(mesh::cell_geometry(dofs.mesh(), c));
@@ -255,7 +291,7 @@ class ShiftedFunction {
   }
 
   [[nodiscard]] Value operator()(const Point<Dim>& x) {
-    const Point<Dim> y = x + shift_;
+    const Point<Dim> y = map_(x);
     std::size_t best = 0;
     Real best_violation = std::numeric_limits<Real>::infinity();
     Point<Dim> best_xi;
@@ -270,14 +306,20 @@ class ShiftedFunction {
     }
     if (local_[best] < 0) return Value::Zero();
     traits_[best].evaluate(geometry_[best]->evaluate(best_xi), best_xi, phi_);
-    return phase_ * phi_.col(local_[best]).template cast<Complex>();
+    Value value = phase_ * phi_.col(local_[best]).template cast<Complex>();
+    if constexpr (Traits::kComponents == Dim) {
+      if (rotated_) return back_ * value;
+    }
+    return value;
   }
 
  private:
   const fespace::EntityDofMap<Dim, Counts>& dofs_;
   std::vector<Index> cells_;
-  Point<Dim> shift_;
+  Affine<Dim> map_;
   Complex phase_;
+  Eigen::Matrix<Complex, Dim, Dim> back_;
+  bool rotated_;
   std::vector<Traits> traits_;
   std::vector<std::unique_ptr<mesh::CellGeometry<Dim>>> geometry_;
   std::vector<Index> local_;
@@ -394,7 +436,7 @@ struct Coincident {
 
 template <int Dim>
 Coincident<Dim> coincident_entities(const mesh::Mesh<Dim>& mesh, std::span<const Index> fine,
-                                    const Point<Dim>& fine_to_coarse, Index coarse, Real tol) {
+                                    const Affine<Dim>& fine_to_coarse, Index coarse, Real tol) {
   Coincident<Dim> out;
   const Real eps = tol * facet_diameter(mesh, coarse);
   const auto& cv = mesh.facet_vertices(coarse);
@@ -404,7 +446,7 @@ Coincident<Dim> coincident_entities(const mesh::Mesh<Dim>& mesh, std::span<const
   }
   std::map<Index, Index> partner;  // fine vertex -> coarse vertex
   for (const Index v : fine_vertices) {
-    const Point<Dim> x = mesh.vertex(v) + fine_to_coarse;
+    const Point<Dim> x = fine_to_coarse(mesh.vertex(v));
     for (const Index w : cv) {
       if ((mesh.vertex(w) - x).norm() <= eps) {
         out.vertices.emplace_back(v, w);
@@ -440,7 +482,7 @@ void constrain_component(const fespace::EntityDofMap<Dim, Counts>& dofs, const C
                          const PeriodicPair<Dim>& pair, Real tol, std::map<Index, Terms>& raw,
                          bool& warned) {
   const auto& mesh = dofs.mesh();
-  const Point<Dim> to_master = -pair.shift;
+  const Affine<Dim> to_master = forward(pair).inverse();
   const auto cell_of = [&](Index f) { return mesh.facet_cells(f)[0]; };
   const auto zero_surplus = [&](const std::vector<Index>& surplus, Index anchor) {
     for (const Index s : surplus) {
@@ -486,7 +528,7 @@ void constrain_component(const fespace::EntityDofMap<Dim, Counts>& dofs, const C
   // (phase⁻¹ times the slave trace); entities of the master facets coinciding with the
   // slave facet's closure keep the default direction.
   const Index fs = c.slaves[0];
-  const Coincident<Dim> co = coincident_entities(mesh, c.masters, pair.shift, fs, tol);
+  const Coincident<Dim> co = coincident_entities(mesh, c.masters, forward(pair), fs, tol);
   std::set<Index> exclude;  // DoFs of the coincident master entities: independent here
   for (const auto& [fine_v, coarse_v] : co.vertices) {
     if constexpr (Counts::kVertexDofs == 1) exclude.insert(dofs.vertex_dof(fine_v));
@@ -542,9 +584,70 @@ void constrain_component(const fespace::EntityDofMap<Dim, Counts>& dofs, const C
   facet_closure_dofs(dofs, fs, p_keep, kept, surplus);
   // the slave facet's coincident vertices are dependent themselves (default direction):
   // they still serve as masters of the interior master DoFs (chains are resolved)
-  ShiftedFunction<Dim, Counts> function(dofs, {cell_of(fs)}, pair.shift, 1.0 / pair.phase);
+  ShiftedFunction<Dim, Counts> function(dofs, {cell_of(fs)}, forward(pair), 1.0 / pair.phase);
   constrain_set(dofs, function, kept, EntitySet<Dim>::of_facets(mesh, c.masters), exclude, raw);
   zero_surplus(surplus, kept.front());
+}
+
+/// DoFs of the entities of the master facets that the pair's map fixes pointwise (the vertices
+/// and edges on the axis of a rotation): there @f$ E\cdot t = \text{phase}\,E\cdot t @f$
+/// (an orthogonal map fixing the points of an entity fixes its tangents), so they vanish
+/// unless phase = 1, in which case they stay free. Translations fix nothing.
+template <int Dim, class Counts>
+void constrain_fixed(const fespace::EntityDofMap<Dim, Counts>& dofs, const PeriodicPair<Dim>& pair,
+                     Real tol, std::map<Index, Terms>& raw) {
+  if (pair.is_translation()) return;
+  const auto& mesh = dofs.mesh();
+  const Affine<Dim> map = forward(pair);
+  std::set<Index> fixed_vertices;
+  std::set<Index> master_dofs;
+  for (const Index f : mesh.facets_with_tag(pair.master)) {
+    const Real eps = tol * facet_diameter(mesh, f);
+    for (const Index v : mesh.facet_vertices(f)) {
+      if ((map(mesh.vertex(v)) - mesh.vertex(v)).norm() <= eps) fixed_vertices.insert(v);
+    }
+    for (const Index d : dofs.facet_dofs(f)) master_dofs.insert(d);
+  }
+  if (fixed_vertices.empty()) return;
+  std::set<Index> fixed;
+  const auto all_fixed = [&](const auto& vertices) {
+    return std::ranges::all_of(vertices, [&](Index v) { return fixed_vertices.contains(v); });
+  };
+  for (const Index f : mesh.facets_with_tag(pair.master)) {
+    const auto& fv = mesh.facet_vertices(f);
+    if constexpr (Counts::kVertexDofs == 1) {
+      for (const Index v : fv) {
+        if (fixed_vertices.contains(v)) fixed.insert(dofs.vertex_dof(v));
+      }
+    }
+    if constexpr (Dim == 3) {
+      for (const auto& [a, b] :
+           {std::pair{fv[0], fv[1]}, std::pair{fv[1], fv[2]}, std::pair{fv[0], fv[2]}}) {
+        if (fixed_vertices.contains(a) && fixed_vertices.contains(b)) {
+          for (const Index d : dofs.edge_dofs(mesh.edge_id(a, b))) fixed.insert(d);
+        }
+      }
+    }
+    if (all_fixed(fv)) {  // a facet fixed pointwise (a reflection's plane)
+      for (const Index d : dofs.facet_dofs(f)) fixed.insert(d);
+    }
+  }
+  for (const Index d : fixed) raw.erase(d);
+  if (std::abs(pair.phase - Complex{1.0, 0.0}) <= 1e-12) return;
+  Index anchor = kInvalidIndex;
+  for (const Index d : master_dofs) {
+    if (!fixed.contains(d) && !raw.contains(d)) {
+      anchor = d;
+      break;
+    }
+  }
+  if (anchor == kInvalidIndex) {
+    throw InvalidArgument(fmt::format(
+        "bloch_constraints: every DoF of the master facets (tag {}) lies on the fixed points of "
+        "the pair's map",
+        pair.master));
+  }
+  for (const Index d : fixed) raw[d] = Terms{{anchor, Complex{0.0, 0.0}}};
 }
 
 template <int Dim, class Counts>
@@ -568,6 +671,7 @@ fespace::Constraints collect(const fespace::EntityDofMap<Dim, Counts>& dofs,
       }
       constrain_component<Dim, Counts>(dofs, c, pair, tolerance, raw, warned);
     }
+    constrain_fixed<Dim, Counts>(dofs, pair, tolerance, raw);
   }
   fespace::Constraints constraints(dofs.num_dofs());
   for (auto& [slave, terms] : raw) constraints.add(slave, std::move(terms));
@@ -603,6 +707,7 @@ PeriodicLocator<Dim>::PeriodicLocator(const mesh::Mesh<Dim>& mesh,
       Group g;
       g.shift = pair.shift;
       g.phase = pair.phase;
+      g.rotation = pair.rotation;
       for (const Index fm : c.masters) {
         g.master_cells.push_back(mesh.facet_cells(fm)[0]);
         master_facets_.insert(fm);
@@ -630,7 +735,7 @@ std::optional<typename PeriodicLocator<Dim>::Partner> PeriodicLocator<Dim>::part
   const auto it = group_of_slave_.find(slave_facet);
   if (it == group_of_slave_.end()) return std::nullopt;
   const Group& g = groups_[it->second];
-  const Point<Dim> y = x - g.shift;
+  const Point<Dim> y = g.rotation.transpose() * (x - g.shift);
   Partner best;
   Real best_violation = std::numeric_limits<Real>::infinity();
   for (const Index c : g.master_cells) {
@@ -639,13 +744,46 @@ std::optional<typename PeriodicLocator<Dim>::Partner> PeriodicLocator<Dim>::part
     const Real v = outside<Dim>(xi);
     if (v < best_violation) {
       best_violation = v;
-      best = Partner{c, xi, g.phase};
+      best = Partner{c, xi, g.phase, g.rotation};
     }
   }
   if (best_violation > 1e-6) return std::nullopt;
   return best;
 }
 
+template <int Dim>
+Eigen::Matrix<Real, Dim, Dim> rotation_matrix(Real angle, const Point<3>& axis) {
+  if constexpr (Dim == 2) {
+    Eigen::Matrix<Real, 2, 2> r;
+    r << std::cos(angle), -std::sin(angle), std::sin(angle), std::cos(angle);
+    return r;
+  } else {
+    const Real n = axis.norm();
+    if (!(n > 0)) throw InvalidArgument("rotation_matrix: the axis must not be zero");
+    return Eigen::AngleAxis<Real>(angle, axis / n).toRotationMatrix();
+  }
+}
+
+template <int Dim>
+PeriodicPair<Dim> cyclic_pair(mesh::Tag master, mesh::Tag slave, int n, int m,
+                              const Point<Dim>& center, const Point<3>& axis) {
+  if (n < 2) throw InvalidArgument(fmt::format("cyclic_pair: the order n = {} must be >= 2", n));
+  PeriodicPair<Dim> pair;
+  pair.master = master;
+  pair.slave = slave;
+  pair.rotation = rotation_matrix<Dim>(2.0 * std::numbers::pi / n, axis);
+  pair.shift = center - pair.rotation * center;
+  const int k = ((m % n) + n) % n;
+  pair.phase = std::polar(1.0, 2.0 * std::numbers::pi * k / n);
+  return pair;
+}
+
+template Eigen::Matrix<Real, 2, 2> rotation_matrix<2>(Real, const Point<3>&);
+template Eigen::Matrix<Real, 3, 3> rotation_matrix<3>(Real, const Point<3>&);
+template PeriodicPair<2> cyclic_pair<2>(mesh::Tag, mesh::Tag, int, int, const Point<2>&,
+                                        const Point<3>&);
+template PeriodicPair<3> cyclic_pair<3>(mesh::Tag, mesh::Tag, int, int, const Point<3>&,
+                                        const Point<3>&);
 template class PeriodicLocator<2>;
 template class PeriodicLocator<3>;
 

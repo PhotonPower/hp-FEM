@@ -275,6 +275,9 @@ current sources.
   term of the mode expansion, see [below](#waveguide-ports-and-s-parameters-physicswaveguide_porthpp).
 - **Mirror symmetry**: PEC or magnetic walls on symmetry planes, chosen per parity of the
   excitation by `MirrorSymmetricScattering`, see [below](#mirror-symmetry-physicsmirror_symmetryhpp).
+- **Cyclic symmetry** $C_n$: rotated periodic coupling between the two sides of a sector,
+  per azimuthal order of the excitation (`CyclicSymmetricScattering`), see
+  [below](#cyclic-symmetry-physicscyclic_symmetryhpp).
 
 ## Bloch-periodic constraints (`assembly/periodic.hpp`)
 
@@ -352,6 +355,40 @@ constraints to $10^{-10}$, the solution's tangential trace is continuous up to t
 mixed-order space is no worse than the uniform space of the common order) and by case (d) of
 `conical_grating_hp` ([validation.md](../validation.md)).
 
+**Rotated pairs (cyclic symmetry, issue #244 S1).** A `PeriodicPair` may carry an orthogonal
+`rotation` $R$: the slave facets are then the master facets mapped by $x\mapsto Rx + a$, and
+
+$$
+\mathbf{E}(Rx + a) = \lambda\,R\,\mathbf{E}(x)\quad\text{(Nédélec)},\qquad
+u(Rx + a) = \lambda\,u(x)\quad\text{(H1)}.
+$$
+
+Everything above carries over with the translation replaced by the isometry: the facet
+matching maps the slave vertices back by $x\mapsto R^\top(x - a)$, and a master basis function
+evaluated at the mapped point is turned by $R$ before its trace is interpolated on the slave
+facet (an orthogonal map takes tangents to tangents, so the trace spaces still coincide and the
+coefficients stay $\lambda$ times $\pm1$ or a face permutation on matched facets). `cyclic_pair(master,
+slave, n, m, c, axis)` builds the pair of the rotation by $2\pi/n$ about the axis through $c$
+($a = c - Rc$) with $\lambda = e^{2\pi i m/n}$. New are the entities that the map fixes
+pointwise, the vertices and edges on the rotation axis, which belong to both sides: there
+$\mathbf{E}\cdot t = \lambda\,(R\mathbf{E})\cdot t = \lambda\,\mathbf{E}\cdot t$ because $R^\top t = t$,
+so their DoFs vanish unless $\lambda = 1$ and are free for $m = 0$. In 3D this is the axial
+component on the axis (free only for $m = 0$); the transverse components there are not DoFs of
+the axis edges and are governed by the coupling of the faces next to it, so the discrete space is
+exactly the order-$m$ subspace of the full space on a symmetric mesh. The H1 vertex on the axis
+(2D centre) is treated alike.
+`PeriodicLocator` returns $R$ with the partner, and the residual estimator turns the partner's
+$\varepsilon\mathbf{E}$ by $R$ and $\mu^{-1}\nabla\times\mathbf{E}$ by $\det R\,R$ (an axial vector;
+in 2D only $\det R$) before taking the jumps; the dual (magnetic) problem of the hypercircle bound
+takes the phase $\lambda\det R$. The conical solver, `BandStructure` and the Bloch wrap of
+`sample_field` accept translations only. Verified in `tests/unit/assembly/test_periodic_cyclic.cpp`:
+interpolants of fields of order $k$ satisfy the constraints of order $m$ to $10^{-12}$ iff $k = m$
+(Nédélec and H1, $C_6$ and $C_3$ about an off-centre point in 2D, $C_4$ about $z$ and $C_3$ about
+the body diagonal of `box_with_ball` in 3D), the axis DoFs are constrained iff $m \ne 0$, a source
+of order $m$ on the sector reproduces the full-domain solution of the same mesh to $10^{-9}$ at
+every rotated image, and the residual indicators of the sector cells equal those of their
+full-domain twins.
+
 ## Mirror symmetry (`physics/mirror_symmetry.hpp`)
 
 A structure that is invariant under the reflections at $k \le d$ mutually orthogonal planes
@@ -414,12 +451,13 @@ since an image point $A_g y$ contributes the phase $e^{-ik\hat r\cdot(R_g y + t_
 equivalent currents transform covariantly.
 
 **Restrictions.** The planes must be mutually orthogonal: planes at other angles generate
-rotations (the groups $C_{nv}$), which need the cyclic coupling of issue #244 S1. A Bloch
+rotations (the groups $C_{nv}$); use the cyclic symmetry below for those. A Bloch
 direction must be parallel to every plane; on a layered background the planes must be
 perpendicular to the layers; waveguide ports are refused (`WaveguidePort::pmc_tags` covers
 the symmetric case). The symmetry of materials and PML is not checked: the reduced setup
 describes the reduced domain (PML box ending at the planes with thickness 0 there). Point
-inversion and $C_2$ rotations are not mirror symmetries and need the coupling of S1 as well.
+inversion and $C_2$ rotations are not mirror symmetries; $C_2$ (and in 2D the inversion, which is
+the same map) is the cyclic symmetry of order 2 below.
 
 **Verification** (`tests/unit/physics/test_mirror_symmetry.cpp`,
 `tests/convergence/mie_sphere_mirror.cpp`). The parity parts sum to the field and have their
@@ -430,6 +468,77 @@ the two coordinate planes and the two diagonal planes $x = \pm y$ (with the PML 
 problem), and in 3D for the three coordinate planes with an elliptically polarised oblique
 wave. The Mie sphere under an oblique wave (all eight parities excited) converges to the
 rotated series on the octant like the quarter domain at normal incidence (docs/validation.md C).
+
+## Cyclic symmetry (`physics/cyclic_symmetry.hpp`)
+
+A structure invariant under the rotation $R$ by $2\pi/n$ about an axis (2D: a point $c$;
+materials, PML, layered background) is computed on one sector of angle $2\pi/n$, for **any**
+excitation (issue #244 S1 + S2). With $A x = c + R(x - c)$ the rotation of a field is
+$(\mathcal{R}\mathbf{E})(x) = R^{-1}\mathbf{E}(Ax)$; it commutes with the Maxwell operator of a
+symmetric structure, and $\mathcal{R}^n = 1$, so the space splits into the $n$ azimuthal orders
+$m = 0,\dots,n-1$ with the projectors
+
+$$
+\Pi_m\mathbf{E}(x) = \frac1n\sum_{j=0}^{n-1}\omega^{-mj}\,R^{-j}\,\mathbf{E}(A^jx),\qquad
+\omega = e^{2\pi i/n},\qquad \mathbf{E}_m(Ax) = \omega^m R\,\mathbf{E}_m(x),
+$$
+
+and $\sum_m \mathbf{E}_m = \mathbf{E}$ (the $j = 0$ term). A rotation has $\det R = 1$, so the curl
+(axial) transforms like $\mathbf{E}$, and the scalar curl in 2D does not change. On the sector,
+order $m$ is the Bloch-type condition of the rotated periodic pair with phase $\omega^m$ between the
+two sides ([above](#bloch-periodic-constraints-assemblyperiodichpp)): the two sides need no
+boundary condition of their own.
+
+`CyclicSymmetricScattering` therefore
+
+1. projects the incident field (value, curl, `value_in_region`) and the current of the setup
+   onto every order (`azimuthal_part`);
+2. skips the orders whose excitation vanishes at the vertices and cell centroids (relative to
+   the largest, `CyclicOptions`): an excitation with the symmetry of the structure needs the one
+   order $m = 0$; a plane wave along the axis of $C_n$, $n \ge 3$, has the orders $\pm1$ (one
+   of them for circular polarisation); a general one needs all $n$;
+3. solves each remaining order as an ordinary `Scattering` on the sector mesh with the pair
+   `cyclic_pair(master, slave, n, m, c, axis)` appended to `setup.periodic`, i.e. one
+   factorisation per order on a matrix of $1/n$ the size;
+4. reconstructs the field at a point $x$ of the full domain: with $x = A^j y$, $y$ in the
+   sector (`fold`, from the angle about the axis measured from the master side),
+   $\mathbf{E}(x) = \sum_m\omega^{mj}R^j\mathbf{E}_m(y)$.
+
+The products of two different orders pick up $\omega^{(m-m')j}$ on the $j$-th copy and sum to
+zero over the full domain, so Poynting fluxes and absorbed powers are $n$ times the sum over the
+orders on the sector; `cross_sections` and the far field take the closed surface on the sector
+mesh without its facets on the two sides (`reduced_surface`). The far field sums the rotated
+images, with $t_j = c - R^jc$:
+
+$$
+F(\hat r) = \sum_m\sum_j\omega^{mj}\,e^{-ik\hat r\cdot t_j}\,R^j\,F_m(R^{-j}\hat r).
+$$
+
+`tag_sector_sides` tags the two sides of a sector cut from a symmetric mesh (`mesh::extract`):
+the boundary facets on the half-plane from the axis in a given direction get the master tag,
+those on its rotation by $2\pi/n$ the slave tag. `mesh::hexagon` is a $C_6$-symmetric
+triangulation (a triangular lattice in a regular hexagon) for $n = 2, 3, 6$; `square_with_disc`
+is $C_4$-symmetric, `box_with_ball` $C_4$-symmetric about every coordinate axis and
+$C_3$-symmetric about the body diagonals.
+
+**Restrictions.** The structure's symmetry is not checked, and the open problems need a PML
+with the symmetry: the `PmlBox` has it for $n = 2$ and $4$ about its centre (and $n = 3$ about a
+body diagonal of a cube); other orders need the radial PML of issue #244 S4. Bloch directions
+must be translations along the axis (3D; none in 2D), a layered background needs the axis
+normal to the layers (3D; none in 2D), waveguide ports are refused. Mirror planes through the
+axis ($C_{nv}$) are not combined with the rotation yet: each order $m$ and $n - m$ are then
+mirror images and one of them would suffice.
+
+**Verification** (`tests/unit/physics/test_cyclic_symmetry.cpp`,
+`tests/convergence/mie_cylinder_cyclic.cpp`). The azimuthal parts sum to the field and have their
+order (value and curl, $C_5$ about an oblique off-centre axis). On a symmetric mesh the sector
+reproduces the full domain up to round-off: fields at points in every sector, cross-sections,
+absorbed power and far field, for $C_4$ (square with a lossy disc, PML, oblique wave) and $C_6$
+(hexagonal PEC cavity with a lossy hexagon, off-axis current) in 2D, and for $C_4$ about $z$ and
+$C_3$ about the body diagonal (ball in a cube, PML, elliptically polarised oblique wave) in 3D. A
+wave along the axis excites only the orders $\pm1$. The Mie cylinder under an oblique wave on the
+quarter converges to the series value like the full domain and agrees with it to $10^{-9}$ at
+every order.
 
 ## Propagating modes (`physics/propagating_mode.hpp`)
 

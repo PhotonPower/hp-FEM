@@ -171,6 +171,14 @@ ConicalScattering::ConicalScattering(const fespace::NedelecDofMap<2>& transverse
       }
     }
   }
+  for (const auto& pair : setup_.periodic) {
+    if (!pair.is_translation()) {
+      throw NotImplemented(fmt::format(
+          "ConicalScattering: the periodic pair ({}, {}) is rotated; the conical solver couples "
+          "translations only",
+          pair.master, pair.slave));
+    }
+  }
   // modal transparent boundaries: one Bloch direction, a homogeneous medium outside the PML
   for (const ConicalModalBoundary& b : setup_.modal_boundaries) {
     if (setup_.periodic.size() != 1) {

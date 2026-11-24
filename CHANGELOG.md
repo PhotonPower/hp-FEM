@@ -3,6 +3,19 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Cyclic symmetry C_n for any excitation (`physics::CyclicSymmetricScattering`, issue #244 S1 +
+  S2): `assembly::PeriodicPair` takes a rotation (`cyclic_pair`, `rotation_matrix`), coupling the
+  two sides of a sector by E(Rx + a) = e^{2πim/n} R E(x) on the Nédélec and H1 spaces, with the
+  DoFs on the axis set to zero unless m = 0; `PeriodicLocator` and the residual estimator turn the
+  partner's fields. The excitation is split into its n azimuthal orders (`azimuthal_part`), each
+  is solved on the sector, orders without excitation are skipped, and fields, cross-sections,
+  absorbed power and far field (`CyclicSymmetricFarField`) of the full problem are reconstructed;
+  `tag_sector_sides` tags the sides of a cut sector, `mesh::hexagon` is a C_6-symmetric mesh.
+  Reproduces the full-domain solution on the same mesh to round-off (C_4 and C_6 in 2D, C_4 about
+  z and C_3 about the body diagonal in 3D); the Mie cylinder under an oblique wave on the quarter
+  converges to the series (`convergence_mie_cylinder_cyclic`). Python: `CyclicSymmetry2D/3D`,
+  `CyclicSymmetricScattering2D/3D`, `CyclicSymmetricFarField2D/3D`, `azimuthal_part`,
+  `tag_sector_sides`, `cyclic_pair`, `rotation_matrix`, `hexagon`, `PeriodicPair(rotation=...)`.
 - Mirror symmetry for any excitation (`physics::MirrorSymmetricScattering`, issue #244 S3): a
   structure symmetric under up to Dim mutually orthogonal planes of any orientation is solved on
   the reduced domain; the incident field and current are split into their parity parts

@@ -58,6 +58,17 @@ inline constexpr Tag kDiscBoundary = 1;
 [[nodiscard]] Mesh<3> ball(Index n, const Point<3>& center = Point<3>::Zero(), Real radius = 1.0,
                            bool curved = true);
 
+/// Regular hexagon of circumradius `radius` around `center` (corners on the x axis at ±radius)
+/// split into the equilateral triangles of a triangular lattice with n cells per side
+/// (spacing radius / n): the mesh is invariant under the rotations by multiples of 60° and the
+/// reflections of the hexagon, so it serves as the full domain of C_6, C_3 and C_2 symmetric
+/// problems (issue #244). Cells within the concentric hexagon of `inner` rings (circumradius
+/// inner·radius/n) carry `inner_tag`, the others are untagged; all boundary facets carry
+/// `kDiscBoundary`. Counts: V = 3n(n+1) + 1, C = 6n². @throws InvalidArgument for n < 1,
+/// radius ≤ 0, inner outside [0, n] or `inner_tag == kNoTag` with inner > 0.
+[[nodiscard]] Mesh<2> hexagon(Index n, Real radius = 1.0, Index inner = 0, Tag inner_tag = 2,
+                              const Point<2>& center = Point<2>::Zero());
+
 /// Structured mesh of the square [-outer, outer]^2 with a circular inclusion of the given
 /// radius at the origin whose interface is resolved by (curved) cell edges: the grid of the
 /// inner square is mapped onto the disc as in `disc`, the ring up to `half_width` blends

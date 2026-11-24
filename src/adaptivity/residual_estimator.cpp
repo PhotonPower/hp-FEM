@@ -276,16 +276,28 @@ Estimate residual_estimate(const fespace::NedelecDofMap<Dim>& dofs, const Vector
       Index c1 = side.c1;
       Complex phase{1.0, 0.0};
       Point<Dim> xi1;
+      Eigen::Matrix<Real, Dim, Dim> rotation = Eigen::Matrix<Real, Dim, Dim>::Identity();
       if (bloch) {
         const auto partner = locator->partner(f, s0.x);
         if (!partner) continue;  // no master cell under this point (unrelated layouts)
         c1 = partner->cell;
         xi1 = partner->xi;
         phase = partner->phase;
+        rotation = partner->rotation;
       } else {
         xi1 = partner_sampler(c1).geometry().to_reference(s0.x);
       }
-      const Sample<Dim> s1 = partner_sampler(c1)(xi1);
+      Sample<Dim> s1 = partner_sampler(c1)(xi1);
+      if (bloch && !rotation.isIdentity(1e-14)) {
+        // a rotated partner (cyclic symmetry): d is a polar vector, w = μ⁻¹ curl E an axial one
+        const Real det = rotation.determinant();
+        s1.d = rotation.template cast<Complex>() * s1.d;
+        if constexpr (Dim == 3) {
+          s1.w = det * (rotation.template cast<Complex>() * s1.w);
+        } else {
+          s1.w = det * s1.w;
+        }
+      }
       const Real ds = rule.weights[q] * measure;
       const Curl<Dim> jump_w = s0.w - phase * s1.w;
       Real t = 0;

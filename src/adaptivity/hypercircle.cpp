@@ -171,7 +171,12 @@ Vector dual_solution(const DualDofMap<Dim>& dual_dofs,
   const assembly::DirichletData essential =
       assembly::homogeneous_dirichlet(dual_dofs, essential_facets);
   fespace::Constraints constraints = assembly::hanging_constraints(dual_dofs);
-  if (!periodic.empty()) constraints.append(assembly::bloch_constraints<Dim>(dual_dofs, periodic));
+  if (!periodic.empty()) {
+    // the dual field (H) is an axial vector: an improper map (det R = −1) flips its sign
+    std::vector<assembly::PeriodicPair<Dim>> pairs(periodic.begin(), periodic.end());
+    for (auto& pair : pairs) pair.phase *= pair.rotation.determinant() < 0 ? -1.0 : 1.0;
+    constraints.append(assembly::bloch_constraints<Dim>(dual_dofs, pairs));
+  }
   if (constraints.num_constrained() == 0) {
     assembly::apply_dirichlet(system.matrix, system.rhs, essential);
     log().debug("dual_solution<{}>: {} DoFs, {} essential", Dim, dual_dofs.num_dofs(),

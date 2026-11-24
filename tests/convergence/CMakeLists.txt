@@ -40,6 +40,8 @@ hpfem_add_test(convergence_mie_cylinder convergence
   mie_cylinder.cpp)
 hpfem_add_test(convergence_mie_cylinder_hp convergence
   mie_cylinder_hp.cpp)
+hpfem_add_test(convergence_mie_cylinder_cyclic convergence
+  mie_cylinder_cyclic.cpp)
 
 hpfem_add_test(convergence_slab_waveguide convergence
   slab_waveguide.cpp)

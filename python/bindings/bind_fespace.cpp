@@ -1,5 +1,6 @@
 /// Bindings of `fespace`: the DoF maps of the H1 and Nédélec spaces with variable order,
 /// linear constraints (hanging nodes, Bloch periodicity).
+#include <optional>
 #include <vector>
 
 #include "common.hpp"
@@ -71,17 +72,42 @@ void bind_dof_map(py::module_& m, const char* base, const char* doc) {
 template <int Dim>
 void bind_periodic(py::module_& m) {
   using Pair = assembly::PeriodicPair<Dim>;
+  using Matrix = Eigen::Matrix<Real, Dim, Dim>;
   py::class_<Pair>(m, named("PeriodicPair", Dim).c_str(),
                    "One Bloch-periodic direction: the facets tagged `slave` are the facets "
-                   "tagged `master` translated by `shift`, E_slave = phase * E_master")
-      .def(py::init([](mesh::Tag master, mesh::Tag slave, const Point<Dim>& shift, Complex phase) {
-             return Pair{master, slave, shift, phase};
+                   "tagged `master` translated by `shift`, E_slave = phase * E_master; with a "
+                   "rotation R the slave facets are the master facets mapped by x -> R x + shift "
+                   "and E(R x + shift) = phase * R E(x) (cyclic symmetry, see cyclic_pair)")
+      .def(py::init([](mesh::Tag master, mesh::Tag slave, const Point<Dim>& shift, Complex phase,
+                       const std::optional<Matrix>& rotation) {
+             Pair pair{master, slave, shift, phase};
+             if (rotation) pair.rotation = *rotation;
+             return pair;
            }),
-           py::arg("master"), py::arg("slave"), py::arg("shift"), py::arg("phase") = Complex{1, 0})
+           py::arg("master"), py::arg("slave"), py::arg("shift"), py::arg("phase") = Complex{1, 0},
+           py::arg("rotation") = py::none())
       .def_readwrite("master", &Pair::master)
       .def_readwrite("slave", &Pair::slave)
       .def_readwrite("shift", &Pair::shift)
-      .def_readwrite("phase", &Pair::phase);
+      .def_readwrite("phase", &Pair::phase)
+      .def_readwrite("rotation", &Pair::rotation)
+      .def_property_readonly("is_translation", &Pair::is_translation);
+  m.def(
+      "rotation_matrix",
+      [](Real angle, const Point<3>& axis) { return assembly::rotation_matrix<Dim>(angle, axis); },
+      py::arg("angle"), py::arg("axis") = Point<3>::UnitZ(),
+      Dim == 2 ? "Rotation by angle [rad] in the plane (counter-clockwise); axis ignored"
+               : "Rotation by angle [rad] about the axis (right-handed)");
+  m.def(
+      "cyclic_pair",
+      [](mesh::Tag master, mesh::Tag slave, int n, int m_order, const Point<Dim>& center,
+         const Point<3>& axis) {
+        return assembly::cyclic_pair<Dim>(master, slave, n, m_order, center, axis);
+      },
+      py::arg("master"), py::arg("slave"), py::arg("n"), py::arg("m"),
+      py::arg("center") = Point<Dim>::Zero(), py::arg("axis") = Point<3>::UnitZ(),
+      "Periodic pair of the cyclic symmetry of order n about the axis through center (3D: "
+      "direction axis): slave facets = master facets rotated by 2 pi / n, phase exp(2 pi i m / n)");
   m.def(
       "bloch_phase",
       [](const Point<Dim>& k, const Point<Dim>& shift) {

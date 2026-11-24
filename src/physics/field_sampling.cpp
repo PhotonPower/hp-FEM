@@ -289,6 +289,7 @@ struct Sampler {
     nudge = 1e-8 * (hi - lo).maxCoeff();
     if (!options.bloch_wrap) return;
     for (const auto& pair : periodic) {
+      if (!pair.is_translation()) continue;  // a rotated pair (cyclic symmetry) wraps nothing
       WrapDirection<Dim> d;
       d.shift = pair.shift;
       d.length = pair.shift.norm();
