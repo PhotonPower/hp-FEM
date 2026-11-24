@@ -343,7 +343,7 @@ s.pml = hpfem.PmlBox2D.uniform([-1, -1], [1, 1], 1.5, k, 1.0, hpfem.PmlProfile(2
 s.pec_tags = [hpfem.box_tag.X_MIN, hpfem.box_tag.X_MAX, hpfem.box_tag.Y_MIN, hpfem.box_tag.Y_MAX]
 problem = hpfem.Scattering2D(nd, s); sol = problem.solve()
 cs = hpfem.cross_sections(problem, sol, hpfem.Surface2D.around_cells(mesh, 2), 1.0)
-print(cs.scattering, hpfem.mie_cylinder_scattering_width(k, 0.25, 1.5))  # agree to ~2e-5
+print(cs.scattering, hpfem.mie_cylinder_scattering_width(k, 0.25, 1.5))  # agree to ~2e-4
 E = problem.total_field(sol, hpfem.PointLocator2D(mesh), [0.5, 0.1])
 ```
 
@@ -443,7 +443,11 @@ for step in range(6):
     orders = np.asarray(hp.orders)
 ```
 Same loop for `ConicalScattering` (both maps get `orders`) and `Elasticity2D/3D` (`estimate(u)`);
-transfer old solutions with `hpfem.prolongate(old_nd, old_coeffs, new_nd, hp.step)`.
+transfer old solutions with `hpfem.prolongate(old_nd, old_coeffs, new_nd, hp.step)`. With a PML
+(e.g. R1 as root mesh) the loop converges too, but the residual estimator measures the error of
+the stretched problem: an under-resolved layer (the "PML is under-resolved" warning) takes most
+of eta and of the new unknowns; resolve the layer (milder `PmlProfile` target, thicker layer) or
+compare with uniform p for quantities of the physical domain.
 
 ### R7 Elasticity: shrinkage of a block bonded at its base (quarter model)
 ```python

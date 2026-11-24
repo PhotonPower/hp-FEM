@@ -165,8 +165,8 @@ solved by Newton in the test. For $n = 3$ the poles are $x_{\mathrm{TE}} = 0.987
 0.06058i$ and $x_{\mathrm{TM}} = 1.44174 - 0.17947i$. On the half-disc meridian mesh of
 `square_with_disc` (curved interface, four cells per radius, PML of three radii beyond
 $r, |z| = 3a$) the computed poles converge exponentially under p-refinement: relative
-errors $2.9\cdot10^{-2}$, $2.4\cdot10^{-4}$, $3.5\cdot10^{-6}$, $1.8\cdot10^{-6}$ (TE) and
-$3.7\cdot10^{-2}$, $2.0\cdot10^{-3}$, $2.3\cdot10^{-5}$, $2.0\cdot10^{-6}$ (TM) for
+errors $2.3\cdot10^{-2}$, $2.6\cdot10^{-4}$, $2.8\cdot10^{-6}$, $1.8\cdot10^{-6}$ (TE) and
+$4.3\cdot10^{-2}$, $1.5\cdot10^{-3}$, $2.5\cdot10^{-5}$, $2.0\cdot10^{-6}$ (TM) for
 $p = 1 \ldots 4$, with Arnoldi residuals below $10^{-8}$. The unit test also checks the PML
 tensors against the formula and that a layer on the axis side is rejected.
 

@@ -43,23 +43,30 @@ inline constexpr Tag kDiscBoundary = 1;
 
 /// Structured mesh of a disc: the square [-1, 1]^2 with n × n cells mapped by
 /// @f$ (u, v) \mapsto (u\sqrt{1 - v^2/2},\; v\sqrt{1 - u^2/2}) @f$ onto the unit disc, then
-/// scaled and shifted. With `curved` the nodes of the boundary edges are projected onto the
-/// circle (`curve_boundary`, geometry order 2); otherwise the boundary stays polygonal. All
-/// boundary facets carry `kDiscBoundary`. @throws InvalidArgument for n < 1 or radius ≤ 0.
+/// scaled and shifted. Every square is split along the diagonal pointing away from the centre
+/// (unlike `rectangle`), so that no sliver lines the circle. With `curved` the nodes of the
+/// boundary edges are projected onto the circle (`curve_boundary`, geometry order 2); otherwise
+/// the boundary stays polygonal. All boundary facets carry `kDiscBoundary`.
+/// @throws InvalidArgument for n < 1 or radius ≤ 0.
 [[nodiscard]] Mesh<2> disc(Index n, const Point<2>& center = Point<2>::Zero(), Real radius = 1.0,
                            bool curved = true);
 /// Structured mesh of a ball: the cube [-1, 1]^3 with n^3 cubes mapped by
 /// @f$ x = u\sqrt{1 - v^2/2 - w^2/2 + v^2w^2/3} @f$ (and cyclically) onto the unit ball,
-/// scaled and shifted; boundary edge nodes projected onto the sphere with `curved`.
+/// scaled and shifted; every cube split into the Kuhn tetrahedra around its body diagonal from
+/// the corner nearest the centre (unlike `box`); boundary edge nodes projected onto the sphere
+/// with `curved`.
 [[nodiscard]] Mesh<3> ball(Index n, const Point<3>& center = Point<3>::Zero(), Real radius = 1.0,
                            bool curved = true);
 
 /// Structured mesh of the square [-outer, outer]^2 with a circular inclusion of the given
 /// radius at the origin whose interface is resolved by (curved) cell edges: the grid of the
 /// inner square is mapped onto the disc as in `disc`, the ring up to `half_width` blends
-/// between the circle and the square, and beyond `half_width` the grid continues uniformly
-/// (space for a PML). n is the number of cells per radius; the cell size is about radius / n
-/// everywhere, so (outer / radius) n must be an integer. The inclusion cells carry
+/// linearly between the circle and the square (grid coordinate s = max(|u|, |v|) from 1 to
+/// half_width / radius: @f$ x = R[(1 - t)\,s\,\mathrm{disc}(q/s) + t\,q] @f$,
+/// @f$ t = (s - 1)/(l - 1) @f$, so the rings keep the cell size), and beyond `half_width` the
+/// grid continues uniformly (space for a PML). Squares are split along the diagonal pointing
+/// away from the centre, as in `disc`. n is the number of cells per radius; the cell size is about
+/// radius / n everywhere, so (outer / radius) n must be an integer. The inclusion cells carry
 /// `inclusion_tag`, the outer sides the `box_tag`s. @throws InvalidArgument for inconsistent
 /// sizes.
 [[nodiscard]] Mesh<2> square_with_disc(Index n, Real radius, Real half_width, Real outer,
@@ -67,8 +74,9 @@ inline constexpr Tag kDiscBoundary = 1;
 
 /// 3D counterpart of `square_with_disc`: the cube [-outer, outer]^3 with a spherical inclusion
 /// of the given radius at the origin resolved by (curved) cell faces. The grid of the inner cube
-/// is mapped onto the ball as in `ball`, the shell up to `half_width` blends between the sphere
-/// and the cube, beyond `half_width` the grid is uniform (space for a PML). n is the number of
+/// is mapped onto the ball as in `ball`, the shell up to `half_width` blends linearly between
+/// the sphere and the cube (as in `square_with_disc`), beyond `half_width` the grid is uniform
+/// (space for a PML). Cubes are split as in `ball`. n is the number of
 /// cells per radius; (outer / radius) n must be an integer. Cells: 6 (2 (outer / radius) n)^3
 /// Kuhn tetrahedra. The inclusion cells carry `inclusion_tag`, the outer sides the `box_tag`s,
 /// the interface faces become quadratic (geometry order 2). @throws InvalidArgument for

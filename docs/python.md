@@ -893,6 +893,12 @@ for step in range(20):
     orders = hp.orders
 ```
 
+With a PML the residual estimator measures the error of the stretched problem: an
+under-resolved layer (the warning "the PML is under-resolved") takes most of the estimate and
+of the new unknowns. Resolve the layer (a milder `PmlProfile` target or a thicker layer) when the
+quantity of interest lives in the physical domain; `tests/convergence/mie_cylinder_hp.cpp` runs
+the loop on the Mie cylinder.
+
 Other entry points follow the C++ headers one to one: `assemble_h1` / `assemble_maxwell`
 with `ScalarForm2D` / `MaxwellForm2D` callbacks and `solve_direct` or `make_direct_solver`
 (SparseLU / MUMPS / cuDSS), `dirichlet_values` / `apply_dirichlet`, `gauged_curl_curl_eigenpairs`

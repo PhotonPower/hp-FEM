@@ -30,6 +30,20 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 - Release wheels: the wheels workflow builds only CPython 3.10–3.14 again. The empty
   `CIBW_BUILD` of the tag builds selected every interpreter, so 0.5.1 also went to PyPI with
   wheels for free-threaded 3.14t and the 3.15 pre-release; the PyPI job now refuses such wheels.
+- hp-adaptivity on the Mie meshes diverged (#234): `square_with_disc` and `box_with_ball`
+  blended quadratically instead of linearly from the circle / sphere to the square / cube, so
+  the first ring of cells outside the inclusion was about n (l − 1) times thinner than wide.
+  In addition, `disc`, `ball` and both inclusion meshes split all squares / cubes along one
+  diagonal, which left slivers along the circle in two quadrants. Their curved edges folded
+  some cells (det J < 0 for `square_with_disc` at n = 4; 5e-4 of the straight value in
+  `box_with_ball`). The residual estimator then blew up on a handful of cells, the hp loop
+  refined only them, and the error grew. Now the blend is linear and every square / cube is
+  split along the diagonal pointing away from the centre. The curved det J stays above 0.8 of
+  the straight one, and the hp loop converges (`tests/convergence/mie_cylinder_hp.cpp`).
+  Results on these meshes change within the discretisation error.
+- `QuadraticGeometry::to_reference` took a tolerance of 1e-14 h, below the rounding of the
+  coordinates for small cells far from the origin, and threw "Newton iteration did not
+  converge". The tolerance is now relative to max(h, |x|).
 
 ## [0.5.1] — 2026-11-22
 ### Added

@@ -13,9 +13,9 @@ the series value; it also prints the far-field pattern and writes the scattered 
 `mie_cylinder.vtu`.
 
 **Expected result.** $k_0R = 1.5$, $n = 1.5$: $\sigma_{sca} = 0.50641$ m from the series,
-the two FEM values within $3\cdot10^{-4}$ (near field) and $10^{-2}$ (far field, limited by
-the quadrature on the coarse surface) of it, an absorption cross-section of order $10^{-4}$
-(discretisation error of a lossless scatterer). See `tests/convergence/mie_cylinder.cpp`
+the two FEM values 0.50663 m (near field, $4.4\cdot10^{-4}$ relative) and 0.50683 m (far field,
+$8\cdot10^{-4}$; within $10^{-2}$, limited by the quadrature on the coarse surface), an
+absorption cross-section of order $10^{-6}$ m (discretisation error of a lossless scatterer). See `tests/convergence/mie_cylinder.cpp`
 for the convergence with $p$.
 
 **Runtime.** About five seconds (release build, 86k DoFs).
