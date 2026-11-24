@@ -765,12 +765,25 @@ exist (`Scattering<3>` on a `LayerStack<3>` background, Bloch pairs in two direc
   propagating orders: ΣR + ΣT = 1 and x / y polarisation equal, converging in p
   (`tests/convergence/crossed_grating_orders.cpp`). Fixed on the way: Bloch pairs of matched 3D
   meshes no longer fall back to the interpolation of non-matching facets
-- [ ] S2: 3D unit-cell meshes (Gmsh, periodic side faces, holes / pillars: circle, ellipse,
-  rectangle; layers; PML space) and a Python driver for crossed gratings (`hpfem.grating`), the
-  project format `dim: 3` with a stack
-- [ ] S3: import of FourierGrating JSON (frame: FG has the stack normal along y, hpfem along z;
-  the FG polarisation angles; materials `{"n": …}`), the example above as a driver with a
-  convergence table in p, the comparison with RCWA values from the maintainer
+- [x] S2: `hpfem.crossed`: the model (`CrossedGrating`, `Layer`, `Shape`: circle, ellipse,
+  rectangle, polygon as holes or pillars, continued periodically), the Gmsh unit cell
+  (`unit_cell_mesh`: periodic side faces paired explicitly, second-order cells for curved
+  shapes, PML space) and `solve`: homogeneous layers as the layered background (only the shapes
+  scatter), PML for the steepest propagating order, Bloch phases in x and y, s and p with one
+  factorisation, orders (m, n) above and below, absorption, `polarised` for any (a_s, a_p)
+  without a new solve; tests: the bare stack against the transfer matrix (1e-9), a lossless hole
+  array (balance 1e-4, C4 symmetry 1e-4), an absorbing one (balance, the circular sum rule of
+  the mixed absorption). The FourierGrating example converges in p on a fixed mesh (balance
+  1.1e-2, 9.5e-4, 5.8e-5 for p = 2, 3, 4; docs/python.md)
+- [x] S3: `hpfem.fouriergrating` (import of FourierGrating crossed-grating configurations:
+  homogeneous, contour2d, polygon2d layers, constant materials, scans; refusals name the JSON
+  pointer), `hpfem fg model.json` writing FourierGrating's `efficiencies.csv`, the frames fixed
+  against FourierGrating's fields and efficiencies on a case without mirror symmetry (FG
+  (x, y, z) = (x, −z, y − H), ψ = −φ, p = −p, order (n, m) = (n, −m)), `CrossedResult.field`;
+  example `examples/crossed_hole_array` and docs/validation.md N: the hole array against the RCWA
+  (N = 20): diffracted orders within 5e-5 at p = 4, T00 3.4e-4, near fields 5e-3. The project
+  format `dim: 3` with a stack moved to the backlog: the FourierGrating file and the Python API
+  cover the use case
 - [ ] S4 (GUI-hpFEM, GUI agent): model type “crossed grating” and the FG import; `load_model()`
   normalises or rejects foreign material formats
 

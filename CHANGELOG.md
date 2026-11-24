@@ -3,6 +3,17 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- `hpfem.fouriergrating` and `hpfem fg model.json`: FourierGrating (RCWA) crossed-grating
+  configurations computed unchanged with `hpfem.crossed`, results as FourierGrating's
+  `efficiencies.csv` (M21 S3, #237); frames and polarisation conventions verified against
+  FourierGrating's fields. `CrossedResult.field` for near fields. Example
+  `examples/crossed_hole_array` (hole array against the RCWA, orders and near fields,
+  docs/validation.md N).
+- `hpfem.crossed`: crossed (doubly periodic) gratings in 3D in one call (M21 S2, #237). Layers
+  with circular, elliptic, rectangular or polygonal holes / pillars, the Gmsh unit cell with
+  periodic side faces, the layered background, PML, Bloch phases in x and y, s and p with one
+  factorisation, the reflected and transmitted orders (m, n), absorption and energy balance;
+  `CrossedResult.polarised` gives any other polarisation without a new solve.
 - Diffraction orders (m, n) of crossed (doubly periodic) gratings in 3D (M21 S1, #237):
   `physics::diffraction_orders` on an `OrderPlane` (two lattice vectors at any angle, normal away
   from the structure) with the incident wave subtracted, complex vector amplitudes and

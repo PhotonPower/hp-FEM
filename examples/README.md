@@ -27,3 +27,4 @@ runtime) and a driver. The M3–M5 examples are C++ programs (`main.cpp`, built 
 | `particle_on_substrate/` | Bodies of revolution on layer stacks: gold sphere on glass in dark field, nanoparticle on a mirror, nanohole in a gold film | M18 |
 | `grating_emitter/` | Quantum dot above a glass grating: Purcell factor, emission up / down, extraction into NA 0.5 (job task `emitter`) | M17 |
 | `printed_block_shrinkage/` | Shrinkage of a two-photon printed resin block on glass: shape error, wall pull-in, a data-port shrinkage field | M20 |
+| `crossed_hole_array/` | Crossed grating: a FourierGrating (RCWA) hole-array model imported and recomputed in 3D, orders and near fields against the RCWA | M21 |

@@ -328,3 +328,19 @@ def test_printed_block_shrinkage_layer_check_and_curling(tmp_path, monkeypatch):
     assert r["sag_nm"] < 0 and r["pull_in_nm"] < 0  # the corners lift, the walls pull in
     assert r["strain_energy_pj"] > 0
     assert (tmp_path / "printed_block_shrinkage.json").exists()
+
+
+def test_crossed_hole_array_against_fouriergrating(tmp_path, monkeypatch):
+    """The FourierGrating model imported and solved on a coarse mesh at p = 2: every order within
+    2.5e-2 of the RCWA, the balance closed to 2e-2, the C4 symmetry of the cell."""
+    pytest.importorskip("gmsh")
+    example = load_example("crossed_hole_array")
+    monkeypatch.chdir(tmp_path)
+    record = example.run(quick=True, out=str(tmp_path / "hole.json"))
+    step = record["steps"][-1]
+    assert step["max_deviation"] < 2.5e-2
+    assert abs(step["balance"]) < 2e-2
+    eff = {(t["side"], t["n"], t["m"]): t["hpfem"] for t in step["orders"]}
+    assert eff[("T", 1, 0)] == pytest.approx(eff[("T", -1, 0)], abs=2e-3)
+    assert eff[("T", 0, 1)] > eff[("T", 1, 0)]  # E along x: the orders along z are stronger
+    assert json.loads((tmp_path / "hole.json").read_text())["steps"][0]["order"] == 2

@@ -280,6 +280,26 @@ PML regions included at top and bottom of the mesh, z = direction of the lines.
 - Diagnostics alone: `hpfem.diagnostics.validate_scattering(mesh, setup, orders)`,
   `hpfem.diagnostics.raise_on_errors(found)`.
 
+### High-level: crossed gratings in 3D (`hpfem.crossed`, needs `gmsh`)
+- Model: `hpfem.crossed.CrossedGrating(period=(px, py), superstrate, substrate, layers=[
+  hpfem.crossed.Layer(thickness, material, shapes=[hpfem.crossed.Shape(kind, material, center,
+  radius | rx, ry | width, height | points, angle)])])`; kinds circle, ellipse, rectangle,
+  polygon; stack normal z, superstrate above z = 0, layers downwards, cell [0, px] x [0, py];
+  materials as Material, index (complex n + ik), library name or dispersive model.
+- `hpfem.crossed.solve(grating, wavelength, theta, phi, polarisation="s" | "p" | (a_s, a_p),
+  order=3) -> CrossedResult`: `.reflected` / `.transmitted` (lists of `CrossedOrder`: `m`, `n`,
+  `efficiency`, `amplitude`, `direction`), `.order(m, n, "R" | "T")`, `.R`, `.T`,
+  `.absorption`, `.balance` (ΣR + ΣT + A - 1), `.table()`, `.polarised(pol)` (no new solve).
+  Superstrate lossless, substrate a lossless dielectric. s: E perpendicular to the plane of
+  incidence (normal incidence, phi = 0: E along -y), p: E in it (E along +x).
+
+- FourierGrating models (RCWA config, `"dimension": "2D"`): `hpfem.fouriergrating.load(path)`
+  -> `Model` (`.grating`, `.incidences`, `.fg_to_hpfem(points_um)`, `.hpfem_to_fg_field(e)`),
+  `hpfem.fouriergrating.solve(model, order=3)` -> [(incidence, CrossedResult)],
+  `hpfem.fouriergrating.write_efficiencies(results, path)` (FourierGrating's CSV and order labels);
+  CLI `hpfem fg model.json -p 4 -o outdir`. Frames: FG (x, y, z) = hpfem (x, -z, y - H); FG psi
+  = -phi; FG delta -> (cos d, -sin d); FG order (n, m) = hpfem (n, -m).
+
 ### High-level: other modules
 - `hpfem.planar.dipole_above_stack(stack, k0, height, moment) -> Purcell factor` (semi-analytic).
 - `hpfem.project`: `load(path)`, `validate(spec)`, `run(spec | path) -> dict` (JSON-able,
@@ -514,6 +534,19 @@ space = opt.DesignSpace([opt.Continuous("x", -2, 2), opt.Continuous("y", -1, 3)]
 study = opt.Study(rosenbrock, "rb.study.jsonl", space)   # rerun = replay from the store
 result = opt.minimize(study, 0, x0=[-1.2, 1.0])            # L-BFGS-B with the Jacobian
 print(result.params, result.value, study.best().values)
+```
+
+### R12 Crossed grating: hole array in a glass film (3D)
+```python
+import hpfem
+from hpfem import crossed as cg
+um = 1e-6
+g = cg.CrossedGrating((0.5 * um, 0.5 * um), superstrate=1.0, substrate=1.5, layers=[
+    cg.Layer(0.15 * um, 1.5, [cg.Shape("circle", 1.0, center=(0.25 * um, 0.25 * um),
+                                       radius=0.125 * um)])])
+r = cg.solve(g, 0.405 * um, theta=0.0, phi=0.0, polarisation="s", order=3)  # ~1 min, 40k DoF
+print(r.table(), r.R, r.T, r.balance)       # balance -> 0 as order grows
+print(r.polarised("p").order(1, 0, "T").efficiency)
 ```
 
 ## 4. Gotchas

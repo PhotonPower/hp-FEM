@@ -1,0 +1,292 @@
+{
+  "date": "2026-11-23",
+  "milestone": "M21 S3 (issue #237)",
+  "title": "Hole array in a glass film on glass: hp-FEM (hpfem.crossed) against FourierGrating RCWA",
+  "model": "examples/crossed_hole_array/hole_array_glass_r125.json (period 0.5 um x 0.5 um, air hole r = 0.125 um in 0.15 um glass on glass n = 1.5, lambda 0.405 um, normal incidence, delta 90 deg = p)",
+  "reference": {
+    "code": "FourierGrating 2caa01a, fgsolve cpu-release",
+    "method": "RCWA, Nx = Nz = 20, contour2d (exact coefficients)",
+    "seconds": 977,
+    "sum_R_T_minus_1": 5.6e-13,
+    "near_field": "examples/crossed_hole_array/hole_array_glass_r125_nearfield.json (cuts y = 0.075 um and z = 0.25 um, 41 x 41 and 41 x 61 points)"
+  },
+  "machine": "MacBook, 6 cores, 8 GB, SparseLU (PyPI-like build, Python 3.14)",
+  "hpfem": {
+    "command": "python examples/crossed_hole_array/run.py --fg-nearfield <fg out> --plots docs/images/validation",
+    "elements_per_wavelength": 2.5,
+    "steps": [
+      {
+        "order": 3,
+        "unknowns": 39564,
+        "seconds": 34.89562104083598,
+        "balance": -0.001151338212379005,
+        "orders": [
+          {
+            "side": "R",
+            "n": -1,
+            "m": 0,
+            "rcwa": 0.00183467587367,
+            "hpfem": 0.0018690618865128373
+          },
+          {
+            "side": "R",
+            "n": 0,
+            "m": -1,
+            "rcwa": 0.00221575261771,
+            "hpfem": 0.0021962985078975883
+          },
+          {
+            "side": "R",
+            "n": 0,
+            "m": 0,
+            "rcwa": 0.0246797573746,
+            "hpfem": 0.0249944484644985
+          },
+          {
+            "side": "R",
+            "n": 0,
+            "m": 1,
+            "rcwa": 0.00221575261771,
+            "hpfem": 0.002227107156470232
+          },
+          {
+            "side": "R",
+            "n": 1,
+            "m": 0,
+            "rcwa": 0.00183467587367,
+            "hpfem": 0.0018339055264768866
+          },
+          {
+            "side": "T",
+            "n": -1,
+            "m": -1,
+            "rcwa": 0.0196499051618,
+            "hpfem": 0.01960614295913223
+          },
+          {
+            "side": "T",
+            "n": -1,
+            "m": 0,
+            "rcwa": 0.0176118441551,
+            "hpfem": 0.017713800559779874
+          },
+          {
+            "side": "T",
+            "n": -1,
+            "m": 1,
+            "rcwa": 0.0196499051618,
+            "hpfem": 0.019704460123822726
+          },
+          {
+            "side": "T",
+            "n": 0,
+            "m": -1,
+            "rcwa": 0.0246241997889,
+            "hpfem": 0.024475737559274364
+          },
+          {
+            "side": "T",
+            "n": 0,
+            "m": 0,
+            "rcwa": 0.804147677108,
+            "hpfem": 0.802281423434588
+          },
+          {
+            "side": "T",
+            "n": 0,
+            "m": 1,
+            "rcwa": 0.0246241997889,
+            "hpfem": 0.024654534449095676
+          },
+          {
+            "side": "T",
+            "n": 1,
+            "m": -1,
+            "rcwa": 0.0196499051618,
+            "hpfem": 0.019679937080101424
+          },
+          {
+            "side": "T",
+            "n": 1,
+            "m": 0,
+            "rcwa": 0.0176118441551,
+            "hpfem": 0.017779930934157518
+          },
+          {
+            "side": "T",
+            "n": 1,
+            "m": 1,
+            "rcwa": 0.0196499051618,
+            "hpfem": 0.01983187314581321
+          }
+        ],
+        "max_deviation": 0.0018662536734119772,
+        "sum_hpfem": 0.998848661787621,
+        "near_field": {
+          "horizontal": {
+            "relative_l2": 0.018703777494293368,
+            "relative_l2_away_from_edges": 0.01570139965031498
+          },
+          "vertical": {
+            "relative_l2": 0.017612808147417974,
+            "relative_l2_away_from_edges": 0.013857539532311496
+          }
+        }
+      },
+      {
+        "order": 4,
+        "unknowns": 84888,
+        "seconds": 284.54982020892203,
+        "balance": 5.4963578058675466e-05,
+        "orders": [
+          {
+            "side": "R",
+            "n": -1,
+            "m": 0,
+            "rcwa": 0.00183467587367,
+            "hpfem": 0.0018358912784278304
+          },
+          {
+            "side": "R",
+            "n": 0,
+            "m": -1,
+            "rcwa": 0.00221575261771,
+            "hpfem": 0.002217941555558089
+          },
+          {
+            "side": "R",
+            "n": 0,
+            "m": 0,
+            "rcwa": 0.0246797573746,
+            "hpfem": 0.02465500163052649
+          },
+          {
+            "side": "R",
+            "n": 0,
+            "m": 1,
+            "rcwa": 0.00221575261771,
+            "hpfem": 0.002214346521700182
+          },
+          {
+            "side": "R",
+            "n": 1,
+            "m": 0,
+            "rcwa": 0.00183467587367,
+            "hpfem": 0.001837207830014891
+          },
+          {
+            "side": "T",
+            "n": -1,
+            "m": -1,
+            "rcwa": 0.0196499051618,
+            "hpfem": 0.019625705191900013
+          },
+          {
+            "side": "T",
+            "n": -1,
+            "m": 0,
+            "rcwa": 0.0176118441551,
+            "hpfem": 0.017591498559134035
+          },
+          {
+            "side": "T",
+            "n": -1,
+            "m": 1,
+            "rcwa": 0.0196499051618,
+            "hpfem": 0.019627618479916717
+          },
+          {
+            "side": "T",
+            "n": 0,
+            "m": -1,
+            "rcwa": 0.0246241997889,
+            "hpfem": 0.024573088932164085
+          },
+          {
+            "side": "T",
+            "n": 0,
+            "m": 0,
+            "rcwa": 0.804147677108,
+            "hpfem": 0.8044907784416743
+          },
+          {
+            "side": "T",
+            "n": 0,
+            "m": 1,
+            "rcwa": 0.0246241997889,
+            "hpfem": 0.024578717247382625
+          },
+          {
+            "side": "T",
+            "n": 1,
+            "m": -1,
+            "rcwa": 0.0196499051618,
+            "hpfem": 0.01960932211198929
+          },
+          {
+            "side": "T",
+            "n": 1,
+            "m": 0,
+            "rcwa": 0.0176118441551,
+            "hpfem": 0.017586558044433473
+          },
+          {
+            "side": "T",
+            "n": 1,
+            "m": 1,
+            "rcwa": 0.0196499051618,
+            "hpfem": 0.019611287753236666
+          }
+        ],
+        "max_deviation": 0.0003431013336743227,
+        "sum_hpfem": 1.0000549635780587,
+        "near_field": {
+          "horizontal": {
+            "relative_l2": 0.005578586420800169,
+            "relative_l2_away_from_edges": 0.0049181127123568355
+          },
+          "vertical": {
+            "relative_l2": 0.006901327673528934,
+            "relative_l2_away_from_edges": 0.0044767558688975275
+          }
+        }
+      }
+    ]
+  },
+  "conventions_check": {
+    "model": "off-centre tilted elliptic air hole (centre (0.2, 0.3) um, radii 0.14 / 0.08 um, 25 deg) in the same film, phi 25 deg, psi 30 deg; FourierGrating RCWA Nx = Nz = 8",
+    "fields": {
+      "delta 0 (s)": {
+        "factor": "+1.000",
+        "residual": [
+          0.002,
+          0.0061
+        ]
+      },
+      "delta 90 (p)": {
+        "factor": "-1.000",
+        "residual": [
+          0.0018,
+          0.0046
+        ]
+      },
+      "with phi = +psi instead": {
+        "residual": [
+          0.95,
+          0.88
+        ]
+      }
+    },
+    "efficiencies_delta_pm45": {
+      "max_deviation_p3": 0.00076,
+      "with_the_other_p_sign": 0.026,
+      "order_T(1,-1)": {
+        "FG_+45": 0.004921,
+        "hpfem_+45": 0.00495,
+        "FG_-45": 0.030569
+      }
+    },
+    "result": "FG (x, y, z) = hpfem (x, -z, y - H); FG psi = -phi; FG s = s, FG p = -p, so delta -> (cos d, -sin d); FG order (n, m) = hpfem (n, -m)"
+  },
+  "assessment": "Diffracted orders agree to 2.5e-6 (R) and 5e-5 (T) at p = 4; T(0,0) differs by 3.4e-4 while it still moved by 2.2e-3 from p = 3 to 4 and the RCWA truncation error is unknown, so the residual cannot be attributed yet. Near fields agree to 5e-3 (relative L2) away from the material edges, converging by a factor ~3 from p = 3 to 4; the largest pointwise |E|^2 differences sit at the 90-degree edges of the hole (field singularities, Gibbs ripple of the RCWA)."
+}
