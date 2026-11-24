@@ -71,6 +71,7 @@ hpfem_add_test(test_physics unit
 
   physics/test_mie_sphere.cpp
   physics/test_farfield.cpp
+  physics/test_mirror_symmetry.cpp
   physics/test_propagating_mode.cpp
   physics/test_goal_oriented.cpp
   physics/test_sweep.cpp

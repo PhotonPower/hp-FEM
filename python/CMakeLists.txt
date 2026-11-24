@@ -9,6 +9,7 @@ pybind11_add_module(_hpfem
   bindings/bind_physics.cpp
   bindings/bind_layer_stack.cpp
   bindings/bind_postprocess.cpp
+  bindings/bind_mirror.cpp
   bindings/bind_adaptivity.cpp
   bindings/bind_io.cpp)
 target_link_libraries(_hpfem PRIVATE hpfem::hpfem)

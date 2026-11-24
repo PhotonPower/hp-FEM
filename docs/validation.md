@@ -379,6 +379,29 @@ to three times those of the previous record for the same systems):
 
 **Assessment.** The 3D solver converges to the Mie series in $p$ for both spheres. The field error, the most robust measure, falls by a factor 3 to 5 per order at $n = 2$ ($0.38$, $0.077$, $0.016$, $0.0058$ for the dielectric sphere, $0.38$, $0.076$, $0.022$, $0.0064$ for the absorbing one), and the finer mesh $n = 3$ at $p = 3$ reaches $4.7\cdot 10^{-3}$ and $4.5\cdot 10^{-3}$. The efficiencies are integrals of products of the field and converge less regularly: $Q_{sca}$ of the absorbing sphere falls monotonically ($1.1$, $0.097$, $0.014$, $0.0058$; $3.2\cdot 10^{-3}$ at $n = 3$, $p = 3$), that of the dielectric sphere passes the series value between $p = 1$ and $p = 2$, so its small error at $p = 1$ ($2.6\cdot 10^{-3}$) is a cancellation, and settles at $2$–$3\cdot 10^{-3}$ for $n = 2$, $p = 3, 4$ and $6.6\cdot 10^{-4}$ at $n = 3$, $p = 3$ ($Q_{abs}$ of the metallic sphere at $n = 3$, $p = 3$, $4\cdot 10^{-6}$, is likewise a crossing, not the accuracy level). Against the run on the previous mesh (with the thin cells along the diagonals that #234 removed) the field errors at $p \ge 3$ are equal or smaller ($n = 3$, $p = 3$: $4.7\cdot 10^{-3}$ against $9.1\cdot 10^{-3}$ and $4.5\cdot 10^{-3}$ against $1.2\cdot 10^{-2}$), the single values of $Q_{sca}$ move within the discretisation error in either direction ($n = 2$, $p = 4$ dielectric: $3.3\cdot 10^{-3}$ against $1.3\cdot 10^{-3}$). The absorbing sphere converges more slowly: its field decays inside the metal over half a radius and the near field dominates at $ka = 0.6$. Two things limit this benchmark in practice. First, the quadratic approximation of the sphere by `box_with_ball` (geometry error $\propto h^3$ on the interface) caps the accuracy of a given mesh at the $10^{-3}$ level, which is why the finer mesh helps more than a higher order does. Second, the cost: `Eigen::SparseLU` needs 7 minutes for the $1.1\cdot 10^5$ unknowns of $p = 4$ and 20 minutes for $1.7\cdot 10^5$ on an idle machine, so the CI variant stops at $p = 2$ (18 s) and asserts only the trend of the field and a few-percent agreement, while the long run documents the convergence. A MUMPS or GPU backend and a cubic geometry map would move this benchmark to the $10^{-4}$ level. No parameter was adjusted.
 
+*Oblique incidence on the octant* (issue #244 S3, `convergence_mie_sphere_mirror`, long variant
+`"[validation-long]"`, run on 2026-11-24 on the meshes above). The same spheres under a plane
+wave from $\theta = 0.7$, $\varphi = 0.4$ with a general linear polarisation excite all eight
+parities of the three coordinate planes; `MirrorSymmetricScattering` solves them on the octant
+and reconstructs the full problem, compared with the rotated series (efficiencies are rotation
+invariant, the field at eight points in all octants). Times under heavy concurrent load:
+
+| case | n | p | DoF per part | Q_sca | Q_abs | err Q_sca | err Q_abs | err field | time [s] |
+|---|---|---|---|---|---|---|---|---|---|
+| dielectric n = 2, ka = 2 | 2 | 1 | 1,854 | 4.67090 | 0.02837 | 2.1e-02 | 5.9e-03 | 4.9e-01 | 1 |
+| dielectric n = 2, ka = 2 | 2 | 2 | 9,324 | 4.92857 | -0.03378 | 3.3e-02 | 7.1e-03 | 9.5e-02 | 35 |
+| dielectric n = 2, ka = 2 | 2 | 3 | 26,298 | 4.76380 | -0.00260 | 1.4e-03 | 5.4e-04 | 1.2e-02 | 447 |
+| metallic eps = -10 + 1i, ka = 0.6 | 2 | 1 | 1,854 | 2.39575 | 0.33127 | 1.1e+00 | 9.2e-02 | 3.7e-01 | 1 |
+| metallic eps = -10 + 1i, ka = 0.6 | 2 | 2 | 9,324 | 1.13666 | 0.21954 | 1.7e-02 | 8.0e-03 | 1.1e-01 | 68 |
+| metallic eps = -10 + 1i, ka = 0.6 | 2 | 3 | 26,298 | 1.10350 | 0.22497 | 1.2e-02 | 3.2e-03 | 2.0e-02 | 2714 |
+
+At $p = 3$ the oblique case reaches the accuracy of the quarter domain at normal incidence
+($Q_{sca}$ $1.4\cdot 10^{-3}$ against $1.9\cdot 10^{-3}$ and $1.2\cdot 10^{-2}$ against
+$1.4\cdot 10^{-2}$, field $1.2\cdot 10^{-2}$ against $1.6\cdot 10^{-2}$ and $2.0\cdot 10^{-2}$
+against $2.2\cdot 10^{-2}$), with eight solves of an eighth of the full system instead of one
+solve of the whole box. That the reconstruction itself is exact (to $10^{-14}$ against the full
+domain on the same mesh) is shown by `tests/unit/physics/test_mirror_symmetry.cpp`.
+
 ## D. Slit–groove diffraction in a silver film with a layered background
 
 **Sources.** M. Besbes, J. P. Hugonin, P. Lalanne, S. van Haver, O. T. A. Janssen, A. M.

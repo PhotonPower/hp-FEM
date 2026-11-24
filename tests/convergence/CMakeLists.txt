@@ -157,6 +157,8 @@ set_tests_properties(validation_long_slit_groove PROPERTIES LABELS "validation-l
 
 hpfem_add_test(convergence_mie_sphere "convergence;validation"
   mie_sphere.cpp)
+hpfem_add_test(convergence_mie_sphere_mirror convergence
+  mie_sphere_mirror.cpp)
 add_test(NAME validation_long_mie_sphere
   COMMAND convergence_mie_sphere "[validation-long]")
 set_tests_properties(validation_long_mie_sphere PROPERTIES LABELS "validation-long")
