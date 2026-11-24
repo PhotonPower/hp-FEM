@@ -239,6 +239,11 @@ Estimate conical_residual_estimate(const fespace::NedelecDofMap<2>& transverse,
 
   // facet jumps; Bloch slave facets against the phase-shifted master cells
   std::optional<assembly::PeriodicLocator<2>> locator;
+  for (const auto& pair : periodic) {
+    if (!pair.is_translation()) {
+      throw NotImplemented("conical estimator: rotated periodic pairs are not supported");
+    }
+  }
   if (!periodic.empty()) locator.emplace(mesh, periodic);
   const Index num_facets = mesh.num_facets();
   std::vector<Real> tangential(as_size(num_facets), 0.0);

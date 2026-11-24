@@ -259,6 +259,36 @@ The plane tags must not be among `pec_tags`; the materials and the PML must be s
 themselves (not checked). Bloch directions must be parallel to the planes, a layered background
 perpendicular to them; ports are refused (`WaveguidePort.pmc_tags` covers symmetric ports).
 
+### Cyclic symmetry (`CyclicSymmetricScattering2D/3D`)
+
+A structure that is invariant under the rotation by $2\pi/n$ about an axis (2D: a point) is
+computed on one sector of angle $2\pi/n$, for any excitation: the incident field (and current) is
+split into its $n$ azimuthal orders $m$, each order is solved on the sector with the rotated
+periodic coupling $E(Rx) = e^{2\pi i m/n} R E(x)$ between the two sides, and the fields,
+cross-sections, absorbed power and far field of the full problem are put together again
+([theory](theory/maxwell.md#cyclic-symmetry-physicscyclic_symmetryhpp)). Orders without
+excitation are skipped: a wave along the axis needs two orders, a symmetric excitation one.
+
+```python
+full = hpfem.hexagon(8, 1.0, 4, 2)                                  # C_6-symmetric mesh
+sector = hpfem.extract(full, lambda c: 0 < np.arctan2(c[1], c[0]) < np.pi / 3)
+sym = hpfem.CyclicSymmetry2D(6, center=[0, 0], master=20, slave=21)  # 3D: axis=[0, 0, 1]
+hpfem.tag_sector_sides(sector, sym, [1.0, 0.0])                     # sides at 0 and 60 degrees
+setup = ...                                                         # as above, for the sector
+prob = hpfem.CyclicSymmetricScattering2D(hpfem.NedelecDofMap2D(sector, 3), setup, sym)
+solution = prob.solve()                                             # prob.num_parts solves
+E = prob.field(solution, hpfem.PointLocator2D(sector), points)      # anywhere in the full domain
+cs = prob.cross_sections(solution, hpfem.Surface2D.around_cells(sector, 2), 1.0)
+far = hpfem.CyclicSymmetricFarField2D(prob, solution, hpfem.Surface2D.around_cells(sector, 2), 8)
+part = hpfem.azimuthal_part(setup.incident, sym, 1)                 # one order of a field
+pair = hpfem.cyclic_pair(20, 21, 6, 1)                              # the coupling itself
+```
+
+The side tags must not be among `pec_tags`; materials and PML must have the symmetry (not
+checked). An open problem needs a symmetric PML: `PmlBox` serves $n = 2$ and $4$ (and $n = 3$
+about a body diagonal of a cube); other orders wait for the radial PML (issue #244 S4). Bloch
+directions must be translations along the axis (3D only), ports are refused.
+
 ## Job runner (`python -m hpfem.run`)
 
 `python -m hpfem.run job.json [--out DIR] [--cancel-file F] [--threads N] [--quiet]` runs a

@@ -11,6 +11,12 @@
 /// interpolating the master trace, which is exact only up to the slave's order (a warning is
 /// logged). Identical facets with equal orders give the phase times ±1 for edges and the face
 /// permutation matrices in 3D, so the orientation bookkeeping of ADR-0003 is automatic.
+/// A pair may also map the master side by an isometry @f$ x \mapsto Rx + a @f$ with an
+/// orthogonal R (cyclic symmetry about an axis, issue #244 S1): then
+/// @f$ E(Rx + a) = \text{phase}\cdot R\,E(x) @f$ for the vector (Nédélec) space and
+/// @f$ u(Rx + a) = \text{phase}\cdot u(x) @f$ for the scalar (H1) space, and the DoFs of
+/// entities that the map fixes pointwise (the edges and vertices on the axis of a rotation)
+/// vanish unless phase = 1.
 /// See docs/theory/maxwell.md#bloch-periodic-constraints.
 
 #include <complex>
@@ -19,6 +25,8 @@
 #include <set>
 #include <span>
 #include <vector>
+
+#include <Eigen/Core>
 
 #include "hpfem/core/types.hpp"
 #include "hpfem/fespace/constraints.hpp"
@@ -29,14 +37,36 @@ namespace hpfem::assembly {
 
 /// One periodic direction: the facets tagged `slave` are the facets tagged `master`
 /// translated by `shift` (the lattice vector a), and @f$ E_{slave} = \text{phase}\cdot E_{master}
-/// @f$ with @f$ \text{phase} = e^{i k\cdot a} @f$ (1 for plain periodicity).
+/// @f$ with @f$ \text{phase} = e^{i k\cdot a} @f$ (1 for plain periodicity). With a `rotation`
+/// R other than the identity (orthogonal) the slave facets are the master facets mapped by
+/// @f$ x \mapsto Rx + a @f$ and @f$ E(Rx + a) = \text{phase}\cdot R\,E(x) @f$ (cyclic
+/// symmetry: `cyclic_pair`).
 template <int Dim>
 struct PeriodicPair {
   mesh::Tag master = mesh::kNoTag;
   mesh::Tag slave = mesh::kNoTag;
   Point<Dim> shift = Point<Dim>::Zero();
   Complex phase{1.0, 0.0};
+  Eigen::Matrix<Real, Dim, Dim> rotation = Eigen::Matrix<Real, Dim, Dim>::Identity();
+
+  /// The pair maps by a plain translation (`rotation` is the identity).
+  [[nodiscard]] bool is_translation() const { return rotation.isIdentity(1e-14); }
 };
+
+/// Rotation by `angle` [rad] in the plane (2D, counter-clockwise; `axis` ignored) or about the
+/// unit `axis` (3D, right-handed). @throws InvalidArgument for a zero axis (3D).
+template <int Dim>
+[[nodiscard]] Eigen::Matrix<Real, Dim, Dim> rotation_matrix(
+    Real angle, const Point<3>& axis = Point<3>::UnitZ());
+
+/// The pair of a cyclic symmetry of order n about the axis through `center` (2D: the point;
+/// 3D: direction `axis`): the slave facets are the master facets rotated by 2π/n, and the
+/// field of azimuthal order m satisfies @f$ E(Rx + a) = e^{2\pi i m/n} R\,E(x) @f$ with
+/// @f$ a = c - Rc @f$. @throws InvalidArgument for n < 2 or a zero axis.
+template <int Dim>
+[[nodiscard]] PeriodicPair<Dim> cyclic_pair(mesh::Tag master, mesh::Tag slave, int n, int m,
+                                            const Point<Dim>& center = Point<Dim>::Zero(),
+                                            const Point<3>& axis = Point<3>::UnitZ());
 
 /// Bloch phase @f$ e^{i k\cdot a} @f$ of the Bloch wave vector k and lattice vector a.
 template <int Dim>
@@ -64,7 +94,9 @@ template <int Dim>
 /// Partner lookup across the periodic faces for post-processing and the residual estimators:
 /// for a point x on a slave facet, the master cell containing x − a and the reference
 /// coordinates there, with the phase (field at x = phase × field at x − a). Groups of
-/// overlapping facets are formed as in `bloch_constraints`.
+/// overlapping facets are formed as in `bloch_constraints`. For a rotated pair the partner
+/// point is @f$ R^{-1}(x - a) @f$ and the field at x is phase × `rotation` × the field there
+/// (a polar vector; an axial vector such as the curl takes the factor det R as well).
 template <int Dim>
 class PeriodicLocator {
  public:
@@ -72,6 +104,7 @@ class PeriodicLocator {
     Index cell = kInvalidIndex;
     Point<Dim> xi = Point<Dim>::Zero();
     Complex phase{1.0, 0.0};
+    Eigen::Matrix<Real, Dim, Dim> rotation = Eigen::Matrix<Real, Dim, Dim>::Identity();
   };
   /// @throws InvalidArgument as `bloch_constraints`.
   PeriodicLocator(const mesh::Mesh<Dim>& mesh, std::span<const PeriodicPair<Dim>> pairs,
@@ -88,6 +121,7 @@ class PeriodicLocator {
     std::vector<Index> master_cells;
     Point<Dim> shift;
     Complex phase;
+    Eigen::Matrix<Real, Dim, Dim> rotation;
   };
   const mesh::Mesh<Dim>* mesh_;
   Real tolerance_;
@@ -96,6 +130,12 @@ class PeriodicLocator {
   std::set<Index> master_facets_;
 };
 
+extern template Eigen::Matrix<Real, 2, 2> rotation_matrix<2>(Real, const Point<3>&);
+extern template Eigen::Matrix<Real, 3, 3> rotation_matrix<3>(Real, const Point<3>&);
+extern template PeriodicPair<2> cyclic_pair<2>(mesh::Tag, mesh::Tag, int, int, const Point<2>&,
+                                               const Point<3>&);
+extern template PeriodicPair<3> cyclic_pair<3>(mesh::Tag, mesh::Tag, int, int, const Point<3>&,
+                                               const Point<3>&);
 extern template class PeriodicLocator<2>;
 extern template class PeriodicLocator<3>;
 extern template fespace::Constraints bloch_constraints<2>(const fespace::NedelecDofMap<2>&,

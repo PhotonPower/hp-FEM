@@ -327,3 +327,51 @@ TEST_CASE("box_with_ball: inclusion cells, curved interface on the sphere, outer
   REQUIRE_THROWS_AS(hpfem::mesh::box_with_ball(3, r, 1.0, 1.1), hpfem::InvalidArgument);
   REQUIRE_THROWS_AS(hpfem::mesh::box_with_ball(1, 0.5, 0.4, 1.0), hpfem::InvalidArgument);
 }
+
+TEST_CASE("hexagon: counts, positive cells, boundary on the hexagon, inner tag, C_6 symmetry",
+          "[mesh][generators]") {
+  const Index n = 4;
+  const Real radius = 2.0;
+  const Mesh<2> m = hpfem::mesh::hexagon(n, radius, 2, 7);
+  CHECK(m.num_vertices() == 3 * n * (n + 1) + 1);
+  CHECK(m.num_cells() == 6 * n * n);
+  Real area = 0;
+  Real inner_area = 0;
+  for (Index c = 0; c < m.num_cells(); ++c) {
+    const auto& v = m.cell_vertices(c);
+    const Point<2> a = m.vertex(v[1]) - m.vertex(v[0]);
+    const Point<2> b = m.vertex(v[2]) - m.vertex(v[0]);
+    const Real det = a(0) * b(1) - a(1) * b(0);
+    REQUIRE(det > 0);
+    area += 0.5 * det;
+    if (m.cell_tag(c) == 7) inner_area += 0.5 * det;
+  }
+  const Real hex = 1.5 * std::sqrt(3.0);  // area of the unit hexagon
+  CHECK(area == Approx(hex * radius * radius));
+  CHECK(inner_area == Approx(hex * 1.0));  // inner circumradius 2 * radius / n = 1
+  for (const Index f : m.boundary_facets()) {
+    CHECK(m.facet_tag(f) == hpfem::mesh::kDiscBoundary);
+    for (const Index v : m.facet_vertices(f)) {
+      // on the hexagon: the largest projection onto the six edge normals is the apothem
+      Real proj = 0;
+      for (int k = 0; k < 6; ++k) {
+        const Real t = std::numbers::pi / 6 + k * std::numbers::pi / 3;
+        proj = std::max(proj, m.vertex(v).dot(Point<2>(std::cos(t), std::sin(t))));
+      }
+      CHECK(proj == Approx(radius * std::sqrt(3.0) / 2));
+    }
+  }
+  // the vertex set is invariant under the rotation by 60 degrees
+  const Real c = 0.5;
+  const Real s = 0.5 * std::sqrt(3.0);
+  for (Index v = 0; v < m.num_vertices(); ++v) {
+    const Point<2> x = m.vertex(v);
+    const Point<2> r(c * x(0) - s * x(1), s * x(0) + c * x(1));
+    bool found = false;
+    for (Index w = 0; w < m.num_vertices() && !found; ++w) found = (m.vertex(w) - r).norm() < 1e-12;
+    CHECK(found);
+  }
+  CHECK_THROWS_AS(hpfem::mesh::hexagon(0), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(hpfem::mesh::hexagon(2, 1.0, 3), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(hpfem::mesh::hexagon(2, 1.0, 1, kNoTag), hpfem::InvalidArgument);
+}

@@ -34,6 +34,11 @@ BandStructure<Dim>::BandStructure(const fespace::NedelecDofMap<Dim>& dofs,
     throw InvalidArgument("BandStructure: the Nédélec and H1 maps must share the mesh");
   }
   if (setup_.lattice.empty()) throw InvalidArgument("BandStructure: the lattice is empty");
+  for (const auto& pair : setup_.lattice) {
+    if (!pair.is_translation()) {
+      throw InvalidArgument("BandStructure: the lattice pairs must be translations");
+    }
+  }
   if (setup_.num_bands < 1) throw InvalidArgument("BandStructure: num_bands must be at least 1");
   const auto& mesh = dofs.mesh();
   for (Index c = 0; c < mesh.num_cells(); ++c) {

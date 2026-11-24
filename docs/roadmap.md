@@ -794,9 +794,17 @@ exist (`Scattering<3>` on a `LayerStack<3>` background, Bloch pairs in two direc
   excitation and reconstructs fields, cross-sections, absorbed power and far field; exact against
   the full domain on symmetric meshes, Mie sphere under oblique incidence on the octant
   (`convergence_mie_sphere_mirror`, docs/validation.md C); Python `MirrorSymmetricScattering2D/3D`
-- [ ] discrete rotational symmetry C_n and point inversion (issue #244 S1, S2, S4): cyclic
-  coupling of the sector faces (`PeriodicPair` with a rotation), the decomposition of the
-  excitation into the n azimuthal orders, a radial PML for sectors other than C_2 / C_4
+- [x] discrete rotational symmetry C_n for any excitation (issue #244 S1 + S2):
+  `PeriodicPair` with a rotation (`cyclic_pair`; axis DoFs vanish unless m = 0; locator and
+  residual estimator turn the partner's fields), `physics::CyclicSymmetricScattering` splits the
+  excitation into the n azimuthal orders, solves each on one sector, skips the orders without
+  excitation and reconstructs fields, cross-sections, absorbed power and far field; exact against
+  the full domain on symmetric meshes (`mesh::hexagon` for C_6), Mie cylinder under oblique
+  incidence on the quarter (`convergence_mie_cylinder_cyclic`); Python
+  `CyclicSymmetricScattering2D/3D`
+- [ ] radial PML for sectors other than C_2 / C_4 (issue #244 S4); C_nv (mirror planes through
+  the axis halve the orders), the 3D point inversion (det R = −1) as a sector coupling, and a
+  sector mesher (S5)
 - [ ] elasticity: a real-valued solver path (M20 S5c, ADR-0016 §3). The complex assembly with a
   zero imaginary part costs about twice the memory and four times the flops of a real
   factorisation; worth doing only when a measured elasticity solve (e.g. a Voxelspaetzle part)

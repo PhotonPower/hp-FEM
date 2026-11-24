@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstddef>
 #include <functional>
+#include <numbers>
 #include <span>
 #include <utility>
 #include <vector>
@@ -210,6 +211,62 @@ Mesh<2> disc(Index n, const Point<2>& center, Real radius, bool curved) {
       return Point<2>(center + radius * (x - center).normalized());
     });
   }
+  return m;
+}
+
+Mesh<2> hexagon(Index n, Real radius, Index inner, Tag inner_tag, const Point<2>& center) {
+  if (n < 1 || !(radius > 0) || inner < 0 || inner > n || (inner > 0 && inner_tag == kNoTag)) {
+    throw InvalidArgument(fmt::format(
+        "hexagon: need n >= 1, radius > 0, 0 <= inner <= n and a tag for the inner cells (got n "
+        "= {}, radius = {}, inner = {}, inner_tag = {})",
+        n, radius, inner, inner_tag));
+  }
+  const Real h = radius / static_cast<Real>(n);
+  const Point<2> a1(h, 0.0);
+  const Point<2> a2(0.5 * h, 0.5 * std::numbers::sqrt3 * h);
+  // lattice point (i, j) = i a1 + j a2 lies in the hexagon iff max(|i|, |j|, |i + j|) <= n
+  const auto ring = [](Index i, Index j) {
+    return std::max({std::abs(i), std::abs(j), std::abs(i + j)});
+  };
+  const Index width = 2 * n + 1;
+  std::vector<Index> id(as_size(width * width), kInvalidIndex);
+  const auto slot = [&](Index i, Index j) -> Index& {
+    return id[as_size((i + n) * width + j + n)];
+  };
+  std::vector<Point<2>> vertices;
+  for (Index j = -n; j <= n; ++j) {
+    for (Index i = -n; i <= n; ++i) {
+      if (ring(i, j) > n) continue;
+      slot(i, j) = static_cast<Index>(vertices.size());
+      vertices.emplace_back(center + static_cast<Real>(i) * a1 + static_cast<Real>(j) * a2);
+    }
+  }
+  std::vector<Mesh<2>::CellVertices> cells;
+  std::vector<Tag> tags;
+  const auto add = [&](std::array<std::array<Index, 2>, 3> corners) {
+    Index sum_i = 0;
+    Index sum_j = 0;
+    Mesh<2>::CellVertices c{};
+    for (std::size_t k = 0; k < 3; ++k) {
+      const auto [i, j] = corners[k];
+      if (ring(i, j) > n) return;
+      c[k] = slot(i, j);
+      sum_i += i;
+      sum_j += j;
+    }
+    cells.push_back(c);
+    // the centroid (sum_i / 3, sum_j / 3) lies inside the hexagon of `inner` rings iff
+    // max(|sum_i|, |sum_j|, |sum_i + sum_j|) < 3 inner (it never lies on a lattice line)
+    tags.push_back(ring(sum_i, sum_j) < 3 * inner ? inner_tag : kNoTag);
+  };
+  for (Index j = -n; j < n; ++j) {
+    for (Index i = -n; i < n; ++i) {
+      add({{{i, j}, {i + 1, j}, {i, j + 1}}});          // pointing up
+      add({{{i + 1, j}, {i + 1, j + 1}, {i, j + 1}}});  // pointing down
+    }
+  }
+  Mesh<2> m(std::move(vertices), std::move(cells), std::move(tags));
+  m.tag_boundary(kDiscBoundary);
   return m;
 }
 

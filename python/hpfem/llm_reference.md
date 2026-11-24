@@ -145,6 +145,14 @@ Discover at runtime:
   planes, any orientation): `.solve()`, `.field(sol, locator, points, scattered=False)` anywhere
   in the full domain, `.cross_sections(sol, surface, amp)`, `.absorbed_power(sol)`,
   `hpfem.MirrorSymmetricFarField2D(sym, sol, surface, order)` — all for the FULL problem.
+- Cyclic symmetry C_n (any excitation): cut one sector (`hpfem.extract`), describe it with
+  `sym = hpfem.CyclicSymmetry2D(n, center, master=20, slave=21)` (3D: `axis=`), tag its sides with
+  `hpfem.tag_sector_sides(mesh, sym, direction_of_master_side)`, setup for the sector (side tags
+  NOT in `pec_tags`; a `PmlBox` is symmetric only for n = 2, 4), then
+  `prob = hpfem.CyclicSymmetricScattering2D(nd, setup, sym)`: `.solve()`, `.field(...)`,
+  `.cross_sections(...)`, `.absorbed_power(...)`, `hpfem.CyclicSymmetricFarField2D(...)` — FULL
+  problem. Low level: `hpfem.cyclic_pair(master, slave, n, m, center, axis)` in `setup.periodic`.
+  `hpfem.hexagon(n, radius, inner, inner_tag)` is a C_6-symmetric mesh.
 - `hpfem.ScatteringOperator2D(problem)` — one factorisation, `.solve(incident)`,
   `.solve_many([...])`; `hpfem.plane_wave_sweep(problem, wave_vectors, polarisation_fn)`;
   `hpfem.ReducedBasis(num_dofs)`; `hpfem.s_parameters(nd, setup)` (ports).

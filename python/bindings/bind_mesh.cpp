@@ -374,6 +374,12 @@ void bind_mesh(py::module_& m) {
         "second-order edge nodes");
   m.def("ball", &mesh::ball, py::arg("n"), py::arg("center") = Point<3>::Zero(),
         py::arg("radius") = 1.0, py::arg("curved") = true, "Structured mesh of a ball");
+  m.def("hexagon", &mesh::hexagon, py::arg("n"), py::arg("radius") = 1.0, py::arg("inner") = 0,
+        py::arg("inner_tag") = 2, py::arg("center") = Point<2>::Zero(),
+        "Regular hexagon of circumradius radius (corners on the x axis) split into the "
+        "equilateral triangles of a triangular lattice, n cells per side; invariant under the "
+        "rotations by 60 degrees (C_6, C_3, C_2 symmetric problems); cells within the "
+        "concentric hexagon of `inner` rings tagged inner_tag, boundary facets DISC_BOUNDARY");
   m.def("square_with_disc", &mesh::square_with_disc, py::arg("n"), py::arg("radius"),
         py::arg("half_width"), py::arg("outer"), py::arg("inclusion_tag") = 2,
         "Square [-outer, outer]^2 with a curved circular inclusion of the given radius at the "

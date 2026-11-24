@@ -124,6 +124,7 @@ void bind_physics(py::module_& m);
 void bind_layered(py::module_& m);
 void bind_postprocess(py::module_& m);
 void bind_mirror(py::module_& m);
+void bind_cyclic(py::module_& m);
 /// `EstimatorOptions` alone: a default argument of `Scattering.estimate`, so registered
 /// before `bind_physics`.
 void bind_adaptivity_options(py::module_& m);
