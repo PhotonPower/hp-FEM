@@ -173,7 +173,9 @@ Point<Dim> QuadraticGeometry<Dim>::to_reference(const Point<Dim>& x) const {
   affine.origin = nodes_[0];
   for (int i = 1; i <= Dim; ++i) affine.jacobian.col(i - 1) = nodes_[as_size(i)] - nodes_[0];
   Point<Dim> xi = affine.jacobian.inverse() * (x - affine.origin);
-  const Real tol = 1e-14 * std::max(h_, Real{1e-300});
+  // relative to the cell size and to the coordinates: the residual cannot drop below the
+  // rounding of x, ~1e-16 |x|, which exceeds 1e-14 h for small cells far from the origin
+  const Real tol = 1e-14 * std::max({h_, x.cwiseAbs().maxCoeff(), Real{1e-300}});
   constexpr int kMaxIterations = 25;
   for (int it = 0; it < kMaxIterations; ++it) {
     const GeometryPoint<Dim> g = evaluate(xi);

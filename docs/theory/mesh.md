@@ -119,8 +119,20 @@ boundary for comparisons. `curve_boundary(m, tag, project)` does the same for an
 boundary of any mesh with a user-supplied projection. `square_with_disc(n, R, W, W_out)`
 builds the scatterer-in-a-box mesh of the Mie test: the inner square of the grid is
 mapped onto the disc of radius $R$, the ring up to the square of half-width $W$ blends
-between circle and square, the grid continues uniformly to $W_{out}$ (PML space); the
-inclusion cells are tagged and the interface edges are curved onto the circle.
+linearly between circle and square, the grid continues uniformly to $W_{out}$ (PML space);
+the inclusion cells are tagged and the interface edges are curved onto the circle;
+`box_with_ball` is the 3D counterpart. With $q$ the grid point in units of $R$,
+$s = \max_i |q_i|$, $l = W/R$ and $t = (s - 1)/(l - 1)$ the blend is
+$x = R\,[(1 - t)\,s\,\mathrm{disc}(q/s) + t\,q]$, so the distance from the circle grows
+linearly in $s$ and the first ring keeps the cell size.
+
+Unlike `rectangle` and `box`, these four generators split every square along the diagonal
+that points away from the centre (and every cube around the body diagonal from its corner
+nearest the centre). The map onto the disc compresses the grid towards the diagonals of the
+square; with one diagonal for all squares, the cells along the circle in two quadrants
+become slivers whose curved edge can fold them ($\det J < 0$; issue #234, where the residual
+estimator blew up on those cells). `tests/unit/mesh/test_generators.cpp` checks that
+$\det J$ of the curved map stays above half of the straight cell's everywhere.
 
 ## Gmsh input
 

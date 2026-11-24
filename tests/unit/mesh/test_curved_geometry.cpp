@@ -182,6 +182,25 @@ TEST_CASE("one curved triangle approximates a quarter disc", "[mesh][geometry]")
   REQUIRE_THROWS_AS(geometry->to_reference(Point<2>(1e6, -1e6)), hpfem::Error);
 }
 
+TEST_CASE("to_reference converges on small curved cells far from the origin (#234)",
+          "[mesh][geometry]") {
+  // a curved triangle of size 1e-3 at x ~ 2: the residual of the Newton iteration cannot drop
+  // below the rounding of the coordinates (~4e-16), which exceeded the old tolerance 1e-14 h
+  const Real h = 1e-3;
+  const Point<2> o(-1.9832, 0.6864);
+  QuadraticGeometry<2>::Nodes nodes{o,
+                                    o + Point<2>(h, 0.0),
+                                    o + Point<2>(0.0, h),
+                                    o + Point<2>(0.5 * h, 0.0),
+                                    o + Point<2>(0.0, 0.5 * h),
+                                    o + Point<2>(0.52 * h, 0.52 * h)};
+  // edge node order: the edges of SimplexTopology<2>, whichever is curved does not matter here
+  const QuadraticGeometry<2> geometry(nodes);
+  for (const auto& xi : reference_points<2>(11, 50)) {
+    REQUIRE((geometry.to_reference(geometry.evaluate(xi).x) - xi).norm() < 1e-10);
+  }
+}
+
 TEST_CASE("one curved tetrahedron with a bulged edge", "[mesh][geometry]") {
   Mesh<3> m({{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}}, {{0, 1, 2, 3}});
   auto nodes = midpoints(m);

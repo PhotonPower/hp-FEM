@@ -40,8 +40,12 @@ def test_gold_wire_heats_up():
     assert np.isclose(load[: mesh.num_vertices].sum().real, absorbed, rtol=1e-8)
     density = hpfem.absorbed_power_density(nd, total, omega, setup.materials, h1)
     locator = hpfem.PointLocator2D(mesh)
-    assert hpfem.evaluate_h1(h1, density, locator, [0.0, 0.0]).real > 0
-    assert abs(hpfem.evaluate_h1(h1, density, locator, [3 * radius, 0.0])) == 0.0
+    inside = hpfem.evaluate_h1(h1, density, locator, [0.0, 0.0]).real
+    assert inside > 0
+    # none outside the wire: the vertex values there are exactly zero, the higher-order
+    # interpolation leaves values ~1e-65 of the density inside a few cells further out
+    # (an exact == 0 held at this point only on the meshes before #234)
+    assert abs(hpfem.evaluate_h1(h1, density, locator, [3 * radius, 0.0])) < 1e-30 * inside
     thermal_setup = hpfem.ThermalSetup()
     thermal_setup.background_conductivity = 0.6  # water
     thermal_setup.conductivity = {2: 315.0}  # gold

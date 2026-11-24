@@ -41,6 +41,64 @@ void check_box(const char* name, const std::array<Index, static_cast<std::size_t
   }
 }
 
+/// Triangles of an nx × ny grid (vertices x-fastest) centred on the origin, every square split
+/// along the diagonal that points away from the centre: (i, j)–(i+1, j+1) in the first and
+/// third quadrant, (i+1, j)–(i, j+1) in the second and fourth. Under the maps of `disc` and
+/// `square_with_disc`, which compress the grid towards the diagonals of the square, the other
+/// choice leaves slivers along the circle in two quadrants whose curved edges fold the cell
+/// (issue #234).
+std::vector<Mesh<2>::CellVertices> radially_split_cells(Index nx, Index ny) {
+  const auto id = [nx](Index i, Index j) { return j * (nx + 1) + i; };
+  std::vector<Mesh<2>::CellVertices> cells;
+  cells.reserve(static_cast<std::size_t>(2 * nx * ny));
+  for (Index j = 0; j < ny; ++j) {
+    for (Index i = 0; i < nx; ++i) {
+      const Index cx = 2 * i + 1 - nx;  // twice the square centre in grid units
+      const Index cy = 2 * j + 1 - ny;
+      if (cx * cy >= 0) {
+        cells.push_back({id(i, j), id(i + 1, j), id(i + 1, j + 1)});
+        cells.push_back({id(i, j), id(i + 1, j + 1), id(i, j + 1)});
+      } else {
+        cells.push_back({id(i, j), id(i + 1, j), id(i, j + 1)});
+        cells.push_back({id(i + 1, j), id(i + 1, j + 1), id(i, j + 1)});
+      }
+    }
+  }
+  return cells;
+}
+
+/// Tetrahedra of an nx × ny × nz grid (vertices x-fastest) centred on the origin: every cube
+/// split into the six Kuhn tetrahedra around the body diagonal from its corner nearest the
+/// centre to the opposite one, the 3D counterpart of `radially_split_cells` (with one diagonal
+/// for all cubes, `ball` and `box_with_ball` get slivers along the sphere in the octants the
+/// diagonal crosses tangentially).
+std::vector<Mesh<3>::CellVertices> radially_split_tets(Index nx, Index ny, Index nz) {
+  const auto id = [nx, ny](Index i, Index j, Index k) { return (k * (ny + 1) + j) * (nx + 1) + i; };
+  std::vector<Mesh<3>::CellVertices> cells;
+  cells.reserve(static_cast<std::size_t>(6 * nx * ny * nz));
+  for (Index k = 0; k < nz; ++k) {
+    for (Index j = 0; j < ny; ++j) {
+      for (Index i = 0; i < nx; ++i) {
+        // start corner: offset 1 along the axes on which the cube centre is negative
+        const std::array<Index, 3> start{2 * i + 1 - nx < 0 ? 1 : 0, 2 * j + 1 - ny < 0 ? 1 : 0,
+                                         2 * k + 1 - nz < 0 ? 1 : 0};
+        std::array<std::size_t, 3> axes{0, 1, 2};
+        do {
+          std::array<Index, 3> off = start;
+          Mesh<3>::CellVertices tet{};
+          tet[0] = id(i + off[0], j + off[1], k + off[2]);
+          for (std::size_t s = 0; s < 3; ++s) {
+            off[axes[s]] = 1 - start[axes[s]];
+            tet[s + 1] = id(i + off[0], j + off[1], k + off[2]);
+          }
+          cells.push_back(tet);
+        } while (std::next_permutation(axes.begin(), axes.end()));
+      }
+    }
+  }
+  return cells;
+}
+
 /// Tags every boundary facet with the box side all its vertices lie on.
 template <int Dim>
 void tag_box_sides(Mesh<Dim>& m, const Point<Dim>& lower, const Point<Dim>& upper) {
@@ -145,8 +203,7 @@ Mesh<2> disc(Index n, const Point<2>& center, Real radius, bool curved) {
     vertices.push_back(center + radius * Point<2>(u * std::sqrt(1.0 - 0.5 * v * v),
                                                   v * std::sqrt(1.0 - 0.5 * u * u)));
   }
-  std::vector<Mesh<2>::CellVertices> cells(square.cells().begin(), square.cells().end());
-  Mesh<2> m(std::move(vertices), std::move(cells));
+  Mesh<2> m(std::move(vertices), radially_split_cells(n, n));
   m.tag_boundary(kDiscBoundary);
   if (curved) {
     curve_boundary<2>(m, kDiscBoundary, [center, radius](const Point<2>& x) {
@@ -172,8 +229,7 @@ Mesh<3> ball(Index n, const Point<3>& center, Real radius, bool curved) {
                           v * std::sqrt(1.0 - 0.5 * w * w - 0.5 * u * u + w * w * u * u / 3.0),
                           w * std::sqrt(1.0 - 0.5 * u * u - 0.5 * v * v + u * u * v * v / 3.0)));
   }
-  std::vector<Mesh<3>::CellVertices> cells(cube.cells().begin(), cube.cells().end());
-  Mesh<3> m(std::move(vertices), std::move(cells));
+  Mesh<3> m(std::move(vertices), radially_split_tets(n, n, n));
   m.tag_boundary(kDiscBoundary);
   if (curved) {
     curve_boundary<3>(m, kDiscBoundary, [center, radius](const Point<3>& x) {
@@ -220,13 +276,13 @@ Mesh<2> square_with_disc(Index n, Real radius, Real half_width, Real outer, Tag 
       x = radius * ellipse(q);
     } else if (s <= l + 1e-12) {
       const Real t = (s - 1.0) / (l - 1.0);
-      x = (1.0 - t) * radius * ellipse(q / s) + t * radius * q;
+      x = (1.0 - t) * s * radius * ellipse(q / s) + t * radius * q;
     } else {
       x = radius * q;
     }
     vertices.push_back(x);
   }
-  std::vector<Mesh<2>::CellVertices> cells_list(grid.cells().begin(), grid.cells().end());
+  std::vector<Mesh<2>::CellVertices> cells_list = radially_split_cells(2 * cells, 2 * cells);
   std::vector<Tag> tags;
   tags.reserve(cells_list.size());
   for (const auto& cv : cells_list) {
@@ -292,13 +348,14 @@ Mesh<3> box_with_ball(Index n, Real radius, Real half_width, Real outer, Tag inc
       x = radius * to_ball(q);
     } else if (s <= l + 1e-12) {
       const Real t = (s - 1.0) / (l - 1.0);
-      x = (1.0 - t) * radius * to_ball(q / s) + t * radius * q;
+      x = (1.0 - t) * s * radius * to_ball(q / s) + t * radius * q;
     } else {
       x = radius * q;
     }
     vertices.push_back(x);
   }
-  std::vector<Mesh<3>::CellVertices> cells_list(grid.cells().begin(), grid.cells().end());
+  std::vector<Mesh<3>::CellVertices> cells_list =
+      radially_split_tets(2 * cells, 2 * cells, 2 * cells);
   std::vector<Tag> tags;
   tags.reserve(cells_list.size());
   for (const auto& cv : cells_list) {

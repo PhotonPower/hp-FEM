@@ -2,6 +2,7 @@
 #include <array>
 #include <cmath>
 #include <numbers>
+#include <vector>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -153,8 +154,11 @@ TEST_CASE("disc and ball: boundary on the circle / sphere, tags, curved area and
     for (const Index v : b.facet_vertices(f))
       REQUIRE(std::abs((b.vertex(v) - c3).norm() - 0.5) < 1e-12);
   }
-  // the map preserves the orientation of every Kuhn tetrahedron (both signs occur)
-  const Mesh<3> cube = box(3, 3, 3, Point<3>(-1.0, -1.0, -1.0), Point<3>(1.0, 1.0, 1.0), false);
+  // the map preserves the orientation of every Kuhn tetrahedron (both signs occur): the same
+  // tetrahedra on the unmapped grid (same vertex numbering)
+  const Mesh<3> grid = box(3, 3, 3, Point<3>(-1.0, -1.0, -1.0), Point<3>(1.0, 1.0, 1.0), false);
+  const Mesh<3> cube(std::vector<Point<3>>(grid.vertices().begin(), grid.vertices().end()),
+                     std::vector<Mesh<3>::CellVertices>(b.cells().begin(), b.cells().end()));
   for (Index c = 0; c < b.num_cells(); ++c) {
     REQUIRE(hpfem::mesh::affine_map(b, c).det * hpfem::mesh::affine_map(cube, c).det > 0);
   }
@@ -227,6 +231,59 @@ TEST_CASE("square_with_disc: inclusion cells, curved interface on the circle, ou
   REQUIRE(m.vertex(0) == Point<2>(-1.5, -1.5));
   REQUIRE_THROWS_AS(hpfem::mesh::square_with_disc(3, r, 1.0, 1.1), hpfem::InvalidArgument);
   REQUIRE_THROWS_AS(hpfem::mesh::square_with_disc(2, 0.5, 0.4, 1.0), hpfem::InvalidArgument);
+}
+
+namespace {
+
+/// Smallest ratio of det J of the curved map to det J of the cell's straight (affine) map over a
+/// lattice of points in all cells: positive means no cell folds, small means a nearly singular
+/// map (estimator residuals with derivatives of the field blow up there).
+template <int Dim>
+Real min_curved_jacobian_ratio(const Mesh<Dim>& m) {
+  constexpr int kSteps = 12;
+  Real worst = 1e300;
+  for (Index c = 0; c < m.num_cells(); ++c) {
+    const auto geometry = hpfem::mesh::cell_geometry(m, c);
+    const Real affine = hpfem::mesh::affine_map(m, c).det;
+    for (int i = 0; i <= kSteps; ++i) {
+      for (int j = 0; i + j <= kSteps; ++j) {
+        for (int k = 0; i + j + k <= (Dim == 3 ? kSteps : 0); ++k) {
+          Point<Dim> xi;
+          xi(0) = Real(i) / kSteps;
+          xi(1) = Real(j) / kSteps;
+          if constexpr (Dim == 3) xi(2) = Real(k) / kSteps;
+          worst = std::min(worst, geometry->evaluate(xi).det / affine);
+        }
+      }
+    }
+  }
+  return worst;
+}
+
+}  // namespace
+
+TEST_CASE("disc, ball and the inclusion meshes: no curved cell folds or degenerates (#234)",
+          "[mesh][generators]") {
+  // Before: the ring between circle and square grew quadratically away from the circle (first
+  // ring of cells ~ 1 / (n (l - 1)) times thinner than wide), and with one diagonal for all
+  // squares / cubes the cells along the circle in two quadrants were slivers; their curved edges
+  // folded them (square_with_disc n = 4: ratio -1.1; box_with_ball n = 3: 5e-4)
+  for (const Index n : {1, 2, 3, 4, 6, 8}) {
+    INFO("n = " << n);
+    const Real disc = min_curved_jacobian_ratio(hpfem::mesh::disc(n));
+    const Real square = min_curved_jacobian_ratio(hpfem::mesh::square_with_disc(n, 0.25, 1.0, 2.0));
+    INFO("disc " << disc << ", square_with_disc " << square);
+    CHECK(disc > 0.5);
+    CHECK(square > 0.5);
+  }
+  for (const Index n : {1, 2, 3}) {
+    INFO("n = " << n);
+    const Real ball = min_curved_jacobian_ratio(hpfem::mesh::ball(n));
+    const Real box = min_curved_jacobian_ratio(hpfem::mesh::box_with_ball(n, 0.5, 1.0, 1.5));
+    INFO("ball " << ball << ", box_with_ball " << box);
+    CHECK(ball > (n == 1 ? 0.45 : 0.5));  // n = 1: a single cube, its corners on the sphere
+    CHECK(box > 0.5);
+  }
 }
 
 TEST_CASE("box_with_ball: inclusion cells, curved interface on the sphere, outer tags",
