@@ -137,11 +137,14 @@ def test_hole_array_balance_symmetry_and_mixed_polarisation():
     assert result.order(1, 0, "T").efficiency > 1e-3  # the grating diffracts
     assert abs(result.balance) < 2e-3
     assert abs(p_pol.balance) < 2e-3
-    # at phi = 0, s has E along -y and p along +x: equal by the C4 symmetry of the cell
+    # at phi = 0, s has E along -y and p along +x: equal by the C4 symmetry of the cell, up to the
+    # discretisation error, since the Gmsh mesh is not C4-symmetric and differs between platforms
+    # (same Gmsh 4.15.2: (1, 0) vs (0, 1) agree to 1e-7 on macOS, 1.5e-4 on the Linux CI, where
+    # the efficiency itself differs by 4e-4 from macOS; balance tolerance 2e-3)
     assert result.R == pytest.approx(p_pol.R, abs=1e-3)
     assert result.T == pytest.approx(p_pol.T, abs=1e-3)
     assert result.order(1, 0, "T").efficiency == pytest.approx(
-        p_pol.order(0, 1, "T").efficiency, abs=1e-4
+        p_pol.order(0, 1, "T").efficiency, abs=5e-4
     )
     lossy = cg.CrossedGrating(
         (0.8 * um, 0.8 * um), 1.0, 1.5, [cg.Layer(0.3 * um, complex(1.5, 0.05), [hole])]
