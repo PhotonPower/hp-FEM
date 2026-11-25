@@ -499,7 +499,8 @@ boundary condition of their own.
    of them for circular polarisation); a general one needs all $n$;
 3. solves each remaining order as an ordinary `Scattering` on the sector mesh with the pair
    `cyclic_pair(master, slave, n, m, c, axis)` appended to `setup.periodic`, i.e. one
-   factorisation per order on a matrix of $1/n$ the size;
+   factorisation per order on a matrix of $1/n$ the size, shared by the orders $m$ and $n - m$
+   (below);
 4. reconstructs the field at a point $x$ of the full domain: with $x = A^j y$, $y$ in the
    sector (`fold`, from the angle about the axis measured from the master side),
    $\mathbf{E}(x) = \sum_m\omega^{mj}R^j\mathbf{E}_m(y)$.
@@ -513,6 +514,30 @@ images, with $t_j = c - R^jc$:
 $$
 F(\hat r) = \sum_m\sum_j\omega^{mj}\,e^{-ik\hat r\cdot t_j}\,R^j\,F_m(R^{-j}\hat r).
 $$
+
+**Orders $m$ and $n - m$ share a factorisation** (`CyclicOptions::pair_orders`, on by default).
+The system of order $m$ on the sector is $M_m = P_m^H A P_m$ with the assembled matrix $A$ of the
+sector (the same for every order) and the prolongation $P_m$ of the cyclic constraints, whose
+entries are real interpolation weights times powers of $\omega^m$; hence
+$P_{n-m} = \overline{P_m}$. In reciprocal media the curl–curl form is symmetric, $A^\top = A$
+(symmetric $\varepsilon$ tensors, `Material::anisotropic` refuses gyrotropic ones, ADR-0015 §3;
+scalar $\mu$; the PML stretch $\tilde\varepsilon = \det J\,J^{-1}\varepsilon J^{-\top}$ keeps the
+symmetry), and the Dirichlet elimination is symmetric, so
+
+$$
+M_m^\top = P_m^\top A\,\overline{P_m} = P_{n-m}^H A\,P_{n-m} = M_{n-m}.
+$$
+
+The order $n - m$ is solved with the transposed factors of order $m$
+(`Scattering::solve_transposed` on the `KeptFactorisation`, `LinearSolver::solve_transposed`):
+$\lfloor n/2\rfloor + 1$ factorisations for a general excitation instead of $n$, without any
+condition on the mesh; the two orders of a pair are solved back to back, so one set of factors is
+held at a time. The residual of the solution in the system of order $n - m$ is checked
+(at most $10^{-6}$ of the load). Axial Bloch pairs with a complex phase $e^{ik_za}$ break the
+relation (the phase is not conjugated with the order), so with those every order is factorised.
+This is the saving that mirror planes through the axis ($C_{nv}$) would bring — they map the
+orders $m$ and $n - m$ onto each other — obtained from reciprocity instead, for every
+$C_n$-symmetric structure and without a mirror-symmetric sector mesh.
 
 `tag_sector_sides` tags the two sides of a sector cut from a symmetric mesh (`mesh::extract`):
 the boundary facets on the half-plane from the axis in a given direction get the master tag,
@@ -531,8 +556,8 @@ body diagonal of a cube), a `pml::RadialPml` centred on the axis for every order
 ([radial layers](pml.md#radial-layers-pmlradialpml)). Bloch directions
 must be translations along the axis (3D; none in 2D), a layered background needs the axis
 normal to the layers (3D; none in 2D), waveguide ports are refused. Mirror planes through the
-axis ($C_{nv}$) are not combined with the rotation yet: each order $m$ and $n - m$ are then
-mirror images and one of them would suffice.
+axis ($C_{nv}$) are not used beyond the pairing of $m$ and $n - m$ above (they would halve the
+two self-paired orders $0$ and $n/2$ once more, on a half sector).
 
 **Verification** (`tests/unit/physics/test_cyclic_symmetry.cpp`,
 `tests/convergence/mie_cylinder_cyclic.cpp`). The azimuthal parts sum to the field and have their

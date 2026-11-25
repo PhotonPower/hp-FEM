@@ -153,7 +153,9 @@ Discover at runtime:
   `RadialPml3D.cylindrical(center, axis, r0, d, z_lo, z_hi, d_z, k0)` for any n), then
   `prob = hpfem.CyclicSymmetricScattering2D(nd, setup, sym)`: `.solve()`, `.field(...)`,
   `.cross_sections(...)`, `.absorbed_power(...)`, `hpfem.CyclicSymmetricFarField2D(...)` — FULL
-  problem. Low level: `hpfem.cyclic_pair(master, slave, n, m, center, axis)` in `setup.periodic`.
+  problem. Orders m and n - m share one factorisation (transposed solve, reciprocal media):
+  `prob.num_factorisations` = n // 2 + 1 for a general excitation (`pair_orders=False` turns it off).
+  Low level: `hpfem.cyclic_pair(master, slave, n, m, center, axis)` in `setup.periodic`.
   `hpfem.hexagon(n, radius, inner, inner_tag)` is a C_6-symmetric mesh,
   `hpfem.polar_disc(sides, n, radii, tags)` a C_sides-symmetric ring mesh with curved circles (for a
   circular PML; boundary `hpfem.DISC_BOUNDARY`). For real structures mesh ONE sector with Gmsh:

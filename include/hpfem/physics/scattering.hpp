@@ -137,6 +137,16 @@ class Scattering {
   /// Dirichlet data, reduces by the constraints and solves with the chosen direct solver;
   /// the returned coefficients are complete (interior DoFs recovered).
   [[nodiscard]] ScatteringSolution<Dim> solve() const;
+  /// Solves with the factors kept by the solve of another problem on the same DoF map whose
+  /// factorised system is the transpose of this problem's, @f$ M = M_{\rm partner}^\top @f$,
+  /// instead of factorising: the azimuthal orders m and n − m of a cyclic symmetry in
+  /// reciprocal media (symmetric ε and μ, Bloch phases ±1), whose constraints are complex
+  /// conjugates of each other. Assembles, constrains and eliminates as `solve` (no
+  /// factorisation; `keep_factorisation` is ignored, the solution holds no factors).
+  /// @throws InvalidArgument if the sizes differ; Error if the residual of the solution in
+  ///         this problem's system exceeds 1e-6 of the load (the factors are not those of the
+  ///         transposed system).
+  [[nodiscard]] ScatteringSolution<Dim> solve_transposed(const KeptFactorisation& factors) const;
   /// Modes of port p of the setup (built in the constructor).
   [[nodiscard]] const PortModes<Dim>& port_modes(Index port) const {
     return port_modes_[as_size(port)];
@@ -197,6 +207,9 @@ class Scattering {
   /// @f$ 2\sum_m a_mq_m @f$ of every port to the assembled operator and load.
   std::vector<PortModes<Dim>> port_modes_;
   [[nodiscard]] std::vector<Index> facets(const std::vector<mesh::Tag>& tags) const;
+
+  /// `solve` (transposed = null) or `solve_transposed`.
+  [[nodiscard]] ScatteringSolution<Dim> solve_with(const KeptFactorisation* transposed) const;
 
   const fespace::NedelecDofMap<Dim>* dofs_;
   ScatteringSetup<Dim> setup_;

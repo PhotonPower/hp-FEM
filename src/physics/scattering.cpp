@@ -365,6 +365,16 @@ fespace::Constraints Scattering<Dim>::constraints() const {
 
 template <int Dim>
 ScatteringSolution<Dim> Scattering<Dim>::solve() const {
+  return solve_with(nullptr);
+}
+
+template <int Dim>
+ScatteringSolution<Dim> Scattering<Dim>::solve_transposed(const KeptFactorisation& factors) const {
+  return solve_with(&factors);
+}
+
+template <int Dim>
+ScatteringSolution<Dim> Scattering<Dim>::solve_with(const KeptFactorisation* transposed) const {
   ProgressReporter progress(setup_.progress,
                             {"assembly", "constraints", "factorisation", "solve", "post"});
   progress.begin(0);
@@ -419,13 +429,34 @@ ScatteringSolution<Dim> Scattering<Dim>::solve() const {
                c->num_constrained(), c->num_free(), data.size());
   }
   progress.begin(2);
-  auto solver = solvers::make_direct_solver(setup_.solver, solvers::Symmetry::kDetect);
-  solver->factorize(matrix);
+  std::unique_ptr<solvers::LinearSolver> solver;
+  if (transposed != nullptr) {
+    if (transposed->size() != matrix.rows() || transposed->num_dofs() != dofs_->num_dofs()) {
+      throw InvalidArgument(fmt::format(
+          "Scattering<{}>::solve_transposed: factors of {} unknowns ({} DoFs) for a system of {} "
+          "({} DoFs)",
+          Dim, transposed->size(), transposed->num_dofs(), matrix.rows(), dofs_->num_dofs()));
+    }
+  } else {
+    solver = solvers::make_direct_solver(setup_.solver, solvers::Symmetry::kDetect);
+    solver->factorize(matrix);
+  }
   progress.begin(3);
-  const Vector x = solver->solve(load);
+  const Vector x =
+      transposed != nullptr ? transposed->solver().solve_transposed(load) : solver->solve(load);
+  if (transposed != nullptr) {
+    // the factors belong to another problem: the residual in this system guards the claim
+    const Real residual = (matrix * x - load).norm();
+    if (!(residual <= 1e-6 * load.norm())) {
+      throw Error(fmt::format(
+          "Scattering<{}>::solve_transposed: relative residual {:.3g}; the factors are not "
+          "those of the transposed system (non-reciprocal media or different constraints)",
+          Dim, residual / load.norm()));
+    }
+  }
   progress.begin(4);
   ScatteringSolution<Dim> out{setup_.formulation, recover(c ? c->expand(x) : x), {}, nullptr};
-  if (setup_.keep_factorisation) {
+  if (setup_.keep_factorisation && solver) {
     KeptFactorisation::Parts parts;
     parts.solver = std::move(solver);
     parts.num_dofs = dofs_->num_dofs();
