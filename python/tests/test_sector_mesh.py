@@ -82,10 +82,12 @@ def test_rod_cluster_on_c6_c3_c2_sectors_agrees():
     for n in (6, 3, 2):
         sector = meshing.Sector(order=n, radius=2000 * NM, shapes=rods, rings=[(1000 * NM, 1)])
         results.append(_solve_2d(sector, {1: 80 * NM, 3: 30 * NM}, 3, lossy))
-    # three different meshes of the same structure: 7e-7 apart here
+    # three different meshes of the same structure, so they agree to the discretisation error,
+    # not to round-off: 7e-7 apart here, 1.1e-5 with the Gmsh version of the CI (other meshes);
+    # the Mie cylinder above shows 2e-5 on meshes of this resolution
     for cs in results[1:]:
-        assert cs.scattering == pytest.approx(results[0].scattering, rel=1e-5)
-        assert cs.absorption == pytest.approx(results[0].absorption, rel=1e-5)
+        assert cs.scattering == pytest.approx(results[0].scattering, rel=1e-4)
+        assert cs.absorption == pytest.approx(results[0].absorption, rel=1e-4)
 
     # three of the six rods are not C_6-symmetric
     with pytest.raises(ValueError, match="symmetric"):
