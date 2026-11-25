@@ -379,3 +379,9 @@ def structured_unit_cell(cell: UnitCell, nx: int, rows: Sequence[Sequence[float]
         elif abs(my - y1) < tol:
             mesh.set_facet_tag(f, Y_MAX)
     return mesh
+
+
+# sector meshing for cyclic symmetry lives in its own module (it uses Shape and Slab from here)
+from .sector_mesh import Sector, Solid, sector_mesh, write_sector  # noqa: E402
+
+__all__ += ["Sector", "Solid", "sector_mesh", "write_sector"]

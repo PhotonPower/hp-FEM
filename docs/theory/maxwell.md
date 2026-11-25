@@ -520,7 +520,9 @@ those on its rotation by $2\pi/n$ the slave tag. `mesh::hexagon` is a $C_6$-symm
 triangulation (a triangular lattice in a regular hexagon) for $n = 2, 3, 6$; `square_with_disc`
 is $C_4$-symmetric, `box_with_ball` $C_4$-symmetric about every coordinate axis and
 $C_3$-symmetric about the body diagonals; `polar_disc(sides, n, radii)` (rings with curved
-circles) is $C_n$-symmetric for every divisor $n$ of `sides` and carries a circular PML.
+circles) is $C_n$-symmetric for every divisor $n$ of `sides` and carries a circular PML. For a
+general structure `hpfem.meshing.sector_mesh` meshes one sector with Gmsh, its sides matching
+under the rotation ([Python guide](../python.md#sector-meshing-for-cyclic-symmetry-hpfemmeshingsector)).
 
 **Restrictions.** The structure's symmetry is not checked. Open problems need a PML with the
 symmetry, which is checked on the sector sides (the layer there, rotated, must be the layer on

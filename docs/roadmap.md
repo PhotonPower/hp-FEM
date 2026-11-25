@@ -808,8 +808,13 @@ exist (`Scattering<3>` on a `LayerStack<3>` background, Bloch pairs in two direc
   images, `mesh::polar_disc` (C_q-symmetric rings with curved circles); Mie cylinder in a
   circular layer, full disc and C_6 sector (`convergence_mie_cylinder_radial_pml`), Mie sphere
   on the octant in a spherical layer; Python `RadialPml2D/3D`, `polar_disc`
-- [ ] C_nv (mirror planes through the axis halve the orders), the 3D point inversion
-  (det R = −1) as a sector coupling, and a sector mesher (issue #244 S5)
+- [x] sector mesher (issue #244 S5): `hpfem.meshing.Sector` / `sector_mesh` meshes one sector of a
+  C_n-symmetric structure with Gmsh (disc, ball or cylinder domain; rings, slabs, shapes / solids)
+  with sides matching under the rotation, checks the symmetry of the structure; Mie cylinder on a
+  C_6 sector against the series, a rod cluster on C_6 / C_3 / C_2 sectors, Mie sphere in 3D
+  (`python/tests/test_sector_mesh.py`)
+- [ ] C_nv (mirror planes through the axis halve the orders) and the 3D point inversion
+  (det R = −1) as a sector coupling (issue #244)
 - [ ] elasticity: a real-valued solver path (M20 S5c, ADR-0016 §3). The complex assembly with a
   zero imaginary part costs about twice the memory and four times the flops of a real
   factorisation; worth doing only when a measured elasticity solve (e.g. a Voxelspaetzle part)

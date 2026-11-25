@@ -418,6 +418,41 @@ mesh, links = meshing.unit_cell_mesh(cell, sizes)
 result = hpfem.grating.solve(mesh, {AIR: air, SUB: glass, RIDGE: glass}, stack, "p", theta, phi, omega)
 ```
 
+### Sector meshing for cyclic symmetry (`hpfem.meshing.Sector`)
+
+A mesh of the full domain from Gmsh is not symmetric, so a sector cut from it would not have
+matching sides. `meshing.Sector(order, radius, shapes, rings, slabs, background_tag, dim,
+z_range)` describes the **whole** C_n-symmetric structure around the z axis (2D: the origin)
+and the domain (disc, ball, or with `z_range` a cylinder); `sector_mesh(sector, sizes)` meshes
+the sector between the angles 0 and $2\pi/n$ with the side at $2\pi/n$ the rotated copy of the
+side at 0 node by node (Gmsh `setPeriodic`), and returns `(mesh, symmetry)`, ready for
+`CyclicSymmetricScattering2D/3D`. Scatterers are `meshing.Shape` (2D) or
+`meshing.Solid("sphere" | "cylinder" | "box", tag, params)` (3D), given for all n copies (a
+later one wins); `rings=[(r, tag), ...]` are circles, spheres (ball domain) or cylinders
+(cylinder domain) around the axis that become mesh lines and tag the region within them,
+e.g. the start of a `RadialPml`; `slabs` are z layers in 3D. Cells carry the material tags,
+the sides `master_tag` (20) and `slave_tag` (21), the outer boundary `boundary_tag`
+(`hpfem.DISC_BOUNDARY`); cells are curved (order 2). A structure without the symmetry is
+refused (the tag of every piece is compared with its rotated copies).
+
+```python
+rods = [meshing.Shape("ellipse", ROD, dict(x=300 * nm * np.cos(j * np.pi / 3),
+                                           y=300 * nm * np.sin(j * np.pi / 3), rx=80 * nm, ry=80 * nm))
+        for j in range(6)]                                              # six rods: C_6
+sector = meshing.Sector(order=6, radius=2000 * nm, shapes=rods, rings=[(1000 * nm, AIR)],
+                        background_tag=AIR)                             # PML from 1000 nm
+mesh, sym = meshing.sector_mesh(sector, {AIR: 80 * nm, ROD: 30 * nm})
+setup.pml = hpfem.RadialPml2D([0, 0], 1000 * nm, 1000 * nm, k0)
+setup.pec_tags = [hpfem.DISC_BOUNDARY]
+prob = hpfem.CyclicSymmetricScattering2D(hpfem.NedelecDofMap2D(mesh, 3), setup, sym)
+# 3D: meshing.Sector(order=6, radius=..., dim=3, shapes=[meshing.Solid("sphere", 3,
+#     dict(x=0, y=0, z=0, r=a))], rings=[(2 * a, AIR)]); RadialPml3D for the ball
+```
+
+The Mie cylinder on a C_6 sector meshed this way agrees with the series to $2\cdot10^{-5}$
+($p = 3$), and a cluster of rods computed on C_6, C_3 and C_2 sectors (three unrelated
+meshes) agrees to $10^{-6}$ (`python/tests/test_sector_mesh.py`).
+
 ## Gratings in one call (`hpfem.grating.solve`)
 
 `hpfem.grating.solve(mesh, materials, stack, polarisation, theta, phi, omega, order=4, *,
