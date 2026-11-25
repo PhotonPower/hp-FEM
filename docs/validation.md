@@ -1130,3 +1130,62 @@ cannot hide:
   remaining differences sit at the 90° edges of the hole, where the field is singular: the FEM is
   not yet converged there at finite p, and the RCWA shows Gibbs ripple and the checkerboard
   pattern of its truncated Fourier series.
+
+## O. Dipole above a guiding crystal slab by array scanning (M19 S7e-2b)
+
+**Reference.** This is a comparison with an independent method of the library, not with a
+published value. The reference is the 2D plane-wave spectrum of the Gaussian dipole above the
+layer stack (`hpfem.planar.dipole_above_stack`, Berreman 4×4 reflection of the crystal stack),
+integrated on a path deformed into the complex plane (`depth = 0.03`, 800 radial points, 48
+azimuths), so that it passes the guided-mode poles of the lossless slab (M19 S7e-2a). It is
+exact for the Gaussian emitter up to its quadrature.
+
+**Set-up.**
+- **Structure.** A lossless uniaxial crystal slab, 0.25 µm thick, on glass ($n = 1.45$) under
+  air, at $\lambda = 1$ µm. The permittivity is $\varepsilon = 3.2\,I + 0.9\,a a^\top$ with the
+  optic axis $a = (0.8, 0, 0.6)$ (z the normal), tilted in the cross-section. The slab guides
+  modes, so the emission spectrum has real poles.
+- **Emitter.** A Gaussian dipole ($\sigma = 0.04$ µm) 0.25 µm above the slab. Four moments:
+  x, y, z and $(0.6, 0.5, 0.4)$.
+- **hp-FEM.** `grating.dipole_emission` with a period of 1 µm along x: the single dipole is the
+  array scan over the Bloch wavevector $k_x$ (the full zone, 4 nodes per interval) and the
+  wavevector $\beta$ along the lines (6, 8 or 10 nodes per interval), conical cell problems at
+  $p = 4$ on a mesh of 0.05 µm, PML of 1 µm at the top and bottom. The guided-mode poles are
+  detected per $\beta$ node and passed on the causal side; the $\beta$ pre-pass splits the
+  $\beta$ rule at the pinch points where pole pairs meet at $k_x = 0$ and $\pi/P$ (issue #218).
+- **Script.** `benchmarks/m19_crystal_guided_scan.py`, run on a server (2 × AMD EPYC 9015,
+  4 workers × 4 threads, peak memory 7.9 GB; issue #205). Records in `benchmarks/results/`:
+  `2026-11-10-…-n6-server.json`, `2026-11-18-…-n8-server.json`, `2026-11-18-…-n10-server.json`
+  (without the pre-pass), `2026-11-21-…-n6-prepass-server.json` and
+  `2026-11-24-…-n8-prepass-server.json`.
+
+**Result.** The Purcell factor $F$ (emitted power relative to vacuum) and its relative
+deviation from the reference:
+
+| moment | reference | 6 nodes | 8 nodes | 10 nodes | 6 nodes, pre-pass | 8 nodes, pre-pass |
+|---|---|---|---|---|---|---|
+| x | 1.056196 | +3.4·10⁻³ | +2.6·10⁻³ | +5.6·10⁻³ | −5.9·10⁻⁴ | **+6·10⁻⁶** |
+| y | 1.091282 | +5.2·10⁻³ | +1.6·10⁻³ | +1.1·10⁻³ | −4.1·10⁻⁴ | **+8.2·10⁻⁴** |
+| z | 1.063637 | −2.1·10⁻³ | −2.8·10⁻⁴ | −9.5·10⁻⁴ | −4.1·10⁻³ | **−2.1·10⁻³** |
+| (0.6, 0.5, 0.4) | 1.068073 | +3.7·10⁻³ | +2.5·10⁻³ | +5.5·10⁻³ | −1.5·10⁻³ | **−4.6·10⁻⁴** |
+| samples | | 6 128 | 8 696 | 10 476 | 42 468 | 48 696 |
+| time | | 5.5 h | 16.4 h | 12.9 h | 60.4 h | 60.4 h |
+
+**Assessment.**
+- **Agreement.** With the pre-pass and 8 $\beta$ nodes the array scan agrees with the reference
+  to $2.1\cdot10^{-3}$ for all four moments, to $8\cdot10^{-4}$ except for the z dipole.
+- **The pre-pass is needed.** Without it the deviations stay at $2\cdot10^{-3}$ to
+  $6\cdot10^{-3}$ and do not decrease from 6 to 10 nodes: the $\beta$ rule then integrates
+  across the square-root points of the pinches. With it the x, y and mixed moments improve by a
+  factor of 2 to 400 at the same node count.
+- **Not converged.** From 6 to 8 nodes with the pre-pass, $F$ still changes by
+  $0.6\cdot10^{-3}$ to $2\cdot10^{-3}$, as much as the remaining deviation, and the y error grows
+  (from $4\cdot10^{-4}$ to $8\cdot10^{-4}$). The remaining error is quadrature, not
+  discretisation (the x dipole agrees to $6\cdot10^{-6}$ on the same mesh). Whether the z dipole
+  is limited by the $\beta$ rule or by the 4 $k_x$ nodes, which stayed fixed in all runs, is
+  open; a run with more $k_x$ nodes would separate the two. It was not made because the server
+  was busy.
+- **Use.** For guided modes above crystals, `dipole_emission` with the pre-pass and 8 $\beta$
+  nodes gives the emitted power to a few $10^{-3}$. A crystal that couples the lines direction
+  ($\varepsilon_{xz}$ or $\varepsilon_{yz} \ne 0$ in the solver frame) has no pre-pass and keeps
+  the accuracy of the runs without it (with a warning).

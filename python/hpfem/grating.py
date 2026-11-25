@@ -3952,8 +3952,9 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
     :func:`_poles_mirrored_in_kx`). For a tensor with such a coupling the pinches lie elsewhere
     and are not split off in β (a warning: the β quadrature then converges slowly and not
     monotonically; without the pre-pass the crystal slab of benchmarks/m19_crystal_guided_scan.py
-    stayed at 2e-3 to 6e-3 for 6 to 10 β nodes). Not yet validated against the reference (a
-    warning; benchmarks/m19_crystal_guided_scan.py, a long run). ``symmetric`` is not
+    stayed at 2e-3 to 6e-3 for 6 to 10 β nodes). With the pre-pass and 8 β nodes the emitted
+    power above a guiding crystal slab agrees with the deformed-path reference to 2e-3
+    (benchmarks/m19_crystal_guided_scan.py, docs/validation.md O). ``symmetric`` is not
     available.
 
     ``workers`` > 1 solves the cell problems of the scan in that many threads (the β pre-pass,
@@ -3994,20 +3995,14 @@ def dipole_emission(mesh, materials, stack, dipole, omega: float, *, nodes: int 
         # poles even in kx, which holds without a coupling of the lines direction
     guided_on = _guided_wanted(cell, guided)
     prepass = guided_on and (not crystal or _poles_mirrored_in_kx(_cell_tensors(mesh, cell)))
-    if crystal and guided_on:
+    if crystal and guided_on and not prepass:
         warnings.warn(
-            "dipole_emission: guided-mode poles above crystals (M19 S7e-2b) are not validated yet "
-            "against the reference (benchmarks/m19_crystal_guided_scan.py, a long run)",
+            "dipole_emission: a crystal couples the lines direction (eps_xz or eps_yz in the "
+            "solver frame): the guided poles are not even in kx, the β pre-pass does not "
+            "apply and the pinch points are not split off in β (slow, non-monotone "
+            "convergence in the β nodes)",
             stacklevel=2,
         )
-        if not prepass:
-            warnings.warn(
-                "dipole_emission: a crystal couples the lines direction (eps_xz or eps_yz in the "
-                "solver frame): the guided poles are not even in kx, the β pre-pass does not "
-                "apply and the pinch points are not split off in β (slow, non-monotone "
-                "convergence in the β nodes)",
-                stacklevel=2,
-            )
     beta_top = k0 * max(n_semi, cell.n_max) if beta_max is None else float(beta_max)
     breaks, n_prepass = [], 0
     if prepass:

@@ -57,6 +57,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   efficiencies per order; Python `hpfem.OrderPlane`, `hpfem.DiffractionOrder3D` and the 3D
   overload of `hpfem.diffraction_orders`. Convergence test `crossed_grating_orders` (a film
   against the transfer matrix, energy balance and C4 symmetry of a hole array).
+- Validation of the guided-mode poles above crystals (M19 S7e-2b, `docs/validation.md` O, issue
+  #205): a dipole above a guiding tilted crystal slab by array scanning against the
+  deformed-path reference, on a server. With the β pre-pass and 8 β nodes the Purcell factors
+  agree to 2.1e-3 for all four moments (x 6e-6, mixed 4.6e-4); without the pre-pass they stayed
+  at 2e-3 to 6e-3. The records are in `benchmarks/results/`. `dipole_emission` no longer warns
+  that this case is unvalidated (the warning for a crystal coupling the lines direction stays).
+  M19 is complete.
 
 ### Fixed
 - Bloch-periodic constraints on matched 3D meshes: the two triangles of a square face share

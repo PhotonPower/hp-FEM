@@ -527,7 +527,7 @@ particles on substrates, nanoparticle-on-mirror, holes and grooves in films (neg
   in a gold film, transmission) with README and a quick regression test (written by the helper
   agent `opt-jobs`)
 
-## M19 — Optically anisotropic materials (ADR-0015)
+## M19 — Optically anisotropic materials (ADR-0015) ✅
 Proposal of 1 November 2026, reviewed and accepted the same day: substrates, unstructured layers
 and structured parts of anisotropic crystals (uniaxial, biaxial, rotated optic axis) as used in
 semiconductor metrology; Jones and Mueller matrices. Out of scope of the
@@ -640,7 +640,7 @@ last.
   filling with the axis along z against the ordinary / extraordinary closed forms, a radially
   anisotropic coaxial cavity against the Bessel modes of non-integer order (5e-11), an isotropic
   tensor equal to the scalar case, the refusals (`axisymmetric_anisotropic`)
-- [ ] S7: dipole emitters above anisotropic stacks (ADR-0015 S7 amendment), after S4 / S5 are
+- [x] S7: dipole emitters above anisotropic stacks (ADR-0015 S7 amendment), after S4 / S5 are
   validated
   - [x] S7a: reference: `AnisotropicStack::reflection_at` (Jones reflection at any in-plane
     wavevector, evanescent included), `hpfem.planar.dipole_above_stack` (Purcell factor of a
@@ -671,7 +671,7 @@ last.
     the analytic stack field per polarisation (6e-5); local run
     `benchmarks/m19_crystal_emission_balance.py`: the hemisphere powers up + down (8×16
     directions each) against the total of S7a to 4.8e-5
-  - [ ] S7e: guided-mode poles above crystals, down channels into a crystal substrate
+  - [x] S7e: guided-mode poles above crystals, down channels into a crystal substrate
     - [x] S7e-1: radiation into a crystal substrate: a lossless crystal incidence medium in
       `AnisotropicStack` and `LayerStack` (lookup), `AnisotropicStack::mode_wave`,
       `anisotropic_conical_mode_wave`, the reciprocity with power-normalised modes over the
@@ -680,18 +680,20 @@ last.
       (1.2e-4), the FEM balance (7.5e-5, `benchmarks/m19_crystal_substrate_balance.py`);
       fixed on the way: the crystal cover was left in the laboratory frame by
       `anisotropic_conical_wave`
-    - [ ] S7e-2: guided-mode poles above crystals
+    - [x] S7e-2: guided-mode poles above crystals
       - [x] S7e-2a: the reference on a deformed path (`reflection_at` at complex in-plane
         wavevectors, the causal up / down split beyond the half-space indices,
         `dipole_above_stack(depth=...)`); tests: an isotropic slab against Airy, a crystal slab
         independent of the depth and the small-loss limit
-      - [ ] S7e-2b: the guided-mode poles in the array scan of crystal structures: implemented
-        (detection and causal bumps per β node; `dipole_emission` warns); without the β
-        pre-pass the server runs stayed at 2e-3 to 6e-3, not monotone in 6 / 8 / 10 β nodes
-        (issue #205): the pre-pass now runs for crystals without a coupling along the lines
-        (poles even in kx by the z mirror and reciprocity); validation pending:
-        `benchmarks/m19_crystal_guided_scan.py` against `dipole_above_stack(depth=0.03)` (a long
-        run, to be done on a server)
+      - [x] S7e-2b: the guided-mode poles in the array scan of crystal structures (detection
+        and causal bumps per β node); without the β pre-pass the server runs stayed at 2e-3 to
+        6e-3, not monotone in 6 / 8 / 10 β nodes (issue #205): the pre-pass now runs for crystals
+        without a coupling along the lines (poles even in kx by the z mirror and reciprocity).
+        Validated on the server (`benchmarks/m19_crystal_guided_scan.py` against
+        `dipole_above_stack(depth=0.03)`, `docs/validation.md` O): with the pre-pass and 8 β
+        nodes 2.1e-3 for all moments (x 6e-6, y 8e-4, z 2.1e-3, mixed 4.6e-4); the quadrature
+        is not yet converged (6 → 8 nodes still moves F by up to 2e-3). A run with more kx
+        nodes to separate the β and kx errors was not made (server busy)
 - [x] S8: GUI material editor (isotropic / uniaxial / biaxial / full, axis angles, per part and
   layer) and display of the Jones / Mueller elements (`GUI-hpFEM` PR #4: crystal spec in the
   laboratory frame, `AnisotropicStack` for crystal layers / substrate, `grating.jones` with the
