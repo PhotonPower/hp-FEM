@@ -380,6 +380,13 @@ void bind_mesh(py::module_& m) {
         "equilateral triangles of a triangular lattice, n cells per side; invariant under the "
         "rotations by 60 degrees (C_6, C_3, C_2 symmetric problems); cells within the "
         "concentric hexagon of `inner` rings tagged inner_tag, boundary facets DISC_BOUNDARY");
+  m.def("polar_disc", &mesh::polar_disc, py::arg("sides"), py::arg("n"), py::arg("radii"),
+        py::arg("tags") = std::vector<mesh::Tag>{}, py::arg("center") = Point<2>::Zero(),
+        "Disc of concentric annuli meshed by rings: the circles of `radii` (increasing, the last "
+        "the outer boundary) are curved mesh lines, annulus k carries tags[k]; n rings inside "
+        "radii[0], ring j has sides*j vertices; invariant under the rotations by 2 pi / sides "
+        "(C_n symmetric problems for every divisor n), made for a circular RadialPml2D; "
+        "boundary facets DISC_BOUNDARY");
   m.def("square_with_disc", &mesh::square_with_disc, py::arg("n"), py::arg("radius"),
         py::arg("half_width"), py::arg("outer"), py::arg("inclusion_tag") = 2,
         "Square [-outer, outer]^2 with a curved circular inclusion of the given radius at the "

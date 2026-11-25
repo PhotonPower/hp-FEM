@@ -69,6 +69,25 @@ inline constexpr Tag kDiscBoundary = 1;
 [[nodiscard]] Mesh<2> hexagon(Index n, Real radius = 1.0, Index inner = 0, Tag inner_tag = 2,
                               const Point<2>& center = Point<2>::Zero());
 
+/// Disc of concentric annuli around `center` meshed by rings (issue #244 S4): the circles of
+/// `radii` (increasing, the last is the outer boundary) are mesh lines, the annulus k between
+/// radii[k-1] and radii[k] (k = 0: the disc of radii[0]) carries the cell tag tags[k] (empty:
+/// all untagged). The triangulation is that of the regular `sides`-gon split into `sides`
+/// triangles around the centre, each refined uniformly, with ring j (j·sides vertices at
+/// uniform angles, the first on the positive x axis) moved onto the circle of radius
+/// @f$ \rho_j @f$: n rings inside radii[0], and max(1, round(n (r_k − r_{k−1}) / r_0)) rings in
+/// annulus k, equally spaced, so the cells stay about r_0 / n in size. The mesh is invariant
+/// under the rotations by multiples of 2π / sides and the reflections about the rays through
+/// the polygon's corners and edge midpoints, so it is the full domain of C_n symmetric problems
+/// for every divisor n of `sides`, and the circles carry a circular `pml::RadialPml` or a
+/// material interface exactly: the edges on every circle of `radii` are curved onto it
+/// (geometry order 2). Boundary facets carry `kDiscBoundary`.
+/// @throws InvalidArgument for sides < 3, n < 1, empty or non-increasing positive radii, or a
+/// tag list of the wrong length.
+[[nodiscard]] Mesh<2> polar_disc(Index sides, Index n, const std::vector<Real>& radii,
+                                 const std::vector<Tag>& tags = {},
+                                 const Point<2>& center = Point<2>::Zero());
+
 /// Structured mesh of the square [-outer, outer]^2 with a circular inclusion of the given
 /// radius at the origin whose interface is resolved by (curved) cell edges: the grid of the
 /// inner square is mapped onto the disc as in `disc`, the ring up to `half_width` blends

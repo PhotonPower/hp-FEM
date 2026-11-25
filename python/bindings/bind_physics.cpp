@@ -34,6 +34,25 @@ namespace hpfem::python {
 
 namespace {
 
+/// The absorbing layers of a setup as Python sees them: the PmlBox or RadialPml itself, or None.
+template <int Dim>
+py::object pml_to_python(const std::optional<pml::Pml<Dim>>& layer) {
+  if (!layer) return py::none();
+  if (const auto* box = layer->box()) return py::cast(*box);
+  return py::cast(*layer->radial());
+}
+
+template <int Dim>
+std::optional<pml::Pml<Dim>> pml_from_python(const py::object& layer) {
+  if (layer.is_none()) return std::nullopt;
+  if (py::isinstance<pml::PmlBox<Dim>>(layer)) return pml::Pml<Dim>(layer.cast<pml::PmlBox<Dim>>());
+  if (py::isinstance<pml::RadialPml<Dim>>(layer)) {
+    return pml::Pml<Dim>(layer.cast<pml::RadialPml<Dim>>());
+  }
+  throw py::type_error(Dim == 2 ? "pml must be a PmlBox2D, a RadialPml2D or None"
+                                : "pml must be a PmlBox3D, a RadialPml3D or None");
+}
+
 /// Sampling options from keyword arguments.
 [[nodiscard]] inline physics::SamplingOptions sampling_options(bool scattered, bool bloch_wrap,
                                                                int interface_side,
@@ -168,7 +187,10 @@ void bind_physics_dim(py::module_& m) {
       .def_readwrite("incident_tags", &ScatteringSetup<Dim>::incident_tags,
                      "facets with n x E = n x E_inc (test domains)")
       .def_readwrite("current", &ScatteringSetup<Dim>::current)
-      .def_readwrite("pml", &ScatteringSetup<Dim>::pml)
+      .def_property(
+          "pml", [](const ScatteringSetup<Dim>& s) { return pml_to_python<Dim>(s.pml); },
+          [](ScatteringSetup<Dim>& s, const py::object& v) { s.pml = pml_from_python<Dim>(v); },
+          "absorbing layers: a PmlBox, a RadialPml or None")
       .def_readwrite("periodic", &ScatteringSetup<Dim>::periodic)
       .def_readwrite("ports", &ScatteringSetup<Dim>::ports,
                      "waveguide ports (modal absorption and excitation; 2D)")
@@ -386,7 +408,10 @@ void bind_physics_dim(py::module_& m) {
       .def_readwrite("target_omega", &ResonanceSetup<Dim>::target_omega)
       .def_readwrite("materials", &ResonanceSetup<Dim>::materials)
       .def_readwrite("pec_tags", &ResonanceSetup<Dim>::pec_tags)
-      .def_readwrite("pml", &ResonanceSetup<Dim>::pml)
+      .def_property(
+          "pml", [](const ResonanceSetup<Dim>& s) { return pml_to_python<Dim>(s.pml); },
+          [](ResonanceSetup<Dim>& s, const py::object& v) { s.pml = pml_from_python<Dim>(v); },
+          "absorbing layers: a PmlBox, a RadialPml or None")
       .def_readwrite("num_modes", &ResonanceSetup<Dim>::num_modes)
       .def_readwrite("krylov_dimension", &ResonanceSetup<Dim>::krylov_dimension)
       .def_readwrite("tolerance", &ResonanceSetup<Dim>::tolerance)

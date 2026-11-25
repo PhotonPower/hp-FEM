@@ -251,6 +251,38 @@ TEST_CASE("2D: one sector reproduces the full domain (C_4 with PML, C_6 cavity)"
                 Point<2>(0.36, -0.77), Point<2>(0.07, 0.033), Point<2>(-0.9, 0.12)},
                directions_2d());
   }
+  SECTION("C_6: disc with a lossy cylinder in a circular PML (issue #244 S4)") {
+    const Real k = 6.0;
+    const Mesh<2> full = hpfem::mesh::polar_disc(
+        6, 2, {0.25, 0.75, 1.25}, {kInclusion, hpfem::mesh::kNoTag, hpfem::mesh::kNoTag});
+    Mesh<2> sector = hpfem::mesh::extract<2>(full, [](const Point<2>& c) {
+      const Real t = std::atan2(c(1), c(0));
+      return t > 0 && t < std::numbers::pi / 3;
+    });
+    const CyclicSymmetry<2> sym{6, Point<2>::Zero(), Point<3>::UnitZ(), kMaster, kSlave};
+    const auto sides = hpfem::physics::tag_sector_sides<2>(sector, sym, Point<2>(1.0, 0.0));
+    CHECK(sides[0] == 10);  // rings of 0.125 up to 1.25
+    CHECK(sides[1] == 10);
+    ScatteringSetup<2> s;
+    s.omega = k * hpfem::constants::c0;
+    s.materials.set(kInclusion, Material{Complex{2.25, 0.3}, Complex{1.0, 0.0}});
+    s.incident = oblique_wave_2d(k);
+    s.formulation = Formulation::kScatteredField;
+    s.pml = hpfem::pml::RadialPml<2>(Point<2>::Zero(), 0.75, 0.5, k, 1.0, PmlProfile{2, 1e-3});
+    s.pec_tags = {hpfem::mesh::kDiscBoundary};
+    compare<2>(full, sector, s, sym, 2, 6,
+               {Point<2>(0.31, 0.12), Point<2>(-0.42, 0.51), Point<2>(-0.53, -0.47),
+                Point<2>(0.36, -0.77), Point<2>(0.07, 0.033), Point<2>(-0.95, 0.12)},
+               directions_2d());
+    // a square box layer is not invariant under the rotation by 60 degrees
+    s.pml = PmlBox<2>::uniform(Point<2>(-0.75, -0.75), Point<2>(0.75, 0.75), 0.5, k, 1.0,
+                               PmlProfile{2, 1e-3});
+    const NedelecDofMap<2> dofs(sector, 1);
+    CHECK_THROWS_AS(CyclicSymmetricScattering<2>(dofs, s, sym), hpfem::InvalidArgument);
+    // nor is a circular layer centred off the axis
+    s.pml = hpfem::pml::RadialPml<2>(Point<2>(0.05, 0.0), 0.75, 0.5, k, 1.0, PmlProfile{2, 1e-3});
+    CHECK_THROWS_AS(CyclicSymmetricScattering<2>(dofs, s, sym), hpfem::InvalidArgument);
+  }
 }
 
 TEST_CASE("3D: one sector reproduces the full ball problem (C_4 about z, C_3 about a diagonal)",

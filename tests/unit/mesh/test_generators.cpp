@@ -375,3 +375,74 @@ TEST_CASE("hexagon: counts, positive cells, boundary on the hexagon, inner tag, 
   CHECK_THROWS_AS(hpfem::mesh::hexagon(2, 1.0, 3), hpfem::InvalidArgument);
   CHECK_THROWS_AS(hpfem::mesh::hexagon(2, 1.0, 1, kNoTag), hpfem::InvalidArgument);
 }
+
+TEST_CASE("polar_disc: counts, curved circles, annulus tags, C_6 and mirror symmetry",
+          "[mesh][generators]") {
+  const Index sides = 6;
+  const std::vector<Real> radii{0.5, 1.0, 1.5};
+  const Mesh<2> m = hpfem::mesh::polar_disc(sides, 2, radii, {7, kNoTag, 8});
+  const Index rings = 6;  // 2 per annulus: the spacing r_0 / n everywhere
+  CHECK(m.num_vertices() == 1 + sides * rings * (rings + 1) / 2);
+  CHECK(m.num_cells() == sides * rings * rings);
+  REQUIRE(m.geometry_order() == 2);
+  // positive affine orientation and the curved areas of the annuli
+  const std::array<Point<2>, 3> midpoints{Point<2>(0.5, 0.0), Point<2>(0.5, 0.5),
+                                          Point<2>(0.0, 0.5)};
+  std::array<Real, 3> area{};
+  for (Index c = 0; c < m.num_cells(); ++c) {
+    const auto& v = m.cell_vertices(c);
+    const Point<2> a = m.vertex(v[1]) - m.vertex(v[0]);
+    const Point<2> b = m.vertex(v[2]) - m.vertex(v[0]);
+    REQUIRE(a(0) * b(1) - a(1) * b(0) > 0);
+    const auto g = hpfem::mesh::cell_geometry(m, c);
+    Real cell_area = 0;
+    for (const auto& q : midpoints) cell_area += std::abs(g->evaluate(q).det) / 6.0;
+    const Tag tag = m.cell_tag(c);
+    area[tag == 7 ? 0 : (tag == kNoTag ? 1 : 2)] += cell_area;
+  }
+  const Real pi = std::numbers::pi;
+  CHECK(area[0] == Approx(pi * 0.25).epsilon(1e-3));
+  CHECK(area[1] == Approx(pi * (1.0 - 0.25)).epsilon(1e-3));
+  CHECK(area[2] == Approx(pi * (2.25 - 1.0)).epsilon(1e-3));
+  // the boundary and the edge nodes of every circle lie on it
+  for (const Index f : m.boundary_facets()) {
+    CHECK(m.facet_tag(f) == hpfem::mesh::kDiscBoundary);
+    for (const Index v : m.facet_vertices(f)) CHECK(m.vertex(v).norm() == Approx(1.5));
+  }
+  Index on_circles = 0;
+  for (Index e = 0; e < m.num_edges(); ++e) {
+    const auto& ev = m.edge_vertices(e);
+    for (const Real r : radii) {
+      if (std::abs(m.vertex(ev[0]).norm() - r) < 1e-12 &&
+          std::abs(m.vertex(ev[1]).norm() - r) < 1e-12) {
+        CHECK(m.edge_node(e).norm() == Approx(r));
+        ++on_circles;
+      }
+    }
+  }
+  CHECK(on_circles == sides * (2 + 4 + 6));
+  // vertices and edge nodes invariant under the rotation by 60 degrees and the x-axis mirror
+  const auto invariant = [](const std::vector<Point<2>>& points, auto&& map) {
+    for (const Point<2>& x : points) {
+      const Point<2> y = map(x);
+      if (std::none_of(points.begin(), points.end(),
+                       [&](const Point<2>& z) { return (z - y).norm() < 1e-12; })) {
+        return false;
+      }
+    }
+    return true;
+  };
+  std::vector<Point<2>> points(m.vertices().begin(), m.vertices().end());
+  for (Index e = 0; e < m.num_edges(); ++e) points.push_back(m.edge_node(e));
+  const Real c60 = 0.5;
+  const Real s60 = 0.5 * std::sqrt(3.0);
+  CHECK(invariant(points, [&](const Point<2>& x) {
+    return Point<2>(c60 * x(0) - s60 * x(1), s60 * x(0) + c60 * x(1));
+  }));
+  CHECK(invariant(points, [](const Point<2>& x) { return Point<2>(x(0), -x(1)); }));
+  CHECK_THROWS_AS(hpfem::mesh::polar_disc(2, 2, {1.0}), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(hpfem::mesh::polar_disc(6, 0, {1.0}), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(hpfem::mesh::polar_disc(6, 2, {1.0, 1.0}), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(hpfem::mesh::polar_disc(6, 2, {1.0, 2.0}, {7}), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(hpfem::mesh::polar_disc(6, 2, {}), hpfem::InvalidArgument);
+}

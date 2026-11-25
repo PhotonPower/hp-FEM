@@ -284,10 +284,22 @@ part = hpfem.azimuthal_part(setup.incident, sym, 1)                 # one order 
 pair = hpfem.cyclic_pair(20, 21, 6, 1)                              # the coupling itself
 ```
 
-The side tags must not be among `pec_tags`; materials and PML must have the symmetry (not
-checked). An open problem needs a symmetric PML: `PmlBox` serves $n = 2$ and $4$ (and $n = 3$
-about a body diagonal of a cube); other orders wait for the radial PML (issue #244 S4). Bloch
-directions must be translations along the axis (3D only), ports are refused.
+The side tags must not be among `pec_tags`; the materials must have the symmetry (not
+checked). An open problem needs a symmetric PML (checked on the sector sides): `PmlBox` serves
+$n = 2$ and $4$ (and $n = 3$ about a body diagonal of a cube), a radial layer centred on the
+axis every order. Bloch directions must be translations along the axis (3D only), ports are
+refused.
+
+```python
+full = hpfem.polar_disc(6, 6, [0.25, 1.0, 2.0], [2, 0, 0])  # cylinder, air, layer; C_6 (sides 6)
+setup.pml = hpfem.RadialPml2D([0, 0], 1.0, 1.0, k0, 1.0, hpfem.PmlProfile(2, 1e-10))
+setup.pec_tags = [hpfem.DISC_BOUNDARY]
+# 3D: hpfem.RadialPml3D(center, r0, d, k0) (sphere) or
+#     hpfem.RadialPml3D.cylindrical(center, axis, r0, d, z_lower, z_upper, d_z, k0)
+```
+
+`setup.pml` takes a `PmlBox` or a `RadialPml` (the stretched tensors $\det J\,J^{-1}\varepsilon
+J^{-T}$ with the full Jacobian `.jacobian(x)`; [theory](theory/pml.md#radial-layers-pmlradialpml)).
 
 ## Job runner (`python -m hpfem.run`)
 

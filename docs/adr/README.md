@@ -22,7 +22,7 @@ Template:
 | 0002 | E-field curl–curl formulation and sign conventions | accepted |
 | 0003 | Entity orientation by global vertex order | accepted |
 | 0004 | Hierarchical Schöberl–Zaglmayr Nédélec basis | accepted |
-| 0005 | PML as complex material tensor inside the FEM | accepted |
+| 0005 | PML as complex material tensor inside the FEM | accepted, amended (radial layers) |
 | 0006 | Local h-refinement: red refinement, hanging nodes, constraints by interpolation | accepted |
 | 0007 | Direct solver backends behind one interface (SparseLU, MUMPS) | accepted, amended by 0008, 0012 |
 | 0008 | GPU backend: cuDSS direct solver behind `LinearSolver`, no GPU assembly | accepted |

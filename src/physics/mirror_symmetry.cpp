@@ -336,6 +336,33 @@ MirrorSymmetricScattering<Dim>::MirrorSymmetricScattering(const fespace::Nedelec
     samples.push_back(x / static_cast<Real>(vs.size()));
   }
 
+  // the absorbing layers must continue symmetrically across every plane: on the plane the
+  // stretch may not couple the normal to the tangential directions (a radial layer centred off
+  // the plane does)
+  if (setup_.pml) {
+    for (std::size_t j = 0; j < planes_.size(); ++j) {
+      const Point<Dim>& normal = planes_[j].normal;
+      const Eigen::Matrix<Real, Dim, Dim> reflection =
+          Eigen::Matrix<Real, Dim, Dim>::Identity() - 2.0 * normal * normal.transpose();
+      const Point<Dim> shift = 2.0 * planes_[j].point.dot(normal) * normal;
+      std::vector<Point<Dim>> on;
+      for (const Index f : mesh.facets_with_tag(planes_[j].tag)) {
+        Point<Dim> mid = Point<Dim>::Zero();
+        for (const Index v : mesh.facet_vertices(f)) {
+          on.push_back(mesh.vertex(v));
+          mid += mesh.vertex(v);
+        }
+        on.push_back(mid / static_cast<Real>(mesh.facet_vertices(f).size()));
+      }
+      if (!setup_.pml->is_invariant(reflection, shift, on)) {
+        throw InvalidArgument(fmt::format(
+            "MirrorSymmetricScattering: the PML is not symmetric about plane {} (tag {}); "
+            "centre the RadialPml on the plane",
+            j, planes_[j].tag));
+      }
+    }
+  }
+
   struct Candidate {
     std::vector<int> parity;
     ScatteringSetup<Dim> setup;

@@ -63,7 +63,7 @@ struct ScatteringSetup {
   std::vector<mesh::Tag> pec_tags;            ///< facets with n × E = 0
   std::vector<mesh::Tag> incident_tags;       ///< facets with n × E = n × E_inc (test domains)
   assembly::ComplexVectorField<Dim> current;  ///< f = iωμ0 J, total-field formulation only
-  std::optional<pml::PmlBox<Dim>> pml;        ///< absorbing layers (stretched material tensors)
+  std::optional<pml::Pml<Dim>> pml;  ///< absorbing layers, box or radial (stretched tensors)
   std::vector<assembly::PeriodicPair<Dim>> periodic;  ///< Bloch-periodic directions
   /// Waveguide ports (modal absorption and excitation on boundary facets, total-field
   /// formulation; 2D only so far)

@@ -296,6 +296,29 @@ CyclicSymmetricScattering<Dim>::CyclicSymmetricScattering(const fespace::Nedelec
     for (const Index v : vs) x += mesh.vertex(v);
     samples.push_back(x / static_cast<Real>(vs.size()));
   }
+  // the absorbing layers of the sector must continue into its rotated copies: the stretch on
+  // the master side, rotated, is the stretch on the slave side (a PmlBox fits C_2 and C_4
+  // about its centre and C_3 about a cube diagonal, a RadialPml about its centre any order)
+  if (setup_.pml) {
+    std::vector<Point<Dim>> side;
+    for (const Index f : mesh.facets_with_tag(symmetry_.master)) {
+      Point<Dim> mid = Point<Dim>::Zero();
+      for (const Index v : mesh.facet_vertices(f)) {
+        side.push_back(mesh.vertex(v));
+        mid += mesh.vertex(v);
+      }
+      side.push_back(mid / static_cast<Real>(mesh.facet_vertices(f).size()));
+    }
+    if (!setup_.pml->is_invariant(symmetry_.rotation(1), symmetry_.rotate(Point<Dim>::Zero()),
+                                  side)) {
+      throw InvalidArgument(fmt::format(
+          "{}: the PML on the master side, rotated by 2π/{}, is not the PML on the slave side; "
+          "use a RadialPml centred on the axis (a PmlBox fits only C_2 and C_4 about its centre "
+          "and C_3 about a diagonal of a cube)",
+          kWhere, n));
+    }
+  }
+
   struct Candidate {
     int m = 0;
     ScatteringSetup<Dim> setup;

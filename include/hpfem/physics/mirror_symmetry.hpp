@@ -110,8 +110,9 @@ struct FoldedPoint {
 /// per parity with a non-vanishing excitation, the fields of the full domain and its
 /// cross-sections, absorbed power and far field. The setup describes the reduced domain
 /// (materials, PML box ending at the planes, the outer PEC walls); the planes' tags must not be
-/// in `pec_tags` or `incident_tags` (they are set per parity). Materials, the PML and the
-/// layered background must be symmetric themselves; this is not checked.
+/// in `pec_tags` or `incident_tags` (they are set per parity). Materials and the layered
+/// background must be symmetric themselves (not checked); the PML must continue across the
+/// planes, which is checked on them (a `pml::RadialPml` must be centred on every plane).
 template <int Dim>
 class MirrorSymmetricScattering {
  public:
@@ -119,8 +120,8 @@ class MirrorSymmetricScattering {
   ///         orthogonal, a plane without tagged boundary facets or with tagged facets off the
   ///         plane, a mesh reaching across a plane, a plane tag among the PEC or incident tags,
   ///         a Bloch direction not parallel to every plane, a plane not perpendicular to the
-  ///         layers of a layered background, or a setup without incident field and current;
-  ///         NotImplemented with waveguide ports.
+  ///         layers of a layered background, a PML that is not symmetric about a plane, or a
+  ///         setup without incident field and current; NotImplemented with waveguide ports.
   MirrorSymmetricScattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringSetup<Dim> setup,
                             std::vector<MirrorPlane<Dim>> planes, MirrorOptions options = {});
 

@@ -1,13 +1,16 @@
 #include "hpfem/physics/scattering.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <set>
 #include <utility>
 #include <vector>
 
+#include <Eigen/Geometry>
 #include <fmt/format.h>
 
 #include "hpfem/assembly/hanging_constraints.hpp"
@@ -21,6 +24,41 @@
 #include "hpfem/solvers/linear_solver.hpp"
 
 namespace hpfem::physics {
+
+namespace {
+
+/// Stretching directions of a radial layer to check a crystal on: a fan over the half plane
+/// (circle; the plane of a cylinder plus its axis) or a Fibonacci hemisphere (sphere).
+template <int Dim>
+std::vector<Point<Dim>> radial_fan(const pml::RadialPml<Dim>& radial) {
+  std::vector<Point<Dim>> fan;
+  constexpr int kFan = 24;
+  if constexpr (Dim == 2) {
+    for (int j = 0; j < kFan; ++j) {
+      const Real t = std::numbers::pi * j / kFan;
+      fan.emplace_back(std::cos(t), std::sin(t));
+    }
+  } else if (radial.shape() == pml::RadialShape::kCylindrical) {
+    const Point<3> a = radial.axis();
+    const Point<3> e1 = a.unitOrthogonal();
+    const Point<3> e2 = a.cross(e1);
+    for (int j = 0; j < kFan; ++j) {
+      const Real t = std::numbers::pi * j / kFan;
+      fan.emplace_back(std::cos(t) * e1 + std::sin(t) * e2);
+    }
+    fan.push_back(a);
+  } else {
+    const Real golden = std::numbers::pi * (3.0 - std::sqrt(5.0));
+    for (int j = 0; j < 2 * kFan; ++j) {
+      const Real z = (j + 0.5) / (2 * kFan);
+      const Real rho = std::sqrt(1.0 - z * z);
+      fan.emplace_back(rho * std::cos(golden * j), rho * std::sin(golden * j), z);
+    }
+  }
+  return fan;
+}
+
+}  // namespace
 
 template <int Dim>
 Scattering<Dim>::Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringSetup<Dim> setup)
@@ -80,29 +118,44 @@ Scattering<Dim>::Scattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringS
           dofs_->cell_order(worst_cell), worst_limit);
     }
     // geometric stability condition of the stretch for every crystal meshed inside a layer,
-    // once per material and stretched axis (ADR-0015 §2, diagnostic pml-backward-wave)
+    // once per material and stretching direction (ADR-0015 §2, diagnostic pml-backward-wave);
+    // a radial layer stretches along every direction of its plane (space), so those crystals
+    // are checked once on a fan of directions
     std::set<std::pair<const materials::Material*, int>> checked;
+    const auto warn = [&](Index c, const Point<Dim>& direction) {
+      const auto wave =
+          pml::backward_wave_along<Dim>(materials::permittivity_tensor<Dim>(material(c)), direction,
+                                        setup_.pml->radial() != nullptr ? 512 : 2048);
+      if (!wave) return false;
+      const auto vec = [](const Point<Dim>& v) {
+        return Dim == 2 ? fmt::format("({:.3f}, {:.3f})", v(0), v(1))
+                        : fmt::format("({:.3f}, {:.3f}, {:.3f})", v(0), v(1), v(Dim - 1));
+      };
+      log().warn(
+          "Scattering: pml-backward-wave: the crystal of cell {} (tag {}) violates the PML "
+          "stability condition along the stretching direction {}: a wave with phase direction "
+          "{} carries its energy against the stretch (k_d v_d = {:.3g}) and is amplified "
+          "instead of absorbed; align a principal axis of the crystal with the layer normal or "
+          "truncate the crystal before the layer",
+          c, mesh.cell_tag(c), vec(direction), vec(wave->direction), wave->worst);
+      return true;
+    };
     for (Index c = 0; c < mesh.num_cells(); ++c) {
       const materials::Material& m = material(c);
       if (m.is_isotropic()) continue;
       const Point<Dim> x = mesh::affine_map(mesh, c).centroid();
       if (!setup_.pml->in_layer(x)) continue;
-      const auto s = setup_.pml->stretch(x);
-      for (int d = 0; d < Dim; ++d) {
-        if (s(d) == Complex{1.0, 0.0} || !checked.emplace(&m, d).second) continue;
-        const auto wave = pml::backward_wave<Dim>(materials::permittivity_tensor<Dim>(m), d);
-        if (!wave) continue;
-        log().warn(
-            "Scattering: pml-backward-wave: the crystal of cell {} (tag {}) violates the PML "
-            "stability condition along axis {}: a wave with phase direction {} carries its "
-            "energy against the stretch (k_d v_d = {:.3g}) and is amplified instead of "
-            "absorbed; align a principal axis of the crystal with the layer normal or truncate "
-            "the crystal before the layer",
-            c, mesh.cell_tag(c), d,
-            Dim == 2 ? fmt::format("({:.3f}, {:.3f})", wave->direction(0), wave->direction(1))
-                     : fmt::format("({:.3f}, {:.3f}, {:.3f})", wave->direction(0),
-                                   wave->direction(1), wave->direction(Dim - 1)),
-            wave->worst);
+      if (const auto* radial = setup_.pml->radial()) {
+        if (!checked.emplace(&m, -1).second) continue;
+        for (const Point<Dim>& d : radial_fan<Dim>(*radial)) {
+          if (warn(c, d)) break;
+        }
+        continue;
+      }
+      for (const Point<Dim>& d : setup_.pml->stretch_directions(x)) {
+        Eigen::Index axis = 0;
+        d.cwiseAbs().maxCoeff(&axis);
+        if (checked.emplace(&m, static_cast<int>(axis)).second) warn(c, d);
       }
     }
   }

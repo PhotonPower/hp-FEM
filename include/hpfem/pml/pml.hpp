@@ -12,7 +12,12 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
+#include <span>
+#include <utility>
+#include <variant>
+#include <vector>
 
 #include <Eigen/Core>
 
@@ -116,9 +121,9 @@ class PmlBox {
   [[nodiscard]] assembly::PermittivityTensor<Dim> permittivity(Complex eps_r,
                                                                const Point<Dim>& x) const;
   /// Effective permittivity tensor of an anisotropic material,
-  /// @f$ 	ildearepsilon_{ij} = arepsilon_{ij}\det\Lambda/(s_i s_j) @f$ (ADR-0015 §2); in 2D
+  /// @f$ \tilde\varepsilon_{ij} = \varepsilon_{ij}\det\Lambda/(s_i s_j) @f$ (ADR-0015 §2); in 2D
   /// `eps` is the in-plane block and @f$ s_z = 1 @f$. Equals the scalar overload for
-  /// @f$ arepsilon = arepsilon_r I @f$.
+  /// @f$ \varepsilon = \varepsilon_r I @f$.
   [[nodiscard]] assembly::PermittivityTensor<Dim> permittivity(
       const assembly::PermittivityTensor<Dim>& eps, const Point<Dim>& x) const;
   /// Effective inverse permeability acting on curls: @f$ \mu_r^{-1}\Lambda^2/\det\Lambda @f$
@@ -137,6 +142,155 @@ class PmlBox {
   PmlProfile profile_;
   Real k0_ = 0;
   std::array<Real, kNumSides> sigma_max_{};
+};
+
+/// Jacobian @f$ J = \partial\tilde x / \partial x @f$ of a complex coordinate stretch.
+template <int Dim>
+using StretchMatrix = Eigen::Matrix<Complex, Dim, Dim>;
+
+/// Shape of a `RadialPml`.
+enum class RadialShape : std::uint8_t {
+  kCircular,     ///< 2D: stretching of the distance from the centre
+  kSpherical,    ///< 3D: stretching of the distance from the centre
+  kCylindrical,  ///< 3D: stretching of the distance from an axis, optional layers along it
+};
+
+/// PML of radial shape (issue #244 S4, docs/theory/pml.md "Radial layers"): beyond the
+/// distance @f$ r_0 @f$ from the centre (circle, sphere) or from the axis (cylinder) the distance
+/// is continued as @f$ \tilde r = r + i\int_{r_0}^{r}\hat\sigma @f$ with the profile of
+/// `PmlProfile`, and the point as @f$ \tilde x = c + (\tilde r/r)(x - c) @f$ (cylinder: the part
+/// perpendicular to the axis). The Jacobian
+/// @f$ J = s_r\,\hat r\hat r^T + (\tilde r/r)(P - \hat r\hat r^T) + (I - P) @f$ (@f$ P @f$ the
+/// projector onto the stretched plane or space, @f$ s_r = 1 + i\hat\sigma(r) @f$) is a full
+/// symmetric tensor in Cartesian components; the materials become
+/// @f$ \tilde\varepsilon = \det J\,J^{-1}\varepsilon J^{-T} @f$ and
+/// @f$ \tilde\mu^{-1} = J\mu^{-1}J^T/\det J @f$ exactly as for `PmlBox`. Unlike the box, the
+/// layer is invariant under every rotation about the centre (axis), so a sector of a structure
+/// with cyclic symmetry C_n of any order can carry it. The cylinder takes, in addition, slab
+/// layers on the two ends of an interval along the axis (as a `PmlBox` would). Points beyond the
+/// layer keep the final stretch @f$ \hat\sigma_{\max} @f$ (a square mesh around a circular layer
+/// is allowed). Convention exp(−iωt): the imaginary part of the stretch is positive.
+template <int Dim>
+class RadialPml {
+ public:
+  /// Circular (2D) or spherical (3D) layer @f$ r_0 \le |x - c| \le r_0 + d @f$.
+  /// @param k0 vacuum wavenumber [1/m]; @param background_index real refractive index of the
+  ///        medium the layer continues (sets @f$ \hat\sigma_{\max} @f$ as for `PmlBox`).
+  /// @throws InvalidArgument for r0 ≤ 0, thickness ≤ 0, k0 ≤ 0 or an unusable profile.
+  RadialPml(const Point<Dim>& center, Real inner_radius, Real thickness, Real k0,
+            Real background_index = 1.0, PmlProfile profile = {});
+  /// Cylindrical layer (3D): distance @f$ \rho @f$ from the axis through `center` along `axis`
+  /// stretched beyond `inner_radius`, and the axial coordinate @f$ a = \hat a\cdot(x - c) @f$
+  /// stretched below `axial_lower` and above `axial_upper` over `axial_thickness` (0: no axial
+  /// layers, e.g. a periodic or PEC direction). @throws InvalidArgument for a zero axis,
+  /// axial_lower ≥ axial_upper, negative axial thickness or the conditions of the constructor.
+  [[nodiscard]] static RadialPml cylindrical(const Point<3>& center, const Point<3>& axis,
+                                             Real inner_radius, Real thickness, Real axial_lower,
+                                             Real axial_upper, Real axial_thickness, Real k0,
+                                             Real background_index = 1.0, PmlProfile profile = {})
+    requires(Dim == 3);
+
+  [[nodiscard]] RadialShape shape() const noexcept { return shape_; }
+  [[nodiscard]] const Point<Dim>& center() const noexcept { return center_; }
+  /// Unit axis of the cylinder (the z axis for the other shapes).
+  [[nodiscard]] const Point<3>& axis() const noexcept { return axis_; }
+  [[nodiscard]] Real inner_radius() const noexcept { return inner_radius_; }
+  [[nodiscard]] Real thickness() const noexcept { return thickness_; }
+  [[nodiscard]] Real axial_lower() const noexcept { return axial_lower_; }
+  [[nodiscard]] Real axial_upper() const noexcept { return axial_upper_; }
+  [[nodiscard]] Real axial_thickness() const noexcept { return axial_thickness_; }
+  [[nodiscard]] const PmlProfile& profile() const noexcept { return profile_; }
+  [[nodiscard]] Real k0() const noexcept { return k0_; }
+  /// @f$ \hat\sigma_{\max} @f$ of the radial layer.
+  [[nodiscard]] Real sigma_max() const noexcept { return sigma_max_; }
+  /// @f$ \hat\sigma_{\max} @f$ of the axial layers (0 without them).
+  [[nodiscard]] Real axial_sigma_max() const noexcept { return axial_sigma_max_; }
+  /// Largest @f$ |k s| h @f$ in the layer (see `PmlBox::max_resolution`); the factor
+  /// @f$ |\tilde r/r| @f$ of the tangential directions never exceeds the radial @f$ |s_r| @f$.
+  [[nodiscard]] Real max_resolution(Real cell_size, Real index) const;
+
+  /// True if x lies in the layer (radially beyond r0 or axially beyond the interval).
+  [[nodiscard]] bool in_layer(const Point<Dim>& x) const;
+  /// Directions of stretching at x: the radial unit vector and, in an axial layer, the axis.
+  [[nodiscard]] std::vector<Point<Dim>> stretch_directions(const Point<Dim>& x) const;
+  /// Jacobian @f$ J(x) @f$ of the stretch (identity outside the layer).
+  [[nodiscard]] StretchMatrix<Dim> jacobian(const Point<Dim>& x) const;
+  /// Stretched point @f$ \tilde x @f$ (closed form for the polynomial profile); an outgoing
+  /// analytic field E gives the exact solution @f$ J^T E(\tilde x) @f$ inside the layer.
+  [[nodiscard]] ComplexCoordinates<Dim> stretched_coordinate(const Point<Dim>& x) const;
+
+  /// Effective permittivity @f$ \varepsilon_r\det J\,J^{-1}J^{-T} @f$ of an isotropic material.
+  [[nodiscard]] assembly::PermittivityTensor<Dim> permittivity(Complex eps_r,
+                                                               const Point<Dim>& x) const;
+  /// Effective permittivity @f$ \det J\,J^{-1}\varepsilon J^{-T} @f$ of an anisotropic material
+  /// (2D: the in-plane block; the out-of-plane stretch is 1).
+  [[nodiscard]] assembly::PermittivityTensor<Dim> permittivity(
+      const assembly::PermittivityTensor<Dim>& eps, const Point<Dim>& x) const;
+  /// Effective inverse permeability on curls: @f$ J J^T/(\mu_r\det J) @f$ (3D) or the scalar
+  /// @f$ 1/(\mu_r\det J) @f$ (2D, out-of-plane curl).
+  [[nodiscard]] assembly::InversePermeabilityTensor<Dim> inverse_permeability(
+      Complex mu_r, const Point<Dim>& x) const;
+
+ private:
+  RadialPml() = default;
+  /// Distance from the centre (axis) and the unit radial vector (zero at the centre).
+  [[nodiscard]] std::pair<Real, Point<Dim>> radial(const Point<Dim>& x) const;
+  /// Signed depth into the axial layers (0 inside the interval or without axial layers).
+  [[nodiscard]] Real axial_depth(const Point<Dim>& x) const;
+
+  RadialShape shape_ = RadialShape::kCircular;
+  Point<Dim> center_ = Point<Dim>::Zero();
+  Point<3> axis_ = Point<3>::UnitZ();
+  Real inner_radius_ = 0;
+  Real thickness_ = 0;
+  Real axial_lower_ = 0;
+  Real axial_upper_ = 0;
+  Real axial_thickness_ = 0;
+  PmlProfile profile_;
+  Real k0_ = 0;
+  Real sigma_max_ = 0;
+  Real axial_sigma_max_ = 0;
+};
+
+/// The absorbing layers of a problem: a `PmlBox` or a `RadialPml`, with the operations the
+/// solvers need (layer membership, Jacobian, effective tensors, resolution). Converts
+/// implicitly from both, so `setup.pml = PmlBox<2>::uniform(...)` keeps working.
+template <int Dim>
+class Pml {
+ public:
+  Pml(PmlBox<Dim> box) : layer_(std::move(box)) {}           // NOLINT(google-explicit-constructor)
+  Pml(RadialPml<Dim> radial) : layer_(std::move(radial)) {}  // NOLINT(google-explicit-constructor)
+
+  /// The box, or null for a radial layer.
+  [[nodiscard]] const PmlBox<Dim>* box() const noexcept {
+    return std::get_if<PmlBox<Dim>>(&layer_);
+  }
+  /// The radial layer, or null for a box.
+  [[nodiscard]] const RadialPml<Dim>* radial() const noexcept {
+    return std::get_if<RadialPml<Dim>>(&layer_);
+  }
+  [[nodiscard]] Real k0() const;
+  [[nodiscard]] bool in_layer(const Point<Dim>& x) const;
+  /// Unit directions of stretching at x (box: the axes with a layer at x).
+  [[nodiscard]] std::vector<Point<Dim>> stretch_directions(const Point<Dim>& x) const;
+  /// Jacobian @f$ J = \partial\tilde x/\partial x @f$ (box: diag of the stretch factors).
+  [[nodiscard]] StretchMatrix<Dim> jacobian(const Point<Dim>& x) const;
+  [[nodiscard]] ComplexCoordinates<Dim> stretched_coordinate(const Point<Dim>& x) const;
+  [[nodiscard]] Real max_resolution(Real cell_size, Real index) const;
+  [[nodiscard]] assembly::PermittivityTensor<Dim> permittivity(Complex eps_r,
+                                                               const Point<Dim>& x) const;
+  [[nodiscard]] assembly::PermittivityTensor<Dim> permittivity(
+      const assembly::PermittivityTensor<Dim>& eps, const Point<Dim>& x) const;
+  [[nodiscard]] assembly::InversePermeabilityTensor<Dim> inverse_permeability(
+      Complex mu_r, const Point<Dim>& x) const;
+  /// True if the layers are invariant under the orthogonal map @f$ x \mapsto Qx + a @f$ at the
+  /// given points: @f$ J(Qx + a) = Q J(x) Q^T @f$ up to `tolerance` relative to
+  /// @f$ \max(1, |J(x)|) @f$. Symmetry reductions check this on the cells of the reduced mesh.
+  [[nodiscard]] bool is_invariant(const Eigen::Matrix<Real, Dim, Dim>& q, const Point<Dim>& shift,
+                                  std::span<const Point<Dim>> points, Real tolerance = 1e-8) const;
+
+ private:
+  std::variant<PmlBox<Dim>, RadialPml<Dim>> layer_;
 };
 
 /// A wave that violates the geometric stability condition of the coordinate-stretching PML.
@@ -170,7 +324,19 @@ template <int Dim>
 [[nodiscard]] std::optional<BackwardWave<Dim>> backward_wave(
     const assembly::PermittivityTensor<Dim>& eps, int axis, int samples = 2048);
 
+/// `backward_wave` for the stretching direction `direction` (any non-zero vector; the
+/// tensor is rotated so that it becomes the first axis). The returned phase direction is in
+/// the original frame. Used for radial layers, whose stretching direction turns with the point.
+/// @throws InvalidArgument for a zero direction or fewer than 8 samples.
+template <int Dim>
+[[nodiscard]] std::optional<BackwardWave<Dim>> backward_wave_along(
+    const assembly::PermittivityTensor<Dim>& eps, const Point<Dim>& direction, int samples = 2048);
+
 extern template class PmlBox<2>;
 extern template class PmlBox<3>;
+extern template class RadialPml<2>;
+extern template class RadialPml<3>;
+extern template class Pml<2>;
+extern template class Pml<3>;
 
 }  // namespace hpfem::pml

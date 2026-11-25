@@ -519,11 +519,14 @@ the boundary facets on the half-plane from the axis in a given direction get the
 those on its rotation by $2\pi/n$ the slave tag. `mesh::hexagon` is a $C_6$-symmetric
 triangulation (a triangular lattice in a regular hexagon) for $n = 2, 3, 6$; `square_with_disc`
 is $C_4$-symmetric, `box_with_ball` $C_4$-symmetric about every coordinate axis and
-$C_3$-symmetric about the body diagonals.
+$C_3$-symmetric about the body diagonals; `polar_disc(sides, n, radii)` (rings with curved
+circles) is $C_n$-symmetric for every divisor $n$ of `sides` and carries a circular PML.
 
-**Restrictions.** The structure's symmetry is not checked, and the open problems need a PML
-with the symmetry: the `PmlBox` has it for $n = 2$ and $4$ about its centre (and $n = 3$ about a
-body diagonal of a cube); other orders need the radial PML of issue #244 S4. Bloch directions
+**Restrictions.** The structure's symmetry is not checked. Open problems need a PML with the
+symmetry, which is checked on the sector sides (the layer there, rotated, must be the layer on
+the other side): the `PmlBox` has it for $n = 2$ and $4$ about its centre (and $n = 3$ about a
+body diagonal of a cube), a `pml::RadialPml` centred on the axis for every order
+([radial layers](pml.md#radial-layers-pmlradialpml)). Bloch directions
 must be translations along the axis (3D; none in 2D), a layered background needs the axis
 normal to the layers (3D; none in 2D), waveguide ports are refused. Mirror planes through the
 axis ($C_{nv}$) are not combined with the rotation yet: each order $m$ and $n - m$ are then
@@ -538,7 +541,8 @@ absorbed power and far field, for $C_4$ (square with a lossy disc, PML, oblique 
 $C_3$ about the body diagonal (ball in a cube, PML, elliptically polarised oblique wave) in 3D. A
 wave along the axis excites only the orders $\pm1$. The Mie cylinder under an oblique wave on the
 quarter converges to the series value like the full domain and agrees with it to $10^{-9}$ at
-every order.
+every order; the same on a $C_6$ sector of `polar_disc` in a circular PML
+(`tests/convergence/mie_cylinder_radial_pml.cpp`).
 
 ## Propagating modes (`physics/propagating_mode.hpp`)
 

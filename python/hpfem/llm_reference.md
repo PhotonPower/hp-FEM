@@ -148,11 +148,15 @@ Discover at runtime:
 - Cyclic symmetry C_n (any excitation): cut one sector (`hpfem.extract`), describe it with
   `sym = hpfem.CyclicSymmetry2D(n, center, master=20, slave=21)` (3D: `axis=`), tag its sides with
   `hpfem.tag_sector_sides(mesh, sym, direction_of_master_side)`, setup for the sector (side tags
-  NOT in `pec_tags`; a `PmlBox` is symmetric only for n = 2, 4), then
+  NOT in `pec_tags`; a `PmlBox` is symmetric only for n = 2, 4, use
+  `hpfem.RadialPml2D(center, r0, thickness, k0, n_bg, profile)` / `RadialPml3D` (sphere) /
+  `RadialPml3D.cylindrical(center, axis, r0, d, z_lo, z_hi, d_z, k0)` for any n), then
   `prob = hpfem.CyclicSymmetricScattering2D(nd, setup, sym)`: `.solve()`, `.field(...)`,
   `.cross_sections(...)`, `.absorbed_power(...)`, `hpfem.CyclicSymmetricFarField2D(...)` — FULL
   problem. Low level: `hpfem.cyclic_pair(master, slave, n, m, center, axis)` in `setup.periodic`.
-  `hpfem.hexagon(n, radius, inner, inner_tag)` is a C_6-symmetric mesh.
+  `hpfem.hexagon(n, radius, inner, inner_tag)` is a C_6-symmetric mesh,
+  `hpfem.polar_disc(sides, n, radii, tags)` a C_sides-symmetric ring mesh with curved circles (for a
+  circular PML; boundary `hpfem.DISC_BOUNDARY`).
 - `hpfem.ScatteringOperator2D(problem)` — one factorisation, `.solve(incident)`,
   `.solve_many([...])`; `hpfem.plane_wave_sweep(problem, wave_vectors, polarisation_fn)`;
   `hpfem.ReducedBasis(num_dofs)`; `hpfem.s_parameters(nd, setup)` (ports).
