@@ -369,6 +369,12 @@ TEST_CASE("mirror symmetry: parities without excitation are skipped; invalid set
   bad = setup;
   bad.incident = {};
   CHECK_THROWS_AS(MirrorSymmetricScattering<2>(dofs, bad, planes), hpfem::InvalidArgument);
+  // a circular layer must be centred on both planes (issue #244 S4)
+  bad = setup;
+  bad.pml = hpfem::pml::RadialPml<2>(Point<2>(0.0, 0.1), 0.5, 0.5, pr.k, 1.0, PmlProfile{2, 1e-3});
+  CHECK_THROWS_AS(MirrorSymmetricScattering<2>(dofs, bad, planes), hpfem::InvalidArgument);
+  bad.pml = hpfem::pml::RadialPml<2>(Point<2>::Zero(), 0.5, 0.5, pr.k, 1.0, PmlProfile{2, 1e-3});
+  CHECK_NOTHROW(MirrorSymmetricScattering<2>(dofs, bad, planes));
   const NedelecDofMap<2> full_dofs(full, 1);
   CHECK_THROWS_AS(MirrorSymmetricScattering<2>(full_dofs, setup, {planes[0]}),
                   hpfem::InvalidArgument);  // the full mesh reaches across the plane

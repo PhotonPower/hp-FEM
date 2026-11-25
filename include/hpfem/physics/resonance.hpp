@@ -25,12 +25,12 @@ namespace hpfem::physics {
 /// Description of a resonance problem.
 template <int Dim>
 struct ResonanceSetup {
-  Real target_omega = 0;                ///< search centre [rad/s] (also the PML design frequency)
-  materials::MaterialMap materials;     ///< by cell tag; may be lossy
-  std::vector<mesh::Tag> pec_tags;      ///< facets with n × E = 0
-  std::optional<pml::PmlBox<Dim>> pml;  ///< absorbing layers (open directions)
-  Index num_modes = 4;                  ///< eigenvalues wanted around the target
-  Index krylov_dimension = 0;           ///< 0: 2 num_modes + 10
+  Real target_omega = 0;             ///< search centre [rad/s] (also the PML design frequency)
+  materials::MaterialMap materials;  ///< by cell tag; may be lossy
+  std::vector<mesh::Tag> pec_tags;   ///< facets with n × E = 0
+  std::optional<pml::Pml<Dim>> pml;  ///< absorbing layers, box or radial (open directions)
+  Index num_modes = 4;               ///< eigenvalues wanted around the target
+  Index krylov_dimension = 0;        ///< 0: 2 num_modes + 10
   Real tolerance = 1e-10;
   int max_iterations = 100;  ///< Arnoldi restarts
   solvers::DirectSolverBackend solver = solvers::DirectSolverBackend::kAuto;

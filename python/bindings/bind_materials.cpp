@@ -100,6 +100,73 @@ void bind_pml_dim(py::module_& m) {
       "geometric PML stability condition along `axis` for the permittivity `eps` (in 2D the "
       "in-plane block): None if it holds, otherwise (phase direction, min k_d v_d) of the worst "
       "wave, which the stretch amplifies (ADR-0015 section 2)");
+
+  using Radial = pml::RadialPml<Dim>;
+  auto radial =
+      py::class_<Radial>(
+          m, named("RadialPml", Dim).c_str(),
+          "Radial PML (issue #244 S4): the distance from the centre (2D circle, 3D sphere) or "
+          "from an axis (3D cylindrical, with optional slab layers along the axis) is stretched "
+          "beyond inner_radius over `thickness` with the profile of PmlProfile; invariant under "
+          "rotations about the centre (axis), so it fits sectors of any cyclic symmetry C_n. "
+          "Assign it to ScatteringSetup.pml like a PmlBox; points beyond the layer keep the "
+          "final stretch")
+          .def(py::init<const Point<Dim>&, Real, Real, Real, Real, pml::PmlProfile>(),
+               py::arg("center"), py::arg("inner_radius"), py::arg("thickness"), py::arg("k0"),
+               py::arg("background_index") = 1.0, py::arg("profile") = pml::PmlProfile{})
+          .def_property_readonly("shape",
+                                 [](const Radial& r) {
+                                   switch (r.shape()) {
+                                     case pml::RadialShape::kCircular:
+                                       return "circular";
+                                     case pml::RadialShape::kSpherical:
+                                       return "spherical";
+                                     case pml::RadialShape::kCylindrical:
+                                       break;
+                                   }
+                                   return "cylindrical";
+                                 })
+          .def_property_readonly("center", &Radial::center)
+          .def_property_readonly("axis", &Radial::axis)
+          .def_property_readonly("inner_radius", &Radial::inner_radius)
+          .def_property_readonly("thickness", &Radial::thickness)
+          .def_property_readonly("axial_lower", &Radial::axial_lower)
+          .def_property_readonly("axial_upper", &Radial::axial_upper)
+          .def_property_readonly("axial_thickness", &Radial::axial_thickness)
+          .def_property_readonly("profile", &Radial::profile)
+          .def_property_readonly("k0", &Radial::k0)
+          .def_property_readonly("sigma_max", &Radial::sigma_max)
+          .def_property_readonly("axial_sigma_max", &Radial::axial_sigma_max)
+          .def("max_resolution", &Radial::max_resolution, py::arg("cell_size"), py::arg("index"),
+               "largest |k s| h in the layer for cells of this size in a medium of this index")
+          .def("in_layer", &Radial::in_layer, py::arg("x"))
+          .def("jacobian", &Radial::jacobian, py::arg("x"),
+               "J = d x~ / d x, a full symmetric complex matrix (identity outside the layer)")
+          .def("stretched_coordinate", &Radial::stretched_coordinate, py::arg("x"))
+          .def("permittivity",
+               py::overload_cast<Complex, const Point<Dim>&>(&Radial::permittivity, py::const_),
+               py::arg("eps_r"), py::arg("x"), "det J J^-1 J^-T eps_r at x")
+          .def("permittivity",
+               py::overload_cast<const assembly::PermittivityTensor<Dim>&, const Point<Dim>&>(
+                   &Radial::permittivity, py::const_),
+               py::arg("eps"), py::arg("x"), "det J J^-1 eps J^-T at x")
+          .def("inverse_permeability", &Radial::inverse_permeability, py::arg("mu_r"),
+               py::arg("x"));
+  if constexpr (Dim == 3) {
+    radial.def_static(
+        "cylindrical",
+        [](const Point<3>& center, const Point<3>& axis, Real inner_radius, Real thickness,
+           Real axial_lower, Real axial_upper, Real axial_thickness, Real k0, Real background_index,
+           const pml::PmlProfile& profile) {
+          return Radial::cylindrical(center, axis, inner_radius, thickness, axial_lower,
+                                     axial_upper, axial_thickness, k0, background_index, profile);
+        },
+        py::arg("center"), py::arg("axis"), py::arg("inner_radius"), py::arg("thickness"),
+        py::arg("axial_lower"), py::arg("axial_upper"), py::arg("axial_thickness"), py::arg("k0"),
+        py::arg("background_index") = 1.0, py::arg("profile") = pml::PmlProfile{},
+        "cylindrical layer about the axis through center; slab layers of axial_thickness below "
+        "axial_lower and above axial_upper (axial coordinate relative to center; 0: none)");
+  }
 }
 
 }  // namespace

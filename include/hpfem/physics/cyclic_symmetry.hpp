@@ -14,9 +14,10 @@
 /// vanishes are not solved (an excitation with the symmetry of the structure needs the one
 /// order m = 0). The orders are orthogonal on symmetric surfaces and volumes, so fluxes and
 /// absorbed powers are n times the sum over the orders on the sector; the far field sums the
-/// rotated images of every order. Materials, the PML and the layered background must have the
-/// symmetry themselves (a `pml::PmlBox` only for n = 2 and 4 about its centre); this is not
-/// checked. Convention exp(−iωt).
+/// rotated images of every order. Materials and the layered background must have the symmetry
+/// themselves (not checked); the PML must continue into the rotated sectors, which is checked
+/// on the sector sides (a `pml::PmlBox` has the symmetry only for n = 2 and 4 about its centre,
+/// a `pml::RadialPml` centred on the axis for every n). Convention exp(−iωt).
 /// See docs/theory/maxwell.md#cyclic-symmetry-physicscyclic_symmetryhpp.
 
 #include <array>
@@ -114,8 +115,9 @@ class CyclicSymmetricScattering {
   /// @throws InvalidArgument for n < 2, missing or equal side tags, a side tag among the PEC
   ///         or incident tags, a side without facets, a mesh reaching beyond the sector, Bloch
   ///         pairs that are not translations along the axis (3D; none in 2D), a layered
-  ///         background with an axis that is not normal to the layers (3D; none in 2D), or a
-  ///         setup without incident field and current; NotImplemented with waveguide ports.
+  ///         background with an axis that is not normal to the layers (3D; none in 2D), a PML
+  ///         whose stretch on the master side, rotated, differs from that on the slave side, or
+  ///         a setup without incident field and current; NotImplemented with waveguide ports.
   CyclicSymmetricScattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringSetup<Dim> setup,
                             CyclicSymmetry<Dim> symmetry, CyclicOptions options = {});
 

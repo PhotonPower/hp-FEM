@@ -4,7 +4,10 @@
 // MirrorSymmetricScattering solves them on the octant x, y, z > 0 and reconstructs the full
 // problem: the efficiencies (rotation invariant, so the series values of normal incidence) and
 // the total field at points in all eight octants against the rotated Mie series. The p-sequence
-// must converge like the quarter-domain computation at normal incidence in mie_sphere.cpp.
+// must converge like the quarter-domain computation at normal incidence in mie_sphere.cpp. The
+// same with a spherical pml::RadialPml (issue #244 S4) in place of the box layer, on the same
+// mesh: the layer starts at the inner cube's inscribed sphere and keeps its final stretch in the
+// corners of the outer cube.
 #include <chrono>
 #include <cmath>
 #include <numbers>
@@ -42,6 +45,7 @@ using hpfem::physics::ScatteringSetup;
 using hpfem::physics::Surface;
 using hpfem::pml::PmlBox;
 using hpfem::pml::PmlProfile;
+using hpfem::pml::RadialPml;
 namespace box_tag = hpfem::mesh::box_tag;
 
 namespace {
@@ -59,7 +63,7 @@ struct Result {
   Real seconds = 0;
 };
 
-Result solve(Complex eps_r, Real ka, Index n, int p) {
+Result solve(Complex eps_r, Real ka, Index n, int p, bool spherical = false) {
   const auto start = std::chrono::steady_clock::now();
   const Real a = kRadius;
   const Real k = ka / a;
@@ -87,8 +91,12 @@ Result solve(Complex eps_r, Real ka, Index n, int p) {
   setup.incident = hpfem::physics::plane_wave<3>(pol.cast<Complex>(), k * dir);
   setup.formulation = Formulation::kScatteredField;
   const Real d = outer - hw;
-  setup.pml = PmlBox<3>(Point<3>::Zero(), Point<3>::Constant(hw), {0.0, d, 0.0, d, 0.0, d}, k, 1.0,
-                        PmlProfile{3, 1e-8});
+  if (spherical) {
+    setup.pml = RadialPml<3>(Point<3>::Zero(), hw, d, k, 1.0, PmlProfile{3, 1e-8});
+  } else {
+    setup.pml = PmlBox<3>(Point<3>::Zero(), Point<3>::Constant(hw), {0.0, d, 0.0, d, 0.0, d}, k,
+                          1.0, PmlProfile{3, 1e-8});
+  }
   setup.pec_tags = {box_tag::kXMax, box_tag::kYMax, box_tag::kZMax};
   const MirrorSymmetricScattering<3> problem(dofs, setup, planes);
   const auto solution = problem.solve();
@@ -132,17 +140,18 @@ struct Case {
 constexpr Case kDielectric{"dielectric n = 2, ka = 2", Complex{4.0, 0.0}, 2.0};
 constexpr Case kMetallic{"metallic eps = -10 + 1i, ka = 0.6", Complex{-10.0, 1.0}, 0.6};
 
-std::vector<Result> run(const Case& cs, int max_order) {
+std::vector<Result> run(const Case& cs, int max_order, bool spherical = false) {
   const MieSphere mie = hpfem::physics::mie_sphere(cs.ka / kRadius, kRadius, cs.eps_r);
   fmt::print(
-      "\nMie sphere, oblique incidence (theta {}, phi {}), {}: Q_sca = {:.6f}, Q_abs = "
-      "{:.6f} (series)\n",
-      kTheta, kPhi, cs.name, mie.scattering_efficiency(), mie.absorption_efficiency());
+      "\nMie sphere, oblique incidence (theta {}, phi {}), {}, {} PML: Q_sca = {:.6f}, Q_abs "
+      "= {:.6f} (series)\n",
+      kTheta, kPhi, cs.name, spherical ? "spherical" : "box", mie.scattering_efficiency(),
+      mie.absorption_efficiency());
   fmt::print("{:>3} {:>3} {:>6} {:>8} {:>10} {:>10} {:>10} {:>10} {:>10} {:>7}\n", "n", "p",
              "parts", "DoF/part", "Q_sca", "Q_abs", "err_sca", "err_abs", "err_field", "time/s");
   std::vector<Result> rows;
   for (int p = 1; p <= max_order; ++p) {
-    rows.push_back(solve(cs.eps_r, cs.ka, 2, p));
+    rows.push_back(solve(cs.eps_r, cs.ka, 2, p, spherical));
     const Result& r = rows.back();
     fmt::print(
         "{:>3} {:>3} {:>6} {:>8} {:>10.6f} {:>10.6f} {:>10.2e} {:>10.2e} {:>10.2e} "
@@ -180,4 +189,15 @@ TEST_CASE("Mie sphere at oblique incidence on the octant: p = 1 to 3, both spher
     CHECK(rows[2].err_sca < 2e-2);
     CHECK(rows[2].err_abs < 1e-2);
   }
+}
+
+TEST_CASE("Mie sphere at oblique incidence on the octant with a spherical PML",
+          "[convergence][mie][mirror][pml]") {
+  // the same bounds as the box layer above: p = 2 gives a field error of 8.1e-2 (box 9.5e-2),
+  // err_sca 4.5e-2 (box 3.3e-2), err_abs 7.2e-3 (box 7.1e-3)
+  const auto rows = run(kDielectric, 2, true);
+  CHECK(rows[1].field_error < rows[0].field_error);
+  CHECK(rows[1].field_error < 0.15);
+  CHECK(rows[1].err_abs < 5e-2);
+  CHECK(rows[1].err_sca < 2e-1);
 }

@@ -1,7 +1,10 @@
 #include <cmath>
 #include <numbers>
 #include <sstream>
+#include <utility>
+#include <vector>
 
+#include <Eigen/LU>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <spdlog/sinks/ostream_sink.h>
@@ -267,4 +270,183 @@ TEST_CASE("Scattering warns about an under-resolved PML in a high-index substrat
   REQUIRE(silicon.find("PML is under-resolved") != std::string::npos);
   const std::string air = run(Complex{1.0, 0.0});
   REQUIRE(air.find("PML is under-resolved") == std::string::npos);
+}
+
+namespace {
+
+/// Central finite differences of the stretched coordinate: column j is d x~ / d x_j.
+template <int Dim>
+hpfem::pml::StretchMatrix<Dim> numeric_jacobian(const hpfem::pml::Pml<Dim>& pml,
+                                                const Point<Dim>& x) {
+  const Real h = 1e-6;
+  hpfem::pml::StretchMatrix<Dim> j;
+  for (int d = 0; d < Dim; ++d) {
+    const Point<Dim> step = h * Point<Dim>::Unit(d);
+    j.col(d) = (pml.stretched_coordinate(x + step) - pml.stretched_coordinate(x - step)) / (2 * h);
+  }
+  return j;
+}
+
+}  // namespace
+
+TEST_CASE("RadialPml: profile, Jacobian of the stretched coordinate, absorption", "[pml]") {
+  using hpfem::pml::RadialPml;
+  const Real k0 = 3.0;
+  const PmlProfile profile{2, 1e-6};
+  const Point<2> c(0.2, -0.1);
+  const RadialPml<2> circle(c, 1.0, 0.5, k0, 1.5, profile);
+  REQUIRE(circle.shape() == hpfem::pml::RadialShape::kCircular);
+  REQUIRE(circle.sigma_max() == Approx(-3.0 * std::log(1e-6) / (2.0 * k0 * 1.5 * 0.5)));
+  REQUIRE_FALSE(circle.in_layer(c + Point<2>(0.6, 0.7)));
+  REQUIRE(circle.in_layer(c + Point<2>(0.9, 0.7)));
+  REQUIRE(circle.jacobian(c + Point<2>(0.3, 0.2)) == hpfem::pml::StretchMatrix<2>::Identity());
+  // the stretch factor of a radial wave at the far end: one-way amplitude sqrt(R0)
+  const Point<2> u = Point<2>(0.6, 0.8);
+  // (Eigen's dot conjugates its left operand: keep the real vector there)
+  const Complex rt =
+      u.cast<Complex>().dot(circle.stretched_coordinate(c + 1.5 * u) - c.cast<Complex>());
+  REQUIRE(rt.real() == Approx(1.5));
+  REQUIRE(std::abs(std::exp(kI * k0 * 1.5 * (rt - 1.5))) == Approx(std::sqrt(1e-6)));
+  // J = d x~ / d x inside, at the far end and beyond the layer (final stretch continues)
+  const hpfem::pml::Pml<2> wrapped(circle);
+  for (const Point<2>& x : {Point<2>(c + 1.2 * u), Point<2>(c + Point<2>(-1.1, 0.4)),
+                            Point<2>(c + Point<2>(1.4, -1.3))}) {
+    const auto j = circle.jacobian(x);
+    CHECK((j - numeric_jacobian<2>(wrapped, x)).norm() < 1e-7);
+    CHECK((j - j.transpose()).norm() < 1e-14);
+    CHECK(wrapped.jacobian(x) == j);
+  }
+
+  const Point<3> c3(0.1, 0.0, -0.2);
+  const RadialPml<3> sphere(c3, 1.0, 0.5, k0, 1.0, profile);
+  REQUIRE(sphere.shape() == hpfem::pml::RadialShape::kSpherical);
+  const RadialPml<3> cylinder = RadialPml<3>::cylindrical(c3, Point<3>(1.0, 1.0, 0.0), 1.0, 0.5,
+                                                          -0.5, 0.8, 0.4, k0, 1.0, profile);
+  REQUIRE(cylinder.shape() == hpfem::pml::RadialShape::kCylindrical);
+  REQUIRE(cylinder.axis().norm() == Approx(1.0));
+  REQUIRE(cylinder.axial_sigma_max() == Approx(-3.0 * std::log(1e-6) / (2.0 * k0 * 0.4)));
+  const Point<3> a = cylinder.axis();
+  const Point<3> e = Point<3>(1.0, -1.0, 0.0).normalized();
+  // radial only, axial only (both ends), and the edge where both stretch
+  for (const auto& [layer, x] :
+       {std::pair{sphere, Point<3>(c3 + Point<3>(0.7, 0.6, 0.5))},
+        std::pair{sphere, Point<3>(c3 + Point<3>(-1.6, 0.3, 0.1))},
+        std::pair{cylinder, Point<3>(c3 + 1.2 * e + 0.3 * a)},
+        std::pair{cylinder, Point<3>(c3 + 0.5 * e + 1.0 * a + Point<3>(0, 0, 0.3))},
+        std::pair{cylinder, Point<3>(c3 + 0.4 * e - 0.7 * a)},
+        std::pair{cylinder, Point<3>(c3 + 1.3 * e + 1.1 * a)}}) {
+    REQUIRE(layer.in_layer(x));
+    const auto j = layer.jacobian(x);
+    CHECK((j - numeric_jacobian<3>(hpfem::pml::Pml<3>(layer), x)).norm() < 1e-7);
+    CHECK((j - j.transpose()).norm() < 1e-14);
+  }
+  REQUIRE_FALSE(cylinder.in_layer(c3 + 0.9 * e + 0.7 * a));
+  REQUIRE(cylinder.stretch_directions(c3 + 0.5 * e + 1.0 * a).size() == 1);
+  REQUIRE(cylinder.stretch_directions(c3 + 1.3 * e + 1.1 * a).size() == 2);
+
+  CHECK_THROWS_AS(RadialPml<2>(c, 0.0, 0.5, k0), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(RadialPml<2>(c, 1.0, 0.0, k0), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(RadialPml<2>(c, 1.0, 0.5, -1.0), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(RadialPml<3>::cylindrical(c3, Point<3>::Zero(), 1.0, 0.5, 0, 1, 0, k0),
+                  hpfem::InvalidArgument);
+  CHECK_THROWS_AS(RadialPml<3>::cylindrical(c3, Point<3>::UnitZ(), 1.0, 0.5, 1, 0, 0, k0),
+                  hpfem::InvalidArgument);
+}
+
+TEST_CASE("RadialPml: material tensors, the box limit and rotational invariance", "[pml]") {
+  using hpfem::pml::Pml;
+  using hpfem::pml::RadialPml;
+  const Real k0 = 2.0;
+  const PmlProfile profile{2, 1e-8};
+  const Complex eps{2.0, 0.3};
+  const Complex mu{1.2, 0.0};
+  // 2D: det J J^-1 J^-T eps and 1 / (mu det J)
+  const RadialPml<2> circle(Point<2>::Zero(), 1.0, 1.0, k0, 1.0, profile);
+  const Point<2> x(1.1, 0.9);
+  const auto j = circle.jacobian(x);
+  const auto inv = j.inverse().eval();
+  CHECK((circle.permittivity(eps, x) - eps * j.determinant() * inv * inv.transpose()).norm() <
+        1e-13);
+  CHECK(std::abs(circle.inverse_permeability(mu, x)(0, 0) - 1.0 / (mu * j.determinant())) < 1e-14);
+  hpfem::assembly::PermittivityTensor<2> crystal;
+  crystal << Complex{2.0, 0.1}, 0.3, 0.3, Complex{3.0, 0.0};
+  CHECK(
+      (circle.permittivity(crystal, x) - j.determinant() * inv * crystal * inv.transpose()).norm() <
+      1e-13);
+  CHECK((circle.permittivity(eps * hpfem::assembly::PermittivityTensor<2>::Identity(), x) -
+         circle.permittivity(eps, x))
+            .norm() < 1e-13);
+
+  // a cylinder along z with only its axial layers is the box with layers on z-min and z-max
+  const RadialPml<3> slab = RadialPml<3>::cylindrical(Point<3>::Zero(), Point<3>::UnitZ(), 10.0,
+                                                      1.0, -1.0, 1.0, 0.5, k0, 1.0, profile);
+  const PmlBox<3> box(Point<3>(-20, -20, -1), Point<3>(20, 20, 1), {0, 0, 0, 0, 0.5, 0.5}, k0, 1.0,
+                      profile);
+  for (const Point<3>& y : {Point<3>(0.3, -0.2, 1.3), Point<3>(-1.0, 2.0, -1.4)}) {
+    CHECK((slab.permittivity(eps, y) - box.permittivity(eps, y)).norm() < 1e-13);
+    CHECK((slab.inverse_permeability(mu, y) - box.inverse_permeability(mu, y)).norm() < 1e-13);
+    CHECK((slab.stretched_coordinate(y) - box.stretched_coordinate(y)).norm() < 1e-13);
+    CHECK((Pml<3>(box).jacobian(y) - hpfem::pml::StretchMatrix<3>(box.stretch(y).asDiagonal()))
+              .norm() == 0.0);
+  }
+  // 3D: J J^T / (mu det J)
+  const RadialPml<3> sphere(Point<3>::Zero(), 1.0, 1.0, k0, 1.0, profile);
+  const Point<3> z(1.0, 0.8, -0.6);
+  const auto j3 = sphere.jacobian(z);
+  CHECK(
+      (sphere.inverse_permeability(mu, z) - j3 * j3.transpose() / (mu * j3.determinant())).norm() <
+      1e-13);
+
+  // invariance: the circle under any rotation about its centre, the square box only under
+  // quarter turns
+  std::vector<Point<2>> points;
+  for (int i = 0; i < 40; ++i) {
+    const Real r = 0.2 + 0.045 * i;
+    points.emplace_back(r * std::cos(0.37 * i), r * std::sin(0.37 * i));
+  }
+  const auto rotation = [](Real angle) {
+    Eigen::Matrix<Real, 2, 2> q;
+    q << std::cos(angle), -std::sin(angle), std::sin(angle), std::cos(angle);
+    return q;
+  };
+  const Pml<2> round(circle);
+  const Pml<2> square(PmlBox<2>::uniform(Point<2>(-1, -1), Point<2>(1, 1), 1.0, k0, 1.0, profile));
+  CHECK(round.is_invariant(rotation(std::numbers::pi / 3), Point<2>::Zero(), points));
+  CHECK(round.is_invariant(rotation(0.123), Point<2>::Zero(), points));
+  CHECK(square.is_invariant(rotation(std::numbers::pi / 2), Point<2>::Zero(), points));
+  CHECK_FALSE(square.is_invariant(rotation(std::numbers::pi / 3), Point<2>::Zero(), points));
+  // off-centre: the rotation about the origin moves the layer
+  const Pml<2> moved(RadialPml<2>(Point<2>(0.3, 0.0), 1.0, 1.0, k0, 1.0, profile));
+  CHECK_FALSE(moved.is_invariant(rotation(std::numbers::pi / 3), Point<2>::Zero(), points));
+}
+
+TEST_CASE("backward_wave_along: the stability check in a rotated frame", "[pml]") {
+  // a uniaxial crystal with its optic axis tilted against x fails along x; rotating crystal and
+  // direction together gives the same worst wave, rotated
+  hpfem::assembly::PermittivityTensor<2> eps;
+  const Real t = 0.5;
+  const Real no = 2.0;
+  const Real ne = 4.0;
+  eps << no * std::cos(t) * std::cos(t) + ne * std::sin(t) * std::sin(t),
+      (ne - no) * std::sin(t) * std::cos(t), (ne - no) * std::sin(t) * std::cos(t),
+      no * std::sin(t) * std::sin(t) + ne * std::cos(t) * std::cos(t);
+  const auto along_x = hpfem::pml::backward_wave<2>(eps, 0);
+  REQUIRE(along_x.has_value());
+  const auto same = hpfem::pml::backward_wave_along<2>(eps, Point<2>(2.0, 0.0));
+  REQUIRE(same.has_value());
+  CHECK(same->worst == Approx(along_x->worst));
+  Eigen::Matrix<Real, 2, 2> q;
+  const Real a = 1.1;
+  q << std::cos(a), -std::sin(a), std::sin(a), std::cos(a);
+  const auto qc = q.cast<Complex>();
+  const auto rotated = hpfem::pml::backward_wave_along<2>(
+      hpfem::assembly::PermittivityTensor<2>(qc * eps * qc.transpose()), q.col(0));
+  REQUIRE(rotated.has_value());
+  CHECK(rotated->worst == Approx(along_x->worst).margin(1e-3));
+  // isotropic media never fail, in any direction
+  CHECK_FALSE(hpfem::pml::backward_wave_along<3>(
+      Complex{2.0, 0.0} * hpfem::assembly::PermittivityTensor<3>::Identity(),
+      Point<3>(0.3, -0.4, 0.8)));
+  CHECK_THROWS_AS(hpfem::pml::backward_wave_along<2>(eps, Point<2>::Zero()),
+                  hpfem::InvalidArgument);
 }

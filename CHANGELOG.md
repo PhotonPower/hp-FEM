@@ -3,6 +3,20 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Radial PML (`pml::RadialPml`, issue #244 S4, ADR-0005 amendment): the distance from a centre
+  (2D circle, 3D sphere) or from an axis (3D cylinder, with optional slab layers along it) is
+  stretched with the profile of `PmlProfile`; the materials become the full tensors
+  det J J⁻¹ ε J⁻ᵀ and J μ⁻¹ Jᵀ / det J. Invariant under every rotation about the centre, so
+  sectors of any cyclic symmetry C_n carry it. `ScatteringSetup::pml` and `ResonanceSetup::pml`
+  hold a `pml::Pml` (a `PmlBox` or a `RadialPml`, converting implicitly from both);
+  `CyclicSymmetricScattering` and `MirrorSymmetricScattering` refuse a layer that does not
+  continue into the images (`Pml::is_invariant`), and crystals in a radial layer are checked
+  for the PML stability condition along a fan of directions (`backward_wave_along`).
+  `mesh::polar_disc` meshes concentric annuli by rings with curved circles, C_q-symmetric. The
+  Mie cylinder in a circular layer converges to the series on the full disc and on a C_6
+  sector (round-off agreement, `convergence_mie_cylinder_radial_pml`); the Mie sphere on the
+  octant in a spherical layer matches the box layer. Python: `RadialPml2D/3D`, `polar_disc`,
+  `setup.pml` takes either layer.
 - Cyclic symmetry C_n for any excitation (`physics::CyclicSymmetricScattering`, issue #244 S1 +
   S2): `assembly::PeriodicPair` takes a rotation (`cyclic_pair`, `rotation_matrix`), coupling the
   two sides of a sector by E(Rx + a) = e^{2πim/n} R E(x) on the Nédélec and H1 spaces, with the

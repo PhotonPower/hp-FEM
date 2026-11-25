@@ -300,6 +300,87 @@ Mesh<3> ball(Index n, const Point<3>& center, Real radius, bool curved) {
 
 namespace hpfem::mesh {
 
+Mesh<2> polar_disc(Index sides, Index n, const std::vector<Real>& radii,
+                   const std::vector<Tag>& tags, const Point<2>& center) {
+  if (sides < 3 || n < 1 || radii.empty() || !(radii[0] > 0) ||
+      (!tags.empty() && tags.size() != radii.size())) {
+    throw InvalidArgument(fmt::format(
+        "polar_disc: need sides >= 3, n >= 1, positive strictly increasing radii and one tag per "
+        "annulus or none (got sides = {}, n = {}, {} radii, {} tags)",
+        sides, n, radii.size(), tags.size()));
+  }
+  for (std::size_t k = 1; k < radii.size(); ++k) {
+    if (!(radii[k] > radii[k - 1])) {
+      throw InvalidArgument("polar_disc: the radii must increase strictly");
+    }
+  }
+  // ring radii rho_j, the annulus of each ring band and the ring index of each circle
+  std::vector<Real> rho{0.0};
+  std::vector<std::size_t> band;  // band[j - 1]: annulus of the cells between rings j-1 and j
+  std::vector<Index> circle_ring;
+  for (std::size_t k = 0; k < radii.size(); ++k) {
+    const Real lower = k == 0 ? 0.0 : radii[k - 1];
+    const Index rings =
+        k == 0
+            ? n
+            : std::max<Index>(1, std::lround(static_cast<Real>(n) * (radii[k] - lower) / radii[0]));
+    for (Index i = 1; i <= rings; ++i) {
+      rho.push_back(lower + (radii[k] - lower) * static_cast<Real>(i) / static_cast<Real>(rings));
+      band.push_back(k);
+    }
+    circle_ring.push_back(static_cast<Index>(rho.size()) - 1);
+  }
+  const Index num_rings = static_cast<Index>(rho.size()) - 1;
+  // vertex (j, i), i = 0 .. sides j - 1 counter-clockwise from the x axis; the centre is (0, 0)
+  const auto first = [sides](Index j) { return j == 0 ? Index{0} : 1 + sides * j * (j - 1) / 2; };
+  const auto id = [&](Index j, Index i) {
+    return j == 0 ? Index{0} : first(j) + ((i % (sides * j)) + sides * j) % (sides * j);
+  };
+  std::vector<Point<2>> vertices{center};
+  for (Index j = 1; j <= num_rings; ++j) {
+    for (Index i = 0; i < sides * j; ++i) {
+      const Real angle =
+          2.0 * std::numbers::pi * static_cast<Real>(i) / static_cast<Real>(sides * j);
+      vertices.emplace_back(center + rho[as_size(j)] * Point<2>(std::cos(angle), std::sin(angle)));
+    }
+  }
+  std::vector<Mesh<2>::CellVertices> cells;
+  std::vector<Tag> cell_tags;
+  const auto add = [&](Index a, Index b, Index c, std::size_t k) {
+    cells.push_back({a, b, c});
+    cell_tags.push_back(tags.empty() ? kNoTag : tags[k]);
+  };
+  // sector s between rings j-1 and j: the strip of the uniformly refined corner triangle
+  for (Index j = 1; j <= num_rings; ++j) {
+    const std::size_t k = band[as_size(j - 1)];
+    for (Index s = 0; s < sides; ++s) {
+      for (Index t = 0; t < j; ++t) {
+        add(id(j - 1, s * (j - 1) + t), id(j, s * j + t), id(j, s * j + t + 1), k);
+        if (t + 1 < j) {
+          add(id(j - 1, s * (j - 1) + t), id(j, s * j + t + 1), id(j - 1, s * (j - 1) + t + 1), k);
+        }
+      }
+    }
+  }
+  Mesh<2> m(std::move(vertices), std::move(cells), std::move(cell_tags));
+  m.tag_boundary(kDiscBoundary);
+  // curve the edges on every circle of `radii` onto it
+  for (std::size_t k = 0; k < radii.size(); ++k) {
+    const Index ring = circle_ring[k];
+    std::vector<Index> on_circle;
+    for (Index f = 0; f < m.num_facets(); ++f) {
+      const auto& fv = m.facet_vertices(f);
+      const auto on = [&](Index v) { return v >= first(ring) && v < first(ring) + sides * ring; };
+      if (on(fv[0]) && on(fv[1])) on_circle.push_back(f);
+    }
+    const Real radius = radii[k];
+    curve_boundary<2>(m, std::span<const Index>(on_circle), [center, radius](const Point<2>& x) {
+      return Point<2>(center + radius * (x - center).normalized());
+    });
+  }
+  return m;
+}
+
 Mesh<2> square_with_disc(Index n, Real radius, Real half_width, Real outer, Tag inclusion_tag) {
   if (n < 1 || !(radius > 0) || !(half_width > radius) || !(outer >= half_width)) {
     throw InvalidArgument(fmt::format(

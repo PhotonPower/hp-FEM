@@ -113,10 +113,79 @@ $2.6\cdot10^{-5}$ ($6.7\cdot10^{-23}$, three wavelengths of PML) and $2.1\cdot10
 ($3.5\cdot10^{-17}$, $p = 4$), all with $|k s| h \le 2$; the library default $R_0 = 10^{-8}$
 at 70° gives $4.5\cdot10^{-3}$ on the same mesh.
 
-`physics::Scattering` takes an optional `PmlBox`; its per-cell forms then evaluate the
+`physics::Scattering` takes an optional `pml::Pml` (a `PmlBox`, or a `RadialPml` below); its
+per-cell forms then evaluate the
 stretched tensors pointwise (identity inside the box, so no cell tagging is needed, but
 cell facets should coincide with the box faces and PML cells use the raised quadrature
 order of the incident-field terms, `extra_quadrature_order`).
+
+## Radial layers (`pml::RadialPml`)
+
+A layer of radial shape stretches the distance $r$ from a centre $c$ (2D circle, 3D sphere) or
+from an axis (3D cylinder) beyond the inner radius $r_0$ with the profile above,
+
+$$
+\tilde r = r + i\int_{r_0}^{r}\hat\sigma(s)\,ds, \qquad
+\tilde x = c + \frac{\tilde r}{r}\,(x - c)
+$$
+
+(for the cylinder only the part of $x - c$ perpendicular to the axis is scaled). Its Jacobian is
+
+$$
+J = \frac{\partial\tilde x}{\partial x} = s_r\,\hat r\hat r^T + \frac{\tilde r}{r}\,(P - \hat r\hat r^T)
++ (I - P), \qquad s_r = 1 + i\hat\sigma(r),
+$$
+
+with $P$ the projector onto the stretched plane (circle, sphere: $P = I$; cylinder:
+$P = I - \hat a\hat a^T$). The radial direction is absorbed with the stretch $s_r$ as in the
+box, the tangential directions with $\tilde r / r$, which carries the accumulated stretch and
+keeps the transformation a smooth map (it is what makes the radial layer exact for outgoing
+cylindrical and spherical waves). $J$ is symmetric but not diagonal in Cartesian components,
+and the materials become the full tensors
+
+$$
+\tilde\varepsilon = \det J\,J^{-1}\varepsilon J^{-T}, \qquad
+\tilde\mu^{-1} = \frac{J\mu^{-1}J^{T}}{\det J}
+\quad (\text{2D: } \tilde\mu^{-1}_{zz} = 1/(\mu\det J)),
+$$
+
+the general form of which the box formulas are the diagonal case. $\hat\sigma_{\max}$ follows
+the same design rule, so a radial wave leaves the far end with the one-way amplitude
+$\sqrt{R_0}$. Beyond $r_0 + d$ the final stretch $\hat\sigma_{\max}$ continues, so a square
+or cubic mesh around a circular or spherical layer is allowed (its corners are absorbed
+further). The cylinder takes, in addition, slab layers below and above an interval along the
+axis; at the edges both stretches multiply as at the corners of a box.
+
+The point of the radial shape is its invariance: $J(Ax) = R\,J(x)\,R^T$ for every rotation
+$A x = c + R(x - c)$ about the centre (axis), so a sector of a structure with cyclic symmetry
+$C_n$ of **any** order carries the layer, which the box does only for $C_2$ and $C_4$ about its
+centre and $C_3$ about a diagonal of a cube (`physics::CyclicSymmetricScattering` and
+`MirrorSymmetricScattering` check that the layer on the sector sides and mirror planes
+continues into the images, `Pml::is_invariant`). A circular layer wants circles as mesh lines:
+`mesh::polar_disc(sides, n, radii, tags)` meshes concentric annuli by rings (ring $j$ with
+$j\cdot$`sides` vertices), curves the edges on every circle of `radii` and is invariant under
+the rotations by $2\pi/$`sides`.
+
+The problem setups hold a `pml::Pml<Dim>`, which is either a `PmlBox` or a `RadialPml`
+(ADR-0005 amendment); assigning either works. The stability condition of anisotropic media
+(ADR-0015 §2) is checked along a fan of stretching directions for crystals inside a radial
+layer (`backward_wave_along`), since the radial direction sweeps the whole plane.
+
+**Verification.** The Jacobian against finite differences of the closed-form stretched point
+for all three shapes and the tensors against the box where they coincide
+(`tests/unit/pml/test_pml.cpp`); the Mie cylinder under oblique incidence in a circular layer
+on `polar_disc`, full disc and $C_6$ sector (`tests/convergence/mie_cylinder_radial_pml.cpp`):
+
+| $p$ | DoF (full) | $\sigma_{\text{sca}}$ rel. error | sector vs full |
+|---|---|---|---|
+| 1 | 20 880 | $9.7\cdot10^{-2}$ | $4\cdot10^{-15}$ |
+| 2 | 69 408 | $2.5\cdot10^{-3}$ | $2\cdot10^{-15}$ |
+| 3 | 145 584 | $2.8\cdot10^{-4}$ | $2\cdot10^{-14}$ |
+
+The error is that of the discretisation, not of the layer ($R_0 = 10^{-14}$ instead of
+$10^{-10}$ changes the $p = 3$ value by $2\cdot10^{-6}$ relative). In 3D the Mie sphere on the
+octant with a spherical layer in the box mesh (`tests/convergence/mie_sphere_mirror.cpp`) gives
+a field error of $8.1\cdot10^{-2}$ at $p = 2$, the box layer $9.5\cdot10^{-2}$ on the same mesh.
 
 ## Profile and adaptivity
 

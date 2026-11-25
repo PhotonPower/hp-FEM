@@ -802,9 +802,14 @@ exist (`Scattering<3>` on a `LayerStack<3>` background, Bloch pairs in two direc
   the full domain on symmetric meshes (`mesh::hexagon` for C_6), Mie cylinder under oblique
   incidence on the quarter (`convergence_mie_cylinder_cyclic`); Python
   `CyclicSymmetricScattering2D/3D`
-- [ ] radial PML for sectors other than C_2 / C_4 (issue #244 S4); C_nv (mirror planes through
-  the axis halve the orders), the 3D point inversion (det R = −1) as a sector coupling, and a
-  sector mesher (S5)
+- [x] radial PML for sectors of any order (issue #244 S4, ADR-0005 amendment): `pml::RadialPml`
+  (circle, sphere, cylinder with axial slabs; full Jacobian tensors), the setups hold a
+  `pml::Pml` (box or radial), the symmetry reductions check that the layer continues into the
+  images, `mesh::polar_disc` (C_q-symmetric rings with curved circles); Mie cylinder in a
+  circular layer, full disc and C_6 sector (`convergence_mie_cylinder_radial_pml`), Mie sphere
+  on the octant in a spherical layer; Python `RadialPml2D/3D`, `polar_disc`
+- [ ] C_nv (mirror planes through the axis halve the orders), the 3D point inversion
+  (det R = −1) as a sector coupling, and a sector mesher (issue #244 S5)
 - [ ] elasticity: a real-valued solver path (M20 S5c, ADR-0016 §3). The complex assembly with a
   zero imaginary part costs about twice the memory and four times the flops of a real
   factorisation; worth doing only when a measured elasticity solve (e.g. a Voxelspaetzle part)
