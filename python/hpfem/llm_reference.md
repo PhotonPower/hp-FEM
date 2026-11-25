@@ -156,7 +156,11 @@ Discover at runtime:
   problem. Low level: `hpfem.cyclic_pair(master, slave, n, m, center, axis)` in `setup.periodic`.
   `hpfem.hexagon(n, radius, inner, inner_tag)` is a C_6-symmetric mesh,
   `hpfem.polar_disc(sides, n, radii, tags)` a C_sides-symmetric ring mesh with curved circles (for a
-  circular PML; boundary `hpfem.DISC_BOUNDARY`).
+  circular PML; boundary `hpfem.DISC_BOUNDARY`). For real structures mesh ONE sector with Gmsh:
+  `mesh, sym = hpfem.meshing.sector_mesh(hpfem.meshing.Sector(order=n, radius=R, shapes=[...all n
+  copies...], rings=[(r_pml, AIR)], background_tag=AIR, dim=2|3), sizes_by_tag)` (matching sides,
+  tags 20 / 21, boundary DISC_BOUNDARY; 3D scatterers `meshing.Solid("sphere"|"cylinder"|"box",
+  tag, params)`; refuses a non-symmetric structure).
 - `hpfem.ScatteringOperator2D(problem)` — one factorisation, `.solve(incident)`,
   `.solve_many([...])`; `hpfem.plane_wave_sweep(problem, wave_vectors, polarisation_fn)`;
   `hpfem.ReducedBasis(num_dofs)`; `hpfem.s_parameters(nd, setup)` (ports).

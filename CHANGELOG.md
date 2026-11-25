@@ -3,6 +3,13 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Sector meshing for cyclic symmetry (`hpfem.meshing.Sector`, `sector_mesh`, `write_sector`,
+  `Solid`; issue #244 S5): one sector of a C_n-symmetric structure around the z axis meshed with
+  Gmsh, a disc, ball or cylinder domain with rings (mesh lines for material shells and a radial
+  PML), z slabs and 2D shapes / 3D solids, the side at 2π/n the rotated side at 0 node by node,
+  tags for the sides and the outer boundary; a structure without the symmetry is refused. The
+  Mie cylinder on a C_6 sector agrees with the series to 2e-5 (p = 3), a rod cluster on C_6, C_3
+  and C_2 sectors to 1e-6.
 - Radial PML (`pml::RadialPml`, issue #244 S4, ADR-0005 amendment): the distance from a centre
   (2D circle, 3D sphere) or from an axis (3D cylinder, with optional slab layers along it) is
   stretched with the profile of `PmlProfile`; the materials become the full tensors
