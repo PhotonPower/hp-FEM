@@ -12,9 +12,12 @@
 /// survives for m = 0), and the field of the full domain is
 /// @f$ E(A^jy) = \sum_m \omega^{mj}R^jE_m(y) @f$ for y in the sector. Orders whose excitation
 /// vanishes are not solved (an excitation with the symmetry of the structure needs the one
-/// order m = 0). The orders are orthogonal on symmetric surfaces and volumes, so fluxes and
-/// absorbed powers are n times the sum over the orders on the sector; the far field sums the
-/// rotated images of every order. Materials and the layered background must have the symmetry
+/// order m = 0). In reciprocal media the system of order n − m is the transpose of that of
+/// order m (the constraints are complex conjugates, the curl–curl form is symmetric), so the
+/// pair shares one factorisation (`CyclicOptions::pair_orders`): ⌊n/2⌋ + 1 factorisations for a
+/// general excitation instead of n. The orders are orthogonal on symmetric surfaces and volumes, so
+/// fluxes and absorbed powers are n times the sum over the orders on the sector; the far field sums
+/// the rotated images of every order. Materials and the layered background must have the symmetry
 /// themselves (not checked); the PML must continue into the rotated sectors, which is checked
 /// on the sector sides (a `pml::PmlBox` has the symmetry only for n = 2 and 4 about its centre,
 /// a `pml::RadialPml` centred on the axis for every n). Convention exp(−iωt).
@@ -88,6 +91,11 @@ struct CyclicOptions {
   Real vanishing_tolerance = 1e-12;
   /// Relative to the mesh extent: how far the mesh may reach beyond the sector.
   Real sector_tolerance = 1e-9;
+  /// Solve order n − m with the transposed factors of order m (`Scattering::solve_transposed`)
+  /// when the system is reciprocal: always, except for axial Bloch pairs with complex phases
+  /// (ε tensors are symmetric, ADR-0015 §3). Otherwise, or with false, every order is
+  /// factorised.
+  bool pair_orders = true;
 };
 
 /// The solutions of the orders that were solved (same order as
@@ -127,13 +135,20 @@ class CyclicSymmetricScattering {
   [[nodiscard]] Index num_images() const noexcept { return symmetry_.order; }
   /// Number of orders solved.
   [[nodiscard]] Index num_parts() const noexcept { return static_cast<Index>(parts_.size()); }
+  /// Number of factorisations `solve` performs: the parts minus those solved with the
+  /// transposed factors of their partner order n − m (`CyclicOptions::pair_orders`).
+  [[nodiscard]] Index num_factorisations() const;
+  /// The part whose factors part p reuses transposed, or −1 if part p is factorised itself.
+  [[nodiscard]] Index partner(Index p) const { return partner_[as_size(p)]; }
   /// Azimuthal order m (0 … n−1) of part p.
   [[nodiscard]] int order(Index p) const { return orders_[as_size(p)]; }
   /// The scattering problem of part p (its setup holds the order's excitation and the cyclic
   /// pair).
   [[nodiscard]] const Scattering<Dim>& part(Index p) const { return parts_[as_size(p)]; }
 
-  /// Solves every part.
+  /// Solves every part; a part with a partner uses the partner's factors transposed, which
+  /// are dropped afterwards unless the setup asks to keep them (`keep_factorisation`; the
+  /// paired parts then hold none).
   [[nodiscard]] CyclicSymmetricSolution<Dim> solve() const;
 
   /// Rotates x into the sector (points on the axis stay, j = 0).
@@ -175,6 +190,7 @@ class CyclicSymmetricScattering {
   Point<Dim> second_side_;  ///< 3D: axis × first_side_ (unit); 2D: first_side_ turned by 90°
   std::vector<int> orders_;
   std::vector<Scattering<Dim>> parts_;
+  std::vector<Index> partner_;  ///< per part: the part whose factors it reuses, or −1
 };
 
 /// Far field of the scattered field of the full problem from a closed surface of the sector

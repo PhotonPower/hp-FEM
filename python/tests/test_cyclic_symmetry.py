@@ -58,7 +58,14 @@ def test_quarter_reproduces_the_full_problem():
     problem = hpfem.CyclicSymmetricScattering2D(dofs, _setup(), sym)
     assert problem.num_parts == 4 and problem.num_images == 4
     assert [problem.order(i) for i in range(4)] == [0, 1, 2, 3]
+    # the order 3 = n - 1 reuses the transposed factors of order 1
+    assert problem.num_factorisations == 3
+    assert [problem.partner(i) for i in range(4)] == [-1, -1, -1, 1]
     solution = problem.solve()
+    separate = hpfem.CyclicSymmetricScattering2D(dofs, _setup(), sym, pair_orders=False)
+    assert separate.num_factorisations == 4
+    for a, b in zip(solution.parts, separate.solve().parts, strict=True):
+        assert np.abs(a.unknown - b.unknown).max() < 1e-10 * np.abs(b.unknown).max()
 
     points = np.array([[0.6, 0.3], [-0.4, 0.7], [-0.55, -0.5], [0.35, -0.8], [0.1, 0.05]])
     locator = hpfem.PointLocator2D(quarter)

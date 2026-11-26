@@ -268,6 +268,9 @@ periodic coupling $E(Rx) = e^{2\pi i m/n} R E(x)$ between the two sides, and the
 cross-sections, absorbed power and far field of the full problem are put together again
 ([theory](theory/maxwell.md#cyclic-symmetry-physicscyclic_symmetryhpp)). Orders without
 excitation are skipped: a wave along the axis needs two orders, a symmetric excitation one.
+The orders $m$ and $n - m$ share one factorisation (the system of one is the transpose of the
+other's in reciprocal media), so a general excitation costs $\lfloor n/2\rfloor + 1$
+factorisations (`prob.num_factorisations`; `pair_orders=False` factorises each order).
 
 ```python
 full = hpfem.hexagon(8, 1.0, 4, 2)                                  # C_6-symmetric mesh
@@ -276,7 +279,7 @@ sym = hpfem.CyclicSymmetry2D(6, center=[0, 0], master=20, slave=21)  # 3D: axis=
 hpfem.tag_sector_sides(sector, sym, [1.0, 0.0])                     # sides at 0 and 60 degrees
 setup = ...                                                         # as above, for the sector
 prob = hpfem.CyclicSymmetricScattering2D(hpfem.NedelecDofMap2D(sector, 3), setup, sym)
-solution = prob.solve()                                             # prob.num_parts solves
+solution = prob.solve()                                             # prob.num_factorisations
 E = prob.field(solution, hpfem.PointLocator2D(sector), points)      # anywhere in the full domain
 cs = prob.cross_sections(solution, hpfem.Surface2D.around_cells(sector, 2), 1.0)
 far = hpfem.CyclicSymmetricFarField2D(prob, solution, hpfem.Surface2D.around_cells(sector, 2), 8)

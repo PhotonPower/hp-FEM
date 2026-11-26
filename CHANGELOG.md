@@ -3,6 +3,17 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Cyclic symmetry: the orders m and n − m share one factorisation (issue #244, in place of the
+  mirror planes of C_nv). In reciprocal media the system of order n − m on the sector is the
+  transpose of that of order m (complex-conjugate cyclic constraints, symmetric curl–curl form
+  and Dirichlet elimination), so `CyclicSymmetricScattering` solves it with the transposed
+  factors of order m (`Scattering::solve_transposed` on the `KeptFactorisation`, with a residual
+  check): ⌊n/2⌋ + 1 factorisations for a general excitation instead of n, one set of factors
+  held at a time, no condition on the mesh. On by default (`CyclicOptions::pair_orders`), off
+  for axial Bloch pairs with a complex phase; `num_factorisations()`, `partner(p)`. Paired and
+  separate solves agree to 1e-10; 2D C_6 (721 k DoFs) 35 % faster, 3D C_4 (60 k DoFs, SparseLU,
+  whose transposed solve is slower) 15 %. Python: `pair_orders`, `num_factorisations`,
+  `partner`.
 - Sector meshing for cyclic symmetry (`hpfem.meshing.Sector`, `sector_mesh`, `write_sector`,
   `Solid`; issue #244 S5): one sector of a C_n-symmetric structure around the z axis meshed with
   Gmsh, a disc, ball or cylinder domain with rings (mesh lines for material shells and a radial

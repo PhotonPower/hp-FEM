@@ -815,8 +815,13 @@ exist (`Scattering<3>` on a `LayerStack<3>` background, Bloch pairs in two direc
   with sides matching under the rotation, checks the symmetry of the structure; Mie cylinder on a
   C_6 sector against the series, a rod cluster on C_6 / C_3 / C_2 sectors, Mie sphere in 3D
   (`python/tests/test_sector_mesh.py`)
-- [ ] C_nv (mirror planes through the axis halve the orders) and the 3D point inversion
-  (det R = −1) as a sector coupling (issue #244)
+- [x] the orders m and n − m share one factorisation (issue #244, in place of C_nv): in reciprocal
+  media the system of order n − m is the transpose of that of order m, solved with the kept
+  factors transposed (`Scattering::solve_transposed`, `CyclicOptions::pair_orders`):
+  ⌊n/2⌋ + 1 factorisations instead of n, no condition on the mesh (2D C_6: 35 % faster, 3D C_4:
+  15 %); mirror planes through the axis would only halve the orders 0 and n/2 once more
+- [ ] the 3D point inversion (x → 2c − x) as a coupling of the two halves of a cut plane
+  (issue #244): a factor 2 only for structures without C_2 or mirror planes; backlog
 - [ ] elasticity: a real-valued solver path (M20 S5c, ADR-0016 §3). The complex assembly with a
   zero imaginary part costs about twice the memory and four times the flops of a real
   factorisation; worth doing only when a measured elasticity solve (e.g. a Voxelspaetzle part)

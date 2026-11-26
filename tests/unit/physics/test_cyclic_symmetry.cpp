@@ -26,10 +26,12 @@
 #include "hpfem/physics/sources.hpp"
 #include "hpfem/pml/pml.hpp"
 
+using hpfem::as_size;
 using hpfem::Complex;
 using hpfem::Index;
 using hpfem::Point;
 using hpfem::Real;
+using hpfem::Vector;
 using hpfem::assembly::ComplexVector;
 using hpfem::fespace::NedelecDofMap;
 using hpfem::materials::Material;
@@ -88,6 +90,10 @@ void compare(const Mesh<Dim>& full, const Mesh<Dim>& sector, const ScatteringSet
   const CyclicSymmetricScattering<Dim> sym(dofs, setup, symmetry);
   CHECK(sym.num_parts() == expected_parts);
   CHECK(sym.num_images() == symmetry.order);
+  if (expected_parts == symmetry.order) {
+    // reciprocal media: the orders m and n - m share one factorisation
+    CHECK(sym.num_factorisations() == symmetry.order / 2 + 1);
+  }
   const auto solution = sym.solve();
 
   const hpfem::mesh::PointLocator<Dim> full_locator(full);
@@ -285,6 +291,73 @@ TEST_CASE("2D: one sector reproduces the full domain (C_4 with PML, C_6 cavity)"
   }
 }
 
+TEST_CASE("cyclic symmetry: the orders m and n - m share one factorisation (reciprocal media)",
+          "[physics][cyclic]") {
+  const Real k = 6.0;
+  const Mesh<2> full = hpfem::mesh::polar_disc(
+      6, 2, {0.25, 0.75, 1.25}, {kInclusion, hpfem::mesh::kNoTag, hpfem::mesh::kNoTag});
+  Mesh<2> sector = hpfem::mesh::extract<2>(full, [](const Point<2>& c) {
+    const Real t = std::atan2(c(1), c(0));
+    return t > 0 && t < std::numbers::pi / 3;
+  });
+  const CyclicSymmetry<2> sym{6, Point<2>::Zero(), Point<3>::UnitZ(), kMaster, kSlave};
+  hpfem::physics::tag_sector_sides<2>(sector, sym, Point<2>(1.0, 0.0));
+  const NedelecDofMap<2> dofs(sector, 2);
+  ScatteringSetup<2> s;
+  s.omega = k * hpfem::constants::c0;
+  s.incident = oblique_wave_2d(k);
+  s.formulation = Formulation::kScatteredField;
+  s.pml = hpfem::pml::RadialPml<2>(Point<2>::Zero(), 0.75, 0.5, k, 1.0, PmlProfile{2, 1e-3});
+  s.pec_tags = {hpfem::mesh::kDiscBoundary};
+  hpfem::physics::CyclicOptions separate;
+  separate.pair_orders = false;
+
+  // paired and separate solves agree; a lossy anisotropic but symmetric tensor still pairs
+  hpfem::materials::Tensor3 eps;
+  eps << Complex(2.5, 0.3), Complex(0.4, 0.05), 0.0, Complex(0.4, 0.05), Complex(2.0, 0.2), 0.0,
+      0.0, 0.0, Complex(3.0, 0.1);
+  s.materials.set(kInclusion, Material::anisotropic(eps));
+  const auto agree = [&](const ScatteringSetup<2>& setup, Index factorisations) {
+    const CyclicSymmetricScattering<2> paired(dofs, setup, sym);
+    const CyclicSymmetricScattering<2> single(dofs, setup, sym, separate);
+    REQUIRE(paired.num_parts() == 6);
+    CHECK(paired.num_factorisations() == factorisations);
+    CHECK(single.num_factorisations() == 6);
+    const auto a = paired.solve();
+    const auto b = single.solve();
+    for (Index p = 0; p < 6; ++p) {
+      const Vector& x = a.parts[as_size(p)].unknown;
+      CHECK((x - b.parts[as_size(p)].unknown).norm() <= 1e-10 * x.norm());
+      CHECK(a.parts[as_size(p)].factorisation == nullptr);  // released after the partner
+    }
+    return paired;
+  };
+  const auto paired = agree(s, 4);
+  for (Index p = 0; p < 6; ++p) {
+    const int m = paired.order(p);
+    const Index q = paired.partner(p);
+    CHECK(q == (m > 3 ? 6 - m : -1));
+    if (q >= 0) CHECK(paired.order(q) == 6 - m);
+  }
+
+  // the factors are kept on request (the paired parts hold none)
+  auto keep = s;
+  keep.keep_factorisation = true;
+  const CyclicSymmetricScattering<2> kept(dofs, keep, sym);
+  const auto solution = kept.solve();
+  for (Index p = 0; p < 6; ++p) {
+    CHECK((solution.parts[as_size(p)].factorisation != nullptr) == (kept.partner(p) < 0));
+  }
+
+  // solve_transposed refuses factors that do not belong to the transposed system
+  const auto& part1 = kept.part(1);  // order 1: its own factors are not transposed
+  REQUIRE(kept.order(1) == 1);
+  CHECK_THROWS_AS(part1.solve_transposed(*solution.parts[1].factorisation), hpfem::Error);
+  const NedelecDofMap<2> coarse(sector, 1);
+  const Scattering<2> other(coarse, kept.part(5).setup());
+  CHECK_THROWS_AS(other.solve_transposed(*solution.parts[1].factorisation), hpfem::InvalidArgument);
+}
+
 TEST_CASE("3D: one sector reproduces the full ball problem (C_4 about z, C_3 about a diagonal)",
           "[physics][cyclic]") {
   const Real a = 0.5;
@@ -354,9 +427,25 @@ TEST_CASE("cyclic symmetry: orders without excitation are skipped; invalid setup
   {
     const CyclicSymmetricScattering<3> problem(dofs, s, sym);
     CHECK(problem.num_parts() == 1);
+    CHECK(problem.num_factorisations() == 1);
     hpfem::physics::CyclicOptions all;
     all.skip_vanishing = false;
     CHECK(CyclicSymmetricScattering<3>(dofs, s, sym, all).num_parts() == 4);
+  }
+  // an axial Bloch pair: with phase -1 the orders m and n - m still pair, with a complex phase
+  // (not conjugated with the order) each order is factorised
+  {
+    auto bloch = s;
+    bloch.pec_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin, box_tag::kYMax};
+    hpfem::physics::CyclicOptions all;
+    all.skip_vanishing = false;
+    for (const auto& [phase, factorisations] :
+         {std::pair{Complex(-1.0, 0.0), Index{3}}, std::pair{std::polar(1.0, 0.3), Index{4}}}) {
+      bloch.periodic = {{box_tag::kZMin, box_tag::kZMax, Point<3>(0.0, 0.0, 3.0), phase}};
+      const CyclicSymmetricScattering<3> problem(dofs, bloch, sym, all);
+      CHECK(problem.num_parts() == 4);
+      CHECK(problem.num_factorisations() == factorisations);
+    }
   }
   // refusals
   auto bad = s;

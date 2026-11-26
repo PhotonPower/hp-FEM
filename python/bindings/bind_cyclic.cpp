@@ -78,16 +78,19 @@ void bind_cyclic_dim(py::module_& m) {
       "power and far field of the full problem are reconstructed")
       .def(py::init([](const fespace::NedelecDofMap<Dim>& dofs, physics::ScatteringSetup<Dim> setup,
                        const CyclicSymmetry<Dim>& symmetry, bool skip_vanishing,
-                       Real vanishing_tolerance, Real sector_tolerance) {
+                       Real vanishing_tolerance, Real sector_tolerance, bool pair_orders) {
              physics::CyclicOptions options;
              options.skip_vanishing = skip_vanishing;
              options.vanishing_tolerance = vanishing_tolerance;
              options.sector_tolerance = sector_tolerance;
+             options.pair_orders = pair_orders;
              return CyclicSymmetricScattering<Dim>(dofs, std::move(setup), symmetry, options);
            }),
            py::arg("dofs"), py::arg("setup"), py::arg("symmetry"), py::arg("skip_vanishing") = true,
            py::arg("vanishing_tolerance") = 1e-12, py::arg("sector_tolerance") = 1e-9,
-           py::keep_alive<1, 2>())
+           py::arg("pair_orders") = true, py::keep_alive<1, 2>(),
+           "pair_orders: in reciprocal media solve order n - m with the transposed factors of "
+           "order m (one factorisation per pair)")
       .def_property_readonly("dofs", &CyclicSymmetricScattering<Dim>::dofs,
                              py::return_value_policy::reference_internal)
       .def_property_readonly("symmetry", &CyclicSymmetricScattering<Dim>::symmetry)
@@ -95,6 +98,12 @@ void bind_cyclic_dim(py::module_& m) {
                              "n rotated copies of the sector make up the full domain")
       .def_property_readonly("num_parts", &CyclicSymmetricScattering<Dim>::num_parts,
                              "number of azimuthal orders solved")
+      .def_property_readonly("num_factorisations",
+                             &CyclicSymmetricScattering<Dim>::num_factorisations,
+                             "factorisations of solve: the parts minus those that reuse the "
+                             "transposed factors of their partner order n - m")
+      .def("partner", &CyclicSymmetricScattering<Dim>::partner, py::arg("part"),
+           "the part whose factors this part reuses transposed, or -1")
       .def("order", &CyclicSymmetricScattering<Dim>::order, py::arg("part"),
            "azimuthal order m (0 .. n-1) of the part")
       .def("part", &CyclicSymmetricScattering<Dim>::part, py::arg("part"),

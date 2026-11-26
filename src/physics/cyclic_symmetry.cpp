@@ -107,6 +107,17 @@ bool on_side(const mesh::Mesh<Dim>& mesh, Index f, const CyclicSymmetry<Dim>& s,
   });
 }
 
+/// The system of order n − m is the transpose of that of order m if the curl–curl form is
+/// symmetric — the ε tensors are (`Material::anisotropic` refuses gyrotropic media, ADR-0015
+/// §3), μ is a scalar, the PML stretch keeps the symmetry — and the axial Bloch pairs have
+/// real phases (a complex Bloch phase is not conjugated with the order).
+template <int Dim>
+bool reciprocal(const ScatteringSetup<Dim>& setup) {
+  return std::ranges::all_of(setup.periodic, [](const auto& pair) {
+    return std::abs(pair.phase.imag()) <= 1e-14 * std::abs(pair.phase);
+  });
+}
+
 }  // namespace
 
 template <int Dim>
@@ -346,19 +357,57 @@ CyclicSymmetricScattering<Dim>::CyclicSymmetricScattering(const fespace::Nedelec
     }
     candidates.push_back(std::move(cand));
   }
+  std::vector<Candidate*> kept;
   for (auto& cand : candidates) {
     if (options.skip_vanishing && !(cand.size > options.vanishing_tolerance * largest)) continue;
-    orders_.push_back(cand.m);
-    parts_.emplace_back(dofs, std::move(cand.setup));
+    kept.push_back(&cand);
   }
+  // orders m and n − m share one factorisation in reciprocal media: the first of the pair
+  // keeps its factors for the second
+  std::vector<Index> slot(as_size(n), -1);
+  for (std::size_t p = 0; p < kept.size(); ++p) slot[as_size(kept[p]->m)] = static_cast<Index>(p);
+  partner_.assign(kept.size(), -1);
+  if (options.pair_orders && reciprocal(setup_)) {
+    for (std::size_t p = 0; p < kept.size(); ++p) {
+      const int m = kept[p]->m;
+      const Index q = slot[as_size((n - m) % n)];
+      if (q >= 0 && static_cast<std::size_t>(q) < p) {
+        partner_[p] = q;
+        kept[as_size(q)]->setup.keep_factorisation = true;
+      }
+    }
+  }
+  for (Candidate* cand : kept) {
+    orders_.push_back(cand->m);
+    parts_.emplace_back(dofs, std::move(cand->setup));
+  }
+}
+
+template <int Dim>
+Index CyclicSymmetricScattering<Dim>::num_factorisations() const {
+  return static_cast<Index>(std::ranges::count(partner_, Index{-1}));
 }
 
 template <int Dim>
 CyclicSymmetricSolution<Dim> CyclicSymmetricScattering<Dim>::solve() const {
   CyclicSymmetricSolution<Dim> out;
-  for (const auto& part : parts_) {
-    out.parts.push_back(part.solve());
-    for (const auto& [phase, seconds] : out.parts.back().timing) out.timing[phase] += seconds;
+  out.parts.resize(parts_.size());
+  // the second of a pair right after the first, so that one factorisation is held at a time
+  std::vector<Index> second(parts_.size(), -1);
+  for (std::size_t p = 0; p < parts_.size(); ++p) {
+    if (partner_[p] >= 0) second[as_size(partner_[p])] = static_cast<Index>(p);
+  }
+  for (std::size_t p = 0; p < parts_.size(); ++p) {
+    if (partner_[p] >= 0) continue;
+    auto& first = out.parts[p];
+    first = parts_[p].solve();
+    if (const Index r = second[p]; r >= 0) {
+      out.parts[as_size(r)] = parts_[as_size(r)].solve_transposed(*first.factorisation);
+      if (!setup_.keep_factorisation) first.factorisation.reset();
+    }
+  }
+  for (const auto& part : out.parts) {
+    for (const auto& [phase, seconds] : part.timing) out.timing[phase] += seconds;
   }
   return out;
 }
