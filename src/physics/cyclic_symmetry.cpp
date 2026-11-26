@@ -29,6 +29,17 @@ void check_symmetry(const CyclicSymmetry<Dim>& s, const char* where) {
   if constexpr (Dim == 3) {
     if (!(s.axis.norm() > 0)) throw InvalidArgument(fmt::format("{}: zero axis", where));
   }
+  if (s.inversion) {
+    if constexpr (Dim == 2) {
+      throw InvalidArgument(fmt::format(
+          "{}: in 2D the point inversion is the rotation by π; use order 2 without inversion",
+          where));
+    }
+    if (s.order != 2) {
+      throw InvalidArgument(
+          fmt::format("{}: the point inversion has order 2, not {}", where, s.order));
+    }
+  }
 }
 
 /// ω^k = e^{2πik/n}.
@@ -42,14 +53,16 @@ struct Term {
   int j = 0;
   Complex weight;
   Eigen::Matrix<Complex, Dim, Dim> back;  ///< R^{-j}
+  Real det = 1;                           ///< det R^{-j}: the axial vector's extra sign
 };
 
 template <int Dim>
 std::vector<Term<Dim>> projector(const CyclicSymmetry<Dim>& s, int m) {
   std::vector<Term<Dim>> terms;
   for (int j = 0; j < s.order; ++j) {
+    const RealMatrix<Dim> back = s.rotation(j).transpose();
     terms.push_back({j, root_of_unity(-m * j, s.order) / static_cast<Real>(s.order),
-                     s.rotation(j).transpose().template cast<Complex>()});
+                     back.template cast<Complex>(), back.determinant() < 0 ? -1.0 : 1.0});
   }
   return terms;
 }
@@ -107,6 +120,37 @@ bool on_side(const mesh::Mesh<Dim>& mesh, Index f, const CyclicSymmetry<Dim>& s,
   });
 }
 
+/// The halves of the cut plane of a point inversion (3D): the untagged boundary facets on the
+/// plane through the centre with normal `axis`; master if the centroid lies on the side of u (on
+/// the line through the centre orthogonal to u: on the side of axis × u). A facet and its image
+/// have opposite centroids about the centre, so they land on different sides.
+template <int Dim>
+std::array<Index, 2> tag_inversion_halves(mesh::Mesh<Dim>& mesh, const CyclicSymmetry<Dim>& s,
+                                          const Point<Dim>& direction, Real tolerance) {
+  std::array<Index, 2> count{0, 0};
+  if constexpr (Dim == 3) {
+    const Point<3> n = unit_axis(s);
+    const Point<3> u = direction.normalized();
+    const Point<3> w = n.cross(u);
+    const Real tol = tolerance * extent(mesh);
+    for (const Index f : mesh.boundary_facets()) {
+      if (mesh.facet_tag(f) != mesh::kNoTag) continue;
+      const auto& fv = mesh.facet_vertices(f);
+      const bool on_plane = std::ranges::all_of(
+          fv, [&](Index v) { return std::abs((mesh.vertex(v) - s.center).dot(n)) <= tol; });
+      if (!on_plane) continue;
+      Point<3> mid = Point<3>::Zero();
+      for (const Index v : fv) mid += mesh.vertex(v);
+      const Point<3> d = mid / static_cast<Real>(fv.size()) - s.center;
+      const Real a = d.dot(u);
+      const bool master = std::abs(a) > tol ? a > 0 : d.dot(w) > 0;
+      mesh.set_facet_tag(f, master ? s.master : s.slave);
+      ++count[master ? 0 : 1];
+    }
+  }
+  return count;
+}
+
 /// The system of order n − m is the transpose of that of order m if the curl–curl form is
 /// symmetric — the ε tensors are (`Material::anisotropic` refuses gyrotropic media, ADR-0015
 /// §3), μ is a scalar, the PML stretch keeps the symmetry — and the axial Bloch pairs have
@@ -123,6 +167,9 @@ bool reciprocal(const ScatteringSetup<Dim>& setup) {
 template <int Dim>
 Eigen::Matrix<Real, Dim, Dim> CyclicSymmetry<Dim>::rotation(int j) const {
   check_symmetry(*this, "CyclicSymmetry");
+  if (inversion) {
+    return (j % 2 == 0 ? 1.0 : -1.0) * RealMatrix<Dim>::Identity();
+  }
   return assembly::rotation_matrix<Dim>(2.0 * std::numbers::pi * j / order, axis);
 }
 
@@ -148,7 +195,7 @@ IncidentField<Dim> azimuthal_part(const IncidentField<Dim>& field,
       assembly::ComplexCurl<Dim> sum = assembly::ComplexCurl<Dim>::Zero();
       for (const auto& t : terms) {
         if constexpr (Dim == 3) {
-          sum += t.weight * (t.back * f(symmetry.rotate(x, t.j)));
+          sum += (t.weight * t.det) * (t.back * f(symmetry.rotate(x, t.j)));
         } else {
           sum += t.weight * f(symmetry.rotate(x, t.j));  // the scalar curl does not turn
         }
@@ -192,6 +239,7 @@ std::array<Index, 2> tag_sector_sides(mesh::Mesh<Dim>& mesh, const CyclicSymmetr
   if (!(r.norm() > 1e-12 * direction.norm())) {
     throw InvalidArgument("tag_sector_sides: the direction must not be parallel to the axis");
   }
+  if (symmetry.inversion) return tag_inversion_halves(mesh, symmetry, r, tolerance);
   const Point<Dim> u0 = r.normalized();
   const Point<Dim> u1 = symmetry.rotation(1) * u0;
   const Real tol = tolerance * extent(mesh);
@@ -245,55 +293,72 @@ CyclicSymmetricScattering<Dim>::CyclicSymmetricScattering(const fespace::Nedelec
   for (const auto& pair : setup_.periodic) {
     bool along_axis = false;
     if constexpr (Dim == 3) {
-      along_axis = pair.is_translation() &&
+      along_axis = !symmetry_.inversion && pair.is_translation() &&
                    radial(symmetry_, pair.shift).norm() <= 1e-10 * pair.shift.norm();
     }
     if (!along_axis) {
       throw InvalidArgument(
-          fmt::format("{}: the periodic pair ({}, {}) is not a translation along the axis (3D)",
+          fmt::format("{}: the periodic pair ({}, {}) is not a translation along the axis (3D; "
+                      "the inversion takes no periodic pairs)",
                       kWhere, pair.master, pair.slave));
     }
   }
   if (setup_.background) {
     bool normal_axis = false;
-    if constexpr (Dim == 3) normal_axis = radial<3>(symmetry_, Point<3>::UnitZ()).norm() < 1e-12;
+    if constexpr (Dim == 3) {
+      normal_axis = !symmetry_.inversion && radial<3>(symmetry_, Point<3>::UnitZ()).norm() < 1e-12;
+    }
     if (!normal_axis) {
-      throw InvalidArgument(
-          fmt::format("{}: a layered background needs the axis normal to the layers (3D)", kWhere));
+      throw InvalidArgument(fmt::format(
+          "{}: a layered background needs the axis normal to the layers (3D; not with the "
+          "inversion)",
+          kWhere));
     }
   }
 
-  // the master side's direction from its facets, and the mesh within the sector
-  Point<Dim> u = Point<Dim>::Zero();
-  Index count = 0;
-  for (const Index f : mesh.facets_with_tag(symmetry_.master)) {
-    for (const Index v : mesh.facet_vertices(f)) {
-      u += radial(symmetry_, Point<Dim>(mesh.vertex(v) - symmetry_.center));
-    }
-    ++count;
-  }
-  if (count == 0 || mesh.facets_with_tag(symmetry_.slave).empty()) {
+  if (mesh.facets_with_tag(symmetry_.master).empty() ||
+      mesh.facets_with_tag(symmetry_.slave).empty()) {
     throw InvalidArgument(
         fmt::format("{}: no facets carry the side tags {} and {} (tag_sector_sides)", kWhere,
                     symmetry_.master, symmetry_.slave));
   }
-  if (!(u.norm() > tol)) {
-    throw InvalidArgument(fmt::format("{}: the master side lies on the axis", kWhere));
-  }
-  first_side_ = u.normalized();
-  second_side_ = quarter_turn(symmetry_, first_side_);
-  const Real width = 2.0 * std::numbers::pi / n;
-  for (Index v = 0; v < mesh.num_vertices(); ++v) {
-    const Point<Dim> d = radial(symmetry_, Point<Dim>(mesh.vertex(v) - symmetry_.center));
-    const Real r = d.norm();
-    if (r <= tol) continue;
-    Real phi = std::atan2(d.dot(second_side_), d.dot(first_side_));
-    if (phi < -tol / r) phi += 2.0 * std::numbers::pi;
-    if (phi > width + tol / r) {
-      throw InvalidArgument(fmt::format(
-          "{}: vertex {} lies outside the sector of angle 2π/{} from the master side (tag {}); "
-          "mesh one sector (mesh::extract, tag_sector_sides)",
-          kWhere, v, n, symmetry_.master));
+  if (symmetry_.inversion) {
+    // the half-space on the side of the normal
+    const Point<Dim> normal = unit_axis(symmetry_);
+    for (Index v = 0; v < mesh.num_vertices(); ++v) {
+      if ((mesh.vertex(v) - symmetry_.center).dot(normal) < -tol) {
+        throw InvalidArgument(fmt::format(
+            "{}: vertex {} lies behind the cut plane of the inversion (normal `axis`); mesh the "
+            "half domain (mesh::extract, tag_sector_sides)",
+            kWhere, v));
+      }
+    }
+  } else {
+    // the master side's direction from its facets, and the mesh within the sector
+    Point<Dim> u = Point<Dim>::Zero();
+    for (const Index f : mesh.facets_with_tag(symmetry_.master)) {
+      for (const Index v : mesh.facet_vertices(f)) {
+        u += radial(symmetry_, Point<Dim>(mesh.vertex(v) - symmetry_.center));
+      }
+    }
+    if (!(u.norm() > tol)) {
+      throw InvalidArgument(fmt::format("{}: the master side lies on the axis", kWhere));
+    }
+    first_side_ = u.normalized();
+    second_side_ = quarter_turn(symmetry_, first_side_);
+    const Real width = 2.0 * std::numbers::pi / n;
+    for (Index v = 0; v < mesh.num_vertices(); ++v) {
+      const Point<Dim> d = radial(symmetry_, Point<Dim>(mesh.vertex(v) - symmetry_.center));
+      const Real r = d.norm();
+      if (r <= tol) continue;
+      Real phi = std::atan2(d.dot(second_side_), d.dot(first_side_));
+      if (phi < -tol / r) phi += 2.0 * std::numbers::pi;
+      if (phi > width + tol / r) {
+        throw InvalidArgument(fmt::format(
+            "{}: vertex {} lies outside the sector of angle 2π/{} from the master side (tag {}); "
+            "mesh one sector (mesh::extract, tag_sector_sides)",
+            kWhere, v, n, symmetry_.master));
+      }
     }
   }
 
@@ -323,9 +388,9 @@ CyclicSymmetricScattering<Dim>::CyclicSymmetricScattering(const fespace::Nedelec
     if (!setup_.pml->is_invariant(symmetry_.rotation(1), symmetry_.rotate(Point<Dim>::Zero()),
                                   side)) {
       throw InvalidArgument(fmt::format(
-          "{}: the PML on the master side, rotated by 2π/{}, is not the PML on the slave side; "
-          "use a RadialPml centred on the axis (a PmlBox fits only C_2 and C_4 about its centre "
-          "and C_3 about a diagonal of a cube)",
+          "{}: the PML on the master side, mapped by the symmetry (order {}), is not the PML on "
+          "the slave side; use a RadialPml centred on the axis (a PmlBox fits only C_2 and C_4 "
+          "about its centre, C_3 about a diagonal of a cube and the inversion about its centre)",
           kWhere, n));
     }
   }
@@ -344,8 +409,11 @@ CyclicSymmetricScattering<Dim>::CyclicSymmetricScattering(const fespace::Nedelec
     cand.setup.incident = azimuthal_part<Dim>(setup_.incident, symmetry_, m);
     cand.setup.incident_wave = azimuthal_part<Dim>(setup_.incident_wave, symmetry_, m);
     cand.setup.current = azimuthal_part<Dim>(setup_.current, symmetry_, m);
-    cand.setup.periodic.push_back(assembly::cyclic_pair<Dim>(symmetry_.master, symmetry_.slave, n,
-                                                             m, symmetry_.center, symmetry_.axis));
+    cand.setup.periodic.push_back(
+        symmetry_.inversion
+            ? assembly::inversion_pair<Dim>(symmetry_.master, symmetry_.slave, m, symmetry_.center)
+            : assembly::cyclic_pair<Dim>(symmetry_.master, symmetry_.slave, n, m, symmetry_.center,
+                                         symmetry_.axis));
     if (options.skip_vanishing) {
       for (const auto& x : samples) {
         if (cand.setup.incident) {
@@ -414,6 +482,10 @@ CyclicSymmetricSolution<Dim> CyclicSymmetricScattering<Dim>::solve() const {
 
 template <int Dim>
 SectorPoint<Dim> CyclicSymmetricScattering<Dim>::fold(const Point<Dim>& x) const {
+  if (symmetry_.inversion) {
+    if ((x - symmetry_.center).dot(unit_axis(symmetry_)) >= 0) return {x, 0};
+    return {symmetry_.rotate(x, 1), 1};
+  }
   const Point<Dim> d = radial(symmetry_, Point<Dim>(x - symmetry_.center));
   if (!(d.norm() > 0)) return {x, 0};
   Real phi = std::atan2(d.dot(second_side_), d.dot(first_side_));

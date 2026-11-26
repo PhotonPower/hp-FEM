@@ -549,13 +549,40 @@ circles) is $C_n$-symmetric for every divisor $n$ of `sides` and carries a circu
 general structure `hpfem.meshing.sector_mesh` meshes one sector with Gmsh, its sides matching
 under the rotation ([Python guide](../python.md#sector-meshing-for-cyclic-symmetry-hpfemmeshingsector)).
 
+**Point inversion** (3D, `CyclicSymmetry::point_inversion(c, normal, master, slave)`). The
+inversion $Ix = 2c - x$ generates a cyclic group of order 2 as well, $C_i = \{1, I\}$, with
+$R = -I$ and $\det R = -1$: the polar $\mathbf{E}$ maps to $-\mathbf{E}(2c - x)$, its curl (axial)
+to $+\nabla\times\mathbf{E}(2c - x)$, which `azimuthal_part` accounts for with the factor
+$\det R^{-j}$. The orders $m = 0, 1$ are the parts even and odd under the inversion,
+$\mathbf{E}_m(2c - x) = -(-1)^m\,\mathbf{E}_m(x)$, and everything above applies with $n = 2$.
+The reduced domain is the half-space $(x - c)\cdot\text{normal} \ge 0$. The inversion maps the cut
+plane onto itself and swaps its two halves, which become the master and slave side
+(`assembly::inversion_pair(master, slave, m, c)`: rotation $-I$, shift $2c$, phase $(-1)^m$).
+`tag_sector_sides` splits the facets of the cut plane by the sign of their centroid along a
+direction in the plane, so that a facet and its image land on different halves; the dividing
+curve $\Lambda$ follows the edges and is point-symmetric itself. Unlike the sides of a sector,
+the two halves share $\Lambda$, and the map swaps the edges on it in pairs: each is a slave and a
+master at once, and coupling both directions would form a cycle. `bloch_constraints` keeps the
+edge (H1: vertex) with the lower number of each swapped pair free and lets its partner follow;
+the two directions agree because $I^2 = 1$. An edge through $c$ that the inversion turns onto
+itself would need a condition of its own, so $c$ must be a vertex of the mesh, and the facets of
+the two halves must match pairwise (both checked). The inversion is the reduction for a
+structure that has a centre of symmetry but no $C_2$ axis and no mirror plane, e.g. a body of a
+general anisotropic medium with point symmetry; with such an axis or plane the rotation or the
+mirror halves the domain as well. The two orders are factorised separately (each is its own
+partner $n - m$; the real phases $\pm 1$ keep each system complex symmetric), on half the
+unknowns: for the anisotropic ball in a box below at $p = 4$ (57 k unknowns in the full domain)
+132 s instead of 227 s, and the factors held at a time are 2.7 times smaller.
+
 **Restrictions.** The structure's symmetry is not checked. Open problems need a PML with the
 symmetry, which is checked on the sector sides (the layer there, rotated, must be the layer on
 the other side): the `PmlBox` has it for $n = 2$ and $4$ about its centre (and $n = 3$ about a
 body diagonal of a cube), a `pml::RadialPml` centred on the axis for every order
 ([radial layers](pml.md#radial-layers-pmlradialpml)). Bloch directions
 must be translations along the axis (3D; none in 2D), a layered background needs the axis
-normal to the layers (3D; none in 2D), waveguide ports are refused. Mirror planes through the
+normal to the layers (3D; none in 2D), waveguide ports are refused; the inversion takes
+neither Bloch pairs nor a layered background (its PML: a `PmlBox` or a spherical `RadialPml`
+centred on $c$). Mirror planes through the
 axis ($C_{nv}$) are not used beyond the pairing of $m$ and $n - m$ above (they would halve the
 two self-paired orders $0$ and $n/2$ once more, on a half sector).
 
@@ -566,7 +593,12 @@ reproduces the full domain up to round-off: fields at points in every sector, cr
 absorbed power and far field, for $C_4$ (square with a lossy disc, PML, oblique wave) and $C_6$
 (hexagonal PEC cavity with a lossy hexagon, off-axis current) in 2D, and for $C_4$ about $z$ and
 $C_3$ about the body diagonal (ball in a cube, PML, elliptically polarised oblique wave) in 3D. A
-wave along the axis excites only the orders $\pm1$. The Mie cylinder under an oblique wave on the
+wave along the axis excites only the orders $\pm1$. The point inversion on the half of the ball
+of a general anisotropic lossy medium (cut planes $z = 0$ and $x = 0$, oblique wave and an
+off-centre dipole current) reproduces the full domain in the same way; the parity parts of a
+generic field satisfy the constraints of their parity exactly and violate the other's (Nédélec
+and H1, $p = 1, 3$; `tests/unit/assembly/test_periodic_cyclic.cpp`), and a centre that is not a
+vertex is refused. The Mie cylinder under an oblique wave on the
 quarter converges to the series value like the full domain and agrees with it to $10^{-9}$ at
 every order; the same on a $C_6$ sector of `polar_disc` in a circular PML
 (`tests/convergence/mie_cylinder_radial_pml.cpp`).

@@ -109,6 +109,14 @@ void bind_periodic(py::module_& m) {
       "Periodic pair of the cyclic symmetry of order n about the axis through center (3D: "
       "direction axis): slave facets = master facets rotated by 2 pi / n, phase exp(2 pi i m / n)");
   m.def(
+      "inversion_pair",
+      [](mesh::Tag master, mesh::Tag slave, int m_order, const Point<Dim>& center) {
+        return assembly::inversion_pair<Dim>(master, slave, m_order, center);
+      },
+      py::arg("master"), py::arg("slave"), py::arg("m"), py::arg("center") = Point<Dim>::Zero(),
+      "Periodic pair of the point inversion x -> 2 center - x (rotation -I, shift 2 center, "
+      "phase (-1)^m): the two halves of a cut plane through center (3D; 2D: the rotation by pi)");
+  m.def(
       "bloch_phase",
       [](const Point<Dim>& k, const Point<Dim>& shift) {
         return assembly::bloch_phase<Dim>(k, shift);

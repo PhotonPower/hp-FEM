@@ -1,7 +1,8 @@
 """Cyclic symmetry from Python (issue #244 S1+S2): the Mie cylinder under an oblique plane wave
 solved on one quarter (C_4) reproduces the full-domain solution on the same mesh (fields in
 every quadrant, cross-sections, absorbed power, far field); azimuthal parts sum to the field;
-the rotated periodic pair and the hexagon mesh for C_6."""
+the rotated periodic pair and the hexagon mesh for C_6; the point inversion (3D) on the half
+of a ball of a general anisotropic medium."""
 
 import numpy as np
 import pytest
@@ -114,3 +115,43 @@ def test_invalid_setups_are_refused():
     setup.pec_tags = BOX_SIDES + [MASTER]
     with pytest.raises(ValueError):
         hpfem.CyclicSymmetricScattering2D(dofs, setup, sym)
+
+
+def test_point_inversion_halves_an_anisotropic_ball():
+    k = 3.0
+    full = hpfem.box_with_ball(1, 0.5, 1.0, 1.5, 2)
+    half = hpfem.extract(full, lambda c: c[2] > 0)
+    sym = hpfem.CyclicSymmetry3D.point_inversion([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], MASTER, SLAVE)
+    assert sym.inversion and sym.order == 2
+    assert np.allclose(sym.rotation(1), -np.eye(3))
+    master, slave = hpfem.tag_sector_sides(half, sym, [1.0, 0.3, 0.0])
+    assert master == slave > 0
+    eps = np.array([[3.0 + 0.4j, 0.5, -0.3], [0.5, 2.2 + 0.2j, 0.4], [-0.3, 0.4, 4.0 + 0.3j]])
+    setup = hpfem.ScatteringSetup3D()
+    setup.omega = k * hpfem.constants.c0
+    setup.materials.set(2, hpfem.Material.anisotropic(eps))
+    d = np.array([0.3, -0.5, 0.8]) / np.linalg.norm([0.3, -0.5, 0.8])
+    a = np.cross(d, [0.0, 0.0, 1.0])
+    a /= np.linalg.norm(a)
+    setup.incident = hpfem.plane_wave(a + 0.5j * np.cross(d, a), k * d)
+    setup.formulation = hpfem.Formulation.SCATTERED_FIELD
+    setup.pml = hpfem.PmlBox3D.uniform([-1.0] * 3, [1.0] * 3, 0.5, k, 1.0, PROFILE)
+    setup.pec_tags = BOX_SIDES + [hpfem.box_tag.Z_MIN, hpfem.box_tag.Z_MAX]
+    full_problem = hpfem.Scattering3D(hpfem.NedelecDofMap3D(full, 1), setup)
+    full_solution = full_problem.solve()
+    problem = hpfem.CyclicSymmetricScattering3D(hpfem.NedelecDofMap3D(half, 1), setup, sym)
+    assert problem.num_parts == 2 and problem.num_factorisations == 2
+    solution = problem.solve()
+    points = np.array([[0.2, 0.1, 0.3], [-0.3, 0.2, -0.1], [0.7, -0.6, -0.4]])
+    values = problem.field(solution, hpfem.PointLocator3D(half), points)
+    full_locator = hpfem.PointLocator3D(full)
+    expected = np.array([full_problem.total_field(full_solution, full_locator, x) for x in points])
+    assert np.abs(values - expected).max() < 1e-9 * np.abs(expected).max()
+    point, j = problem.fold([-0.3, 0.2, -0.1])
+    assert j == 1 and np.allclose(point, [0.3, -0.2, 0.1])
+    assert problem.absorbed_power(solution) == pytest.approx(
+        hpfem.absorbed_power(full_problem, full_solution), rel=1e-9
+    )
+    pair = hpfem.inversion_pair(MASTER, SLAVE, 1, [0.5, 0.0, -1.0])
+    assert pair.phase == -1 and not pair.is_translation
+    assert np.allclose(pair.rotation, -np.eye(3)) and np.allclose(pair.shift, [1.0, 0.0, -2.0])

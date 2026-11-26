@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <memory>
@@ -476,11 +477,125 @@ Coincident<Dim> coincident_entities(const mesh::Mesh<Dim>& mesh, std::span<const
   return out;
 }
 
-/// Builds the constraints of one component.
+/// DoFs on the slave facets that stay independent: the two sides of an involutive pair (the
+/// halves of the cut plane of a point inversion, @f$ x \mapsto 2c - x @f$) share the entities on
+/// the curve that divides them, and the map swaps these in pairs (it fixes only the centre).
+/// Each such entity is a slave and a master at once; of every swapped pair the entity with the
+/// lower number stays independent and the other one follows it, which breaks the cycle the two
+/// directions would form (they agree: the map is an involution). Entities the map fixes
+/// pointwise (the axis of a rotation) are left to `constrain_fixed`. Translations and the
+/// sectors of a rotation share no swapped entities.
+/// @throws InvalidArgument if a shared entity has no partner, is mapped onto itself (a cut-plane
+///         edge through the centre: the centre must be a vertex), the map is not an involution,
+///         or a component of the pair is not matched.
+template <int Dim, class Counts>
+std::set<Index> swapped_independent(const fespace::EntityDofMap<Dim, Counts>& dofs,
+                                    const PeriodicPair<Dim>& pair,
+                                    const std::vector<Component>& components, Real tol) {
+  std::set<Index> out;
+  if (pair.is_translation()) return out;
+  const auto& mesh = dofs.mesh();
+  const Affine<Dim> map = forward(pair);
+  const Affine<Dim> back = map.inverse();
+  std::set<Index> master_vertices;
+  std::set<Index> slave_vertices;
+  Real diameter = 0;
+  for (const Index f : mesh.facets_with_tag(pair.master)) {
+    for (const Index v : mesh.facet_vertices(f)) master_vertices.insert(v);
+    diameter = std::max(diameter, facet_diameter(mesh, f));
+  }
+  for (const Index f : mesh.facets_with_tag(pair.slave)) {
+    for (const Index v : mesh.facet_vertices(f)) slave_vertices.insert(v);
+  }
+  const Real eps = tol * diameter;
+  std::vector<Index> shared;
+  std::ranges::set_intersection(master_vertices, slave_vertices, std::back_inserter(shared));
+  std::map<Index, Index> partner;  // shared vertex -> the shared vertex the map sends it to
+  bool swapped = false;
+  for (const Index v : shared) {
+    const Point<Dim> x = mesh.vertex(v);
+    if ((map(x) - x).norm() <= eps) {
+      partner[v] = v;
+      continue;
+    }
+    swapped = true;
+    const Point<Dim> y = back(x);
+    const auto w =
+        std::ranges::find_if(shared, [&](Index u) { return (mesh.vertex(u) - y).norm() <= eps; });
+    if (w == shared.end()) {
+      throw InvalidArgument(
+          fmt::format("bloch_constraints: vertex {} lies on both sides of the pair ({}, {}), but "
+                      "its image does not; the two sides must match",
+                      v, pair.master, pair.slave));
+    }
+    partner[v] = *w;
+  }
+  if (!swapped) return out;
+  if (!(pair.rotation * pair.rotation).isIdentity(1e-10)) {
+    throw InvalidArgument(
+        fmt::format("bloch_constraints: the sides of the pair ({}, {}) share entities that the map "
+                    "moves, which is supported only for an involution (a point inversion)",
+                    pair.master, pair.slave));
+  }
+  if (!std::ranges::all_of(components,
+                           [](const Component& c) { return c.kind == Kind::kMatched; })) {
+    throw InvalidArgument(fmt::format(
+        "bloch_constraints: the sides of the pair ({}, {}) share entities that the map swaps "
+        "(the halves of a cut plane); their facets must match pairwise",
+        pair.master, pair.slave));
+  }
+  if constexpr (Counts::kVertexDofs == 1) {
+    for (const auto& [v, w] : partner) {
+      if (v < w) out.insert(dofs.vertex_dof(v));
+    }
+  }
+  if constexpr (Dim == 3) {
+    std::set<Index> master_edges;
+    std::set<Index> slave_edges;
+    for (const auto& [tag, edges] :
+         {std::pair{pair.master, &master_edges}, std::pair{pair.slave, &slave_edges}}) {
+      for (const Index f : mesh.facets_with_tag(tag)) {
+        const auto& fv = mesh.facet_vertices(f);
+        for (const auto& [a, b] :
+             {std::pair{fv[0], fv[1]}, std::pair{fv[1], fv[2]}, std::pair{fv[0], fv[2]}}) {
+          edges->insert(mesh.edge_id(a, b));
+        }
+      }
+    }
+    std::vector<Index> shared_edges;
+    std::ranges::set_intersection(master_edges, slave_edges, std::back_inserter(shared_edges));
+    for (const Index e : shared_edges) {
+      const auto& ev = mesh.edge_vertices(e);
+      const Index a = partner.at(ev[0]);
+      const Index b = partner.at(ev[1]);
+      if (a == ev[0] && b == ev[1]) continue;  // fixed pointwise
+      const Index image = mesh.edge_id(a, b);
+      if (image == e) {
+        throw InvalidArgument(fmt::format(
+            "bloch_constraints: the map of the pair ({}, {}) turns edge {} onto itself; the "
+            "centre of the inversion must be a vertex of the mesh",
+            pair.master, pair.slave, e));
+      }
+      if (image == kInvalidIndex) {
+        throw InvalidArgument(fmt::format(
+            "bloch_constraints: the image of the shared edge {} of the pair ({}, {}) is not an "
+            "edge; the two sides must match",
+            e, pair.master, pair.slave));
+      }
+      if (e < image) {
+        for (const Index d : dofs.edge_dofs(e)) out.insert(d);
+      }
+    }
+  }
+  return out;
+}
+
+/// Builds the constraints of one component; the DoFs in `keep_free` are not constrained
+/// (`swapped_independent`).
 template <int Dim, class Counts>
 void constrain_component(const fespace::EntityDofMap<Dim, Counts>& dofs, const Component& c,
                          const PeriodicPair<Dim>& pair, Real tol, std::map<Index, Terms>& raw,
-                         bool& warned) {
+                         bool& warned, const std::set<Index>& keep_free) {
   const auto& mesh = dofs.mesh();
   const Affine<Dim> to_master = forward(pair).inverse();
   const auto cell_of = [&](Index f) { return mesh.facet_cells(f)[0]; };
@@ -507,7 +622,8 @@ void constrain_component(const fespace::EntityDofMap<Dim, Counts>& dofs, const C
     }
     const std::vector<Index> independent(independent_set.begin(), independent_set.end());
     ShiftedFunction<Dim, Counts> function(dofs, cells, to_master, pair.phase);
-    constrain_set(dofs, function, independent, EntitySet<Dim>::of_facets(mesh, c.slaves), {}, raw);
+    constrain_set(dofs, function, independent, EntitySet<Dim>::of_facets(mesh, c.slaves), keep_free,
+                  raw);
     return;
   }
 
@@ -519,7 +635,7 @@ void constrain_component(const fespace::EntityDofMap<Dim, Counts>& dofs, const C
     std::vector<Index> surplus;
     facet_closure_dofs(dofs, fm, p_keep, kept, surplus);
     ShiftedFunction<Dim, Counts> function(dofs, {cell_of(fm)}, to_master, pair.phase);
-    constrain_set(dofs, function, kept, EntitySet<Dim>::of_facets(mesh, c.slaves), {}, raw);
+    constrain_set(dofs, function, kept, EntitySet<Dim>::of_facets(mesh, c.slaves), keep_free, raw);
     zero_surplus(surplus, kept.front());
     return;
   }
@@ -658,7 +774,10 @@ fespace::Constraints collect(const fespace::EntityDofMap<Dim, Counts>& dofs,
   bool warned = false;
   int matched = 0, nested = 0, unstructured = 0;
   for (const auto& pair : pairs) {
-    for (const Component& c : periodic_components<Dim>(mesh, pair, tolerance)) {
+    const std::vector<Component> components = periodic_components<Dim>(mesh, pair, tolerance);
+    const std::set<Index> keep_free =
+        swapped_independent<Dim, Counts>(dofs, pair, components, tolerance);
+    for (const Component& c : components) {
       switch (c.kind) {
         case Kind::kMatched:
           ++matched;
@@ -669,7 +788,7 @@ fespace::Constraints collect(const fespace::EntityDofMap<Dim, Counts>& dofs,
         default:
           ++nested;
       }
-      constrain_component<Dim, Counts>(dofs, c, pair, tolerance, raw, warned);
+      constrain_component<Dim, Counts>(dofs, c, pair, tolerance, raw, warned, keep_free);
     }
     constrain_fixed<Dim, Counts>(dofs, pair, tolerance, raw);
   }
@@ -778,12 +897,26 @@ PeriodicPair<Dim> cyclic_pair(mesh::Tag master, mesh::Tag slave, int n, int m,
   return pair;
 }
 
+template <int Dim>
+PeriodicPair<Dim> inversion_pair(mesh::Tag master, mesh::Tag slave, int m,
+                                 const Point<Dim>& center) {
+  PeriodicPair<Dim> pair;
+  pair.master = master;
+  pair.slave = slave;
+  pair.rotation = -Eigen::Matrix<Real, Dim, Dim>::Identity();
+  pair.shift = 2.0 * center;
+  pair.phase = (m % 2 == 0) ? Complex{1.0, 0.0} : Complex{-1.0, 0.0};
+  return pair;
+}
+
 template Eigen::Matrix<Real, 2, 2> rotation_matrix<2>(Real, const Point<3>&);
 template Eigen::Matrix<Real, 3, 3> rotation_matrix<3>(Real, const Point<3>&);
 template PeriodicPair<2> cyclic_pair<2>(mesh::Tag, mesh::Tag, int, int, const Point<2>&,
                                         const Point<3>&);
 template PeriodicPair<3> cyclic_pair<3>(mesh::Tag, mesh::Tag, int, int, const Point<3>&,
                                         const Point<3>&);
+template PeriodicPair<2> inversion_pair<2>(mesh::Tag, mesh::Tag, int, const Point<2>&);
+template PeriodicPair<3> inversion_pair<3>(mesh::Tag, mesh::Tag, int, const Point<3>&);
 template class PeriodicLocator<2>;
 template class PeriodicLocator<3>;
 

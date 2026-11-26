@@ -20,7 +20,11 @@
 /// the rotated images of every order. Materials and the layered background must have the symmetry
 /// themselves (not checked); the PML must continue into the rotated sectors, which is checked
 /// on the sector sides (a `pml::PmlBox` has the symmetry only for n = 2 and 4 about its centre,
-/// a `pml::RadialPml` centred on the axis for every n). Convention exp(−iωt).
+/// a `pml::RadialPml` centred on the axis for every n). The point inversion
+/// @f$ x \mapsto 2c - x @f$ in 3D generates a cyclic group of order 2 as well (C_i, R = −I):
+/// `CyclicSymmetry::point_inversion` computes the half domain on one side of a plane through c,
+/// whose two halves are coupled (`assembly::inversion_pair`); the two orders are the parts even
+/// and odd under the inversion. Convention exp(−iωt).
 /// See docs/theory/maxwell.md#cyclic-symmetry-physicscyclic_symmetryhpp.
 
 #include <array>
@@ -46,6 +50,15 @@ namespace hpfem::physics {
 /// (3D: with direction `axis`, right-handed; 2D: counter-clockwise, `axis` unused). The sector
 /// mesh has two sides on half-planes from the axis: `master` (facet tag of the first side) and
 /// `slave` (the facets of the master side rotated by 2π/n).
+///
+/// With `inversion` (3D only, order 2) the generator is the point inversion
+/// @f$ x \mapsto 2c - x @f$ instead (R = −I): the reduced domain is the half-space
+/// @f$ (x - c)\cdot\text{axis} \ge 0 @f$, `axis` is the normal of the cut plane, and the two
+/// sides are the halves of the cut plane that the inversion swaps (`tag_sector_sides`). The mesh
+/// of the cut plane must be symmetric under the inversion and have a vertex at c. A structure
+/// with a C_2 axis or a mirror plane is better reduced by those (they also halve, and combine);
+/// the inversion is the reduction left for a structure with only a centre of symmetry, e.g. a
+/// general anisotropic body that is point-symmetric.
 template <int Dim>
 struct CyclicSymmetry {
   int order = 0;
@@ -53,17 +66,27 @@ struct CyclicSymmetry {
   Point<3> axis = Point<3>::UnitZ();
   mesh::Tag master = mesh::kNoTag;
   mesh::Tag slave = mesh::kNoTag;
+  bool inversion = false;
 
-  /// @f$ R^j @f$, the rotation by 2πj/n.
+  /// The point inversion about `center` (3D), the half domain on the side of the plane through
+  /// `center` that `normal` points to.
+  [[nodiscard]] static CyclicSymmetry point_inversion(const Point<Dim>& center,
+                                                      const Point<3>& normal, mesh::Tag master,
+                                                      mesh::Tag slave) {
+    return {2, center, normal, master, slave, true};
+  }
+
+  /// @f$ R^j @f$, the rotation by 2πj/n (the inversion: @f$ (-I)^j @f$).
   [[nodiscard]] Eigen::Matrix<Real, Dim, Dim> rotation(int j = 1) const;
   /// @f$ A^jx = c + R^j(x - c) @f$.
   [[nodiscard]] Point<Dim> rotate(const Point<Dim>& x, int j = 1) const;
 };
 
-/// Part of order m of a field, @f$ \frac1n\sum_j\omega^{-mj}R^{-j}E(A^jx) @f$ (the curl alike:
-/// a rotation keeps the axial vector's orientation). m is taken modulo n; the parts of
-/// m = 0 … n−1 sum to the field. An empty field gives an empty field.
-/// @throws InvalidArgument for n < 2 or a zero axis.
+/// Part of order m of a field, @f$ \frac1n\sum_j\omega^{-mj}R^{-j}E(A^jx) @f$ (the curl, an
+/// axial vector, with the factor @f$ \det R^{-j} @f$: 1 for a rotation, −1 for an odd power of
+/// the inversion). m is taken modulo n; the parts of m = 0 … n−1 sum to the field. An empty
+/// field gives an empty field. @throws InvalidArgument for n < 2, a zero axis, or an inversion
+/// in 2D or of an order other than 2.
 template <int Dim>
 [[nodiscard]] IncidentField<Dim> azimuthal_part(const IncidentField<Dim>& field,
                                                 const CyclicSymmetry<Dim>& symmetry, int m);
@@ -75,9 +98,12 @@ template <int Dim>
 /// Tags the untagged boundary facets of a sector mesh (e.g. cut from a symmetric mesh with
 /// `mesh::extract`) on its two sides: those on the half-plane from the axis in `direction`
 /// (orthogonal to the axis in 3D) get `symmetry.master`, those on its rotation by 2π/n
-/// `symmetry.slave`. `tolerance` is relative to the mesh extent. Returns the numbers of master
-/// and slave facets. @throws InvalidArgument for a direction along the axis, missing tags or
-/// n < 2.
+/// `symmetry.slave`. For the inversion the untagged facets on the cut plane are split by the
+/// line through the centre orthogonal to `direction` (its part in the plane): `master` if the
+/// facet's centroid lies on the side of `direction` (on the line: on the side of
+/// axis × direction), `slave` otherwise — a facet and its image land on different sides.
+/// `tolerance` is relative to the mesh extent. Returns the numbers of master and slave facets.
+/// @throws InvalidArgument for a direction along the axis, missing tags or n < 2.
 template <int Dim>
 std::array<Index, 2> tag_sector_sides(mesh::Mesh<Dim>& mesh, const CyclicSymmetry<Dim>& symmetry,
                                       const Point<Dim>& direction, Real tolerance = 1e-9);
@@ -122,8 +148,9 @@ class CyclicSymmetricScattering {
  public:
   /// @throws InvalidArgument for n < 2, missing or equal side tags, a side tag among the PEC
   ///         or incident tags, a side without facets, a mesh reaching beyond the sector, Bloch
-  ///         pairs that are not translations along the axis (3D; none in 2D), a layered
-  ///         background with an axis that is not normal to the layers (3D; none in 2D), a PML
+  ///         pairs that are not translations along the axis (3D; none in 2D or with the
+  ///         inversion), a layered background with an axis that is not normal to the layers
+  ///         (3D; none in 2D or with the inversion), a PML
   ///         whose stretch on the master side, rotated, differs from that on the slave side, or
   ///         a setup without incident field and current; NotImplemented with waveguide ports.
   CyclicSymmetricScattering(const fespace::NedelecDofMap<Dim>& dofs, ScatteringSetup<Dim> setup,
@@ -151,7 +178,8 @@ class CyclicSymmetricScattering {
   /// paired parts then hold none).
   [[nodiscard]] CyclicSymmetricSolution<Dim> solve() const;
 
-  /// Rotates x into the sector (points on the axis stay, j = 0).
+  /// Rotates x into the sector (points on the axis stay, j = 0); the inversion maps a point
+  /// behind the cut plane to 2c − x (j = 1).
   [[nodiscard]] SectorPoint<Dim> fold(const Point<Dim>& x) const;
   /// Total / scattered field at a point of the full domain (nothing if its folded point is
   /// outside the sector mesh).

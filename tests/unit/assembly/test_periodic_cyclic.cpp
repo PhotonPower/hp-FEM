@@ -3,9 +3,12 @@
 // constraints exactly (Nédélec and H1, 2D and 3D, on the axis too), the DoFs on the axis vanish
 // unless m = 0, and a scattering problem with a source of order m on the sector reproduces the
 // solution of the full domain on the same mesh (C_6 and C_4 in 2D, C_4 about z and C_3 about
-// the body diagonal in 3D).
+// the body diagonal in 3D). The point inversion (3D, R = −I) couples the two halves of the cut
+// plane, which share the dividing curve: the parity parts satisfy its constraints, one edge of
+// every swapped pair on the curve stays free, and no constraint cycle arises.
 #include <cmath>
 #include <numbers>
+#include <set>
 #include <vector>
 
 #include <Eigen/Geometry>
@@ -20,6 +23,7 @@
 #include "hpfem/mesh/generators.hpp"
 #include "hpfem/mesh/geometry.hpp"
 #include "hpfem/mesh/point_location.hpp"
+#include "hpfem/physics/cyclic_symmetry.hpp"
 #include "hpfem/physics/scattering.hpp"
 
 using hpfem::Complex;
@@ -392,4 +396,94 @@ TEST_CASE("a source of order m on the sector reproduces the full domain (3D)",
                                           Point<3>(0.13, 0.1, 0.07)};
     compare_with_full<3>(full, sector, sym, 1, sides, points);
   }
+}
+
+TEST_CASE("point inversion: the parity parts satisfy the coupling of the cut-plane halves (3D)",
+          "[assembly][periodic][cyclic]") {
+  const Point<3> c = Point<3>::Zero();
+  const Mesh<3> full = hpfem::mesh::box_with_ball(1, 0.5, 1.0, 1.5);
+  for (const auto& normal : {Point<3>(0, 0, 1), Point<3>(-1, 0, 0)}) {
+    Mesh<3> half =
+        hpfem::mesh::extract<3>(full, [&](const Point<3>& x) { return x.dot(normal) > 0; });
+    const auto sym = hpfem::physics::CyclicSymmetry<3>::point_inversion(c, normal, kMaster, kSlave);
+    const auto sides = hpfem::physics::tag_sector_sides<3>(half, sym, Point<3>(0.3, 1.0, 0.2));
+    REQUIRE(sides[0] > 0);
+    CHECK(sides[0] == sides[1]);
+    // parity parts: (1/2)(E(x) + (-1)^k R^-1 E(2c - x)) with R = -I, and for scalars without R
+    const auto vector_part = [&](int k, const Point<3>& x) -> ComplexVector<3> {
+      return 0.5 *
+             (generic_vector<3>(x) - (k % 2 == 0 ? 1.0 : -1.0) * generic_vector<3>(2 * c - x));
+    };
+    const auto scalar_part = [&](int k, const Point<3>& x) {
+      return 0.5 *
+             (generic_scalar<3>(x) + (k % 2 == 0 ? 1.0 : -1.0) * generic_scalar<3>(2 * c - x));
+    };
+    for (const int p : {1, 3}) {
+      const NedelecDofMap<3> nd(half, p);
+      const DofMap<3> h1(half, p);
+      for (int m = 0; m < 2; ++m) {
+        const std::vector<PeriodicPair<3>> pairs{
+            hpfem::assembly::inversion_pair<3>(kMaster, kSlave, m, c)};
+        // a cycle on the dividing curve would throw in the resolution (prolongation)
+        const Constraints c_nd = hpfem::assembly::bloch_constraints<3>(nd, pairs);
+        const Constraints c_h1 = hpfem::assembly::bloch_constraints<3>(h1, pairs);
+        CHECK(c_nd.prolongation().cols() == c_nd.num_free());
+        CHECK(c_h1.prolongation().cols() == c_h1.num_free());
+        for (int k = 0; k < 2; ++k) {
+          const auto e = interpolant<3>(
+              nd, hpfem::assembly::VectorSampler<3>([&](Index, const Point<3>&, const Point<3>& x) {
+                return vector_part(k, x);
+              }));
+          const auto u = interpolant<3>(
+              h1, hpfem::assembly::ScalarSampler<3>([&](Index, const Point<3>&, const Point<3>& x) {
+                return scalar_part(k, x);
+              }));
+          INFO("normal " << normal.transpose() << ", p = " << p << ", parity m = " << m
+                         << ", field of parity " << k);
+          if (k == m) {
+            CHECK(violation(c_nd, e) < 1e-12);
+            CHECK(violation(c_h1, u) < 1e-12);
+          } else {
+            CHECK(violation(c_nd, e) > 1e-3);
+            CHECK(violation(c_h1, u) > 1e-3);
+          }
+        }
+        // the edge DoFs of the cut plane: those of the master half (except the swapped edges on
+        // the dividing curve that follow their partner) stay free, the slave half follows; every
+        // DoF on the plane except the free ones is constrained, so the count matches the
+        // number of DoFs of one half
+        std::set<Index> plane;
+        for (const Tag t : {kMaster, kSlave}) {
+          for (const Index f : half.facets_with_tag(t)) {
+            for (const Index d : nd.facet_dofs(f)) plane.insert(d);
+          }
+        }
+        const auto plane_dofs = static_cast<Index>(plane.size());
+        Index constrained = 0;
+        for (const Index d : plane) constrained += c_nd.is_constrained(d) ? 1 : 0;
+        CHECK(2 * constrained == plane_dofs);
+      }
+    }
+  }
+}
+
+TEST_CASE("point inversion: refused when the centre is not a vertex of the cut plane",
+          "[assembly][periodic][cyclic]") {
+  // 3 x 3 cells across the plane z = 0: the centre is the midpoint of a square diagonal, an
+  // edge the inversion turns onto itself
+  const Mesh<3> full =
+      hpfem::mesh::box(3, 3, 2, Point<3>(-1.5, -1.5, -1.0), Point<3>(1.5, 1.5, 1.0));
+  Mesh<3> half = hpfem::mesh::extract<3>(full, [](const Point<3>& x) { return x(2) > 0; });
+  const auto sym = hpfem::physics::CyclicSymmetry<3>::point_inversion(
+      Point<3>::Zero(), Point<3>::UnitZ(), kMaster, kSlave);
+  hpfem::physics::tag_sector_sides<3>(half, sym, Point<3>(1.0, 0.2, 0.0));
+  const NedelecDofMap<3> nd(half, 1);
+  const std::vector<PeriodicPair<3>> pairs{hpfem::assembly::inversion_pair<3>(kMaster, kSlave, 0)};
+  CHECK_THROWS_AS(hpfem::assembly::bloch_constraints<3>(nd, pairs), hpfem::InvalidArgument);
+  // the pair itself
+  const auto pair = hpfem::assembly::inversion_pair<3>(1, 2, 1, Point<3>(0.5, 0.0, -1.0));
+  CHECK(pair.phase == Complex(-1.0, 0.0));
+  CHECK((pair.rotation * Point<3>(0.5, 0.0, -1.0) + pair.shift - Point<3>(0.5, 0.0, -1.0)).norm() <
+        1e-15);
+  CHECK(pair.rotation.determinant() == -1.0);
 }
