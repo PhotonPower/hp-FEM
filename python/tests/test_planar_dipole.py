@@ -4,6 +4,7 @@ form reflection coefficients, and the rotational covariance of a tilted crystal.
 
 import cmath
 import math
+import warnings
 
 import numpy as np
 import pytest
@@ -500,7 +501,8 @@ def test_guided_pre_pass_runs_for_crystals_without_coupling_along_the_lines(monk
     stack = hpfem.AnisotropicStack(hpfem.Material.dielectric(1.0), [hpfem.Layer(crystal, d)],
                                    glass)  # fmt: skip
     dipole = {"position": (0.05 * UM, 0.32 * UM), "sigma": SIGMA}
-    with pytest.warns(UserWarning) as record:
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
         with pytest.raises(PrePass if prepass else Plan):
             grating.dipole_emission(emitter_cell(d), {4: crystal, 5: glass}, stack, dipole, OMEGA,
                                     order=1, pml={"top": UM, "bottom": UM}, channels=False,

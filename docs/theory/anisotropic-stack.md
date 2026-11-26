@@ -316,8 +316,10 @@ pinches graded on both sides). With a coupling along the lines the pinches lie a
 are not split off (a warning). Without the split the β rule integrates across square-root
 points: on the tilted slab of `benchmarks/m19_crystal_guided_scan.py` (seven pinch points per
 side between 0.07 and 1.68 k0) the error stayed at 2e-3 to 6e-3 and was not monotone in 6, 8
-and 10 β nodes (server runs of 2026-11-10 and 2026-11-18). The validation with the pre-pass is
-pending, and `dipole_emission` warns.
+and 10 β nodes (server runs of 2026-11-10 and 2026-11-18). With the pre-pass and 8 β nodes it
+agrees with the deformed-path reference to $2.1\cdot10^{-3}$ for all moments, $6\cdot10^{-6}$ for
+the x dipole (server runs of 2026-11-21 and 2026-11-24; the β and kx quadratures are not yet
+converged, [validation O](../validation.md#o-dipole-above-a-guiding-crystal-slab-by-array-scanning-m19-s7e-2b)).
 
 **Emission by reciprocity (S7d).** dP/dΩ into the direction r̂ is
 $n k_0^2Z_0|p\cdot\langle E_{pw}\rangle|^2/(32\pi^2)$ with the plane wave incident from r̂ (ADR-0013

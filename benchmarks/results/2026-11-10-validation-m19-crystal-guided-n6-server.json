@@ -1,0 +1,32 @@
+{
+  "benchmark": "M19 S7e-2b dipole above a guiding tilted crystal slab (array scan)",
+  "date": "2026-11-10",
+  "nodes": 6,
+  "kx_nodes": 4,
+  "order": 4,
+  "workers": 4,
+  "samples": 6128,
+  "seconds": 19662.88347274717,
+  "purcell": {
+    "x": {
+      "fem": 1.059805074991388,
+      "reference": 1.0561958953663753,
+      "relative_error": 0.00341714983067698
+    },
+    "y": {
+      "fem": 1.0969272224019113,
+      "reference": 1.0912816674465475,
+      "relative_error": 0.005173325204457679
+    },
+    "z": {
+      "fem": 1.0614500325991012,
+      "reference": 1.0636371612062379,
+      "relative_error": -0.002056273216945792
+    },
+    "moment": {
+      "fem": 1.0719983024481532,
+      "reference": 1.0680729871537549,
+      "relative_error": 0.0036751376934067714
+    }
+  }
+}

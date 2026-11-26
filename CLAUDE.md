@@ -397,12 +397,11 @@ periodic structures, ADR-0013)** is complete: phased array, reciprocity, the arr
 `grating.dipole_emission` with the guided and surface-plasmon poles (validated against the
 layered Sommerfeld integral, the plasmonic film in a server run) and the job-runner task.
 **M18 (layered background for the axisymmetric solver, ADR-0014)** is complete.
-**M19 (optically anisotropic materials, ADR-0015)** is complete except one validation: ε tensors
-in `materials::Material`, the volume, conical and axisymmetric solvers, `physics::AnisotropicStack`
+**M19 (optically anisotropic materials, ADR-0015)** is complete: ε tensors in
+`materials::Material`, the volume, conical and axisymmetric solvers, `physics::AnisotropicStack`
 (Berreman 4×4), mode-resolved orders in crystal half-spaces with the modal transparent boundary,
-`grating.jones` (Jones / Mueller), dipole emitters above crystals and the GUI material editor;
-the guided-mode poles in the array scan of crystal structures (S7e-2b) are implemented but await
-the long validation run (`benchmarks/m19_crystal_guided_scan.py`, server).
+`grating.jones` (Jones / Mueller), dipole emitters above crystals with guided-mode poles
+(validated on a server to 2e-3, `docs/validation.md` O) and the GUI material editor.
 **M20 (linear elasticity with eigenstrain, ADR-0016, issue #213)** is complete (the optional
 real-valued solver path S5c moved to the backlog): `physics::Elasticity<Dim>` on the vector H1 space (plane
 strain, 3D, bodies of revolution), shrinkage / thermal / grid eigenstrains, free bodies, output and
