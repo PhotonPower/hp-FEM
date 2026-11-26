@@ -408,6 +408,11 @@ strain, 3D, bodies of revolution), shrinkage / thermal / grid eigenstrains, free
 the mesh velocity for the optics (`shape_derivative`), the residual estimator in the energy norm
 with hp-adaptivity (`Elasticity::estimate`, `tests/convergence/elasticity_hp_corner.cpp`) and the
 example `examples/printed_block_shrinkage`; theory in `docs/theory/elasticity.md`.
+**M21 (crossed, doubly periodic gratings in 3D, issue #237)** is complete: diffraction orders
+(m, n) on a plane (`physics::diffraction_orders`, `OrderPlane`), `hpfem.crossed` (model, Gmsh unit
+cell with periodic sides, layered background, s and p with one factorisation), the FourierGrating
+import `hpfem.fouriergrating` with `hpfem fg`, the example `examples/crossed_hole_array`
+(docs/validation.md N, against RCWA) and the GUI mode in GUI-hpFEM.
 Open: the items above, the full ring resonator in 3D (backlog, beyond the GPU memory at useful
 accuracy) and the optional MPI item.
 See `docs/roadmap.md`.
