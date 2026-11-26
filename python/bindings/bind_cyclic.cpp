@@ -24,21 +24,28 @@ void bind_cyclic_dim(py::module_& m) {
       m, named("CyclicSymmetry", Dim).c_str(),
       "Cyclic symmetry of order n: rotations by multiples of 2 pi / n about the axis through "
       "center (3D: direction axis, right-handed; 2D: counter-clockwise); master / slave: the "
-      "facet tags of the two sides of the sector mesh (slave = master rotated by 2 pi / n)")
+      "facet tags of the two sides of the sector mesh (slave = master rotated by 2 pi / n). "
+      "With inversion (3D, order 2) the generator is the point inversion x -> 2 center - x: the "
+      "half domain (x - center) . axis >= 0, the sides are the two halves of the cut plane")
       .def(py::init([](int order, const Point<Dim>& center, const Point<3>& axis, mesh::Tag master,
-                       mesh::Tag slave) {
-             return CyclicSymmetry<Dim>{order, center, axis, master, slave};
+                       mesh::Tag slave, bool inversion) {
+             return CyclicSymmetry<Dim>{order, center, axis, master, slave, inversion};
            }),
            py::arg("order"), py::arg("center") = Point<Dim>::Zero(),
            py::arg("axis") = Point<3>::UnitZ(), py::arg("master") = mesh::kNoTag,
-           py::arg("slave") = mesh::kNoTag)
+           py::arg("slave") = mesh::kNoTag, py::arg("inversion") = false)
+      .def_static("point_inversion", &CyclicSymmetry<Dim>::point_inversion, py::arg("center"),
+                  py::arg("normal"), py::arg("master"), py::arg("slave"),
+                  "the point inversion about center (3D, order 2), the half domain on the side "
+                  "of the plane through center that normal points to")
       .def_readwrite("order", &CyclicSymmetry<Dim>::order)
       .def_readwrite("center", &CyclicSymmetry<Dim>::center)
       .def_readwrite("axis", &CyclicSymmetry<Dim>::axis)
       .def_readwrite("master", &CyclicSymmetry<Dim>::master)
       .def_readwrite("slave", &CyclicSymmetry<Dim>::slave)
+      .def_readwrite("inversion", &CyclicSymmetry<Dim>::inversion)
       .def("rotation", &CyclicSymmetry<Dim>::rotation, py::arg("j") = 1,
-           "R^j, the rotation by 2 pi j / n")
+           "R^j, the rotation by 2 pi j / n ((-I)^j for the inversion)")
       .def("rotate", &CyclicSymmetry<Dim>::rotate, py::arg("x"), py::arg("j") = 1,
            "A^j x = c + R^j (x - c)");
 

@@ -68,6 +68,17 @@ template <int Dim>
                                             const Point<Dim>& center = Point<Dim>::Zero(),
                                             const Point<3>& axis = Point<3>::UnitZ());
 
+/// The pair of a point inversion @f$ x \mapsto 2c - x @f$ (rotation −I, shift 2c) with the
+/// phase @f$ (-1)^m @f$: the field part of parity m satisfies @f$ E(2c - x) = -(-1)^m E(x) @f$
+/// (m even: the polar vector field even under the inversion, P E = E with
+/// @f$ (PE)(x) = -E(2c - x) @f$). In 3D the two sides are the halves of a cut plane through c,
+/// which share the dividing curve; their facets must match and c must be a vertex
+/// (`bloch_constraints` keeps one entity of each swapped pair on that curve free). In 2D the
+/// inversion is the rotation by π (`cyclic_pair` with n = 2).
+template <int Dim>
+[[nodiscard]] PeriodicPair<Dim> inversion_pair(mesh::Tag master, mesh::Tag slave, int m,
+                                               const Point<Dim>& center = Point<Dim>::Zero());
+
 /// Bloch phase @f$ e^{i k\cdot a} @f$ of the Bloch wave vector k and lattice vector a.
 template <int Dim>
 [[nodiscard]] Complex bloch_phase(const Point<Dim>& k, const Point<Dim>& shift) {
@@ -136,6 +147,8 @@ extern template PeriodicPair<2> cyclic_pair<2>(mesh::Tag, mesh::Tag, int, int, c
                                                const Point<3>&);
 extern template PeriodicPair<3> cyclic_pair<3>(mesh::Tag, mesh::Tag, int, int, const Point<3>&,
                                                const Point<3>&);
+extern template PeriodicPair<2> inversion_pair<2>(mesh::Tag, mesh::Tag, int, const Point<2>&);
+extern template PeriodicPair<3> inversion_pair<3>(mesh::Tag, mesh::Tag, int, const Point<3>&);
 extern template class PeriodicLocator<2>;
 extern template class PeriodicLocator<3>;
 extern template fespace::Constraints bloch_constraints<2>(const fespace::NedelecDofMap<2>&,

@@ -820,8 +820,12 @@ exist (`Scattering<3>` on a `LayerStack<3>` background, Bloch pairs in two direc
   factors transposed (`Scattering::solve_transposed`, `CyclicOptions::pair_orders`):
   ⌊n/2⌋ + 1 factorisations instead of n, no condition on the mesh (2D C_6: 35 % faster, 3D C_4:
   15 %); mirror planes through the axis would only halve the orders 0 and n/2 once more
-- [ ] the 3D point inversion (x → 2c − x) as a coupling of the two halves of a cut plane
-  (issue #244): a factor 2 only for structures without C_2 or mirror planes; backlog
+- [x] the 3D point inversion (x → 2c − x) as a coupling of the two halves of a cut plane
+  (issue #244): `CyclicSymmetry::point_inversion` (order 2, R = −I) on the half domain,
+  `assembly::inversion_pair`; the swapped edges on the dividing curve keep one of each pair free;
+  exact against the full domain for a ball of a general anisotropic medium (no C_2 axis or mirror
+  plane, the case it is meant for); p = 4: 132 s instead of 227 s, factors
+  2.7 times smaller; Python `CyclicSymmetry3D.point_inversion`
 - [ ] elasticity: a real-valued solver path (M20 S5c, ADR-0016 §3). The complex assembly with a
   zero imaginary part costs about twice the memory and four times the flops of a real
   factorisation; worth doing only when a measured elasticity solve (e.g. a Voxelspaetzle part)

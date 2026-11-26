@@ -156,6 +156,11 @@ Discover at runtime:
   problem. Orders m and n - m share one factorisation (transposed solve, reciprocal media):
   `prob.num_factorisations` = n // 2 + 1 for a general excitation (`pair_orders=False` turns it off).
   Low level: `hpfem.cyclic_pair(master, slave, n, m, center, axis)` in `setup.periodic`.
+  Point inversion x -> 2c - x (3D only, no C_2 axis / mirror needed):
+  `sym = hpfem.CyclicSymmetry3D.point_inversion(c, normal, 20, 21)`, mesh the half
+  `(x - c) . normal > 0` of a point-symmetric mesh (vertex at c), `hpfem.tag_sector_sides(half, sym,
+  in_plane_direction)` splits the cut plane, then `CyclicSymmetricScattering3D` as above (2 orders =
+  even / odd parts); low level `hpfem.inversion_pair(master, slave, m, center)`.
   `hpfem.hexagon(n, radius, inner, inner_tag)` is a C_6-symmetric mesh,
   `hpfem.polar_disc(sides, n, radii, tags)` a C_sides-symmetric ring mesh with curved circles (for a
   circular PML; boundary `hpfem.DISC_BOUNDARY`). For real structures mesh ONE sector with Gmsh:

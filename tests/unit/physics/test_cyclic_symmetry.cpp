@@ -3,7 +3,8 @@
 // of the full domain on the same (symmetric) mesh up to round-off: fields everywhere,
 // cross-sections, absorbed power and far field, for C_4 (square with a disc, PML) and C_6
 // (hexagonal cavity) in 2D and C_4 about z and C_3 about the body diagonal in 3D (box with a
-// ball, PML); orders without excitation are not solved.
+// ball, PML); orders without excitation are not solved. The point inversion (3D) halves a
+// structure with only a centre of symmetry (a ball of a general anisotropic medium) the same way.
 #include <cmath>
 #include <functional>
 #include <numbers>
@@ -465,5 +466,87 @@ TEST_CASE("cyclic symmetry: orders without excitation are skipped; invalid setup
   CHECK_THROWS_AS(CyclicSymmetricScattering<3>(dofs, bad, sym), hpfem::InvalidArgument);
   bad = s;
   bad.incident = {};
+  CHECK_THROWS_AS(CyclicSymmetricScattering<3>(dofs, bad, sym), hpfem::InvalidArgument);
+}
+
+TEST_CASE("3D: the point inversion halves a structure with only a centre of symmetry",
+          "[physics][cyclic]") {
+  const Real k = 3.0;
+  const Real hw = 1.0;
+  const Mesh<3> full = hpfem::mesh::box_with_ball(1, 0.5, hw, 1.5, kInclusion);
+  ScatteringSetup<3> s;
+  s.omega = k * hpfem::constants::c0;
+  // a general symmetric lossy tensor: no C_2 axis and no mirror plane left, only the centre
+  hpfem::materials::Tensor3 eps;
+  eps << Complex(3.0, 0.4), Complex(0.5, 0.05), Complex(-0.3, 0.02), Complex(0.5, 0.05),
+      Complex(2.2, 0.2), Complex(0.4, -0.01), Complex(-0.3, 0.02), Complex(0.4, -0.01),
+      Complex(4.0, 0.3);
+  s.materials.set(kInclusion, Material::anisotropic(eps));
+  s.pml = PmlBox<3>::uniform(Point<3>::Constant(-hw), Point<3>::Constant(hw), 0.5, k, 1.0,
+                             PmlProfile{2, 1e-2});
+  s.pec_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin,
+                box_tag::kYMax, box_tag::kZMin, box_tag::kZMax};
+  const std::vector<Point<3>> points = {Point<3>(0.2, 0.1, 0.3),  Point<3>(-0.3, 0.2, -0.1),
+                                        Point<3>(0.7, -0.6, 0.4), Point<3>(-0.8, -0.5, -0.7),
+                                        Point<3>(0.1, -0.9, 0.2), Point<3>(0.15, 0.25, -0.05)};
+  const std::vector<Point<3>> directions = {Point<3>(0.3, 0.4, 0.5), Point<3>(-0.7, 0.1, 0.2),
+                                            Point<3>(0.2, -0.6, -0.8), Point<3>(-0.1, -0.2, 0.9)};
+  SECTION("upper half, oblique plane wave") {
+    s.incident = oblique_wave_3d(k);
+    s.formulation = Formulation::kScatteredField;
+    Mesh<3> half = hpfem::mesh::extract<3>(full, [](const Point<3>& c) { return c(2) > 0; });
+    const auto sym =
+        CyclicSymmetry<3>::point_inversion(Point<3>::Zero(), Point<3>::UnitZ(), kMaster, kSlave);
+    const auto sides = hpfem::physics::tag_sector_sides<3>(half, sym, Point<3>(1.0, 0.3, 0.0));
+    CHECK(sides[0] > 0);
+    CHECK(sides[0] == sides[1]);
+    compare<3>(full, half, s, sym, 1, 2, points, directions);
+  }
+  SECTION("half x < 0, a dipole off the centre (total field)") {
+    s.current = hpfem::physics::gaussian_current<3>(
+        Point<3>(0.3, -0.2, 0.25), ComplexVector<3>(Complex(0.4, 0.1), 1.0, Complex(0.0, -0.6)),
+        0.15, s.omega);
+    s.formulation = Formulation::kTotalField;
+    Mesh<3> half = hpfem::mesh::extract<3>(full, [](const Point<3>& c) { return c(0) < 0; });
+    const auto sym =
+        CyclicSymmetry<3>::point_inversion(Point<3>::Zero(), -Point<3>::UnitX(), kMaster, kSlave);
+    const auto sides = hpfem::physics::tag_sector_sides<3>(half, sym, Point<3>(0.0, 1.0, 0.4));
+    CHECK(sides[0] == sides[1]);
+    compare<3>(full, half, s, sym, 1, 2, points, directions);
+  }
+}
+
+TEST_CASE("point inversion: invalid setups refused", "[physics][cyclic]") {
+  const Mesh<3> full = hpfem::mesh::box_with_ball(1, 0.5, 1.0, 1.5, kInclusion);
+  Mesh<3> half = hpfem::mesh::extract<3>(full, [](const Point<3>& c) { return c(2) > 0; });
+  const auto sym =
+      CyclicSymmetry<3>::point_inversion(Point<3>::Zero(), Point<3>::UnitZ(), kMaster, kSlave);
+  hpfem::physics::tag_sector_sides<3>(half, sym, Point<3>(1.0, 0.0, 0.0));
+  const NedelecDofMap<3> dofs(half, 1);
+  const Real k = 3.0;
+  ScatteringSetup<3> s;
+  s.omega = k * hpfem::constants::c0;
+  s.materials.set(kInclusion, Material{Complex{4.0, 0.5}, Complex{1.0, 0.0}});
+  s.formulation = Formulation::kScatteredField;
+  s.pec_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin,
+                box_tag::kYMax, box_tag::kZMin, box_tag::kZMax};
+  s.incident = oblique_wave_3d(k);
+  CHECK(CyclicSymmetricScattering<3>(dofs, s, sym).num_parts() == 2);
+  // the rotation of the inversion and the folding
+  CHECK((sym.rotation(1) + Eigen::Matrix3d::Identity()).norm() == 0.0);
+  CHECK((sym.rotate(Point<3>(0.2, 0.3, -0.4)) - Point<3>(-0.2, -0.3, 0.4)).norm() < 1e-15);
+  // the wrong side of the plane, a wrong order, 2D, periodic pairs
+  auto flipped = sym;
+  flipped.axis = -Point<3>::UnitZ();
+  CHECK_THROWS_AS(CyclicSymmetricScattering<3>(dofs, s, flipped), hpfem::InvalidArgument);
+  auto third = sym;
+  third.order = 3;
+  CHECK_THROWS_AS(CyclicSymmetricScattering<3>(dofs, s, third), hpfem::InvalidArgument);
+  CHECK_THROWS_AS(
+      (CyclicSymmetry<2>{2, Point<2>::Zero(), Point<3>::UnitZ(), kMaster, kSlave, true}.rotation()),
+      hpfem::InvalidArgument);
+  auto bad = s;
+  bad.pec_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin, box_tag::kYMax};
+  bad.periodic = {{box_tag::kZMin, box_tag::kZMax, Point<3>(0.0, 0.0, 3.0)}};
   CHECK_THROWS_AS(CyclicSymmetricScattering<3>(dofs, bad, sym), hpfem::InvalidArgument);
 }

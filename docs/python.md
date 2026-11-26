@@ -287,6 +287,20 @@ part = hpfem.azimuthal_part(setup.incident, sym, 1)                 # one order 
 pair = hpfem.cyclic_pair(20, 21, 6, 1)                              # the coupling itself
 ```
 
+The point inversion $x \mapsto 2c - x$ (3D) is the cyclic symmetry of order 2 with $R = -I$:
+the half domain on one side of a plane through $c$, the two halves of the cut plane as the
+sides. It halves a structure that has a centre of symmetry but no $C_2$ axis or mirror plane.
+The cut plane must be meshed point-symmetrically with a vertex at $c$ (checked); a `PmlBox`
+centred on $c$ has the symmetry.
+
+```python
+half = hpfem.extract(full, lambda c: c[2] > 0)                      # full: point-symmetric mesh
+sym = hpfem.CyclicSymmetry3D.point_inversion([0, 0, 0], [0, 0, 1], 20, 21)  # centre, normal
+hpfem.tag_sector_sides(half, sym, [1.0, 0.3, 0.0])                  # split the cut plane
+prob = hpfem.CyclicSymmetricScattering3D(hpfem.NedelecDofMap3D(half, 2), setup, sym)
+pair = hpfem.inversion_pair(20, 21, 1, [0, 0, 0])                   # parity 1, the coupling
+```
+
 The side tags must not be among `pec_tags`; the materials must have the symmetry (not
 checked). An open problem needs a symmetric PML (checked on the sector sides): `PmlBox` serves
 $n = 2$ and $4$ (and $n = 3$ about a body diagonal of a cube), a radial layer centred on the

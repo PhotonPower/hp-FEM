@@ -3,6 +3,19 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
 
 ## [Unreleased]
 ### Added
+- Point inversion x → 2c − x for any excitation (issue #244, 3D): the cyclic symmetry of order 2
+  with R = −I (`CyclicSymmetry::point_inversion(center, normal, master, slave)`) computes the half
+  domain on one side of a plane through c, the two halves of the cut plane coupled by
+  `assembly::inversion_pair` (phase ±1 for the parts even and odd under the inversion); the curl
+  of the projected excitation takes the factor det R. The halves share their dividing curve,
+  whose edges the inversion swaps in pairs: `bloch_constraints` keeps one edge of each pair free
+  (otherwise the constraints would form cycles) and refuses a centre that is not a mesh vertex;
+  `tag_sector_sides` splits the cut plane by facet centroids. For structures with a centre of
+  symmetry but no C_2 axis or mirror plane (e.g. a ball of a general anisotropic medium): exact
+  against the full domain (fields, cross-sections, absorbed power, far field); a ball in a box,
+  p = 4: 132 s instead of 227 s, the largest factors 2.7 times smaller (71 M instead of 190 M
+  nonzeros in L + U, one order at a time). Python
+  `CyclicSymmetry3D.point_inversion`, `inversion`, `hpfem.inversion_pair`.
 - Cyclic symmetry: the orders m and n − m share one factorisation (issue #244, in place of the
   mirror planes of C_nv). In reciprocal media the system of order n − m on the sector is the
   transpose of that of order m (complex-conjugate cyclic constraints, symmetric curl–curl form
