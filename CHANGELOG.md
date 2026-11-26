@@ -2,6 +2,8 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+
+## [0.6.0] — 2026-11-26
 ### Added
 - Point inversion x → 2c − x for any excitation (issue #244, 3D): the cyclic symmetry of order 2
   with R = −I (`CyclicSymmetry::point_inversion(center, normal, master, slave)`) computes the half
