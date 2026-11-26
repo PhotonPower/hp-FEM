@@ -216,9 +216,21 @@ const materials::Material& Scattering<Dim>::incidence_material() const {
 template <int Dim>
 adaptivity::Estimate Scattering<Dim>::estimate(const ScatteringSolution<Dim>& solution,
                                                const adaptivity::EstimatorOptions& options) const {
-  return adaptivity::residual_estimate<Dim>(
+  auto estimate = adaptivity::residual_estimate<Dim>(
       *dofs_, solution.unknown, k0_ * k0_, [this](Index cell) { return form_of_cell(cell); },
       options, setup_.periodic);
+  if (options.pml_weighting && setup_.pml) {
+    const auto& mesh = dofs_->mesh();
+    std::vector<Real> weights(as_size(mesh.num_cells()), 1.0);
+    for (Index c = 0; c < mesh.num_cells(); ++c) {
+      const Point<Dim> x = mesh::affine_map(mesh, c).centroid();
+      if (!setup_.pml->in_layer(x)) continue;
+      weights[as_size(c)] =
+          pml::attenuation(*setup_.pml, x, k0_ * materials::max_real_index(material(c)));
+    }
+    adaptivity::scale_indicators(estimate, weights);
+  }
+  return estimate;
 }
 
 template <int Dim>

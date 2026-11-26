@@ -199,3 +199,18 @@ TEST_CASE("residual estimator options and argument checks", "[adaptivity]") {
   options.difference_step = 0.0;
   CHECK_THROWS_AS(residual_estimate<2>(dofs, e_h, 1.0, form, options), hpfem::InvalidArgument);
 }
+
+TEST_CASE("scale_indicators weights the indicators and their squared parts", "[adaptivity]") {
+  Estimate estimate;
+  estimate.indicators = {2.0, 3.0};
+  estimate.parts = {{1.0, 1.0, 1.0, 1.0}, {4.0, 2.0, 2.0, 1.0}};
+  const std::vector<Real> weights{1.0, 0.5};
+  hpfem::adaptivity::scale_indicators(estimate, weights);
+  CHECK(estimate.indicators[0] == 2.0);
+  CHECK(estimate.indicators[1] == 1.5);
+  CHECK(estimate.parts[1].element == 1.0);
+  CHECK(estimate.parts[1].sum() == Approx(9.0 * 0.25));
+  const std::vector<Real> wrong{1.0};
+  CHECK_THROWS_AS(hpfem::adaptivity::scale_indicators(estimate, wrong), hpfem::InvalidArgument);
+  CHECK(EstimatorOptions{}.pml_weighting);
+}

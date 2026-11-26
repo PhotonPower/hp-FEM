@@ -230,16 +230,28 @@ void bind_adaptivity_options(py::module_& m) {
   using adaptivity::EstimatorOptions;
   py::class_<EstimatorOptions>(m, "EstimatorOptions")
       .def(py::init([](int extra_order, bool divergence_terms, Real difference_step,
-                       Real length_scale) {
-             return EstimatorOptions{extra_order, divergence_terms, difference_step, length_scale};
+                       Real length_scale, bool pml_weighting) {
+             // by name: the member order differs from the argument order
+             EstimatorOptions options;
+             options.extra_order = extra_order;
+             options.divergence_terms = divergence_terms;
+             options.difference_step = difference_step;
+             options.length_scale = length_scale;
+             options.pml_weighting = pml_weighting;
+             return options;
            }),
            py::arg("extra_order") = 2, py::arg("divergence_terms") = true,
-           py::arg("difference_step") = 1e-4, py::arg("length_scale") = 0.0)
+           py::arg("difference_step") = 1e-4, py::arg("length_scale") = 0.0,
+           py::arg("pml_weighting") = true)
       .def_readwrite("extra_order", &EstimatorOptions::extra_order)
       .def_readwrite("divergence_terms", &EstimatorOptions::divergence_terms)
       .def_readwrite("difference_step", &EstimatorOptions::difference_step)
       .def_readwrite("length_scale", &EstimatorOptions::length_scale,
-                     "length scale of the Gauss-law terms, 0 = 1/k");
+                     "length scale of the Gauss-law terms, 0 = 1/k")
+      .def_readwrite("pml_weighting", &EstimatorOptions::pml_weighting,
+                     "weight the indicators of PML cells by the attenuation exp(-k |Im x~|) of an "
+                     "outgoing wave from the start of the layer (issue #243); False: the plain "
+                     "residual of the stretched problem");
 }
 
 namespace {

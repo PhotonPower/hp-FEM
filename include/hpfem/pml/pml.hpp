@@ -11,6 +11,7 @@
 /// the assembly changes. Theory and profile: docs/theory/pml.md.
 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -331,6 +332,17 @@ template <int Dim>
 template <int Dim>
 [[nodiscard]] std::optional<BackwardWave<Dim>> backward_wave_along(
     const assembly::PermittivityTensor<Dim>& eps, const Point<Dim>& direction, int samples = 2048);
+
+/// Amplitude factor @f$ e^{-k\,|\mathrm{Im}\,\tilde x|} @f$ that an outgoing wave of
+/// wavenumber k [1/m] picks up on its way from the inner boundary of the layers to x (1 outside
+/// the layers; `Layer` is a `PmlBox`, `RadialPml` or `Pml`). A discretisation error at x acts
+/// on the interior only through waves that come back through the layer, damped by this factor
+/// at least once: the weight of the residual indicators of the layer cells
+/// (`adaptivity::EstimatorOptions::pml_weighting`, issue #243).
+template <class Layer, int Dim>
+[[nodiscard]] Real attenuation(const Layer& layer, const Point<Dim>& x, Real wavenumber) {
+  return std::exp(-wavenumber * layer.stretched_coordinate(x).imag().norm());
+}
 
 extern template class PmlBox<2>;
 extern template class PmlBox<3>;

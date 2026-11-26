@@ -124,3 +124,35 @@ def test_goal_oriented_estimate_for_a_point_value():
 
     again = hpfem.dwr_estimate(problem, solution, functional)
     assert np.isclose(again.error, goal.error)
+
+
+def test_estimator_options_and_the_pml_weighting():
+    # the constructor sets every option by name (it used to swap length_scale and difference_step)
+    options = hpfem.EstimatorOptions()
+    assert options.length_scale == 0.0 and options.difference_step == 1e-4
+    assert options.pml_weighting
+    scaled = hpfem.EstimatorOptions(length_scale=0.5, difference_step=1e-3)
+    assert scaled.length_scale == 0.5 and scaled.difference_step == 1e-3
+    plain = hpfem.EstimatorOptions(pml_weighting=False)
+    assert not plain.pml_weighting
+    # with a PML the layer cells are weighted by the attenuation of an outgoing wave (issue #243)
+    k = 6.0
+    mesh = hpfem.square_with_disc(2, 0.25, 1.0, 2.0, 2)
+    setup = hpfem.ScatteringSetup2D()
+    setup.omega = k * hpfem.constants.c0
+    setup.materials.set(2, hpfem.Material.dielectric(1.5))
+    setup.incident = hpfem.plane_wave([0.0, 1.0], [k, 0.0])
+    setup.formulation = hpfem.Formulation.SCATTERED_FIELD
+    setup.pml = hpfem.PmlBox2D.uniform(
+        [-1.0, -1.0], [1.0, 1.0], 1.0, k, 1.0, hpfem.PmlProfile(2, 1e-10)
+    )
+    t = hpfem.box_tag
+    setup.pec_tags = [t.X_MIN, t.X_MAX, t.Y_MIN, t.Y_MAX]
+    problem = hpfem.Scattering2D(hpfem.NedelecDofMap2D(mesh, 1), setup)
+    solution = problem.solve()
+    weighted = np.asarray(problem.estimate(solution).indicators)
+    unweighted = np.asarray(problem.estimate(solution, plain).indicators)
+    inside = np.max(np.abs(np.asarray(mesh.cell_centroids)), axis=1) <= 1.0
+    assert np.allclose(weighted[inside], unweighted[inside], rtol=1e-12)
+    assert np.all(weighted[~inside] < unweighted[~inside])
+    assert np.sum(weighted[~inside] ** 2) < 0.5 * np.sum(unweighted[~inside] ** 2)
