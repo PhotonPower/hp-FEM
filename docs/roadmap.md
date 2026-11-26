@@ -753,7 +753,7 @@ existing solver stack.
   - S5c (a real-valued solver path) moved to the backlog on 20 November 2026: no measurement
     asks for it (issue #213)
 
-## M21 — Crossed (doubly periodic) gratings in 3D
+## M21 — Crossed (doubly periodic) gratings in 3D ✅
 Request of 23 November 2026 (issue #237): compute models of FourierGrating (RCWA, doubly
 periodic) with hpfem and compare them order by order, e.g. a hole array in a glass layer on glass
 (period 0.5 µm in x and z, hole radius 0.125 µm, layer 0.150 µm, λ = 0.405 µm). The solver parts
@@ -786,10 +786,14 @@ exist (`Scattering<3>` on a `LayerStack<3>` background, Bloch pairs in two direc
   (N = 20): diffracted orders within 5e-5 at p = 4, T00 3.4e-4, near fields 5e-3. The project
   format `dim: 3` with a stack moved to the backlog: the FourierGrating file and the Python API
   cover the use case
-- [ ] S4 (GUI-hpFEM, GUI agent): model type “crossed grating” and the FG import; `load_model()`
-  normalises or rejects foreign material formats
+- [x] S4 (GUI-hpFEM, GUI agent): model type “crossed grating” and the FG import; `load_model()`
+  normalises or rejects foreign material formats (GUI-hpFEM #17, #18, issue GUI-hpFEM#16; near
+  field #19): the hole array computed from the GUI against FourierGrating (RCWA N = 20), max.
+  deviation 1.6e-2 / 9.2e-4 / 2.9e-4 at p = 2 / 3 / 4, balance 7e-5 at p = 4
 
 ## Backlog / ideas
+- [ ] crossed gratings in the GUI (M21 S4 follow-up): oblique incidence against FourierGrating,
+  several wavelengths and absorbing layers not yet computed from the GUI
 - [x] mirror symmetry for any excitation (issue #244 S3): `physics::MirrorSymmetricScattering`
   splits the excitation into its parities under up to Dim orthogonal planes (any orientation),
   solves each on the reduced domain with PEC / magnetic walls, skips the parities without
