@@ -449,9 +449,23 @@ ConicalSolution ConicalScattering::solution_from(const Vector& block) const {
 
 adaptivity::Estimate ConicalScattering::estimate(
     const ConicalSolution& solution, const adaptivity::EstimatorOptions& options) const {
-  return adaptivity::conical_residual_estimate(
+  auto estimate = adaptivity::conical_residual_estimate(
       *transverse_, *longitudinal_, solution.transverse, solution.longitudinal, solution.beta,
       k0_ * k0_, [this](Index c) { return form_of_cell(c); }, options, setup_.periodic);
+  if (options.pml_weighting && setup_.pml) {
+    // the layers stretch the cross-section: the transverse wavenumber sqrt(k^2 - beta^2)
+    const auto& mesh = transverse_->mesh();
+    std::vector<Real> weights(as_size(mesh.num_cells()), 1.0);
+    for (Index c = 0; c < mesh.num_cells(); ++c) {
+      const Point<2> x = mesh::affine_map(mesh, c).centroid();
+      if (!setup_.pml->in_layer(x)) continue;
+      const Real k = k0_ * materials::max_real_index(setup_.materials.of_cell(mesh, c));
+      const Real kt = std::sqrt(std::max(k * k - solution.beta * solution.beta, 0.0));
+      weights[as_size(c)] = pml::attenuation(*setup_.pml, x, kt);
+    }
+    adaptivity::scale_indicators(estimate, weights);
+  }
+  return estimate;
 }
 
 ConicalError ConicalScattering::error(

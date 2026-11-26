@@ -96,7 +96,22 @@ All notable changes to this project are documented here (Keep a Changelog, SemVe
   that this case is unvalidated (the warning for a crystal coupling the lines direction stays).
   M19 is complete.
 
+### Changed
+- The residual estimator weights the cells of an absorbing layer by the attenuation
+  exp(−k |Im x̃|) of an outgoing wave from the start of the layer (issue #243,
+  `EstimatorOptions::pml_weighting`, on by default; `Scattering`, `ConicalScattering`,
+  `AxisymmetricScattering`; `pml::attenuation`, `adaptivity::scale_indicators`). Unweighted, a
+  coarsely resolved layer took 60–90 % of η and most new unknowns: the hp loop on the Mie cylinder
+  with R0 = 1e-10 stalled at a scattering-width error of 6e-3 at 38 000 unknowns. Weighted it
+  reaches 3e-4 at 18 000, where uniform p = 3 gives 4.3e-3 at 22 000 (new case in
+  `tests/convergence/mie_cylinder_hp.cpp`). `pml_weighting = false` restores the plain residual of
+  the stretched problem.
+
 ### Fixed
+- Python `EstimatorOptions(...)`: the constructor passed `difference_step` as `length_scale` and
+  vice versa (positional aggregate initialisation against the member order), so
+  `hpfem.EstimatorOptions()` had ℓ = 1e-4 instead of 1/k and a zero difference step; the
+  attributes were right. Now set by name.
 - Bloch-periodic constraints on matched 3D meshes: the two triangles of a square face share
   their bounding box, so every matched pair of faces was grouped with its neighbour and went
   through the interpolation fallback for non-matching facets (correct but slower, with the

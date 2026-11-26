@@ -450,3 +450,30 @@ TEST_CASE("backward_wave_along: the stability check in a rotated frame", "[pml]"
   CHECK_THROWS_AS(hpfem::pml::backward_wave_along<2>(eps, Point<2>::Zero()),
                   hpfem::InvalidArgument);
 }
+
+TEST_CASE("pml::attenuation: one inside, sqrt(R0) at the far end at normal incidence (#243)",
+          "[pml]") {
+  const Real k0 = 6.0;
+  const Real r0 = 1e-10;
+  const PmlBox<2> box =
+      PmlBox<2>::uniform(Point<2>(-1.0, -1.0), Point<2>(1.0, 1.0), 1.0, k0, 1.0, PmlProfile{2, r0});
+  CHECK(hpfem::pml::attenuation(box, Point<2>(0.3, -0.9), k0) == 1.0);
+  // the wave e^{ik x~} through the whole layer and back loses R0: one way sqrt(R0)
+  CHECK(hpfem::pml::attenuation(box, Point<2>(2.0, 0.2), k0) ==
+        Approx(std::sqrt(r0)).epsilon(1e-9));
+  // monotone in the depth, and the corner damps along both axes
+  Real previous = 1.0;
+  for (const Real x : {1.1, 1.3, 1.6, 1.9}) {
+    const Real w = hpfem::pml::attenuation(box, Point<2>(x, 0.0), k0);
+    CHECK(w < previous);
+    CHECK(hpfem::pml::attenuation(box, Point<2>(x, x), k0) < w);
+    previous = w;
+  }
+  // a radial layer and the variant: the same factor along the radius
+  const hpfem::pml::RadialPml<2> radial(Point<2>::Zero(), 1.0, 1.0, k0, 1.0, PmlProfile{2, r0});
+  CHECK(hpfem::pml::attenuation(radial, Point<2>(0.0, 2.0), k0) ==
+        Approx(std::sqrt(r0)).epsilon(1e-9));
+  const hpfem::pml::Pml<2> any(box);
+  CHECK(hpfem::pml::attenuation(any, Point<2>(1.5, 0.0), k0) ==
+        Approx(hpfem::pml::attenuation(box, Point<2>(1.5, 0.0), k0)));
+}

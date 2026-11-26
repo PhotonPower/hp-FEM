@@ -11,13 +11,14 @@
 // error grew; refined cells far from the origin then failed in
 // QuadraticGeometry::to_reference, whose tolerance was below the rounding of the coordinates.
 //
-// PML: R0 = 1e-6 stretches less than the R0 = 1e-10 of mie_cylinder.cpp (|k s| h = 3.8
-// instead of 6.2 on the coarse layer cells at p = 1, limit 0.75). The residual estimator measures
-// the error in the norm of the stretched problem and puts most of eta into the layer either
-// way; with R0 = 1e-10 the loop spends most unknowns there and the error of the scattering
-// width stalls near 6e-3 at 38 000 unknowns, while uniform p on the same mesh gives 4e-3 at
-// 22 000 and < 1e-4 at 37 000 (follow-up: weighting of the PML cells for quantities of the
-// physical domain).
+// PML (issue #243): the residual of the stretched problem is large in coarse layer cells
+// (|k s| h = 6.2 at R0 = 1e-10, 3.8 at R0 = 1e-6, limit 0.75 at p = 1), although their error
+// reaches the physical domain only damped by the layer. Unweighted, 60-90 % of eta lay in the
+// layer and with R0 = 1e-10 the loop spent most unknowns there: the error of the scattering width
+// stalled near 6e-3 at 38 000 unknowns, while uniform p on the same mesh gives 4.3e-3 at 22 000.
+// The estimator now weights the layer cells by the attenuation exp(-k |Im x~|) of an outgoing
+// wave from the start of the layer (EstimatorOptions::pml_weighting, default): the second test
+// case runs the loop with R0 = 1e-10 and requires it to beat uniform p at equal cost.
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -64,12 +65,12 @@ constexpr Real kIndex = 1.5;
 constexpr Real kWavenumber = 6.0;
 constexpr Real kHalfWidth = 1.0;
 constexpr Real kPml = 1.0;
-constexpr Real kR0 = 1e-6;  // see above
+constexpr Real kR0 = 1e-6;  // see above; the second test case uses 1e-10
 constexpr hpfem::mesh::Tag kDisc = 2;
 constexpr Real kTheta = 0.5;
 constexpr Index kMaxDofs = 30000;
 
-ScatteringSetup<2> setup() {
+ScatteringSetup<2> setup(Real r0 = kR0) {
   ScatteringSetup<2> s;
   s.omega = kWavenumber * hpfem::constants::c0;
   s.materials.set(kDisc, Material::dielectric(kIndex));
@@ -77,7 +78,7 @@ ScatteringSetup<2> setup() {
       hpfem::physics::plane_wave<2>(ComplexVector<2>(0.0, 1.0), Point<2>(kWavenumber, 0.0));
   s.formulation = Formulation::kScatteredField;
   s.pml = PmlBox<2>::uniform(Point<2>(-kHalfWidth, -kHalfWidth), Point<2>(kHalfWidth, kHalfWidth),
-                             kPml, kWavenumber, 1.0, PmlProfile{2, kR0});
+                             kPml, kWavenumber, 1.0, PmlProfile{2, r0});
   s.pec_tags = {box_tag::kXMin, box_tag::kXMax, box_tag::kYMin, box_tag::kYMax};
   return s;
 }
@@ -144,4 +145,72 @@ TEST_CASE("Mie cylinder: hp-adaptivity on the curved mesh with PML converges (#2
   // the error of the scattering width falls by two orders to the PML floor (~1e-3 at R0 = 1e-6)
   CHECK(steps.back().error < 3e-3);
   CHECK(steps.back().error < 0.02 * steps.front().error);
+}
+
+TEST_CASE("Mie cylinder: with a strong PML the weighted hp loop beats uniform p (#243)",
+          "[convergence][adaptivity][hp][mie]") {
+  constexpr Real kStrong = 1e-10;
+  constexpr Index kBudget = 25000;
+  const Real exact = hpfem::physics::mie_cylinder_scattering_width(kWavenumber, kRadius, kIndex);
+  const Mesh<2> base =
+      hpfem::mesh::square_with_disc(2, kRadius, kHalfWidth, kHalfWidth + kPml, kDisc);
+  const auto width_error = [&](const Mesh<2>& mesh, const Scattering<2>& problem,
+                               const hpfem::physics::ScatteringSolution<2>& solution) {
+    const auto cs = hpfem::physics::cross_sections<2>(problem, solution,
+                                                      Surface<2>::around_cells(mesh, kDisc), 1.0);
+    return std::abs(cs.scattering - exact) / exact;
+  };
+  // uniform p = 3 on the base mesh: 21 696 unknowns
+  const NedelecDofMap<2> uniform_dofs(base, 3);
+  const Scattering<2> uniform(uniform_dofs, setup(kStrong));
+  const Real uniform_error = width_error(base, uniform, uniform.solve());
+
+  // the loop with and without the weighting of the layer cells
+  const auto loop = [&](bool weighting) {
+    AdaptiveMesh<2> adaptive(base);
+    std::vector<int> orders(as_size(adaptive.mesh().num_cells()), 1);
+    std::vector<Real> predicted;
+    hpfem::adaptivity::EstimatorOptions options;
+    options.pml_weighting = weighting;
+    Real best = 1;
+    for (int step = 0; step < 20; ++step) {
+      const Mesh<2> mesh = adaptive.mesh();
+      const NedelecDofMap<2> dofs(mesh, orders);
+      if (dofs.num_dofs() > kBudget) break;
+      const Scattering<2> problem(dofs, setup(kStrong));
+      const auto solution = problem.solve();
+      const Real error = width_error(mesh, problem, solution);
+      best = std::min(best, error);
+      const auto estimate = problem.estimate(solution, options);
+      Real pml = 0;
+      for (Index c = 0; c < mesh.num_cells(); ++c) {
+        const Point<2> x = hpfem::mesh::affine_map(mesh, c).centroid();
+        const Real eta = estimate.indicators[as_size(c)];
+        if (std::max(std::abs(x(0)), std::abs(x(1))) > kHalfWidth) pml += eta * eta;
+      }
+      fmt::print("{:>10} {:>5} {:>8} {:>12.3e} {:>7.1f}%\n", weighting ? "weighted" : "plain", step,
+                 dofs.num_dofs(), error, 100 * pml / (estimate.total() * estimate.total()));
+      const auto marked = hpfem::adaptivity::dorfler_marking(estimate.indicators, kTheta);
+      const auto decision =
+          hpfem::adaptivity::hp_decide_by_prediction(estimate.indicators, predicted, marked);
+      const auto hp =
+          hpfem::adaptivity::hp_refine<2>(adaptive, orders, decision.h_marked, decision.p_marked);
+      predicted = hpfem::adaptivity::predict_indicators(estimate.indicators, orders, hp);
+      orders = hp.orders;
+    }
+    return best;
+  };
+  fmt::print(
+      "\nMie cylinder, PML R0 = {}: uniform p = 3 ({} DoF): rel. err {:.3e}\n{:>10} {:>5} "
+      "{:>8} {:>12} {:>8}\n",
+      kStrong, uniform_dofs.num_dofs(), uniform_error, "estimator", "step", "DoF", "rel. err",
+      "eta PML");
+  const Real weighted = loop(true);
+  const Real plain = loop(false);
+  INFO("uniform p = 3: " << uniform_error << ", weighted loop: " << weighted
+                         << ", plain loop: " << plain);
+  // within the budget of uniform p = 3 the weighted loop is several times more accurate
+  // (measured 3.2e-4 against 4.3e-3); the plain loop stalls in the layer (6e-3)
+  CHECK(weighted < 0.25 * uniform_error);
+  CHECK(weighted < 0.25 * plain);
 }

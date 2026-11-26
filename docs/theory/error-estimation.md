@@ -32,6 +32,31 @@ Complex coefficients: all norms use $|\cdot|^2 = (\cdot)\overline{(\cdot)}$; PML
 the stretched $\tilde\varepsilon, \tilde\mu$ in the residual so the estimator is consistent
 with the equation actually solved there.
 
+**Weighting of the PML cells** (issue #243, `EstimatorOptions::pml_weighting`, on by default).
+The residual of the stretched problem is large in a coarsely resolved layer: the stretched
+coefficients grow to $|s| \approx \hat\sigma_{\max}$, and the decaying field $e^{ik\tilde x}$
+asks for $|k s| h$ below `PmlBox::resolution_limit(p)`, which a layer meshed like the interior
+misses by an order of magnitude for a strong profile. The error made there reaches the physical
+domain only through waves that come back through the layer, damped at least once by the
+attenuation of an outgoing wave from the start of the layer to the cell,
+
+$$
+w_K = e^{-k\,|\mathrm{Im}\,\tilde x(x_K)|},\qquad k = k_0\,n_K,
+$$
+
+at the centroid $x_K$ with the real index $n_K$ of the cell's medium (`pml::attenuation`; for
+the conical solver the transverse wavenumber $\sqrt{k^2 - \beta^2}$). `Scattering`,
+`ConicalScattering` and `AxisymmetricScattering` multiply $\eta_K$ of the layer cells by $w_K$
+(`adaptivity::scale_indicators`). Cells at the start of the layer, where a poor resolution
+reflects back into the interior, keep their full weight; the far end of a layer with
+$R_0 = 10^{-10}$ is weighted by $\sqrt{R_0} = 10^{-5}$ at normal incidence. Unweighted, the
+Mie cylinder with $R_0 = 10^{-10}$ put 60–90 % of $\eta$ into the layer and its hp loop stalled
+at a scattering-width error of $6\cdot10^{-3}$ at 38 000 unknowns; weighted, the layer holds
+20–50 % and the loop reaches $3\cdot10^{-4}$ at 18 000, where uniform $p = 3$ gives
+$4.3\cdot10^{-3}$ at 22 000 (`tests/convergence/mie_cylinder_hp.cpp`). Set
+`pml_weighting = false` for the plain residual of the stretched problem (e.g. to bound the
+error in the stretched norm).
+
 ### Implementation (`adaptivity::residual_estimate`)
 
 The estimator works on the same per-cell forms as the assembler

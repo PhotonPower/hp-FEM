@@ -168,6 +168,24 @@ class WeightSampler {
 
 }  // namespace
 
+void scale_indicators(Estimate& estimate, std::span<const Real> weights) {
+  if (weights.size() != estimate.indicators.size()) {
+    throw InvalidArgument(fmt::format("scale_indicators: {} weights for {} cells", weights.size(),
+                                      estimate.indicators.size()));
+  }
+  for (std::size_t c = 0; c < weights.size(); ++c) {
+    estimate.indicators[c] *= weights[c];
+    if (c < estimate.parts.size()) {
+      auto& part = estimate.parts[c];
+      const Real w2 = weights[c] * weights[c];
+      part.element *= w2;
+      part.divergence *= w2;
+      part.tangential_jump *= w2;
+      part.normal_jump *= w2;
+    }
+  }
+}
+
 Real Estimate::total() const {
   Real sum = 0;
   for (const Real eta : indicators) sum += eta * eta;

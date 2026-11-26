@@ -1477,9 +1477,21 @@ AxisymmetricFarField superpose_far_field(const std::vector<AxisymmetricFarField>
 
 adaptivity::Estimate AxisymmetricScattering::estimate(
     const AxisymmetricScatteredField& field, const adaptivity::EstimatorOptions& options) const {
-  return adaptivity::axisymmetric_residual_estimate(
+  auto estimate = adaptivity::axisymmetric_residual_estimate(
       *meridian_, *azimuthal_, field.meridian, field.azimuthal, setup_.azimuthal_order, k0_ * k0_,
       [this](Index c) { return form_of_cell(c); }, options);
+  if (options.pml_weighting && setup_.pml) {
+    const auto& mesh = meridian_->mesh();
+    std::vector<Real> weights(as_size(mesh.num_cells()), 1.0);
+    for (Index c = 0; c < mesh.num_cells(); ++c) {
+      const Point<2> x = mesh::affine_map(mesh, c).centroid();
+      if (!setup_.pml->in_layer(x)) continue;
+      weights[as_size(c)] = pml::attenuation(
+          *setup_.pml, x, k0_ * materials::max_real_index(setup_.materials.of_cell(mesh, c)));
+    }
+    adaptivity::scale_indicators(estimate, weights);
+  }
+  return estimate;
 }
 
 AxisymmetricError AxisymmetricScattering::error(const AxisymmetricScatteredField& field,

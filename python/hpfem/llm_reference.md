@@ -474,10 +474,10 @@ for step in range(6):
 ```
 Same loop for `ConicalScattering` (both maps get `orders`) and `Elasticity2D/3D` (`estimate(u)`);
 transfer old solutions with `hpfem.prolongate(old_nd, old_coeffs, new_nd, hp.step)`. With a PML
-(e.g. R1 as root mesh) the loop converges too, but the residual estimator measures the error of
-the stretched problem: an under-resolved layer (the "PML is under-resolved" warning) takes most
-of eta and of the new unknowns; resolve the layer (milder `PmlProfile` target, thicker layer) or
-compare with uniform p for quantities of the physical domain.
+(e.g. R1 as root mesh) the loop works as is: the estimator weights PML cells by the attenuation
+exp(-k |Im x~|) of an outgoing wave (default `hpfem.EstimatorOptions(pml_weighting=True)`), so a
+coarse layer no longer swallows eta and the unknowns, also for a strong profile (R0 = 1e-10).
+`pml_weighting=False` = plain residual of the stretched problem.
 
 ### R7 Elasticity: shrinkage of a block bonded at its base (quarter model)
 ```python

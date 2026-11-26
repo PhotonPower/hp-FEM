@@ -1021,11 +1021,14 @@ for step in range(20):
     orders = hp.orders
 ```
 
-With a PML the residual estimator measures the error of the stretched problem: an
-under-resolved layer (the warning "the PML is under-resolved") takes most of the estimate and
-of the new unknowns. Resolve the layer (a milder `PmlProfile` target or a thicker layer) when the
-quantity of interest lives in the physical domain; `tests/convergence/mie_cylinder_hp.cpp` runs
-the loop on the Mie cylinder.
+With a PML the estimator weights the layer cells by the attenuation $e^{-k|\mathrm{Im}\,\tilde x|}$
+of an outgoing wave from the start of the layer (`EstimatorOptions(pml_weighting=True)`, the
+default): their error reaches the physical domain only damped by the layer, so the loop no longer
+spends its unknowns in a coarsely resolved layer, and it beats uniform $p$ also with a strong
+profile (Mie cylinder with $R_0 = 10^{-10}$: $3\cdot10^{-4}$ at 18 000 unknowns against
+$4.3\cdot10^{-3}$ for uniform $p = 3$ at 22 000; `tests/convergence/mie_cylinder_hp.cpp`).
+`pml_weighting=False` gives the plain residual of the stretched problem
+([theory](theory/error-estimation.md#residual-estimator-for-the-curlcurl-problem)).
 
 Other entry points follow the C++ headers one to one: `assemble_h1` / `assemble_maxwell`
 with `ScalarForm2D` / `MaxwellForm2D` callbacks and `solve_direct` or `make_direct_solver`

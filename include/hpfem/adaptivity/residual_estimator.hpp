@@ -48,6 +48,15 @@ struct EstimatorOptions {
   /// derivatives of @f$ w @f$ and @f$ d @f$ inside a cell (both are polynomial in ξ on
   /// affine cells with constant coefficients, so the differences are exact up to rounding).
   Real difference_step = 1e-4;
+  /// Weight the indicators of the cells in an absorbing layer by the attenuation
+  /// @f$ e^{-k|\mathrm{Im}\,\tilde x|} @f$ of an outgoing wave from the start of the layer to
+  /// the cell centroid (`pml::attenuation`, k of the cell's medium), applied by the physics
+  /// problems that own the layer (`Scattering`, `ConicalScattering`, `AxisymmetricScattering`).
+  /// The residual of the stretched problem is large in a coarsely resolved layer although its
+  /// error reaches the physical domain only damped by that factor; unweighted, an adaptive
+  /// loop spends most unknowns in the layer (issue #243). false: the plain residual of the
+  /// stretched problem.
+  bool pml_weighting = true;
 };
 
 /// Squared contributions of the four residual terms of one cell.
@@ -70,6 +79,10 @@ struct Estimate {
   /// Cell with the largest indicator (`kInvalidIndex` if there are none).
   [[nodiscard]] Index argmax() const;
 };
+
+/// Multiplies the indicator of every cell by its weight (the squared parts by its square).
+/// @throws InvalidArgument for a weight list of another length.
+void scale_indicators(Estimate& estimate, std::span<const Real> weights);
 
 /// Indicators of the coefficients `e_h` on `dofs` for the problem given by the per-cell
 /// forms (coefficients μ⁻¹, ε, f, g of `assembly::MaxwellForm`) and the mass coefficient
