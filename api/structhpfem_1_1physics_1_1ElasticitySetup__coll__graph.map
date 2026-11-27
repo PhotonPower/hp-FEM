@@ -1,0 +1,5 @@
+<map id="hpfem::physics::ElasticitySetup&lt; Dim &gt;" name="hpfem::physics::ElasticitySetup&lt; Dim &gt;">
+<area shape="rect" id="Node000001" title="Description of the elasticity problem." alt="" coords="24,93,213,133"/>
+<area shape="rect" id="Node000002" href="$structhpfem_1_1physics_1_1ElasticMaterial.html" title="Isotropic linear&#45;elastic material." alt="" coords="5,5,232,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="121,44,121,93,116,93,116,44"/>
+</map>

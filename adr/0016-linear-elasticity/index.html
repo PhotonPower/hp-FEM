@@ -1,0 +1,1502 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Adaptive hp-FEM suite for nano-optics">
+      
+      
+      
+        <link rel="canonical" href="https://photonpower.github.io/hp-FEM/adr/0016-linear-elasticity/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
+    
+    
+      
+        <title>0016 — Linear elasticity with eigenstrain on a vector H1 space - hp-FEM</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#0016-linear-elasticity-with-eigenstrain-on-a-vector-h1-space" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hp-FEM" class="md-header__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hp-FEM
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              0016 — Linear elasticity with eigenstrain on a vector H1 space
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Dark"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Light"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hp-FEM" class="md-nav__button md-logo" aria-label="hp-FEM" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hp-FEM
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/PhotonPower/hp-FEM" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/maxwell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maxwell equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/nedelec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nédélec elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/quadrature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quadrature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/h1-basis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    H1 basis and DoF map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/scalar-fem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalar FEM pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/hp-adaptivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hp-adaptivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/error-estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/pml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/elasticity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear elasticity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/axisymmetric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Axisymmetric (2.5D)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/materials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Materials and anisotropy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/anisotropic-stack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anisotropic layer stacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llm-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Applications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-formulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Formulation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-space-and-numbering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Space and numbering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-number-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Number type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-boundary-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Boundary conditions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4a-amendment-m20-s2-rigid-body-modes-by-pins-and-a-projection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4a. Amendment (M20 S2): rigid-body modes by pins and a projection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-eigenstrain-and-data-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Eigenstrain and data input
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-locking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Locking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Verification
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-stages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Stages
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternatives considered
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="0016-linear-elasticity-with-eigenstrain-on-a-vector-h1-space">0016 — Linear elasticity with eigenstrain on a vector H1 space</h1>
+<p><strong>Status:</strong> accepted (2026-11-19); §4a amendment (2026-11-19, M20 S2)
+<strong>Date:</strong> 2026-11-19</p>
+<h2 id="context">Context</h2>
+<p>Issue #213 (proposal from Voxelspaetzle, the two-photon printing process model, its decision D4 of
+2026-11-07) asks for the shrinkage of printed polymer parts during development and post-curing: the
+shape error and focal shift of printed micro-optics, observed for example as a changed dispersion of
+a printed spectrometer (Toulouse et al., Light Adv. Manuf. 2 (2021) 2). The model is small-strain
+linear elasticity with an eigenstrain:</p>
+<div class="highlight"><pre><span></span><code>−∇·σ = 0,   σ = C : (ε(u) − ε*),   ε(u) = ½(∇u + ∇uᵀ),   ε* = −s(α) I
+</code></pre></div>
+<ul>
+<li><strong>Shrinkage.</strong> s is the isotropic shrinkage; it follows from the degree of polymerisation α, which
+  Voxelspaetzle delivers as a volume field.</li>
+<li><strong>Material.</strong> C is isotropic, given by (E, ν) per element.</li>
+<li><strong>Boundary conditions.</strong> The part is clamped on the substrate face and traction-free elsewhere.</li>
+<li><strong>Wanted output.</strong> The displacement at the nodes and at surface points.</li>
+<li><strong>Acceptance.</strong> Three references: a free sphere with homogeneous shrinkage (exact u = −s r), a
+  bonded thin plate (analytic), and the patch test.</li>
+</ul>
+<p>Facts from the code (<code>main</code> at <code>115befe</code>):</p>
+<ul>
+<li><strong>Scalar H1 space.</strong> <code>fespace::DofMap&lt;Dim&gt;</code> and <code>H1Basis&lt;Dim&gt;</code> give the hierarchical H1 space with
+  variable order per entity and hanging-node constraints (<code>assembly::hanging_constraints</code>).</li>
+<li>The vertex functions are the P1 hat functions, so a vertex coefficient is the value at the
+    vertex.</li>
+<li><code>assembly::block_constraints</code> combines the constraints of two spaces on a block vector; the
+    axisymmetric solver uses it for its (e | v) block.</li>
+<li><strong>Model problem.</strong> <code>physics::Thermal&lt;Dim&gt;</code> (M9) solves an H1 problem with a per-tag coefficient,
+  Dirichlet data on tagged facets and a load from another field on the same mesh. It is the
+  pattern to follow.</li>
+<li><strong>Linear algebra is complex only.</strong> <code>SparseMatrix</code> is complex, and so are the <code>LinearSolver</code>
+  backends: SparseLU, MUMPS (zmumps) and cuDSS. <code>Symmetry::kComplexSymmetric</code> and <code>kDetect</code> select
+  LDLᵀ in MUMPS and cuDSS. There is no real-valued sparse path.</li>
+<li><strong>Evaluation.</strong> <code>assembly::evaluate_h1</code> evaluates a scalar H1 field at a reference or physical
+  point (point location), and <code>assembly::StaticCondensation</code> eliminates the cell-interior DoFs.</li>
+<li><strong>Shape derivatives.</strong> ADR-0011 describes a geometry change as a mesh velocity V on the geometry
+  nodes: <code>shape_sensitivity(gradient, V) = Σ ∂Q/∂x · V</code>. A displacement field u on the same mesh is
+  exactly such a V.</li>
+<li><strong>Data ports.</strong> <code>hpfem.dataports.RegularGrid</code> is the regular grid of the data ports in µm in the
+  sensor frame.</li>
+</ul>
+<h2 id="decision">Decision</h2>
+<h3 id="1-formulation">1. Formulation</h3>
+<p>The unknown is the displacement u ∈ [H¹(Ω)]^Dim, Dim = 3, or 2 in plane strain. The weak form:</p>
+<div class="highlight"><pre><span></span><code>find u with u = g on Γ_D such that for all v with v = 0 on Γ_D:
+    ∫ C ε(u) : ε(v) dx = ∫ C ε* : ε(v) dx + ∫ f · v dx + ∫_{Γ_N} t · v ds
+</code></pre></div>
+<ul>
+<li><strong>Eigenstrain.</strong> ε* is a general symmetric tensor field. Isotropic shrinkage (−s I) and thermal
+  expansion (α_th ΔT I) are special cases.</li>
+<li><strong>Stiffness.</strong> C is given per cell as the 6×6 Voigt matrix (3×3 in 2D). Isotropic materials enter
+  through (E, ν), with λ = Eν/((1+ν)(1−2ν)) and μ = E/(2(1+ν)). The interface admits anisotropic C
+  later without a change.</li>
+<li><strong>Units.</strong> SI: u in m, E and σ in Pa.</li>
+<li><strong>Theory.</strong> The weak form and the conventions go to <code>docs/theory/elasticity.md</code>.</li>
+</ul>
+<p>Body forces f and tractions t are part of the form from the start. They cost almost nothing, and
+the manufactured-solution test needs f.</p>
+<h3 id="2-space-and-numbering">2. Space and numbering</h3>
+<p>The vector space is <strong>Dim copies of the existing scalar <code>DofMap&lt;Dim&gt;</code></strong>, with the same orders on
+every entity.</p>
+<ul>
+<li><strong>Numbering.</strong> The block vector is component-major: [u_x | u_y | u_z].</li>
+<li><strong>Hanging nodes.</strong> The constraints are the scalar ones, repeated per component through
+  <code>block_constraints</code>.</li>
+<li><strong>Condensation.</strong> Static condensation works per cell on the interior DoFs of all components.</li>
+<li><strong>p-refinement.</strong> It changes all components of a cell together.</li>
+</ul>
+<p>No new basis, no new DoF map, and no new constraint code are needed.</p>
+<h3 id="3-number-type">3. Number type</h3>
+<p>The system is real symmetric positive definite. We <strong>assemble it in <code>Complex</code>, with a zero imaginary
+part</strong>, and solve it with the existing backends under <code>Symmetry::kComplexSymmetric</code>, which selects
+LDLᵀ in MUMPS and cuDSS.</p>
+<ul>
+<li><strong>Why.</strong> The principle "everything is complex" (CLAUDE.md §2) holds. Elasticity uses the whole
+  solver stack as it is: MUMPS, cuDSS, the kept factorisation and the optimisation layer.</li>
+<li><strong>Later uses.</strong> A complex modulus (viscoelastic damping) or time-harmonic elastodynamics (acousto-
+  and opto-mechanics) need no change of type.</li>
+<li><strong>Cost.</strong> Memory doubles and the factorisation takes about 4× the flops of a real LDLᵀ.</li>
+<li><strong>Real path.</strong> A real-valued backend is an optimisation behind <code>LinearSolver</code> (an amendment to
+  ADR-0007). It is added only when a measured problem needs it.</li>
+</ul>
+<h3 id="4-boundary-conditions">4. Boundary conditions</h3>
+<ul>
+<li><strong>Dirichlet per component on tagged facets.</strong> A setup entry gives (facet tag, components, value):</li>
+<li>all components zero clamps the part on the substrate face;</li>
+<li>one component zero on an axis-aligned plane is a symmetry plane, used for the 1/8 sphere and
+    the laterally constrained layer.</li>
+</ul>
+<p>The elimination is the one of <code>Thermal</code>, done per component.
+- <strong>Neumann.</strong> Tractions on tagged facets. Untagged boundaries are traction-free, which is the
+  natural condition.
+- <strong>Free bodies.</strong> The rigid-body modes are removed by <code>remove_rigid_modes</code>: 6 Lagrange multipliers
+  in 3D and 3 in 2D, bordering the system, which fix the mean translation and the mean rotation to
+  zero. The bordered system is symmetric indefinite, and the direct solvers handle it. We choose
+  this over pinning single DoFs because it does not depend on the mesh and leaves the stresses
+  untouched.</p>
+<h3 id="4a-amendment-m20-s2-rigid-body-modes-by-pins-and-a-projection">4a. Amendment (M20 S2): rigid-body modes by pins and a projection</h3>
+<p>§4 asked for Lagrange multipliers. They do not combine cleanly with the static condensation: the
+mean of u over the cells involves the bubble DoFs, which the condensation eliminates. The
+implementation reaches the same result in two steps.</p>
+<ol>
+<li><strong>Pins.</strong> Before the solve, six DoFs in 3D (three in 2D) at three far-apart vertices are set
+   to zero (the 3-2-1 rule). This removes the singular directions.</li>
+<li><strong>Projection.</strong> After the solve, the L2 projection onto the rigid-body modes is subtracted.</li>
+<li>The modes are the translations and the rotations about the centroid of the mesh,
+     interpolated in the space. They are exact on quadratic cells for p ≥ 2.</li>
+<li>The solution then has zero mean translation and rotation, so the result does not depend on
+     the mesh, as with the multipliers.</li>
+</ol>
+<p>The loads must be in equilibrium. <code>solve</code> checks that the load is orthogonal to the modes and
+refuses unbalanced loads. Eigenstrains are always in equilibrium. For a balanced load the pins
+carry no reaction, so there are no stress concentrations. The pins are not on DoFs constrained by
+hanging nodes.</p>
+<h3 id="5-eigenstrain-and-data-input">5. Eigenstrain and data input</h3>
+<p>The eigenstrain enters as a <strong>callable evaluated at the quadrature points</strong>: <code>ε*(x)</code> as a 3×3
+symmetric matrix, or <code>s(x)</code> for isotropic shrinkage. There are three sources:</p>
+<ul>
+<li><strong>Python callables.</strong> Functions and NumPy-vectorised data.</li>
+<li><strong>Data port</strong> (<code>hpfem.dataports</code>). A volume field on a <code>RegularGrid</code>, for example Voxelspaetzle's
+  α or s on voxels, interpolated trilinearly. Points outside the grid raise an error.</li>
+<li><strong>Fields on the same mesh.</strong> A temperature from <code>Thermal</code> gives the thermal strain α_th (T − T₀) I.
+  This is the thermo-mechanical coupling, at no extra cost.</li>
+</ul>
+<p>The map from α to s, the shrinkage law of the resin, belongs to Voxelspaetzle and is not part of
+hp-FEM.</p>
+<h3 id="6-output">6. Output</h3>
+<ul>
+<li><strong>Displacement.</strong> The coefficients, and the vertex values, which are the vertex coefficients of
+  the hierarchical basis.</li>
+<li><strong>Point values.</strong> The displacement at arbitrary points through point location, for example on
+  the surface for the shape error.</li>
+<li><strong>Strain and stress.</strong> ε(u) and σ at points, and the strain energy ½∫ε : C : ε.</li>
+<li><strong>Deformed mesh.</strong> The mesh with its geometry nodes moved by u, for an optical solve on the
+  shrunk part.</li>
+<li><strong>Mesh velocity.</strong> u passed to <code>shape_sensitivity</code> as the ADR-0011 velocity V. This gives the
+  first-order change of an optical quantity caused by the shrinkage without remeshing, for example
+  the focal shift or the phase of a lens.</li>
+</ul>
+<h3 id="7-locking">7. Locking</h3>
+<p>The formulation is purely in displacements. The printed polymers have ν ≈ 0.35–0.45, where the
+hierarchical space with p ≥ 2 does not lock in practice. The setup <strong>warns for ν &gt; 0.45</strong> and
+<strong>refuses ν ≥ 0.5</strong>. A mixed u–p formulation is an alternative (see below) and is not part of this
+decision.</p>
+<h3 id="8-verification">8. Verification</h3>
+<p>These are acceptance criteria. Each is a unit or convergence test as in CLAUDE.md §8.</p>
+<ol>
+<li><strong>Patch test.</strong> Every linear displacement field, with body force 0 and matching tractions, is
+   reproduced to round-off for p ≥ 1, also on meshes with hanging nodes.</li>
+<li><strong>Manufactured solution.</strong> A smooth u with the corresponding f and t. The convergence test
+   requires rate p + 1 in L² and p in the energy norm, for p = 1 … 4 on cubes and triangles.</li>
+<li><strong>Free sphere with homogeneous shrinkage.</strong> The exact field is linear, u = −s r with zero
+   stress. It is reproduced with <code>remove_rigid_modes</code>, and also on the 1/8 sphere with symmetry
+   planes. On curved second-order meshes the geometry error remains, so the test checks against
+   it.</li>
+<li><strong>Laterally constrained layer on a rigid substrate.</strong> The sides are symmetry planes and the base
+   is clamped. The exact 1D solution is u_z = −s z (1 + ν)/(1 − ν), with in-plane stress
+   σ_xx = σ_yy = s E/(1 − ν).</li>
+<li><strong>Bonded finite plate.</strong> The film on a substrate (bimetal / Stoney curvature), compared with
+   Timoshenko's analytic plate solution away from the edges. The tolerance is set by the
+   plate-theory error, and the test is documented as a validation in <code>docs/validation.md</code>.</li>
+</ol>
+<h3 id="9-stages">9. Stages</h3>
+<p>A new milestone <strong>M20 — Linear elasticity (ADR-0016)</strong> in <code>docs/roadmap.md</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S1</td>
+<td>Vector H1 assembly and <code>physics::Elasticity&lt;Dim&gt;</code> (3D and 2D plane strain): Dirichlet per component, tractions, body force. Tests 1 and 2.</td>
+</tr>
+<tr>
+<td>S2</td>
+<td>Eigenstrain fields, the data-port input and <code>remove_rigid_modes</code>. Tests 3 and 4.</td>
+</tr>
+<tr>
+<td>S3</td>
+<td>Output: points, stress, energy, the deformed mesh. Python API (<code>hpfem.Elasticity3D</code> / <code>2D</code>). The bonded plate (test 5). An example: a printed micro-lens or cube shrinking.</td>
+</tr>
+<tr>
+<td>S4</td>
+<td>Coupling to optics: an optical solve on the deformed mesh, and u as the shape velocity (focal shift to first order), checked against the optical solve on the deformed mesh.</td>
+</tr>
+<tr>
+<td>S5 (optional)</td>
+<td>Axisymmetric elasticity (u_r, u_z) for printed lenses, which are often bodies of revolution. A residual estimator and hp-adaptivity for elasticity. A real-valued backend if measured necessary.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li><strong>Little new code.</strong> The space, the constraints, the condensation, the solvers and the point
+  evaluation already exist. The new code is the vector assembly with the C : ε forms, the
+  per-component Dirichlet data, the bordered rigid-mode system, and the outputs.</li>
+<li><strong>A second physics on the same meshes.</strong> Voxelspaetzle can drop its own P1 tetrahedral solver
+  once S2 passes its references. The meshes come from Nurbforge or gmsh, as for the optical
+  problems.</li>
+<li><strong>Memory and time</strong> are about 2–4× those of a real solver at the same size. Target problems
+  (printed parts of 10–100 µm at p = 2–3) are around 10⁵–10⁶ unknowns, so MUMPS or cuDSS is needed
+  at the upper end. This is the main cost of decision 3.</li>
+<li><strong>The optical coupling (S4)</strong> turns shrinkage into optical tolerances directly. The ADR-0011
+  velocity interface needs no change, because u lives on the same geometry nodes.</li>
+<li><strong>Locking</strong> for ν close to 0.5 is not addressed. The checks of §7 make that visible instead of
+  failing silently.</li>
+<li><strong>Small strain only.</strong> Shrinkage of a few percent is within linear elasticity. Large rotations or
+  strains would need a geometrically nonlinear formulation, which is not planned.</li>
+</ul>
+<h2 id="alternatives-considered">Alternatives considered</h2>
+<ul>
+<li><strong>A real-valued assembly and solver path from the start.</strong> It halves memory and cuts the time.
+  But it duplicates the solver interface and the backends (dmumps, real cuDSS), breaks the uniform
+  stack (kept factorisation, <code>hpfem.opt</code>), and contradicts CLAUDE.md §2.4 without a measured need.
+  Deferred to §3 as an opt-in optimisation.</li>
+<li><strong>A dedicated vector H1 basis and DoF map</strong> (interleaved, node-major numbering). Interleaving
+  helps band solvers, but the direct solvers reorder anyway. It would duplicate the hanging-node
+  and p-refinement machinery that the component-major block reuses as it is.</li>
+<li><strong>Pinning DoFs to remove the rigid-body modes.</strong> It is simple, but it depends on the mesh and
+  creates local stress concentrations. The Lagrange multipliers are exact and cost 6 extra rows.</li>
+<li><strong>A mixed u–p (displacement–pressure) formulation</strong> against locking. It is necessary only near
+  ν = 0.5, it needs inf–sup stable pairs and a saddle-point solver, and it is not needed for the
+  target polymers. It can be added later as a separate ADR.</li>
+<li><strong>An external FEM package</strong> (FEniCS, deal.II) called from Python. It brings a second mesh
+  pipeline and a second set of conventions, and loses the coupling to the optical solvers on the
+  same mesh, which is the point of #213 (§6, S4).</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
