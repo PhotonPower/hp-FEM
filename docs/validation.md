@@ -644,6 +644,37 @@ with this stage by the maintainer's decision; the full ring in 3D (stage B) goes
 backlog, and it would need p = 3 on an hp-mesh that is fine only across the cores and in the
 coupling region.
 
+**Stage B, the full ring (addendum 2026-11-27).** The add-drop ring of
+`examples/ring_resonator_3d` (R = 2 µm, gap 200 nm) is mirror-symmetric about x = 0 and y = 0
+besides the mid-plane of the cores, so the launch at port 1 splits into four mirror parities,
+each a one-port problem on a quarter of the half model (magnetic or PEC wall on each plane;
+README of the example). The decomposition is exact: the quarter mesh mirrored into the half
+model gives the same port powers to $3.5\cdot 10^{-12}$. On the production mesh (100 nm cells
+at the cores) a parity has 63.6 k DoFs at p = 2 / 2 and about 150 k at p = 3 / 2, against
+0.55 M for the half model at p = 3 / 2. The p = 2 / 2 scan ran on an 8 GB laptop with SparseLU
+(19 wavelengths, 5–9 min each for the four parities, peak 4.7 GB,
+`benchmarks/results/2026-11-27-validation-ring3d-quarter-p2.json`):
+
+| λ [nm] | through | drop | reflection | add |
+|---|---|---|---|---|
+| 1553.39 | 0.99943 | 0.00052 | 4.5e-5 | 7.1e-6 |
+| 1555.39 | 0.98519 | 0.01427 | 3.5e-4 | 1.9e-4 |
+| 1556.39 | 0.98819 | 0.01139 | 1.4e-4 | 2.7e-4 |
+| 1556.97 | 0.99750 | 0.00235 | 3.3e-5 | 1.1e-4 |
+| 1557.39 | 0.99880 | 0.00105 | 3.3e-5 | 1.1e-4 |
+| 1558.39 | 0.90938 | 0.03551 | 2.8e-2 | 2.7e-2 |
+| 1561.39 | 0.99979 | 0.00018 | 3.8e-5 | 4.0e-7 |
+
+The port powers sum to one to six digits at every wavelength, but there is no clean drop peak
+near the isolated-ring resonance (m = 19 at 1557.39 nm): the drop power rises to a few per cent
+at scattered wavelengths, at 1558.39 nm with 2.8 % back-reflection and as much add power — the
+two senses of circulation coupled by the discretisation, as at p = 1 in the CI case. The pole
+fit lands at 1556.12 nm, outside the refined points, and is flagged as an extrapolation. p = 2
+on 100 nm cells is therefore too coarse for the resonator (the 3D coupler of stage A had a
+phase error of $10^{-2}$ rad per 2 µm at p = 2; the ring accumulates its round trip of
+12.6 µm Q/(2π)-fold). The resonance needs p = 3 / 2 at least, about 12–15 GB with SparseLU per
+parity, which is a server job (issue #210).
+
 ## G. Gold sphere dimer, field in a 1 nm gap (Hoffmann et al. 2009)
 
 **Source.** Hoffmann, Hafner, Leidenberger, Hesselbarth, Burger, "Comparison of
