@@ -10,10 +10,13 @@ Physical groups: volume 1 cladding, 2 silicon; surface 10 the walls, 11 the face
 12 the face x = +X (the solver splits each face at y = 0 into the ports of the two buses),
 15 the symmetry plane z = h/2 of the half model (`half=True`: only z >= h/2 is meshed; the
 cladding is the same above and below, so the TE-like fields are even about the mid-plane of
-the cores and the plane is a magnetic wall).
+the cores and the plane is a magnetic wall), 16 the plane x = 0 and 17 the plane y = 0 of the
+quarter model (`quarter=True`: only x <= 0, y <= 0, i.e. bus A and its port at x = -X; the
+device is mirror-symmetric about both planes, and the solver combines the four parities, each
+a one-port problem with a PEC or magnetic wall on either plane).
 
 Run `python examples/ring_resonator_3d/ring_mesh.py --out ring.msh [--radius um] [--gap nm]
-[--cell-core nm] [--cell-far nm] [--half]`.
+[--cell-core nm] [--cell-far nm] [--half] [--quarter]`.
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ from dataclasses import dataclass
 
 TAG_CLAD, TAG_SI = 1, 2
 TAG_WALL, TAG_LEFT, TAG_RIGHT, TAG_SYMMETRY = 10, 11, 12, 15
+TAG_MIRROR_X, TAG_MIRROR_Y = 16, 17
 
 
 @dataclass
@@ -40,6 +44,7 @@ class Geometry:
     cell_far: float = 300.0  # in the cladding at `grade` from the cores
     grade: float = 600.0
     half: bool = False  # only z >= height / 2, the mid-plane of the cores a magnetic wall
+    quarter: bool = False  # only x <= 0, y <= 0 (the planes x = 0, y = 0: PEC or magnetic)
 
     @property
     def bus_y(self) -> float:
@@ -70,40 +75,50 @@ def build(geometry: Geometry, path: str) -> str:
         gmsh.option.setNumber("General.Terminal", 0)
         gmsh.model.add("ring_resonator_3d")
         occ = gmsh.model.occ
-        box = occ.addBox(-X, -Y, z0, 2 * X, 2 * Y, z1 - z0)
+        x_end, y_end = (0.0, 0.0) if g.quarter else (X, Y)
+        box = occ.addBox(-X, -Y, z0, X + x_end, Y + y_end, z1 - z0)
         hc = g.height - zc
         outer = occ.addCylinder(0, 0, zc, 0, 0, hc, g.radius + g.width / 2)
         inner = occ.addCylinder(0, 0, zc, 0, 0, hc, g.radius - g.width / 2)
         ring, _ = occ.cut([(3, outer)], [(3, inner)])
         buses = [occ.addBox(-X, s * g.bus_y - g.width / 2, zc, 2 * X, g.width, hc) for s in (-1, 1)]
         cores = ring + [(3, b) for b in buses]
+        if g.quarter:  # the quarter of the cores inside the box (bus B drops out)
+            clip = occ.addBox(-X, -Y, z0, X, Y, z1 - z0)
+            cores, _ = occ.intersect(cores, [(3, clip)])
         _, parts = occ.fragment([(3, box)], cores)
         occ.synchronize()
         silicon = sorted({t for part in parts[1:] for _, t in part})
         cladding = sorted({t for _, t in parts[0]} - set(silicon))
-        if len(silicon) != 3 or len(cladding) != 1:
+        if len(silicon) != (2 if g.quarter else 3) or len(cladding) != 1:
             raise RuntimeError(f"ring mesh: {len(silicon)} cores, {len(cladding)} claddings")
         gmsh.model.addPhysicalGroup(3, cladding, TAG_CLAD, "cladding")
         gmsh.model.addPhysicalGroup(3, silicon, TAG_SI, "silicon")
         tol = 1e-3 * g.cell_core
-        left, right, walls, symmetry = [], [], [], []
+        left, right, walls, symmetry, mirror_x, mirror_y = [], [], [], [], [], []
         for dim, tag in gmsh.model.getBoundary(
             [(3, t) for t in cladding + silicon], oriented=False
         ):
             x0, y0, zz0, x1, y1, zz1 = gmsh.model.getBoundingBox(dim, tag)
             if x1 < -X + tol:
                 left.append(tag)
-            elif x0 > X - tol:
-                right.append(tag)
+            elif x0 > x_end - tol:
+                (mirror_x if g.quarter else right).append(tag)
+            elif g.quarter and y0 > y_end - tol:
+                mirror_y.append(tag)
             elif g.half and zz1 < z0 + tol:
                 symmetry.append(tag)
             elif y1 < -Y + tol or y0 > Y - tol or zz1 < z0 + tol or zz0 > z1 - tol:
                 walls.append(tag)
         gmsh.model.addPhysicalGroup(2, walls, TAG_WALL, "wall")
         gmsh.model.addPhysicalGroup(2, left, TAG_LEFT, "port_left")
-        gmsh.model.addPhysicalGroup(2, right, TAG_RIGHT, "port_right")
+        if right:
+            gmsh.model.addPhysicalGroup(2, right, TAG_RIGHT, "port_right")
         if symmetry:
             gmsh.model.addPhysicalGroup(2, symmetry, TAG_SYMMETRY, "symmetry")
+        if mirror_x:
+            gmsh.model.addPhysicalGroup(2, mirror_x, TAG_MIRROR_X, "mirror_x")
+            gmsh.model.addPhysicalGroup(2, mirror_y, TAG_MIRROR_Y, "mirror_y")
 
         core_faces = [
             t for _, t in gmsh.model.getBoundary([(3, t) for t in silicon], oriented=False)
@@ -144,6 +159,7 @@ def main(argv=None) -> int:
     parser.add_argument("--cell-core", type=float, default=100.0, help="[nm]")
     parser.add_argument("--cell-far", type=float, default=300.0, help="[nm]")
     parser.add_argument("--half", action="store_true", help="half model above z = h/2")
+    parser.add_argument("--quarter", action="store_true", help="quarter model x <= 0, y <= 0")
     args = parser.parse_args(argv)
     geometry = Geometry(
         radius=1000 * args.radius,
@@ -151,6 +167,7 @@ def main(argv=None) -> int:
         cell_core=args.cell_core,
         cell_far=args.cell_far,
         half=args.half,
+        quarter=args.quarter,
     )
     build(geometry, args.out)
     print(args.out)

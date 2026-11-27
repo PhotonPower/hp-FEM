@@ -29,6 +29,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ring_mesh import (  # noqa: E402
     TAG_CLAD,
     TAG_LEFT,
+    TAG_MIRROR_X,
+    TAG_MIRROR_Y,
     TAG_RIGHT,
     TAG_SI,
     TAG_SYMMETRY,
@@ -68,13 +70,65 @@ def core_distance(geometry: Geometry, points_nm):
 
 
 def load_mesh(geometry: Geometry, path: str):
-    """Reads the Gmsh mesh and splits the two end faces at y = 0 into the four ports."""
-    mesh = hpfem.read_gmsh(path, NM, 3)
+    """Reads the Gmsh mesh and splits the two end faces at y = 0 into the four ports (the
+    quarter model has only the face of port 1)."""
+    return split_ports(hpfem.read_gmsh(path, NM, 3))
+
+
+def split_ports(mesh):
+    """Tags the facets of the end faces x = -/+X by the bus they belong to (y < 0: bus A)."""
     for face, (below, above) in ((TAG_LEFT, PORT_TAGS[::2]), (TAG_RIGHT, PORT_TAGS[1::2])):
         for f in mesh.facets_with_tag(face):
             y = np.mean([mesh.vertex(int(v))[1] for v in mesh.facet_vertices(int(f))])
             mesh.set_facet_tag(int(f), below if y < 0 else above)
     return mesh
+
+
+def mirror_quarter(quarter):
+    """The half model (four ports) as the images of the quarter mesh under the mirrors about
+    x = 0 and y = 0: a mesh with exactly the symmetry the quarter model assumes, for checking
+    the parity decomposition against the direct solve on the same discretisation. Curved edge
+    nodes are mirrored with the cells; the planes x = 0 and y = 0 become interior."""
+    vertices = np.asarray(quarter.vertices)
+    cells = np.asarray(quarter.cells)
+    tags = np.asarray(quarter.cell_tags)
+    images = [(1, 1), (-1, 1), (1, -1), (-1, -1)]
+    scale = np.max(np.abs(vertices))
+    index, points, maps = {}, [], []
+    for sx, sy in images:  # merge the copies of the vertices on the planes
+        image = vertices * np.array([sx, sy, 1.0])
+        local = np.empty(len(image), dtype=np.int64)
+        for i, x in enumerate(image):
+            key = tuple(np.round(x / scale, 10))
+            if key not in index:
+                index[key] = len(points)
+                points.append(x)
+            local[i] = index[key]
+        maps.append(local)
+    full = hpfem.Mesh3D(
+        np.array(points), np.concatenate([m[cells] for m in maps]), list(np.tile(tags, 4))
+    )
+    facets, facet_tags = [], []
+    for f in quarter.boundary_facets:
+        tag = quarter.facet_tag(int(f))
+        if tag in (TAG_MIRROR_X, TAG_MIRROR_Y) or tag < 0:
+            continue
+        fv = list(quarter.facet_vertices(int(f)))
+        for (sx, _), m in zip(images, maps, strict=True):
+            facets.append(sorted(int(m[v]) for v in fv))
+            facet_tags.append(TAG_RIGHT if tag == TAG_LEFT and sx < 0 else tag)
+    full.set_facet_tags(facets, facet_tags)
+    if quarter.geometry_order == 2:
+        nodes = np.asarray(quarter.edge_nodes)
+        out = np.zeros((full.num_edges, 3))
+        pairs = [(i, j) for i in range(4) for j in range(i + 1, 4)]
+        for (sx, sy), m in zip(images, maps, strict=True):
+            for c in cells:
+                for i, j in pairs:
+                    node = nodes[quarter.edge_id(int(c[i]), int(c[j]))]
+                    out[full.edge_id(int(m[c[i]]), int(m[c[j]]))] = node * np.array([sx, sy, 1.0])
+        full.set_edge_nodes(out)
+    return full
 
 
 def cell_orders(geometry: Geometry, mesh, order_core: int, order_far: int, reach: float):
@@ -175,11 +229,19 @@ class Record:
     fit: dict | None = None
 
 
-def solve_wavelength(dofs, wavelength_nm: float, solver=None, half: bool = False):
+PARITIES = ((1, 1), (1, -1), (-1, 1), (-1, -1))  # (x, y): +1 magnetic wall, -1 PEC
+
+
+def solve_wavelength(
+    dofs, wavelength_nm: float, solver=None, half: bool = False, quarter: bool = False
+):
     """S-parameters of the excitation at port 1: the complex outgoing amplitudes of the four
     ports, power-normalised (|s_k|^2 = power fraction), with the port n_eff. ``half``: the
     mesh is the half model above the mid-plane of the cores, a magnetic wall (natural in the
-    volume, `pmc_tags` on the ports)."""
+    volume, `pmc_tags` on the ports). ``quarter``: the mesh is the quarter x <= 0, y <= 0
+    (`solve_quarter`)."""
+    if quarter:
+        return solve_quarter(dofs, wavelength_nm, solver, half)
     setup = hpfem.ScatteringSetup3D()
     setup.omega = units.angular_frequency(wavelength=wavelength_nm * NM)
     setup.materials = materials()
@@ -203,6 +265,57 @@ def solve_wavelength(dofs, wavelength_nm: float, solver=None, half: bool = False
         "power": [abs(v) ** 2 for v in s],
         "power_sum": float(sum(abs(v) ** 2 for v in s)),
         "n_eff": modes[0].beta.real / setup.omega * hpfem.constants.c0,
+        "seconds": time.perf_counter() - t0,
+    }
+
+
+def solve_quarter(dofs, wavelength_nm: float, solver=None, half: bool = False):
+    """The same on the quarter model by the mirror symmetries about x = 0 and y = 0 (ports
+    1 <-> 2 and 3 <-> 4 under the first, 1 <-> 3 and 2 <-> 4 under the second): the launch at
+    port 1 is the sum of the four parity excitations (sx, sy) / 4 with the incoming amplitudes
+    (1, sx, sy, sx sy) at the ports (1, 2, 3, 4) in the mirror images of the port-1 mode. Each
+    parity is a one-port problem on the quarter with a magnetic wall (natural; +1) or a PEC
+    wall (-1) on each plane and gives the reflection r(sx, sy) at port 1; then
+    s_1 = sum r / 4, s_2 = sum sx r / 4, s_3 = sum sy r / 4, s_4 = sum sx sy r / 4. The
+    amplitudes of ports 2-4 refer to the mirrored port-1 mode, a fixed sign against the
+    full model's own mode; powers and the fitted pole do not depend on it."""
+    t0 = time.perf_counter()
+    reflections = []
+    beta = 0.0
+    omega = units.angular_frequency(wavelength=wavelength_nm * NM)
+    for sx, sy in PARITIES:
+        setup = hpfem.ScatteringSetup3D()
+        setup.omega = omega
+        setup.materials = materials()
+        setup.pec_tags = (
+            [TAG_WALL] + ([TAG_MIRROR_X] if sx < 0 else []) + ([TAG_MIRROR_Y] if sy < 0 else [])
+        )
+        if solver is not None:
+            setup.solver = solver
+        # the port rim on y = 0 stays PEC for both parities: the full model splits each end
+        # face at y = 0 into two ports whose modes see a PEC rim there, and the parity
+        # problems must use the same modes (the bus mode hardly reaches y = 0 anyway)
+        pmc = [TAG_SYMMETRY] if half else []
+        setup.ports = [hpfem.WaveguidePort(PORT_TAGS[0], 1, [1.0], pmc)]
+        problem = hpfem.Scattering3D(dofs, setup)
+        amplitude = problem.port_coefficients(problem.solve())[0]
+        reflections.append(amplitude.outgoing[0] / amplitude.incoming[0])
+        beta = problem.port_modes(0).modes[0].beta.real
+    r = np.array(reflections)
+    signs = np.array(PARITIES, dtype=float)
+    s = [
+        r.mean(),
+        (signs[:, 0] * r).mean(),
+        (signs[:, 1] * r).mean(),
+        (signs[:, 0] * signs[:, 1] * r).mean(),
+    ]
+    return {
+        "wavelength": wavelength_nm,
+        "s": [[v.real, v.imag] for v in s],
+        "power": [abs(v) ** 2 for v in s],
+        "power_sum": float(sum(abs(v) ** 2 for v in s)),
+        "n_eff": beta / omega * hpfem.constants.c0,
+        "parities": [[v.real, v.imag] for v in reflections],
         "seconds": time.perf_counter() - t0,
     }
 
@@ -256,7 +369,10 @@ def run(
     100 nm cells, two wavelengths)."""
     if quick:
         half = bool(geometry and geometry.half)
-        geometry = Geometry(radius=1500.0, cell_core=150.0, cell_far=400.0, half=half)
+        quarter = bool(geometry and geometry.quarter)
+        geometry = Geometry(
+            radius=1500.0, cell_core=150.0, cell_far=400.0, half=half, quarter=quarter
+        )
         order_core, order_far, azimuthal_orders = 1, 1, (14,)
     geometry = geometry or Geometry()
     solver = BACKENDS[str(backend).lower()]
@@ -302,7 +418,7 @@ def run(
         for lam in lams:
             if round(float(lam), 6) in done:
                 continue
-            point = solve_wavelength(dofs, float(lam), solver, geometry.half)
+            point = solve_wavelength(dofs, float(lam), solver, geometry.half, geometry.quarter)
             record.points.append(point)
             done.add(round(float(lam), 6))
             update_fit(record)
@@ -347,6 +463,9 @@ def main(argv=None) -> int:
     parser.add_argument("--cell-core", type=float, default=100.0, help="[nm]")
     parser.add_argument("--cell-far", type=float, default=300.0, help="[nm]")
     parser.add_argument("--half", action="store_true", help="half model, magnetic mid-plane")
+    parser.add_argument(
+        "--quarter", action="store_true", help="quarter model x, y <= 0, four mirror parities"
+    )
     parser.add_argument("--order-core", type=int, default=3)
     parser.add_argument("--order-far", type=int, default=2)
     parser.add_argument("--reach", type=float, default=250.0, help="[nm] of order-core cells")
@@ -364,6 +483,7 @@ def main(argv=None) -> int:
         cell_core=args.cell_core,
         cell_far=args.cell_far,
         half=args.half,
+        quarter=args.quarter,
     )
     r = run(
         geometry=geometry,

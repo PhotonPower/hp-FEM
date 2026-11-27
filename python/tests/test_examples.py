@@ -181,6 +181,33 @@ def test_ring_resonator_3d_pole_fit_and_lossless_ports(tmp_path):
         assert 2.0 < point["n_eff"] < 2.6
 
 
+def test_ring_resonator_3d_quarter_parities_equal_the_mirrored_half_model(tmp_path):
+    pytest.importorskip("gmsh")
+    example = load_example("ring_resonator_3d")
+    geometry = example.Geometry(radius=1500.0, cell_core=150.0, cell_far=400.0, half=True)
+    geometry.quarter = True
+    mesh_path = str(tmp_path / "quarter.msh")
+    example.build_mesh(geometry, mesh_path)
+    quarter = example.load_mesh(geometry, mesh_path)
+    assert len(quarter.facets_with_tag(example.TAG_MIRROR_X)) > 0
+    assert len(quarter.facets_with_tag(example.TAG_MIRROR_Y)) > 0
+    # the half model as the four mirror images of the quarter: the same discretisation, on
+    # which the four one-port parity problems reproduce the four-port solve to round-off
+    full = example.split_ports(example.mirror_quarter(quarter))
+    assert full.num_cells == 4 * quarter.num_cells
+    for tag in example.PORT_TAGS:
+        assert len(full.facets_with_tag(tag)) == len(quarter.facets_with_tag(example.TAG_LEFT))
+    direct = example.solve_wavelength(hpfem.NedelecDofMap3D(full, 1), 1600.0, half=True)
+    parities = example.solve_wavelength(
+        hpfem.NedelecDofMap3D(quarter, 1), 1600.0, half=True, quarter=True
+    )
+    assert np.allclose(direct["power"], parities["power"], rtol=0, atol=1e-9)
+    assert abs(parities["power_sum"] - 1.0) < 1e-9
+    assert abs(direct["n_eff"] - parities["n_eff"]) < 1e-12
+    for r in parities["parities"]:  # lossless one-port problems: unit reflections
+        assert abs(abs(complex(*r)) - 1.0) < 1e-9
+
+
 def test_solar_cell_texture_traps_light_and_exports(tmp_path, monkeypatch):
     example = load_example("solar_cell_texture")
     monkeypatch.chdir(tmp_path)
