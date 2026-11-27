@@ -27,6 +27,22 @@ saves a third of the unknowns (p = 3: 0.55 M instead of 0.83 M, p = 4: 1.1 M ins
 port n_eff 2.3501 (half) against 2.3530 (full) — the two meshes differ — in 49 s instead of
 218 s.
 
+**Quarter model** (`--quarter` with `--half`, for the mesh and the solver). The device is
+also mirror-symmetric about x = 0 (ports 1 ↔ 2, 3 ↔ 4) and y = 0 (1 ↔ 3, 2 ↔ 4). The launch at
+port 1 is the mean of the four mirror parities (s_x, s_y) = (±1, ±1), each a one-port problem
+on the quarter x, y ≤ 0: the plane of an even parity (+1) is a magnetic wall (natural), that of
+an odd one (−1) a PEC wall; the port rim on y = 0 between the buses stays PEC for both, as the
+split end faces of the full model. With the four reflection coefficients r of port 1 the
+S-parameters of the full device are s_1 = ⟨r⟩, s_2 = ⟨s_x r⟩, s_3 = ⟨s_y r⟩ and
+s_4 = ⟨s_x s_y r⟩ (⟨·⟩ the mean over the parities); the amplitudes of ports 3 and 4 carry a
+fixed sign against the full model, the powers are the same. A quarter has a quarter of the
+unknowns, and its sparse factor grows faster than linearly in them, at four factorisations
+per wavelength. The decomposition is exact: on the quick geometry the quarter mesh mirrored into
+the half model (`mirror_quarter`, the same discretisation) gives the same port powers to
+3.5e-12 (`python/tests/test_examples.py`). The production quarter-half mesh (100 nm cells)
+has 9041 cells; p = 2 / 2 gives 63.6 k DoFs per parity, p = 3 / 2 about 140–150 k (against
+0.55 M for the half model).
+
 **Reference.** The isolated ring is a body of revolution: `hpfem.AxisymmetricCavity` on the
 meridian section (axis to the PEC wall at the bus distance, the same cladding margins) gives
 the resonance wavelength of the fundamental TE-like mode for each azimuthal order m. For the
@@ -58,11 +74,27 @@ clean drop peak).
 azimuthal order. The production mesh needs a sparse direct solver with much memory (MUMPS on a
 server): on a 16 GB workstation SparseLU takes 218 s for p = 2 / 1 on a 150 nm mesh (98 k
 DoFs) and runs out of memory at p = 2 throughout.
-The timings of the server runs are in their records.
+On an 8 GB laptop the quarter-half model at p = 2 / 2 (63.6 k DoFs) takes 5–9 min per
+wavelength for the four parities with SparseLU at a peak of 4.7 GB; p = 3 / 2 (about 12–15 GB
+with SparseLU) does not fit there. The timings of the server runs are in their records.
+
+**Local result at p = 2 / 2** (quarter-half model, 19 wavelengths in 1.8 h,
+`benchmarks/results/2026-11-27-validation-ring3d-quarter-p2.json`). The four port powers sum to
+one to six digits at every wavelength (lossless), but p = 2 does not resolve the resonator yet:
+instead of one drop peak near the isolated-ring resonance (1557.39 nm) the 1 nm scan shows
+small, scattered rises of the drop power (1.4 % at 1555.4 nm, 3.6 % at 1558.4 nm, the latter
+with 2.8 % back-reflection — the coupling of the two senses of circulation by the discretisation
+seen at p = 1 in a stronger form). The pole fit then lands at 1556.12 nm (Q 9900), outside the
+refined points, and the program flags it as an extrapolation. The resonance needs p = 3 / 2 at
+least (server).
 
 ```bash
 pip install -e ".[dev]"          # includes gmsh
 python examples/ring_resonator_3d/run.py --quick
 python examples/ring_resonator_3d/run.py --order-core 3 --order-far 2 --backend mumps \
     --record ring-p3.json
+# the quarter-half model: four one-port solves per wavelength, a quarter of the unknowns
+python examples/ring_resonator_3d/ring_mesh.py --half --quarter --out ring-hq.msh
+python examples/ring_resonator_3d/run.py --half --quarter --mesh ring-hq.msh \
+    --order-core 3 --order-far 2 --backend mumps --record ring-hq-p3.json
 ```

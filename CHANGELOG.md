@@ -2,6 +2,16 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+### Added
+- 3D ring resonator on the quarter model (M12 stage B, issue #210): `ring_mesh.py --quarter` and
+  `run.py --quarter` split the launch at port 1 into the four mirror parities about x = 0 and
+  y = 0 (magnetic or PEC wall on each plane), four one-port problems on a quarter of the half
+  model whose reflection coefficients combine into the S-parameters of the full device; exact
+  against the quarter mesh mirrored into the half model (`mirror_quarter`, 3.5e-12). The pole
+  fit flags a resonance outside the sampled wavelengths as an extrapolation (`fit["inside"]`).
+  The local run at p = 2 / 2 (63.6 k DoFs per parity, 4.7 GB) is lossless to six digits but does
+  not resolve the resonance (`docs/validation.md` F,
+  `benchmarks/results/2026-11-27-validation-ring3d-quarter-p2.json`).
 
 ## [0.6.0] — 2026-11-26
 ### Added

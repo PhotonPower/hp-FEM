@@ -158,6 +158,22 @@ def test_ring_resonator_3d_pole_fit_and_lossless_ports(tmp_path):
     drop = -0.06j / (lam - pole) + (0.003 - 0.001j) * (lam - 1557.0)
     fitted, residual = example.fit_pole(lam, [through, drop])
     assert abs(fitted - pole) < 1e-9 and residual < 1e-12
+    # update_fit flags a pole outside the sampled wavelengths as an extrapolation
+    record = example.Record({}, 2, 2, 250.0, 0, 0, "auto")
+    for lo, hi, inside in ((1555.0, 1559.0, True), (1558.0, 1562.0, False)):
+        sub = np.linspace(lo, hi, 6)
+        t = 1.02 + 0.2j / (sub - pole) + 0.01 * (sub - 1557.0)
+        d = -0.06j / (sub - pole) + (0.003 - 0.001j) * (sub - 1557.0)
+        record.points = [
+            {
+                "wavelength": x,
+                "s": [[0, 0], [a.real, a.imag], [b.real, b.imag], [0, 0]],
+                "power": [0.0, abs(a) ** 2, abs(b) ** 2, 0.0],
+            }
+            for x, a, b in zip(sub, t, d, strict=True)
+        ]
+        fit = example.update_fit(record)
+        assert abs(fit["wavelength"] - pole.real) < 1e-9 and fit["inside"] is inside
     pytest.importorskip("gmsh")
     # the CI case: R = 1.5 µm, p = 1 on 150 nm cells, two wavelengths at the isolated-ring
     # resonance of m = 14 (axisymmetric cavity, p = 2 on 100 nm cells)

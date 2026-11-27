@@ -836,7 +836,11 @@ exist (`Scattering<3>` on a `LayerStack<3>` background, Bloch pairs in two direc
   is limited by it
 - [ ] the full ring resonator with ports in 3D (M12 stage B): needs an hp-mesh that is fine
   only across the cores and in the coupling region, p = 3 there for the resonance widths
-  (the coarse axial mesh of the long couplers loses the phase as h_z^(2p), docs/validation.md F)
+  (the coarse axial mesh of the long couplers loses the phase as h_z^(2p), docs/validation.md F).
+  Done towards it: the quarter-half model by the x and y mirror parities (`run.py --half
+  --quarter`, four one-port problems of a quarter of the unknowns, exact against the mirrored
+  half model); p = 2 / 2 runs on an 8 GB laptop and does not resolve the resonance yet
+  (docs/validation.md F), p = 3 / 2 (about 150 k DoFs per parity) waits for the server (#210)
 - [x] dual H-formulation for guaranteed error bounds (`adaptivity::dual_solution` on the
   H1 / Nédélec dual space, `hypercircle_estimate` with the Prager–Synge bound for the
   coercive problem; convergence test `hypercircle_bound`, Python `dual_solution` /

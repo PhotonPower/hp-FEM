@@ -5,9 +5,9 @@ reference.
 
 Run `python examples/ring_resonator_3d/run.py [--mesh ring.msh] [--order-core p]
 [--order-far p] [--wavelengths nm ...] [--backend auto|mumps|cudss|sparselu]
-[--record file.json] [--reference-only] [--quick]`. Without `--mesh` the Gmsh mesh is built
-by `ring_mesh.py` (needs the `gmsh` package); `--record` writes the JSON after every
-wavelength and resumes from it. Geometry and physics: README.md.
+[--record file.json] [--reference-only] [--quick] [--half] [--quarter]`. Without `--mesh`
+the Gmsh mesh is built by `ring_mesh.py` (needs the `gmsh` package); `--record` writes the
+JSON after every wavelength and resumes from it. Geometry and physics: README.md.
 """
 
 from __future__ import annotations
@@ -322,7 +322,9 @@ def solve_quarter(dofs, wavelength_nm: float, solver=None, half: bool = False):
 
 def update_fit(record: Record, window: float | None = None):
     """Fits the pole to the through and drop amplitudes; with `window`, to the points within
-    `window` FWHM of the previous fit (the linear background holds near the resonance)."""
+    `window` FWHM of the previous fit (the linear background holds near the resonance).
+    ``inside`` is False when the fitted resonance lies outside the sampled wavelengths: the pole
+    is then an extrapolation, not a resolved resonance (an under-resolved spectrum)."""
     pts = sorted(record.points, key=lambda p: p["wavelength"])
     if window is not None and record.fit:
         c, w = record.fit["wavelength"], window * record.fit["fwhm"]
@@ -341,6 +343,7 @@ def update_fit(record: Record, window: float | None = None):
         "q": pole.real / (2 * abs(pole.imag)),
         "residual": residual,
         "points": len(pts),
+        "inside": bool(lam[0] <= pole.real <= lam[-1]),
         "max_drop": max(p["power"][2] for p in pts),
         "min_through": min(p["power"][1] for p in pts),
     }
@@ -510,6 +513,11 @@ def main(argv=None) -> int:
             f"max drop {f['max_drop']:.4f}, min through {f['min_through']:.4f}, "
             f"fit residual {f['residual']:.1e}"
         )
+        if not f.get("inside", True):
+            print(
+                "the fitted resonance lies outside the sampled wavelengths: an extrapolation, "
+                "the resonance is not resolved (raise the order or widen --search)"
+            )
     return 0
 
 
