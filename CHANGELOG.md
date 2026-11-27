@@ -2,6 +2,8 @@
 All notable changes to this project are documented here (Keep a Changelog, SemVer).
 
 ## [Unreleased]
+
+## [0.6.1] — 2026-11-27
 ### Added
 - 3D ring resonator on the quarter model (M12 stage B, issue #210): `ring_mesh.py --quarter` and
   `run.py --quarter` split the launch at port 1 into the four mirror parities about x = 0 and
